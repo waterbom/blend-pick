@@ -1,22 +1,26 @@
 import pool from "@/lib/db";
+import Header from "@/components/Header";
+import HeroBanner from "@/components/HeroBanner";
+import Link from "next/link";
 
 interface Product {
   id: string;
   name: string;
   brand: string;
-  category: string;
   consumer_price: number;
   groupbuy_price: number;
   product_image: string | null;
 }
 
-async function getProducts(): Promise<Product[]> {
+async function getBestProducts(): Promise<Product[]> {
   try {
     const result = await pool.query(
-      `SELECT id, name, brand, category, consumer_price, groupbuy_price, product_image
+      `SELECT id, name, brand, consumer_price, groupbuy_price, product_image
        FROM products
        WHERE status = 'active' AND visibility_status = 'active'
-       ORDER BY created_at DESC`
+         AND product_image IS NOT NULL
+       ORDER BY created_at DESC
+       LIMIT 8`
     );
     return result.rows;
   } catch (e) {
@@ -26,68 +30,65 @@ async function getProducts(): Promise<Product[]> {
 }
 
 export default async function Home() {
-  const products = await getProducts();
+  const best = await getBestProducts();
+  const heroProducts = best.slice(0, 4);   // 배너용 4개
+  const bestProducts = best.slice(0, 4);   // 베스트 4개
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white border-b px-6 py-4">
-        <h1 className="text-2xl font-bold text-gray-900">Blend Pick</h1>
-      </header>
+    <main className="min-h-screen bg-white">
+      <Header />
 
-      {/* 상품 목록 */}
-      <section className="max-w-6xl mx-auto px-6 py-8">
-        <h2 className="text-lg font-semibold text-gray-700 mb-4">
-          공구 진행 중 ({products.length}개)
-        </h2>
+      {/* 히어로 배너 슬라이더 */}
+      <HeroBanner products={heroProducts} />
 
-        {products.length === 0 ? (
-          <p className="text-gray-400 text-center py-20">진행 중인 상품이 없습니다.</p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <div className="aspect-square bg-gray-100 flex items-center justify-center">
-                  {product.product_image ? (
+      {/* BEST ITEMS */}
+      <section className="max-w-6xl mx-auto px-6 py-16">
+        <h2 className="text-2xl font-black mb-10">BEST ITEMS</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {bestProducts.map((product, idx) => {
+            const hasDiscount = product.groupbuy_price > 0 && product.groupbuy_price < product.consumer_price;
+            const discountRate = hasDiscount
+              ? Math.round((1 - product.groupbuy_price / product.consumer_price) * 100)
+              : 0;
+
+            return (
+              <Link key={product.id} href={`/products/${product.id}`} className="group block">
+                <div className="relative aspect-square bg-gray-50 overflow-hidden mb-4">
+                  <span className="absolute top-3 left-3 bg-black text-white text-xs font-bold w-6 h-6 flex items-center justify-center z-10">
+                    {idx + 1}
+                  </span>
+                  {product.product_image && (
                     <img
                       src={product.product_image}
                       alt={product.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                  ) : (
-                    <span className="text-gray-300 text-sm">이미지 없음</span>
                   )}
                 </div>
-
-                <div className="p-3">
-                  <p className="text-xs text-gray-400">{product.brand}</p>
-                  <p className="text-sm font-medium text-gray-900 mt-0.5 line-clamp-2">
-                    {product.name}
-                  </p>
-                  <div className="mt-2">
-                    {product.groupbuy_price > 0 ? (
-                      <>
-                        <p className="text-xs text-gray-400 line-through">
-                          {product.consumer_price.toLocaleString()}원
-                        </p>
-                        <p className="text-base font-bold text-blue-600">
-                          {product.groupbuy_price.toLocaleString()}원
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-base font-bold text-gray-900">
-                        {product.consumer_price.toLocaleString()}원
-                      </p>
-                    )}
+                <p className="text-xs text-gray-400 mb-1">{product.brand}</p>
+                <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">{product.name}</p>
+                {hasDiscount ? (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-red-500 font-bold text-sm">{discountRate}%</span>
+                    <span className="font-bold text-sm">{product.groupbuy_price.toLocaleString()}원</span>
+                    <span className="text-xs text-gray-300 line-through">{product.consumer_price.toLocaleString()}원</span>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                ) : (
+                  <p className="font-bold text-sm">{product.consumer_price.toLocaleString()}원</p>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="text-center mt-12">
+          <Link
+            href="/products"
+            className="inline-block border border-black text-sm font-medium px-8 py-3 hover:bg-black hover:text-white transition-colors"
+          >
+            전체 상품 보기
+          </Link>
+        </div>
       </section>
     </main>
   );
