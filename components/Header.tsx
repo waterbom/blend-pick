@@ -6,8 +6,8 @@ import { useState } from "react";
 const NAV_ITEMS = [
   { label: "ALL", href: "/products" },
   { label: "HOT ISSUE", href: "/hot-issue", hot: true },
-  { label: "인플루언서", href: "/influencers" },
-  { label: "업체", href: "/brands" },
+  { label: "인플루언서", href: "/blend-picked" },
+  { label: "구독", href: "/brands" },
 ];
 
 export default function Header() {
@@ -18,7 +18,7 @@ export default function Header() {
       {/* 1줄: 로고 + 로그인/장바구니 */}
       <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-12 border-b border-gray-50">
         <Link href="/" className="text-lg font-black tracking-tighter">
-          Blend Pick
+          BLEND PICK
         </Link>
         <div className="flex items-center gap-5 text-sm text-gray-500">
           <button className="hover:text-black transition-colors">로그인</button>

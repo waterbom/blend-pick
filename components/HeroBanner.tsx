@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
 interface Product {
@@ -12,22 +12,53 @@ interface Product {
   product_image: string | null;
 }
 
-const SLIDE_DURATION = 4000;
+const SLIDE_DURATION = 2000;
 
 export default function HeroBanner({ products }: { products: Product[] }) {
   const [current, setCurrent] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const startTimeRef = useRef<number>(Date.now());
+  const remainingRef = useRef<number>(SLIDE_DURATION);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  // 슬라이드 이동 예약
+  const scheduleNext = (delay: number) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    startTimeRef.current = Date.now();
+    remainingRef.current = delay;
+    timerRef.current = setTimeout(() => {
       setCurrent((c) => (c + 1) % products.length);
-    }, SLIDE_DURATION);
-    return () => clearTimeout(timer);
+    }, delay);
+  };
+
+  // 슬라이드 바뀔 때 새로 예약
+  useEffect(() => {
+    scheduleNext(SLIDE_DURATION);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [current, products.length]);
+
+  const handleMouseEnter = () => {
+    setPaused(true);
+    // 남은 시간 계산 후 타이머 멈춤
+    const elapsed = Date.now() - startTimeRef.current;
+    remainingRef.current = Math.max(0, remainingRef.current - elapsed);
+    if (timerRef.current) clearTimeout(timerRef.current);
+  };
+
+  const handleMouseLeave = () => {
+    setPaused(false);
+    // 남은 시간부터 재시작
+    scheduleNext(remainingRef.current);
+  };
 
   const product = products[current];
 
   return (
-    <section className="relative bg-gray-50 overflow-hidden">
+    <section
+      className="relative bg-gray-50 overflow-hidden"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <div className="max-w-6xl mx-auto px-6 py-20 flex items-center justify-between min-h-[420px]">
         {/* 왼쪽 텍스트 */}
         <div className="max-w-md">
@@ -75,6 +106,7 @@ export default function HeroBanner({ products }: { products: Product[] }) {
                 className="absolute inset-y-0 left-0 bg-black"
                 style={{
                   animation: `gauge ${SLIDE_DURATION}ms linear forwards`,
+                  animationPlayState: paused ? "paused" : "running",
                 }}
               />
             )}
