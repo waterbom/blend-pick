@@ -4,6 +4,7 @@ import HeroBanner from "@/components/HeroBanner";
 import BestItems from "@/components/BestItems";
 import HotInfluencers from "@/components/HotInfluencers";
 import BlendPickedBanner from "@/components/BlendPickedBanner";
+import TrendByAI from "@/components/TrendByAI";
 
 interface Product {
   id: string;
@@ -76,6 +77,9 @@ export default async function Home() {
 
       {/* BLEND PICKED YOU 홍보 배너 */}
       <BlendPickedBanner />
+
+      {/* BLEND PICK TREND BY AI */}
+      <TrendByAI />
     </main>
   );
 }

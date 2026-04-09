@@ -1,5 +1,6 @@
 import pool from "@/lib/db";
 import Header from "@/components/Header";
+import PartnersHeader from "@/components/PartnersHeader";
 
 interface Brand {
   id: string;
@@ -24,48 +25,24 @@ async function getBrands(): Promise<Brand[]> {
   }
 }
 
+async function getTotalBrandCount(): Promise<number> {
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*) FROM brands WHERE is_archived = false`
+    );
+    return parseInt(result.rows[0].count, 10);
+  } catch {
+    return 0;
+  }
+}
+
 export default async function BlendPickedPage() {
-  const brands = await getBrands();
+  const [brands, totalCount] = await Promise.all([getBrands(), getTotalBrandCount()]);
+  const moreCount = Math.max(0, totalCount - 8);
 
   return (
     <main className="min-h-screen bg-white">
       <Header />
-
-      {/* 브랜드 한 줄 나열 */}
-      <section className="max-w-6xl mx-auto px-6 pt-20 pb-10">
-        <p className="text-xs text-gray-400 tracking-widest uppercase mb-10">Partners</p>
-        <div className="flex items-center justify-between gap-6">
-          {brands.map((brand) => (
-            <div key={brand.id} className="flex flex-col items-center text-center shrink-0">
-              <div className="w-16 h-16 bg-gray-50 rounded-full overflow-hidden flex items-center justify-center mb-2">
-                {brand.logo ? (
-                  <img
-                    src={brand.logo}
-                    alt={brand.name}
-                    className="w-full h-full object-contain p-1.5"
-                  />
-                ) : (
-                  <span className="text-xl font-black text-gray-200">
-                    {brand.name.charAt(0)}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs font-bold text-gray-700">{brand.name}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 전광판 */}
-      <div className="overflow-hidden bg-white py-5 select-none border-y border-gray-100">
-        <div className="flex whitespace-nowrap" style={{ animation: "marquee 18s linear infinite" }}>
-          {[...Array(4)].map((_, i) => (
-            <span key={i} className="text-2xl font-black text-black mx-12 tracking-widest">
-              브랜드가 당신을 원합니다&nbsp;&nbsp;★&nbsp;&nbsp;BLEND PICKED YOU&nbsp;&nbsp;★&nbsp;&nbsp;
-            </span>
-          ))}
-        </div>
-      </div>
 
       {/* OS 시스템 소개 섹션 */}
       <section className="max-w-6xl mx-auto px-6 py-24">
@@ -139,12 +116,29 @@ export default async function BlendPickedPage() {
         </div>
       </section>
 
-      <style>{`
-        @keyframes marquee {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-      `}</style>
+      {/* PARTNERS 섹션 */}
+      <section className="max-w-6xl mx-auto px-6 py-16">
+        <PartnersHeader moreCount={moreCount} />
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {brands.map((brand) => (
+            <div key={brand.id} className="border border-gray-100 p-6 flex flex-col items-center gap-3 hover:border-gray-300 transition-colors">
+              {brand.logo ? (
+                <img src={brand.logo} alt={brand.name} className="w-16 h-16 object-contain" />
+              ) : (
+                <div className="w-16 h-16 bg-gray-100 flex items-center justify-center text-xs text-gray-400">
+                  {brand.name[0]}
+                </div>
+              )}
+              <p className="text-sm font-bold text-center">{brand.name}</p>
+              {brand.description && (
+                <p className="text-xs text-gray-400 text-center line-clamp-2">{brand.description}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
     </main>
   );
 }
