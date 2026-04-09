@@ -3,9 +3,13 @@ import pool from "@/lib/db";
 import { signToken } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  const baseUrl = process.env.NODE_ENV === "production"
+    ? "https://shop.blendpunch.com"
+    : "http://localhost:3000";
+
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
-    return NextResponse.redirect(new URL("/login?error=no_code", req.url));
+    return NextResponse.redirect(new URL("/login?error=no_code", baseUrl));
   }
 
   // 1. 카카오에서 access_token 받기
@@ -23,7 +27,7 @@ export async function GET(req: NextRequest) {
   const accessToken = tokenData.access_token;
 
   if (!accessToken) {
-    return NextResponse.redirect(new URL("/login?error=token_failed", req.url));
+    return NextResponse.redirect(new URL("/login?error=token_failed", baseUrl));
   }
 
   // 2. 카카오에서 유저 정보 가져오기
@@ -67,7 +71,7 @@ export async function GET(req: NextRequest) {
   // 4. JWT 발급 → 쿠키 저장
   const token = await signToken({ id: userId, kakao_id: kakaoId, nickname: nickname || "", role });
 
-  const res = NextResponse.redirect(new URL("/", req.url));
+  const res = NextResponse.redirect(new URL("/", baseUrl));
   res.cookies.set("shop_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
