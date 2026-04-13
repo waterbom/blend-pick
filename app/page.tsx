@@ -1,10 +1,13 @@
 import pool from "@/lib/db";
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/auth";
 import Header from "@/components/Header";
 import HeroBanner from "@/components/HeroBanner";
 import BestItems from "@/components/BestItems";
 import HotInfluencers from "@/components/HotInfluencers";
 import BlendPickedBanner from "@/components/BlendPickedBanner";
 import TrendByAI from "@/components/TrendByAI";
+import InquiryButton from "@/components/InquiryButton";
 
 interface Product {
   id: string;
@@ -58,8 +61,24 @@ async function getBestProducts(): Promise<Product[]> {
   }
 }
 
+async function getUserId(): Promise<string | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("shop_token")?.value;
+    if (!token) return null;
+    const payload = await verifyToken(token);
+    return payload?.id || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function Home() {
-  const [best, influencers] = await Promise.all([getBestProducts(), getInfluencers()]);
+  const [best, influencers, userId] = await Promise.all([
+    getBestProducts(),
+    getInfluencers(),
+    getUserId(),
+  ]);
   const heroProducts = best.slice(0, 4);
 
   return (
@@ -80,6 +99,9 @@ export default async function Home() {
 
       {/* BLEND PICK TREND BY AI */}
       <TrendByAI />
+
+      {/* 문의하기 플로팅 버튼 */}
+      <InquiryButton userId={userId} />
     </main>
   );
 }

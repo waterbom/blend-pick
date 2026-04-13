@@ -15,7 +15,7 @@ export default function CategoryFilter({ categories, current }: Props) {
       {categories.map((cat) => (
         <button
           key={cat}
-          onClick={() => router.push(cat === "ALL" ? "/" : `/?category=${encodeURIComponent(cat)}`)}
+          onClick={() => router.push(cat === "ALL" ? "/products" : `/products?category=${encodeURIComponent(cat)}`)}
           className={`py-3 text-sm whitespace-nowrap border-b-2 transition-colors ${
             current === cat
               ? "border-black text-black font-semibold"
