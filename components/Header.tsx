@@ -14,7 +14,8 @@ export default async function Header() {
       const payload = await verifyToken(token);
       if (payload) {
         const result = await pool.query(
-          "SELECT nickname, profile_image FROM shop_users WHERE id = $1",
+          "SELECT nickname, name, profile_image FROM shop_users WHERE id = $1",
+
           [payload.id]
         );
         if (result.rows.length > 0) {

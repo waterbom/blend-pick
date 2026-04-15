@@ -11,7 +11,8 @@ const NAV_ITEMS = [
 ];
 
 interface User {
-  nickname: string;
+  nickname: string | null;
+  name: string | null;
   profile_image: string | null;
 }
 
@@ -27,16 +28,27 @@ export default function HeaderClient({ user }: { user: User | null }) {
         </Link>
         <div className="flex items-center gap-5 text-sm text-gray-500">
           {user ? (
-            <Link href="/mypage" className="flex items-center gap-2 hover:text-black transition-colors">
+            <Link
+              href="/mypage"
+              className="flex items-center gap-2 hover:text-black transition-colors"
+            >
               {user.profile_image ? (
-                <img src={user.profile_image} alt={user.nickname} className="w-6 h-6 rounded-full object-cover" />
+                <img
+                  src={user.profile_image}
+                  alt={user.nickname || user.name || ""}
+                  className="w-6 h-6 rounded-full object-cover"
+                />
               ) : (
-                <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs">👤</span>
+                <span className="text-sm font-medium">
+                  {user.nickname || user.name}
+                </span>
               )}
               <span className="text-sm font-medium">{user.nickname}</span>
             </Link>
           ) : (
-            <Link href="/login" className="hover:text-black transition-colors">로그인</Link>
+            <Link href="/login" className="hover:text-black transition-colors">
+              로그인
+            </Link>
           )}
           <button className="relative hover:text-black transition-colors">
             장바구니

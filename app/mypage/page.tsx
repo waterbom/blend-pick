@@ -27,7 +27,7 @@ export default async function MyPage() {
 
   // DB에서 유저 정보 가져오기
   const result = await pool.query(
-    "SELECT id, nickname, profile_image, role, role_status FROM shop_users WHERE id = $1",
+    "SELECT id, name, nickname, profile_image, role, role_status FROM shop_users WHERE id = $1",
     [payload.id]
   );
   const user = result.rows[0];
@@ -40,20 +40,30 @@ export default async function MyPage() {
       <Header />
 
       <div className="max-w-2xl mx-auto px-6 py-12">
-
         {/* 프로필 */}
         <div className="flex items-center gap-5 mb-10">
           <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 shrink-0">
             {user.profile_image ? (
-              <img src={user.profile_image} alt={user.nickname} className="w-full h-full object-cover" />
+              <img
+                src={user.profile_image}
+                alt={user.nickname}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">👤</div>
+              <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">
+                👤
+              </div>
             )}
           </div>
           <div>
-            <p className="text-xl font-black text-gray-900 mb-1">{user.nickname || "이름 없음"}</p>
+            <p className="text-xl font-black text-gray-900 mb-1">
+              {user.nickname || user.name || "이름 없음"}
+            </p>
+
             <div className="flex items-center gap-2">
-              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${roleInfo.color}`}>
+              <span
+                className={`text-xs font-bold px-2.5 py-1 rounded-full ${roleInfo.color}`}
+              >
                 {roleInfo.label}
               </span>
               {user.role_status && user.role !== "customer" && (
@@ -71,7 +81,9 @@ export default async function MyPage() {
         <section className="mb-10">
           <h2 className="text-sm font-black text-gray-900 mb-3">OS 구독</h2>
           <div className="border border-gray-100 p-5">
-            <p className="text-sm text-gray-400">구독을 하지 않은 상태입니다.</p>
+            <p className="text-sm text-gray-400">
+              구독을 하지 않은 상태입니다.
+            </p>
             <button className="mt-4 text-sm font-bold text-white bg-black px-5 py-2.5 hover:bg-gray-800 transition-colors">
               구독하기
             </button>
@@ -88,7 +100,9 @@ export default async function MyPage() {
 
         {/* 최근 본 제품 (추후) */}
         <section className="mb-10">
-          <h2 className="text-sm font-black text-gray-900 mb-3">최근 본 제품</h2>
+          <h2 className="text-sm font-black text-gray-900 mb-3">
+            최근 본 제품
+          </h2>
           <div className="border border-gray-100 p-5">
             <p className="text-sm text-gray-400">최근 본 제품이 없습니다.</p>
           </div>
@@ -96,19 +110,25 @@ export default async function MyPage() {
 
         {/* 최근 본 인플루언서 (추후) */}
         <section className="mb-10">
-          <h2 className="text-sm font-black text-gray-900 mb-3">최근 본 인플루언서</h2>
+          <h2 className="text-sm font-black text-gray-900 mb-3">
+            최근 본 인플루언서
+          </h2>
           <div className="border border-gray-100 p-5">
-            <p className="text-sm text-gray-400">최근 본 인플루언서가 없습니다.</p>
+            <p className="text-sm text-gray-400">
+              최근 본 인플루언서가 없습니다.
+            </p>
           </div>
         </section>
 
         {/* 로그아웃 */}
         <div className="text-center">
-          <a href="/api/auth/logout" className="text-xs text-gray-300 hover:text-gray-500 transition-colors">
+          <a
+            href="/api/auth/logout"
+            className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
+          >
             로그아웃
           </a>
         </div>
-
       </div>
     </main>
   );
