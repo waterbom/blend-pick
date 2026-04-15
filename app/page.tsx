@@ -2,7 +2,7 @@ import pool from "@/lib/db";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import Header from "@/components/Header";
-import HeroBanner from "@/components/HeroBanner";
+import SalesBanner from "@/components/SalesBanner";
 import BestItems from "@/components/BestItems";
 import HotInfluencers from "@/components/HotInfluencers";
 import BlendPickedBanner from "@/components/BlendPickedBanner";
@@ -61,6 +61,24 @@ async function getBestProducts(): Promise<Product[]> {
   }
 }
 
+async function getBannerProducts() {
+  try {
+    const result = await pool.query(
+      `SELECT p.id, p.name, p.product_image, COUNT(c.id)::int AS campaign_count
+       FROM products p
+       JOIN campaigns c ON c.product_id = p.id
+       WHERE p.product_image IS NOT NULL
+       GROUP BY p.id, p.name, p.product_image
+       ORDER BY campaign_count DESC
+       LIMIT 3`
+    );
+    return result.rows;
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
+}
+
 async function getUserId(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
@@ -74,19 +92,19 @@ async function getUserId(): Promise<string | null> {
 }
 
 export default async function Home() {
-  const [best, influencers, userId] = await Promise.all([
+  const [best, influencers, userId, banner] = await Promise.all([
     getBestProducts(),
     getInfluencers(),
     getUserId(),
+    getBannerProducts(),
   ]);
-  const heroProducts = best.slice(0, 4);
 
   return (
     <main className="min-h-screen bg-white">
       <Header />
 
       {/* 히어로 배너 슬라이더 */}
-      <HeroBanner products={heroProducts} />
+      <SalesBanner products={banner} />
 
       {/* BEST ITEMS 슬라이더 */}
       <BestItems products={best} />

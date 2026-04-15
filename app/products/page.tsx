@@ -1,75 +1,102 @@
-import pool from "@/lib/db";
-import Header from "@/components/Header";
-import CategoryFilter from "@/components/CategoryFilter";
-import ProductCard from "@/components/ProductCard";
+"use client";
 
-interface Product {
+import { useEffect, useState } from "react";
+import SalesPageCard from "@/components/SalesPageCard";
+
+type Tab = "active" | "upcoming" | "ended";
+
+interface SalesPage {
   id: string;
-  name: string;
-  brand: string;
-  category: string;
-  consumer_price: number;
-  groupbuy_price: number;
-  product_image: string | null;
+  product_id: string;
+  title: string;
+  price: number;
+  original_price: number | null;
+  main_image: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  status: string;
+  stock_quantity: number | null;
 }
 
-const CATEGORIES = ["ALL", "식품/음료", "유아/육아", "건강기능식품", "생활용품", "주방용품", "욕실용품", "가전제품"];
+function filterPages(pages: SalesPage[], tab: Tab) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const oneWeek = 7 * 24 * 60 * 60 * 1000;
 
-async function getProducts(category?: string): Promise<Product[]> {
-  try {
-    const query = category && category !== "ALL"
-      ? `SELECT id, name, brand, category, consumer_price, groupbuy_price, product_image
-         FROM products
-         WHERE status = 'active' AND visibility_status = 'active' AND category = $1
-         ORDER BY created_at DESC`
-      : `SELECT id, name, brand, category, consumer_price, groupbuy_price, product_image
-         FROM products
-         WHERE status = 'active' AND visibility_status = 'active'
-         ORDER BY created_at DESC`;
+  return pages.filter((p) => {
+    const start = p.starts_at ? new Date(p.starts_at) : null;
+    const end = p.ends_at ? new Date(p.ends_at) : null;
+    if (!start || !end) return false;
 
-    const result = category && category !== "ALL"
-      ? await pool.query(query, [category])
-      : await pool.query(query);
-
-    return result.rows;
-  } catch (e) {
-    console.error(e);
-    return [];
-  }
+    if (tab === "active") return start <= today && end >= today;
+    if (tab === "upcoming") return start > today && start.getTime() <= today.getTime() + oneWeek;
+    if (tab === "ended") return end < today && end.getTime() >= today.getTime() - oneWeek;
+    return false;
+  });
 }
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ category?: string }>;
-}) {
-  const { category } = await searchParams;
-  const products = await getProducts(category);
+export default function ProductsPage() {
+  const [tab, setTab] = useState<Tab>("active");
+  const [pages, setPages] = useState<SalesPage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/sales-pages")
+      .then((r) => r.json())
+      .then((data) => {
+        setPages(data.pages || []);
+        setLoading(false);
+      });
+  }, []);
+
+  const filtered = filterPages(pages, tab);
+
+  const TAB_LABELS: { key: Tab; label: string }[] = [
+    { key: "active", label: "진행중" },
+    { key: "upcoming", label: "예정" },
+    { key: "ended", label: "종료" },
+  ];
 
   return (
     <main className="min-h-screen bg-white">
-      <Header />
-
-      {/* 카테고리 탭 */}
-      <div className="border-b border-gray-100 sticky top-[92px] bg-white z-40">
-        <div className="max-w-6xl mx-auto px-6">
-          <CategoryFilter categories={CATEGORIES} current={category || "ALL"} />
+      <div className="max-w-6xl mx-auto px-6 pt-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-black">⏰ HOT DEAL!</h2>
+          <p className="text-sm text-gray-400 mt-1">놓치면 후회하는 인플로랩 핫 딜!</p>
         </div>
-      </div>
 
-      {/* 상품 목록 */}
-      <section className="max-w-6xl mx-auto px-6 py-8">
-        <p className="text-sm text-gray-400 mb-6">{products.length}개 상품</p>
-        {products.length === 0 ? (
-          <p className="text-gray-300 text-center py-32">상품이 없습니다.</p>
+        <div className="flex gap-1 mb-8 border-b border-gray-100">
+          {TAB_LABELS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                tab === key
+                  ? "border-black text-black"
+                  : "border-transparent text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <p className="text-center text-gray-300 py-32">불러오는 중...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-gray-300 py-32">
+            {tab === "active" && "진행중인 핫딜이 없습니다."}
+            {tab === "upcoming" && "1주일 내 예정된 핫딜이 없습니다."}
+            {tab === "ended" && "최근 종료된 핫딜이 없습니다."}
+          </p>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 pb-16">
+            {filtered.map((page) => (
+              <SalesPageCard key={page.id} page={page} />
             ))}
           </div>
         )}
-      </section>
+      </div>
     </main>
   );
 }
