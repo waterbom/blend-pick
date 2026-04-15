@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import Header from "@/components/Header";
+import WithdrawButton from "@/components/WithdrawButton";
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   customer: { label: "일반 고객", color: "bg-gray-100 text-gray-600" },
@@ -128,6 +129,8 @@ export default async function MyPage() {
           >
             로그아웃
           </a>
+          <span className="text-gray-200 mx-3">|</span>
+          <WithdrawButton />
         </div>
       </div>
     </main>
