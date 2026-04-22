@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import pool from "@/lib/db";
 import CheckoutClient from "@/components/CheckoutClient";
-import Header from "@/components/Header";
 
 interface Product {
   id: string;
@@ -51,7 +50,6 @@ export default async function CheckoutPage({
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <Header />
       <div className="max-w-2xl mx-auto px-6 py-10">
         <h1 className="text-xl font-bold text-gray-900 mb-6">주문 / 결제</h1>
 
