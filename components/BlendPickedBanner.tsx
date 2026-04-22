@@ -22,7 +22,7 @@ const LETTERS = [
 export default function BlendPickedBanner() {
   return (
     <section className="pb-6">
-      <div className="max-w-6xl mx-auto px-6 text-center">
+      <div className="px-6 text-center">
         <p className="text-xs text-gray-400 tracking-widest uppercase mb-6">
           Special for you
         </p>

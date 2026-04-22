@@ -19,20 +19,7 @@ interface SalesPage {
 }
 
 function filterPages(pages: SalesPage[], tab: Tab) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const oneWeek = 7 * 24 * 60 * 60 * 1000;
-
-  return pages.filter((p) => {
-    const start = p.starts_at ? new Date(p.starts_at) : null;
-    const end = p.ends_at ? new Date(p.ends_at) : null;
-    if (!start || !end) return false;
-
-    if (tab === "active") return start <= today && end >= today;
-    if (tab === "upcoming") return start > today && start.getTime() <= today.getTime() + oneWeek;
-    if (tab === "ended") return end < today && end.getTime() >= today.getTime() - oneWeek;
-    return false;
-  });
+  return pages.filter((p) => p.status === tab);
 }
 
 export default function ProductsPage() {
@@ -59,7 +46,7 @@ export default function ProductsPage() {
 
   return (
     <main className="min-h-screen bg-white">
-      <div className="max-w-6xl mx-auto px-6 pt-8">
+      <div className="px-6 pt-8">
         <div className="mb-6">
           <h2 className="text-2xl font-black">⏰ HOT DEAL!</h2>
           <p className="text-sm text-gray-400 mt-1">놓치면 후회하는 인플로랩 핫 딜!</p>

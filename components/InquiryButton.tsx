@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import CountdownTimer from "@/components/CountdownTimer";
 
 type Tab = "submit" | "history";
 
@@ -15,6 +17,16 @@ interface Inquiry {
   created_at: string;
 }
 
+interface UpcomingPage {
+  id: string;
+  product_id: string;
+  title: string;
+  price: number;
+  main_image: string | null;
+  starts_at: string | null;
+  influencer_name?: string | null;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   pending: "대기중",
   read: "확인됨",
@@ -27,8 +39,15 @@ const STATUS_COLOR: Record<string, string> = {
   replied: "bg-green-50 text-green-600",
 };
 
-export default function InquiryButton({ userId }: { userId: string | null }) {
+export default function InquiryButton({
+  userId,
+  upcoming = [],
+}: {
+  userId: string | null;
+  upcoming?: UpcomingPage[];
+}) {
   const [open, setOpen] = useState(false);
+  const [upcomingOpen, setUpcomingOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("submit");
   const [form, setForm] = useState({ name: "", contact: "", category: "제품문의", message: "" });
   const [loading, setLoading] = useState(false);
@@ -46,7 +65,7 @@ export default function InquiryButton({ userId }: { userId: string | null }) {
     }
   }, [tab, open]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     try {
@@ -66,32 +85,98 @@ export default function InquiryButton({ userId }: { userId: string | null }) {
 
   return (
     <>
-      {/* 플로팅 버튼 */}
-      <button
-        onClick={() => { setOpen(true); setDone(false); }}
-        className="fixed bottom-6 right-6 z-50 bg-black text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-800 transition-colors"
-        title="문의하기"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-        </svg>
-      </button>
+      {/* 예정 공구 팝업 */}
+      {upcomingOpen && upcoming.length > 0 && (
+        <div className="fixed bottom-44 right-6 z-50 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <div>
+              <p className="text-xs text-orange-500 font-bold tracking-widest uppercase">coming soon</p>
+              <p className="text-sm font-black">🚀 예정된 공구</p>
+            </div>
+            <button
+              onClick={() => setUpcomingOpen(false)}
+              className="text-gray-300 hover:text-black text-xl leading-none"
+            >
+              ×
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-80">
+            {upcoming.map((page) => (
+              <Link
+                key={page.id}
+                href={`/products/${page.product_id}`}
+                onClick={() => setUpcomingOpen(false)}
+                className="flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+              >
+                <div className="w-12 h-12 shrink-0 bg-gray-100 overflow-hidden rounded-lg">
+                  {page.main_image ? (
+                    <img src={page.main_image} alt={page.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-200 text-lg">📦</div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900 line-clamp-2 leading-snug mb-1">
+                    {page.title}
+                    {page.influencer_name && (
+                      <span className="text-orange-500"> X {page.influencer_name}</span>
+                    )}
+                  </p>
+                  {page.starts_at && (
+                    <CountdownTimer target={page.starts_at} label="🚀 오픈까지" />
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* 모달 */}
+      {/* 플로팅 버튼 영역 */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+        {/* 예정 공구 버튼 */}
+        {upcoming.length > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => setUpcomingOpen((v) => !v)}
+              className="flex flex-col items-center justify-center bg-gradient-to-br from-orange-400 to-pink-500 text-white w-16 h-16 rounded-full shadow-xl hover:scale-110 transition-transform"
+              title="예정된 공구"
+              style={{ animation: "upcomingPulse 2s ease-in-out infinite" }}
+            >
+              <span className="text-lg leading-none">🚀</span>
+              <span className="text-[9px] font-black tracking-tight leading-none mt-0.5">UP<br/>COMING</span>
+              {/* 링 애니메이션 */}
+              <span className="absolute inset-0 rounded-full border-2 border-orange-400 opacity-60 pointer-events-none" style={{ animation: "upcomingRing 2s ease-in-out infinite" }} />
+              <span className="absolute inset-0 rounded-full border-2 border-pink-400 opacity-40 pointer-events-none" style={{ animation: "upcomingRing 2s ease-in-out infinite 0.5s" }} />
+            </button>
+            <span className="absolute -top-1 -right-1 bg-black text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow pointer-events-none">
+              {upcoming.length}
+            </span>
+          </div>
+        )}
+
+        {/* 문의하기 버튼 */}
+        <button
+          onClick={() => { setOpen(true); setDone(false); }}
+          className="bg-black text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-800 transition-colors"
+          title="문의하기"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* 문의 모달 */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          {/* 배경 */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-
-          {/* 모달 본체 */}
           <div className="relative bg-white w-full sm:w-[420px] sm:rounded-xl shadow-2xl max-h-[85vh] flex flex-col">
-            {/* 헤더 */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-base font-black">문의하기</h2>
               <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-black text-xl leading-none">×</button>
             </div>
 
-            {/* 탭 */}
             <div className="flex border-b border-gray-100">
               {(["submit", "history"] as Tab[]).map((t) => (
                 <button
@@ -106,7 +191,6 @@ export default function InquiryButton({ userId }: { userId: string | null }) {
               ))}
             </div>
 
-            {/* 콘텐츠 */}
             <div className="overflow-y-auto flex-1 p-6">
               {tab === "submit" && (
                 done ? (

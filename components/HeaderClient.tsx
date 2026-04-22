@@ -4,10 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 
 const NAV_ITEMS = [
-  { label: "ALL", href: "/products" },
   { label: "HOT ISSUE", href: "/hot-issue", hot: true },
-  { label: "인플루언서", href: "/blend-picked" },
-  { label: "구독", href: "/brands" },
+  { label: "CONTACT", href: "/blend-picked" },
 ];
 
 interface User {
@@ -22,7 +20,7 @@ export default function HeaderClient({ user }: { user: User | null }) {
   return (
     <header className="sticky top-0 bg-white z-50 border-b border-gray-100">
       {/* 1줄: 로고 + 로그인/장바구니 */}
-      <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-12 border-b border-gray-50">
+      <div className="px-6 flex items-center justify-between h-12 border-b border-gray-50">
         <Link href="/" className="text-lg font-black tracking-tighter">
           BLEND PICK
         </Link>
@@ -50,17 +48,17 @@ export default function HeaderClient({ user }: { user: User | null }) {
               로그인
             </Link>
           )}
-          <button className="relative hover:text-black transition-colors">
+          <Link href={user ? "/cart" : "/login"} className="relative hover:text-black transition-colors">
             장바구니
             <span className="absolute -top-1.5 -right-3.5 bg-black text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
               0
             </span>
-          </button>
+          </Link>
         </div>
       </div>
 
       {/* 2줄: 햄버거 + 네비 */}
-      <div className="max-w-6xl mx-auto px-6 flex items-center h-11 gap-6">
+      <div className="px-6 flex items-center h-11 gap-6">
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           className="flex flex-col gap-1 p-1 hover:opacity-60 transition-opacity"

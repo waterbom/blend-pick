@@ -12,6 +12,7 @@ interface SalesPage {
   ends_at: string | null;
   status: string;
   stock_quantity: number | null;
+  campaign_count?: number;
 }
 
 export default function SalesPageCard({ page }: { page: SalesPage }) {
@@ -47,6 +48,11 @@ export default function SalesPageCard({ page }: { page: SalesPage }) {
             <span className="text-white text-sm font-bold tracking-widest">
               sold out
             </span>
+          </div>
+        )}
+        {page.campaign_count && page.campaign_count > 1 && (
+          <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+            {page.campaign_count}개 공구
           </div>
         )}
       </div>

@@ -124,7 +124,7 @@ export default function TrendByAI() {
   const [first, ...rest] = DUMMY_TRENDS;
 
   return (
-    <section className="max-w-6xl mx-auto px-6 py-20">
+    <section className="px-6 py-20">
       {/* 헤더 */}
       <div className="mb-10">
         <p className="text-xs text-gray-400 tracking-widest uppercase mb-4">POWERED BY AI</p>

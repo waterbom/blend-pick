@@ -1,7 +1,48 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import Header from "@/components/Header";
 import pool from "@/lib/db";
+import InfluencerSelector from "@/components/InfluencerSelector";
+
+interface ActiveInfluencer {
+  id: string;
+  name: string;
+  platform: string | null;
+  profile_image: string | null;
+}
+
+async function getActiveInfluencers(productId: string): Promise<ActiveInfluencer[]> {
+  try {
+    const result = await pool.query(
+      `SELECT i.id, i.name, i.platform, i.profile_image
+       FROM campaigns c
+       JOIN influencers i ON i.id = c.influencer_id
+       WHERE c.product_id = $1
+         AND c.is_archived = false
+         AND c.start_date <= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date
+         AND c.end_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date
+       ORDER BY c.end_date ASC`,
+      [productId]
+    );
+    return result.rows;
+  } catch {
+    return [];
+  }
+}
+
+async function isUpcomingProduct(productId: string): Promise<boolean> {
+  try {
+    const result = await pool.query(
+      `SELECT 1 FROM campaigns
+       WHERE product_id = $1
+         AND is_archived = false
+         AND start_date > (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date
+       LIMIT 1`,
+      [productId]
+    );
+    return result.rowCount! > 0;
+  } catch {
+    return false;
+  }
+}
 
 interface Product {
   id: string;
@@ -26,7 +67,7 @@ async function getProduct(id: string): Promise<Product | null> {
               product_image, description, key_benefits, set_options,
               shipping_type, shipping_cost, dispatch_days
        FROM products
-       WHERE id = $1 AND status = 'active' AND visibility_status = 'active'`,
+       WHERE id = $1`,
       [id]
     );
     return result.rows[0] || null;
@@ -41,7 +82,11 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = await getProduct(id);
+  const [product, activeInfluencers, isUpcoming] = await Promise.all([
+    getProduct(id),
+    getActiveInfluencers(id),
+    isUpcomingProduct(id),
+  ]);
 
   if (!product) notFound();
 
@@ -55,7 +100,6 @@ export default async function ProductDetailPage({
 
   return (
     <main className="min-h-screen bg-white">
-      <Header />
 
       <div className="max-w-4xl mx-auto px-6 py-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -144,13 +188,13 @@ export default async function ProductDetailPage({
               </div>
             )}
 
-            {/* 구매 버튼 */}
-            <Link
-              href={`/products/${product.id}/checkout`}
-              className="mt-auto block w-full text-center bg-gray-900 text-white font-semibold py-4 rounded-xl hover:bg-gray-700 transition-colors"
-            >
-              구매하기 · {displayPrice.toLocaleString()}원
-            </Link>
+            {/* 인플루언서 선택 + 구매 버튼 */}
+            <InfluencerSelector
+              influencers={activeInfluencers}
+              productId={product.id}
+              displayPrice={displayPrice}
+              isUpcoming={isUpcoming && activeInfluencers.length === 0}
+            />
           </div>
         </div>
 

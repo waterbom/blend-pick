@@ -31,15 +31,15 @@ export default function CountdownTimer({
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return (
-    <div className="flex items-center gap-1 border border-gray-200 rounded px-3 py-1.5 text-xs font-mono w-full justify-center">
+    <div className="flex items-center gap-1 border border-gray-200 rounded px-2 py-1 text-xs font-mono">
       <span className="mr-1">{label}</span>
-      <span className="font-bold">{remaining.d}일</span>
+      <span className="font-bold" suppressHydrationWarning>{remaining.d}일</span>
       <span className="text-gray-400 mx-0.5">:</span>
-      <span className="font-bold">{pad(remaining.h)}</span>
+      <span className="font-bold" suppressHydrationWarning>{pad(remaining.h)}</span>
       <span className="text-gray-400 mx-0.5">:</span>
-      <span className="font-bold">{pad(remaining.m)}</span>
+      <span className="font-bold" suppressHydrationWarning>{pad(remaining.m)}</span>
       <span className="text-gray-400 mx-0.5">:</span>
-      <span className="font-bold">{pad(remaining.s)}</span>
+      <span className="font-bold" suppressHydrationWarning>{pad(remaining.s)}</span>
     </div>
   );
 }
