@@ -17,6 +17,15 @@ interface CampaignPage {
   influencer_name?: string | null;
 }
 
+/**
+ * 상품 카드 — 고급스러운 버전
+ *
+ * 디자인 원칙:
+ * - 카드 자체가 "떠 있는" 느낌 → box-shadow + border-radius
+ * - 호버 시 살짝 위로 올라감 → transform: translateY(-4px)
+ * - 이미지 호버 시 살짝 확대 → scale(1.05)
+ * - 이 3가지가 합쳐지면 "살아 있는" 느낌
+ */
 function ActiveCard({ page }: { page: CampaignPage }) {
   const discount =
     page.original_price && page.price
@@ -25,65 +34,108 @@ function ActiveCard({ page }: { page: CampaignPage }) {
   const isSoldOut = page.stock_quantity !== null && page.stock_quantity <= 0;
 
   return (
-    <Link href={`/products/${page.product_id}`} className="group block shrink-0 w-52">
-      <div className="relative aspect-square bg-gray-50 overflow-hidden mb-3">
+    <Link
+      href={`/products/${page.product_id}`}
+      className="group block shrink-0 w-56 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1"
+      style={{
+        background: "var(--card-bg, #fff)",
+        boxShadow: "var(--card-shadow)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.boxShadow = "var(--card-shadow-hover)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.boxShadow = "var(--card-shadow)";
+      }}
+    >
+      {/* 이미지 영역 */}
+      <div className="relative aspect-square overflow-hidden" style={{ background: "var(--cream-dark)" }}>
         {page.main_image ? (
           <img
             src={page.main_image}
             alt={page.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-200 text-4xl">
+          <div className="w-full h-full flex items-center justify-center text-4xl" style={{ color: "var(--text-muted)" }}>
             📦
           </div>
         )}
+
+        {/* Sold Out 오버레이 — backdrop-blur로 뒤가 살짝 보임 */}
         {isSoldOut && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <span className="text-white text-xs font-bold tracking-widest">sold out</span>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center">
+            <span className="text-white text-xs font-semibold tracking-[0.15em] uppercase">Sold Out</span>
           </div>
         )}
+
+        {/* 뱃지 — 둥근 pill 형태 */}
         {page.campaign_count && page.campaign_count > 1 ? (
-          <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+          <div
+            className="absolute top-3 right-3 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full"
+            style={{ background: "var(--accent)" }}
+          >
             {page.campaign_count}개 공구
           </div>
         ) : page.influencer_name ? (
-          <div className="absolute top-2 right-2 bg-black text-white text-xs font-bold px-2 py-0.5 rounded-full">
-            단독!
+          <div
+            className="absolute top-3 right-3 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full"
+            style={{ background: "var(--text-primary)" }}
+          >
+            단독
           </div>
         ) : null}
       </div>
 
-      {page.ends_at && (
-        <div className="mb-1.5">
-          <CountdownTimer target={page.ends_at} label="⏰ 종료까지" />
-        </div>
-      )}
-
-      <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug mb-1">
-        {page.title}
-        {page.influencer_name && (
-          <span className="text-orange-500"> X {page.influencer_name}</span>
+      {/* 텍스트 영역 */}
+      <div className="p-4">
+        {page.ends_at && (
+          <div className="mb-2">
+            <CountdownTimer target={page.ends_at} label="마감까지" />
+          </div>
         )}
-      </p>
 
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {page.original_price && (
-          <span className="text-xs text-gray-300 line-through">
-            {page.original_price.toLocaleString()}원
+        <p
+          className="text-sm font-medium line-clamp-2 leading-snug mb-2"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {page.title}
+          {page.influencer_name && (
+            <span style={{ color: "var(--accent)" }}> x {page.influencer_name}</span>
+          )}
+        </p>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {discount && (
+            <span className="text-xs font-bold" style={{ color: "var(--accent)" }}>
+              {discount}%
+            </span>
+          )}
+          <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+            {page.price.toLocaleString()}원
           </span>
-        )}
-        {discount && (
-          <span className="text-xs font-bold text-red-500">{discount}%</span>
-        )}
-        <span className="text-sm font-bold text-gray-900">
-          {page.price.toLocaleString()}원
-        </span>
+          {page.original_price && (
+            <span className="text-xs line-through" style={{ color: "var(--text-muted)" }}>
+              {page.original_price.toLocaleString()}원
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );
 }
 
+/**
+ * HOT DEAL 섹션
+ *
+ * 기존: "HOT DEAL!" 텍스트에 -skew-x-6 배경 → 떨이 세일 느낌
+ * 변경: 깔끔한 타이포 + 하단 액센트 라인 → 프리미엄 느낌
+ *
+ * 레이아웃 개념:
+ * - overflow-x-auto: 가로 스크롤 가능
+ * - scrollbar-hide: 스크롤바는 숨기되 터치/마우스 휠로 스크롤 가능
+ * - shrink-0: flex 아이템이 줄어들지 않게 (카드 크기 유지)
+ */
 export default function HomeDealSection({
   active,
 }: {
@@ -94,36 +146,42 @@ export default function HomeDealSection({
   if (!active.length) return null;
 
   return (
-    <section className="py-16">
-      {/* 헤더 */}
-      <div className="flex items-end justify-between mb-10 px-6">
+    <section className="py-20">
+      {/* 섹션 헤더 */}
+      <div className="flex items-end justify-between mb-12 px-8">
         <div>
-          <p className="text-xs font-bold tracking-widest text-orange-500 uppercase mb-2">
+          <p
+            className="text-xs font-medium tracking-[0.2em] uppercase mb-3"
+            style={{ color: "var(--accent)" }}
+          >
             BLEND PICK
           </p>
-          <h2 className="text-5xl font-black tracking-tighter leading-none flex items-center gap-2">
-            <span className="relative inline-block">
-              <span className="relative z-10 text-white px-2">HOT</span>
-              <span className="absolute inset-0 bg-gray-900 -skew-x-6" />
-            </span>
-            <span className="relative inline-block">
-              <span className="relative z-10 text-white px-2">DEAL</span>
-              <span className="absolute inset-0 bg-orange-500 -skew-x-6" />
-            </span>
-            <span className="text-orange-500">!</span>
+          <h2
+            className="text-3xl font-bold tracking-tight"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Hot Deal
           </h2>
+          {/* 액센트 라인 — skew 배경 대신 심플한 라인으로 고급감 */}
+          <div
+            className="mt-3 h-0.5 w-12 rounded-full"
+            style={{ background: "var(--accent)" }}
+          />
         </div>
         <Link
           href="/products"
-          className="text-sm text-gray-400 hover:text-black transition-colors mb-1"
+          className="text-sm transition-colors duration-200 mb-1"
+          style={{ color: "var(--text-muted)" }}
+          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--text-primary)"; }}
+          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = "var(--text-muted)"; }}
         >
           전체보기 →
         </Link>
       </div>
 
-      {/* 가로 스크롤 */}
+      {/* 가로 스크롤 카드 리스트 */}
       <div className="overflow-x-auto scrollbar-hide">
-        <div className="flex gap-5 px-6 pb-2">
+        <div className="flex gap-6 px-8 pb-4">
           {active.map((page) => (
             <ActiveCard key={page.id} page={page} />
           ))}

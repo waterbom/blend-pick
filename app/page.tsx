@@ -158,7 +158,7 @@ export default async function Home() {
   const { id: userId } = userInfo;
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
 
       {/* 히어로 배너 슬라이더 */}
