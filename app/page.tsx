@@ -128,28 +128,34 @@ async function getCollabProducts() {
   }
 }
 
-async function getUserId(): Promise<string | null> {
+const ADMIN_EMAIL = "admin@blendpick.com";
+
+async function getUserInfo(): Promise<{ id: string | null; isAdmin: boolean }> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("shop_token")?.value;
-    if (!token) return null;
+    if (!token) return { id: null, isAdmin: false };
     const payload = await verifyToken(token);
-    return payload?.id || null;
+    return {
+      id: payload?.id || null,
+      isAdmin: payload?.email === ADMIN_EMAIL,
+    };
   } catch {
-    return null;
+    return { id: null, isAdmin: false };
   }
 }
 
 export default async function Home() {
-  const [active, upcoming, ended, userId, banner, collab] =
+  const [active, upcoming, ended, userInfo, banner, collab] =
     await Promise.all([
       getActiveCampaigns(),
       getUpcomingCampaigns(),
       getEndedCampaigns(),
-      getUserId(),
+      getUserInfo(),
       getBannerProducts(),
       getCollabProducts(),
     ]);
+  const { id: userId } = userInfo;
 
   return (
     <main className="min-h-screen bg-white">

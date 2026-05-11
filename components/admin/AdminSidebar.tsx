@@ -18,10 +18,10 @@ export default function AdminSidebar({ adminName }: { adminName: string }) {
   return (
     <aside className="w-56 bg-white border-r border-gray-200 flex flex-col min-h-screen">
       {/* 로고 */}
-      <div className="px-6 py-5 border-b border-gray-100">
+      <Link href="/" className="px-6 py-5 border-b border-gray-100 block hover:bg-gray-50 transition-colors">
         <p className="text-xs text-gray-400 font-bold tracking-widest uppercase">Blend Pick</p>
         <p className="text-sm font-black text-gray-900 mt-0.5">Admin</p>
-      </div>
+      </Link>
 
       {/* 네비 */}
       <nav className="flex-1 py-4">

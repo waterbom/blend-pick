@@ -13,9 +13,8 @@ export default async function Header() {
     if (token) {
       const payload = await verifyToken(token);
       if (payload) {
-        const result = await pool.query(
-          "SELECT nickname, name, profile_image FROM shop_users WHERE id = $1",
-
+          const result = await pool.query(
+          "SELECT nickname, name, profile_image, email FROM shop_users WHERE id = $1",
           [payload.id]
         );
         if (result.rows.length > 0) {
@@ -27,5 +26,6 @@ export default async function Header() {
     // 유저 정보 못 가져오면 비로그인 상태로
   }
 
-  return <HeaderClient user={user} />;
+  const isAdmin = user?.email === "admin@blendpick.com";
+  return <HeaderClient user={user} isAdmin={isAdmin} />;
 }

@@ -14,7 +14,7 @@ interface User {
   profile_image: string | null;
 }
 
-export default function HeaderClient({ user }: { user: User | null }) {
+export default function HeaderClient({ user, isAdmin = false }: { user: User | null; isAdmin?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -27,7 +27,7 @@ export default function HeaderClient({ user }: { user: User | null }) {
         <div className="flex items-center gap-5 text-sm text-gray-500">
           {user ? (
             <Link
-              href="/mypage"
+              href={isAdmin ? "/admin" : "/mypage"}
               className="flex items-center gap-2 hover:text-black transition-colors"
             >
               {user.profile_image ? (
