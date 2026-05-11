@@ -27,3 +27,16 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
     return null;
   }
 }
+
+const ADMIN_SECRET = new TextEncoder().encode(
+  process.env.ADMIN_JWT_SECRET || "blend-admin-secret-2026"
+);
+
+export async function verifyAdminToken(token: string): Promise<{ id: string; email: string; name: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, ADMIN_SECRET);
+    return payload as { id: string; email: string; name: string };
+  } catch {
+    return null;
+  }
+}
