@@ -108,7 +108,7 @@ export default async function ShopPage({
                 : null;
 
               return (
-                <div key={p.id} className="group cursor-pointer">
+                <Link key={p.id} href={`/products/${p.id}`} className="group cursor-pointer block">
                   {/* 이미지 */}
                   <div
                     className="relative w-full aspect-square rounded-2xl overflow-hidden mb-3"
@@ -161,7 +161,7 @@ export default async function ShopPage({
                       {p.shipping_type === "free" ? "무료배송" : `배송비 ${p.shipping_cost.toLocaleString()}원`}
                     </p>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
