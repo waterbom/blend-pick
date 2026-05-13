@@ -187,7 +187,17 @@ export default function CartClient() {
           <button
             className="w-full text-white font-semibold py-3.5 rounded-xl text-sm transition-all hover:opacity-90"
             style={{ background: "var(--accent)" }}
-            onClick={() => alert("장바구니 일괄 결제는 준비 중입니다")}
+            onClick={() => {
+              sessionStorage.setItem(
+                "cartCheckoutData",
+                JSON.stringify({
+                  items: availableItems,
+                  totalAmount,
+                  shippingCost,
+                })
+              );
+              router.push("/cart/checkout");
+            }}
           >
             구매하기 ({(totalAmount + shippingCost).toLocaleString()}원)
           </button>

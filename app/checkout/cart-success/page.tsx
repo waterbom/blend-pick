@@ -1,0 +1,133 @@
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+
+interface OrderResult {
+  orderNumber: string;
+  itemCount: number;
+  totalAmount: number;
+  paymentMethod: string;
+}
+
+function CartSuccessContent() {
+  const searchParams = useSearchParams();
+  const [result, setResult] = useState<OrderResult | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const paymentKey = searchParams.get("paymentKey");
+    const orderId = searchParams.get("orderId");
+    const amount = searchParams.get("amount");
+    const raw = sessionStorage.getItem("cartCheckoutData");
+
+    if (!paymentKey || !orderId || !amount || !raw) {
+      setError("결제 정보를 찾을 수 없습니다.");
+      return;
+    }
+
+    const checkoutData = JSON.parse(raw);
+
+    fetch("/api/payment/cart-confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), checkoutData }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) {
+          sessionStorage.removeItem("cartCheckoutData");
+          setResult(data);
+        } else {
+          setError(data.error || "결제 확인 중 오류가 발생했습니다.");
+        }
+      })
+      .catch(() => setError("네트워크 오류가 발생했습니다."));
+  }, [searchParams]);
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-sm" style={{ border: "1px solid var(--warm-gray)" }}>
+        <div className="text-4xl mb-4">⚠️</div>
+        <h1 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>결제 오류</h1>
+        <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{error}</p>
+        <Link href="/cart" className="block w-full text-white text-sm font-medium py-3 rounded-xl" style={{ background: "var(--accent)" }}>
+          장바구니로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
+  if (!result) {
+    return <p className="text-sm" style={{ color: "var(--text-muted)" }}>결제 확인 중...</p>;
+  }
+
+  return (
+    <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-sm" style={{ border: "1px solid var(--warm-gray)" }}>
+      <div className="text-center mb-6">
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+          style={{ background: "var(--accent-soft)" }}
+        >
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>결제 완료!</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+          {result.itemCount}개 상품 주문이 완료되었습니다
+        </p>
+      </div>
+
+      <div className="space-y-3 text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
+        <div className="flex justify-between">
+          <span>주문번호</span>
+          <span className="font-medium font-mono" style={{ color: "var(--text-primary)" }}>{result.orderNumber}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>주문 상품</span>
+          <span className="font-medium" style={{ color: "var(--text-primary)" }}>{result.itemCount}건</span>
+        </div>
+        <div
+          className="flex justify-between font-bold pt-3"
+          style={{ borderTop: "1px solid var(--warm-gray)", color: "var(--text-primary)" }}
+        >
+          <span>결제 금액</span>
+          <span>{result.totalAmount.toLocaleString()}원</span>
+        </div>
+        <div className="flex justify-between">
+          <span>결제 수단</span>
+          <span>{result.paymentMethod}</span>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Link
+          href="/products"
+          className="block w-full text-center text-white text-sm font-semibold py-3 rounded-xl transition-all"
+          style={{ background: "var(--accent)" }}
+        >
+          쇼핑 계속하기
+        </Link>
+        <Link
+          href="/mypage"
+          className="block w-full text-center text-sm font-medium py-3 rounded-xl transition-all"
+          style={{ background: "var(--cream-dark)", color: "var(--text-secondary)" }}
+        >
+          마이페이지에서 확인
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+export default function CartSuccessPage() {
+  return (
+    <main className="min-h-screen flex items-center justify-center px-6" style={{ background: "var(--background)" }}>
+      <Suspense fallback={<p className="text-sm" style={{ color: "var(--text-muted)" }}>로딩 중...</p>}>
+        <CartSuccessContent />
+      </Suspense>
+    </main>
+  );
+}
