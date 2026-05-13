@@ -17,7 +17,7 @@ export default function ProductCard({ product }: { product: Product }) {
     : 0;
 
   return (
-    <Link href={`/products/${product.id}`} className="group block">
+    <Link href={`/campaigns/${product.id}`} className="group block">
       {/* 이미지 */}
       <div className="aspect-square bg-gray-50 overflow-hidden mb-3">
         {product.product_image ? (

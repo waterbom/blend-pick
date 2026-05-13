@@ -1,86 +1,169 @@
-"use client";
+import shopPool from "@/lib/db-shop";
+import Header from "@/components/Header";
+import Link from "next/link";
 
-import { useEffect, useState } from "react";
-import SalesPageCard from "@/components/SalesPageCard";
-
-type Tab = "active" | "upcoming" | "ended";
-
-interface SalesPage {
+interface Product {
   id: string;
-  product_id: string;
-  title: string;
+  name: string;
+  brand: string;
+  category: string;
   price: number;
   original_price: number | null;
+  stock: number;
   main_image: string | null;
-  starts_at: string | null;
-  ends_at: string | null;
-  status: string;
-  stock_quantity: number | null;
+  shipping_type: string;
+  shipping_cost: number;
 }
 
-function filterPages(pages: SalesPage[], tab: Tab) {
-  return pages.filter((p) => p.status === tab);
+async function getProducts(category?: string) {
+  const params: string[] = [];
+  let where = `WHERE status = 'active'`;
+  if (category) {
+    params.push(category);
+    where += ` AND category = $1`;
+  }
+  const result = await shopPool.query(
+    `SELECT id, name, brand, category, price, original_price, stock, main_image, shipping_type, shipping_cost
+     FROM products_shop ${where} ORDER BY created_at DESC`,
+    params
+  );
+  return result.rows as Product[];
 }
 
-export default function ProductsPage() {
-  const [tab, setTab] = useState<Tab>("active");
-  const [pages, setPages] = useState<SalesPage[]>([]);
-  const [loading, setLoading] = useState(true);
+async function getCategories() {
+  const result = await shopPool.query(
+    `SELECT DISTINCT category FROM products_shop WHERE status = 'active' ORDER BY category`
+  );
+  return result.rows.map((r) => r.category as string);
+}
 
-  useEffect(() => {
-    fetch("/api/sales-pages")
-      .then((r) => r.json())
-      .then((data) => {
-        setPages(data.pages || []);
-        setLoading(false);
-      });
-  }, []);
-
-  const filtered = filterPages(pages, tab);
-
-  const TAB_LABELS: { key: Tab; label: string }[] = [
-    { key: "active", label: "진행중" },
-    { key: "upcoming", label: "예정" },
-    { key: "ended", label: "종료" },
-  ];
+export default async function ShopPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const { category } = await searchParams;
+  const [products, categories] = await Promise.all([
+    getProducts(category),
+    getCategories(),
+  ]);
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="px-6 pt-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-black">⏰ HOT DEAL!</h2>
-          <p className="text-sm text-gray-400 mt-1">놓치면 후회하는 인플로랩 핫 딜!</p>
+    <main className="min-h-screen" style={{ background: "var(--background)" }}>
+      <Header />
+
+      <div className="px-6 pt-8 pb-16 max-w-6xl mx-auto">
+        {/* 헤더 */}
+        <div className="mb-8">
+          <p className="text-xs font-medium tracking-[0.2em] uppercase mb-2" style={{ color: "var(--accent)" }}>
+            BLEND PICK SHOP
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+            Products
+          </h1>
+          <div className="mt-3 h-0.5 w-12 rounded-full" style={{ background: "var(--accent)" }} />
         </div>
 
-        <div className="flex gap-1 mb-8 border-b border-gray-100">
-          {TAB_LABELS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                tab === key
-                  ? "border-black text-black"
-                  : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
+        {/* 카테고리 필터 */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          <Link
+            href="/products"
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              !category
+                ? "text-white"
+                : "hover:opacity-80"
+            }`}
+            style={!category
+              ? { background: "var(--accent)", color: "#fff" }
+              : { background: "var(--cream-dark)", color: "var(--text-secondary)" }
+            }
+          >
+            전체
+          </Link>
+          {categories.map((cat) => (
+            <Link
+              key={cat}
+              href={`/products?category=${encodeURIComponent(cat)}`}
+              className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors hover:opacity-80"
+              style={category === cat
+                ? { background: "var(--accent)", color: "#fff" }
+                : { background: "var(--cream-dark)", color: "var(--text-secondary)" }
+              }
             >
-              {label}
-            </button>
+              {cat}
+            </Link>
           ))}
         </div>
 
-        {loading ? (
-          <p className="text-center text-gray-300 py-32">불러오는 중...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-center text-gray-300 py-32">
-            {tab === "active" && "진행중인 핫딜이 없습니다."}
-            {tab === "upcoming" && "1주일 내 예정된 핫딜이 없습니다."}
-            {tab === "ended" && "최근 종료된 핫딜이 없습니다."}
-          </p>
+        {/* 상품 그리드 */}
+        {products.length === 0 ? (
+          <div className="text-center py-32" style={{ color: "var(--text-muted)" }}>
+            등록된 상품이 없습니다.
+          </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 pb-16">
-            {filtered.map((page) => (
-              <SalesPageCard key={page.id} page={page} />
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
+            {products.map((p) => {
+              const discount = p.original_price && p.original_price > p.price
+                ? Math.round((1 - p.price / p.original_price) * 100)
+                : null;
+
+              return (
+                <div key={p.id} className="group cursor-pointer">
+                  {/* 이미지 */}
+                  <div
+                    className="relative w-full aspect-square rounded-2xl overflow-hidden mb-3"
+                    style={{ background: "var(--cream-dark)" }}
+                  >
+                    {p.main_image ? (
+                      <img
+                        src={p.main_image}
+                        alt={p.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-3xl">📦</div>
+                    )}
+                    {discount && (
+                      <span
+                        className="absolute top-2 left-2 text-white text-xs font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: "var(--accent)" }}
+                      >
+                        -{discount}%
+                      </span>
+                    )}
+                    {p.stock === 0 && (
+                      <div
+                        className="absolute inset-0 flex items-center justify-center rounded-2xl"
+                        style={{ background: "rgba(0,0,0,0.4)" }}
+                      >
+                        <span className="text-white text-sm font-bold">품절</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 정보 */}
+                  <div>
+                    <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>{p.brand}</p>
+                    <p className="text-sm font-medium line-clamp-2 leading-snug mb-1.5" style={{ color: "var(--text-primary)" }}>
+                      {p.name}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+                        {p.price.toLocaleString()}원
+                      </span>
+                      {p.original_price && p.original_price > p.price && (
+                        <span className="text-xs line-through" style={{ color: "var(--text-muted)" }}>
+                          {p.original_price.toLocaleString()}원
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                      {p.shipping_type === "free" ? "무료배송" : `배송비 ${p.shipping_cost.toLocaleString()}원`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

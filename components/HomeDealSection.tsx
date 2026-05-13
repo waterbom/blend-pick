@@ -35,7 +35,7 @@ function ActiveCard({ page }: { page: CampaignPage }) {
 
   return (
     <Link
-      href={`/products/${page.product_id}`}
+      href={`/campaigns/${page.product_id}`}
       className="group block shrink-0 w-56 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1"
       style={{
         background: "var(--card-bg, #fff)",
@@ -169,7 +169,7 @@ export default function HomeDealSection({
           />
         </div>
         <Link
-          href="/products"
+          href="/campaigns"
           className="text-sm transition-colors duration-200 mb-1"
           style={{ color: "var(--text-muted)" }}
           onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--text-primary)"; }}

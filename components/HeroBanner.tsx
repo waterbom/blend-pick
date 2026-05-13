@@ -71,7 +71,7 @@ export default function HeroBanner({ products }: { products: Product[] }) {
             검증된 공동구매 상품을 만나보세요.
           </p>
           <Link
-            href={`/products/${product.id}`}
+            href={`/campaigns/${product.id}`}
             className="inline-block bg-black text-white text-sm font-medium px-6 py-3 hover:bg-gray-800 transition-colors"
           >
             상품 보기

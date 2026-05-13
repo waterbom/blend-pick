@@ -11,7 +11,7 @@ export default function LoginSuccessPage() {
 
       <div className="flex gap-4">
         <Link
-          href="/products"
+          href="/campaigns"
           className="bg-black text-white text-sm font-bold px-8 py-3 hover:bg-gray-800 transition-colors"
         >
           쇼핑하기

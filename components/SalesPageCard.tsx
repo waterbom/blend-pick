@@ -29,7 +29,7 @@ export default function SalesPageCard({ page }: { page: SalesPage }) {
   const timerLabel = isActive ? "⏰ 종료까지" : "🚀 핫딜 오픈까지";
 
   return (
-    <Link href={`/products/${page.product_id}`} className="block group">
+    <Link href={`/campaigns/${page.product_id}`} className="block group">
       {/* 이미지 */}
       <div className="relative aspect-square bg-gray-50 overflow-hidden mb-3">
         {page.main_image ? (

@@ -42,7 +42,7 @@ export default function BestItems({ pages, title, timerLabel, timerKey, dim }: P
       <div className="flex items-center justify-between mb-10">
         <h2 className="text-2xl font-black">{title}</h2>
         <Link
-          href="/products"
+          href="/campaigns"
           className="text-sm text-gray-400 hover:text-black transition-colors"
         >
           더보기 →
@@ -71,7 +71,7 @@ export default function BestItems({ pages, title, timerLabel, timerKey, dim }: P
             return (
               <Link
                 key={page.id}
-                href={`/products/${page.product_id}`}
+                href={`/campaigns/${page.product_id}`}
                 className="group block"
               >
                 <div className="relative aspect-[4/5] bg-gray-50 overflow-hidden mb-3">

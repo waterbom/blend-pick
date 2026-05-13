@@ -8,7 +8,7 @@ import { useState } from "react";
  * - hot: true면 액센트 컬러로 강조 (기존 animate-pulse는 제거 — 깜빡이는 건 촌스러움)
  */
 const NAV_ITEMS = [
-  { label: "HOT ISSUE", href: "/hot-issue", hot: true },
+  { label: "PRODUCTS", href: "/products", hot: false },
   { label: "CONTACT", href: "/blend-picked" },
 ];
 

@@ -56,7 +56,7 @@ export default function SalesBanner({
       {products.map((p, i) => (
         <Link
           key={p.id}
-          href={`/products/${p.id}`}
+          href={`/campaigns/${p.id}`}
           className={`absolute inset-0 flex items-center justify-center gap-20 lg:gap-40 px-8 lg:px-20 transition-all duration-1000 ease-in-out ${
             i === current ? "opacity-100 scale-100" : "opacity-0 scale-[0.98] pointer-events-none"
           }`}

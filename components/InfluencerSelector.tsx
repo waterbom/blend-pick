@@ -36,7 +36,7 @@ export default function InfluencerSelector({
     const params = selectedInf
       ? `?influencer_id=${selectedInf.id}&influencer_name=${encodeURIComponent(selectedInf.name)}`
       : "";
-    router.push(`/products/${productId}/checkout${params}`);
+    router.push(`/campaigns/${productId}/checkout${params}`);
   }
 
   return (

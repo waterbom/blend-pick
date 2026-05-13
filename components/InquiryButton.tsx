@@ -115,7 +115,7 @@ export default function InquiryButton({
             {upcoming.map((page) => (
               <Link
                 key={page.id}
-                href={`/products/${page.product_id}`}
+                href={`/campaigns/${page.product_id}`}
                 onClick={() => setUpcomingOpen(false)}
                 className="flex gap-3 px-4 py-3 transition-colors"
                 style={{ borderBottom: "1px solid var(--cream-dark)" }}

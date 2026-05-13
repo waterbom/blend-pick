@@ -63,7 +63,7 @@ function SuccessContent() {
         <h1 className="text-lg font-bold text-gray-900 mb-2">결제 오류</h1>
         <p className="text-sm text-gray-500 mb-6">{error}</p>
         <Link
-          href="/products"
+          href="/campaigns"
           className="block w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl"
         >
           쇼핑 계속하기
@@ -108,7 +108,7 @@ function SuccessContent() {
 
       <div className="space-y-2">
         <Link
-          href="/products"
+          href="/campaigns"
           className="block w-full text-center bg-gray-900 text-white text-sm font-semibold py-3 rounded-xl hover:bg-gray-700 transition-colors"
         >
           쇼핑 계속하기

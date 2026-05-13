@@ -23,7 +23,7 @@ function FailContent() {
           다시 시도하기
         </button>
         <Link
-          href="/products"
+          href="/campaigns"
           className="block w-full bg-gray-50 text-gray-600 text-sm font-medium py-3 rounded-xl hover:bg-gray-100 transition-colors"
         >
           쇼핑 계속하기
