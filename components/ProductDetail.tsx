@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -76,6 +76,22 @@ export default function ProductDetail({
   const [quantity, setQuantity] = useState(1);
   const [cartLoading, setCartLoading] = useState(false);
   const [cartDone, setCartDone] = useState(false);
+
+  // 최근 본 상품 localStorage 저장 + 페이지 떠날 때 이벤트 발송
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("recentProducts") || "[]";
+      const ids: string[] = JSON.parse(raw);
+      const filtered = ids.filter((id) => id !== product.id);
+      filtered.unshift(product.id);
+      localStorage.setItem("recentProducts", JSON.stringify(filtered.slice(0, 10)));
+    } catch {}
+
+    return () => {
+      // 페이지 떠날 때 InquiryButton에 갱신 요청
+      window.dispatchEvent(new CustomEvent("recentProductsUpdated"));
+    };
+  }, [product.id]);
 
   const grouped = groupOptions(options);
   const isSoldout = product.status === "soldout" || product.stock === 0;

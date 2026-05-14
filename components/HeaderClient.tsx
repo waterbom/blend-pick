@@ -1,7 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+function CartCount() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/cart")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.items) setCount(data.items.length);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (count === 0) return null;
+
+  return (
+    <span
+      className="absolute -top-1.5 -right-3.5 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
+      style={{ background: "var(--accent)" }}
+    >
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
 
 /**
  * 네비게이션 아이템 정의
@@ -97,21 +121,18 @@ export default function HeaderClient({ user, isAdmin = false }: { user: User | n
               로그인
             </Link>
           )}
-          <Link
-            href={user ? "/cart" : "/login"}
-            className="relative text-[13px] font-medium transition-colors duration-200"
-            style={{ color: "var(--text-secondary)" }}
-            onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--text-primary)"; }}
-            onMouseLeave={(e) => { (e.target as HTMLElement).style.color = "var(--text-secondary)"; }}
-          >
-            장바구니
-            <span
-              className="absolute -top-1.5 -right-3.5 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
-              style={{ background: "var(--accent)" }}
+          {user && (
+            <Link
+              href="/cart"
+              className="relative text-[13px] font-medium transition-colors duration-200"
+              style={{ color: "var(--text-secondary)" }}
+              onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--text-primary)"; }}
+              onMouseLeave={(e) => { (e.target as HTMLElement).style.color = "var(--text-secondary)"; }}
             >
-              0
-            </span>
-          </Link>
+              장바구니
+              <CartCount />
+            </Link>
+          )}
         </div>
       </div>
 

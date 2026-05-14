@@ -31,9 +31,11 @@ function calcRemaining(target: string) {
 export default function CountdownTimer({
   target,
   label,
+  dark = false,
 }: {
   target: string;
   label: string;
+  dark?: boolean;
 }) {
   const [remaining, setRemaining] = useState(calcRemaining(target));
 
@@ -54,19 +56,16 @@ export default function CountdownTimer({
 
   return (
     <div
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono"
-      style={{
-        background: "var(--accent-soft)",
-        color: "var(--accent)",
-      }}
+      className="inline-flex items-center gap-1.5 text-sm font-mono whitespace-nowrap"
+      style={{ color: dark ? "#c4765b" : "var(--accent)" }}
     >
-      <span className="font-medium mr-0.5">{label}</span>
+      <span className="font-medium mr-0.5" style={{ color: dark ? "#6b6560" : "var(--text-muted)" }}>{label}</span>
       <span className="font-bold" suppressHydrationWarning>{remaining.d}일</span>
-      <span style={{ color: "var(--accent-light)" }}>:</span>
+      <span style={{ opacity: 0.5 }}>:</span>
       <span className="font-bold" suppressHydrationWarning>{pad(remaining.h)}</span>
-      <span style={{ color: "var(--accent-light)" }}>:</span>
+      <span style={{ opacity: 0.5 }}>:</span>
       <span className="font-bold" suppressHydrationWarning>{pad(remaining.m)}</span>
-      <span style={{ color: "var(--accent-light)" }}>:</span>
+      <span style={{ opacity: 0.5 }}>:</span>
       <span className="font-bold" suppressHydrationWarning>{pad(remaining.s)}</span>
     </div>
   );

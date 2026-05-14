@@ -15,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     if (admin) {
       return (
         <div className="flex min-h-screen bg-gray-100">
-          <AdminSidebar adminName={admin.name} />
+          <AdminSidebar  />
           <main className="flex-1 p-8 overflow-auto">{children}</main>
         </div>
       );
@@ -29,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     if (payload?.email === ADMIN_EMAIL) {
       return (
         <div className="flex min-h-screen bg-gray-100">
-          <AdminSidebar adminName="관리자" />
+          <AdminSidebar />
           <main className="flex-1 p-8 overflow-auto">{children}</main>
         </div>
       );

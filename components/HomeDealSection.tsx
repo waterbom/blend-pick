@@ -17,39 +17,42 @@ interface CampaignPage {
   influencer_name?: string | null;
 }
 
-/**
- * 상품 카드 — 고급스러운 버전
- *
- * 디자인 원칙:
- * - 카드 자체가 "떠 있는" 느낌 → box-shadow + border-radius
- * - 호버 시 살짝 위로 올라감 → transform: translateY(-4px)
- * - 이미지 호버 시 살짝 확대 → scale(1.05)
- * - 이 3가지가 합쳐지면 "살아 있는" 느낌
- */
+function isClosingToday(endsAt: string | null): boolean {
+  if (!endsAt) return false;
+  const end = new Date(endsAt);
+  const now = new Date();
+  return (
+    end.getFullYear() === now.getFullYear() &&
+    end.getMonth() === now.getMonth() &&
+    end.getDate() === now.getDate()
+  );
+}
+
 function ActiveCard({ page }: { page: CampaignPage }) {
   const discount =
     page.original_price && page.price
       ? Math.round((1 - page.price / page.original_price) * 100)
       : null;
   const isSoldOut = page.stock_quantity !== null && page.stock_quantity <= 0;
+  const closingToday = isClosingToday(page.ends_at);
 
   return (
     <Link
       href={`/campaigns/${page.product_id}`}
-      className="group block shrink-0 w-56 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1"
+      className="group block shrink-0 w-52 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1.5"
       style={{
-        background: "var(--card-bg, #fff)",
-        boxShadow: "var(--card-shadow)",
+        background: "#2a2420",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "var(--card-shadow-hover)";
+        (e.currentTarget as HTMLElement).style.boxShadow = "0 12px 40px rgba(0,0,0,0.5)";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "var(--card-shadow)";
+        (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 24px rgba(0,0,0,0.35)";
       }}
     >
-      {/* 이미지 영역 */}
-      <div className="relative aspect-square overflow-hidden" style={{ background: "var(--cream-dark)" }}>
+      {/* 이미지 */}
+      <div className="relative aspect-square overflow-hidden">
         {page.main_image ? (
           <img
             src={page.main_image}
@@ -57,65 +60,65 @@ function ActiveCard({ page }: { page: CampaignPage }) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl" style={{ color: "var(--text-muted)" }}>
+          <div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "#1e1b18" }}>
             📦
           </div>
         )}
 
-        {/* Sold Out 오버레이 — backdrop-blur로 뒤가 살짝 보임 */}
-        {isSoldOut && (
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center">
-            <span className="text-white text-xs font-semibold tracking-[0.15em] uppercase">Sold Out</span>
+        {/* 오늘 마감 뱃지 */}
+        {closingToday && !isSoldOut && (
+          <div
+            className="absolute top-3 left-3 text-white text-[10px] font-bold px-2 py-1 rounded-md tracking-wide"
+            style={{ background: "#c4765b" }}
+          >
+            오늘 마감
           </div>
         )}
 
-        {/* 뱃지 — 둥근 pill 형태 */}
-        {page.campaign_count && page.campaign_count > 1 ? (
+        {/* Sold Out */}
+        {isSoldOut && (
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+            <span className="text-white text-xs font-bold tracking-[0.15em] uppercase border border-white/50 px-3 py-1 rounded-full">
+              Sold Out
+            </span>
+          </div>
+        )}
+
+        {/* 공구 수 or 단독 뱃지 (오른쪽 상단) */}
+        {!closingToday && page.campaign_count && page.campaign_count > 1 ? (
           <div
-            className="absolute top-3 right-3 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full"
-            style={{ background: "var(--accent)" }}
+            className="absolute top-3 right-3 text-white text-[10px] font-bold px-2 py-1 rounded-md"
+            style={{ background: "rgba(196,118,91,0.9)" }}
           >
             {page.campaign_count}개 공구
-          </div>
-        ) : page.influencer_name ? (
-          <div
-            className="absolute top-3 right-3 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full"
-            style={{ background: "var(--text-primary)" }}
-          >
-            단독
           </div>
         ) : null}
       </div>
 
-      {/* 텍스트 영역 */}
-      <div className="p-4">
+      {/* 텍스트 */}
+      <div className="p-3.5">
         {page.ends_at && (
           <div className="mb-2">
-            <CountdownTimer target={page.ends_at} label="마감까지" />
+            <CountdownTimer target={page.ends_at} label="마감까지" dark />
           </div>
         )}
-
-        <p
-          className="text-sm font-medium line-clamp-2 leading-snug mb-2"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <p className="text-sm font-medium line-clamp-2 leading-snug mb-2" style={{ color: "#f0ece6" }}>
           {page.title}
           {page.influencer_name && (
-            <span style={{ color: "var(--accent)" }}> x {page.influencer_name}</span>
+            <span style={{ color: "#e8a990" }}> x {page.influencer_name}</span>
           )}
         </p>
-
         <div className="flex items-center gap-2 flex-wrap">
           {discount && (
-            <span className="text-xs font-bold" style={{ color: "var(--accent)" }}>
+            <span className="text-xs font-bold" style={{ color: "#c4765b" }}>
               {discount}%
             </span>
           )}
-          <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+          <span className="text-sm font-bold" style={{ color: "#f0ece6" }}>
             {page.price.toLocaleString()}원
           </span>
           {page.original_price && (
-            <span className="text-xs line-through" style={{ color: "var(--text-muted)" }}>
+            <span className="text-xs line-through" style={{ color: "#6b6560" }}>
               {page.original_price.toLocaleString()}원
             </span>
           )}
@@ -125,17 +128,6 @@ function ActiveCard({ page }: { page: CampaignPage }) {
   );
 }
 
-/**
- * HOT DEAL 섹션
- *
- * 기존: "HOT DEAL!" 텍스트에 -skew-x-6 배경 → 떨이 세일 느낌
- * 변경: 깔끔한 타이포 + 하단 액센트 라인 → 프리미엄 느낌
- *
- * 레이아웃 개념:
- * - overflow-x-auto: 가로 스크롤 가능
- * - scrollbar-hide: 스크롤바는 숨기되 터치/마우스 휠로 스크롤 가능
- * - shrink-0: flex 아이템이 줄어들지 않게 (카드 크기 유지)
- */
 export default function HomeDealSection({
   active,
 }: {
@@ -145,43 +137,48 @@ export default function HomeDealSection({
 }) {
   if (!active.length) return null;
 
+  const closingCount = active.filter((p) => isClosingToday(p.ends_at)).length;
+
   return (
-    <section className="py-20">
-      {/* 섹션 헤더 */}
-      <div className="flex items-end justify-between mb-12 px-8">
+    <section style={{ background: "#1a1714" }} className="py-16">
+      {/* 헤더 */}
+      <div className="flex items-end justify-between mb-10 px-8">
         <div>
-          <p
-            className="text-xs font-medium tracking-[0.2em] uppercase mb-3"
-            style={{ color: "var(--accent)" }}
-          >
+          <p className="text-xs font-semibold tracking-[0.25em] uppercase mb-2" style={{ color: "#c4765b" }}>
             BLEND PICK
           </p>
-          <h2
-            className="text-3xl font-bold tracking-tight"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Hot Deal
+          <h2 className="text-3xl font-bold tracking-tight" style={{ color: "#f0ece6" }}>
+            지금 놓치면 끝{" "}
+            <span style={{ color: "#c4765b" }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" className="inline-block align-middle mb-1">
+                <circle cx="12" cy="13" r="8" />
+                <path strokeLinecap="round" d="M12 5V3M9 3h6" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4.5l2.5 2.5" />
+                <path strokeLinecap="round" d="M6.3 6.3l1 1M17.7 6.3l-1 1" />
+              </svg>
+            </span>
           </h2>
-          {/* 액센트 라인 — skew 배경 대신 심플한 라인으로 고급감 */}
-          <div
-            className="mt-3 h-0.5 w-12 rounded-full"
-            style={{ background: "var(--accent)" }}
-          />
+          {closingCount > 0 && (
+            <p className="mt-1.5 text-sm" style={{ color: "#6b6560" }}>
+              오늘 마감{" "}
+              <span style={{ color: "#c4765b" }} className="font-semibold">
+                {closingCount}개
+              </span>
+            </p>
+          )}
         </div>
         <Link
           href="/campaigns"
-          className="text-sm transition-colors duration-200 mb-1"
-          style={{ color: "var(--text-muted)" }}
-          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--text-primary)"; }}
-          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = "var(--text-muted)"; }}
+          className="text-sm transition-opacity duration-200 hover:opacity-70 mb-1"
+          style={{ color: "#6b6560" }}
         >
           전체보기 →
         </Link>
       </div>
 
-      {/* 가로 스크롤 카드 리스트 */}
+      {/* 카드 리스트 */}
       <div className="overflow-x-auto scrollbar-hide">
-        <div className="flex gap-6 px-8 pb-4">
+        <div className="flex gap-5 px-8 pb-2">
           {active.map((page) => (
             <ActiveCard key={page.id} page={page} />
           ))}

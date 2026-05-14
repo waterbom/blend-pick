@@ -44,6 +44,17 @@ const STATUS_COLOR: Record<string, string> = {
   replied: "bg-emerald-50 text-emerald-500",
 };
 
+interface RecentProduct {
+  id: string;
+  name: string;
+  brand: string;
+  price: number;
+  original_price: number | null;
+  main_image: string | null;
+  status: string;
+  stock: number;
+}
+
 export default function InquiryButton({
   userId,
   upcoming = [],
@@ -53,12 +64,35 @@ export default function InquiryButton({
 }) {
   const [open, setOpen] = useState(false);
   const [upcomingOpen, setUpcomingOpen] = useState(false);
+  const [recentProducts, setRecentProducts] = useState<RecentProduct[]>([]);
+  const [selectedRecent, setSelectedRecent] = useState<RecentProduct | null>(null);
   const [tab, setTab] = useState<Tab>("submit");
   const [form, setForm] = useState({ name: "", contact: "", category: "제품문의", message: "" });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // 최근 본 상품 로드 함수
+  function loadRecentProducts() {
+    try {
+      const ids: string[] = JSON.parse(localStorage.getItem("recentProducts") || "[]");
+      if (ids.length === 0) { setRecentProducts([]); return; }
+      fetch("/api/products/recent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      })
+        .then((r) => r.json())
+        .then((data) => setRecentProducts(data.products || []));
+    } catch {}
+  }
+
+  useEffect(() => {
+    loadRecentProducts();
+    window.addEventListener("recentProductsUpdated", loadRecentProducts);
+    return () => window.removeEventListener("recentProductsUpdated", loadRecentProducts);
+  }, []);
 
   useEffect(() => {
     if (tab === "history" && open) {
@@ -93,8 +127,8 @@ export default function InquiryButton({
       {/* 예정 공구 팝업 */}
       {upcomingOpen && upcoming.length > 0 && (
         <div
-          className="fixed bottom-44 right-6 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden"
-          style={{ background: "#fff", border: "1px solid var(--warm-gray)" }}
+          className="fixed right-6 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden"
+          style={{ bottom: "14rem", background: "#fff", border: "1px solid var(--warm-gray)" }}
         >
           <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--warm-gray)" }}>
             <div>
@@ -144,9 +178,92 @@ export default function InquiryButton({
         </div>
       )}
 
+      {/* 최근 본 상품 — 가로 pill + 상품 카드 */}
+      {recentProducts.length > 0 && (
+        <div className="fixed z-40 flex flex-col items-end gap-2" style={{ bottom: "10rem", right: "1.5rem" }}>
+          {/* 선택된 상품 카드 */}
+          {selectedRecent && (
+            <div
+              className="w-52 rounded-2xl shadow-2xl overflow-hidden"
+              style={{ background: "#fff", border: "1px solid var(--warm-gray)" }}
+            >
+              <div className="relative w-full aspect-square">
+                {selectedRecent.main_image
+                  ? <img src={selectedRecent.main_image} alt={selectedRecent.name} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "var(--cream-dark)" }}>📦</div>
+                }
+                {(selectedRecent.status === "soldout" || selectedRecent.stock === 0) && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="text-white text-sm font-bold">품절</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => setSelectedRecent(null)}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-white text-sm leading-none"
+                  style={{ background: "rgba(0,0,0,0.45)" }}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="p-3">
+                <p className="text-xs font-semibold line-clamp-2 leading-snug mb-1" style={{ color: "var(--text-primary)" }}>
+                  {selectedRecent.name}
+                </p>
+                <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>
+                  {selectedRecent.price.toLocaleString()}원
+                </p>
+                <Link
+                  href={`/products/${selectedRecent.id}`}
+                  className="block mt-2 text-center text-xs font-semibold py-2 rounded-xl text-white transition-opacity hover:opacity-90"
+                  style={{ background: "var(--accent)" }}
+                  onClick={() => setSelectedRecent(null)}
+                >
+                  상품 보기
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* 가로 pill 바 */}
+          <div
+            className="flex items-center gap-3 pl-4 pr-3 py-2 rounded-full shadow-lg"
+            style={{ background: "#fff", border: "1px solid var(--warm-gray)" }}
+          >
+            <span className="text-xs font-semibold whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
+              최근 본 상품
+            </span>
+            <div className="flex items-center">
+              {recentProducts.slice(0, 5).map((p, i) => {
+                const isSoldout = p.status === "soldout" || p.stock === 0;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedRecent((prev) => (prev?.id === p.id ? null : p))}
+                    className="w-9 h-9 rounded-full overflow-hidden transition-all"
+                    style={{
+                      marginLeft: i > 0 ? "-8px" : "0",
+                      zIndex: recentProducts.length - i,
+                      position: "relative",
+                      border: selectedRecent?.id === p.id ? "2px solid var(--accent)" : "2px solid #fff",
+                      background: "var(--cream-dark)",
+                      opacity: isSoldout ? 0.5 : 1,
+                    }}
+                  >
+                    {p.main_image
+                      ? <img src={p.main_image} alt={p.name} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-xs">📦</div>
+                    }
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 플로팅 버튼 영역 */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        {/* 예정 공구 버튼 — 오렌지 그라데이션 → 테라코타 그라데이션 */}
+        {/* 예정 공구 버튼 */}
         {upcoming.length > 0 && (
           <div className="relative">
             <button

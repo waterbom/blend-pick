@@ -12,7 +12,7 @@ const NAV = [
   { label: "리뷰 관리", href: "/admin/reviews",        icon: "⭐" },
 ];
 
-export default function AdminSidebar({ adminName }: { adminName: string }) {
+export default function AdminSidebar() {
   const pathname = usePathname();
 
   return (
@@ -47,12 +47,10 @@ export default function AdminSidebar({ adminName }: { adminName: string }) {
         })}
       </nav>
 
-      {/* 하단 유저 */}
+      {/* 하단 로그아웃 */}
       <div className="px-6 py-4 border-t border-gray-100">
-        <p className="text-xs text-gray-400">로그인</p>
-        <p className="text-sm font-medium text-gray-700 truncate">{adminName}</p>
         <form action="/api/admin/logout" method="POST">
-          <button className="text-xs text-gray-400 hover:text-red-500 mt-1 transition-colors">
+          <button className="text-xs text-gray-400 hover:text-red-500 transition-colors">
             로그아웃
           </button>
         </form>

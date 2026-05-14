@@ -1,12 +1,9 @@
 import pool from "@/lib/db";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth";
 import Header from "@/components/Header";
 import SalesBanner from "@/components/SalesBanner";
 import HomeDealSection from "@/components/HomeDealSection";
 import CollabSection from "@/components/CollabSection";
 import TrendByAI from "@/components/TrendByAI";
-import InquiryButton from "@/components/InquiryButton";
 
 export interface CampaignPage {
   id: string;
@@ -128,34 +125,15 @@ async function getCollabProducts() {
   }
 }
 
-const ADMIN_EMAIL = "admin@blendpick.com";
-
-async function getUserInfo(): Promise<{ id: string | null; isAdmin: boolean }> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("shop_token")?.value;
-    if (!token) return { id: null, isAdmin: false };
-    const payload = await verifyToken(token);
-    return {
-      id: payload?.id || null,
-      isAdmin: payload?.email === ADMIN_EMAIL,
-    };
-  } catch {
-    return { id: null, isAdmin: false };
-  }
-}
-
 export default async function Home() {
-  const [active, upcoming, ended, userInfo, banner, collab] =
+  const [active, upcoming, ended, banner, collab] =
     await Promise.all([
       getActiveCampaigns(),
       getUpcomingCampaigns(),
       getEndedCampaigns(),
-      getUserInfo(),
       getBannerProducts(),
       getCollabProducts(),
     ]);
-  const { id: userId } = userInfo;
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -167,14 +145,14 @@ export default async function Home() {
       {/* HOT DEAL 섹션 */}
       <HomeDealSection active={active} upcoming={upcoming} ended={ended} />
 
+
+
       {/* 협업 가능 제품 섹션 */}
       <CollabSection products={collab.products} totalCount={collab.totalCount} />
 
       {/* BLEND PICK TREND BY AI */}
       <TrendByAI />
 
-      {/* 문의하기 플로팅 버튼 */}
-      <InquiryButton userId={userId} upcoming={upcoming} />
     </main>
   );
 }
