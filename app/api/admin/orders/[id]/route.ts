@@ -26,7 +26,7 @@ export async function PATCH(
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { status } = await request.json();
+  const { status, tracking_company, tracking_number } = await request.json();
 
   const VALID = ["preparing", "shipped", "delivered", "cancelled"];
   if (!VALID.includes(status)) {
@@ -37,11 +37,15 @@ export async function PATCH(
   try {
     await client.query("BEGIN");
 
-    // 주문 상태 변경
+    // 주문 상태 변경 (운송장 정보 있으면 함께 저장)
     const { rows } = await client.query(
-      `UPDATE orders SET status = $1 WHERE id = $2
+      `UPDATE orders
+       SET status = $1,
+           tracking_company = COALESCE($3, tracking_company),
+           tracking_number  = COALESCE($4, tracking_number)
+       WHERE id = $2
        RETURNING id, order_number, total_amount, payment_method, payment_key`,
-      [status, id]
+      [status, id, tracking_company ?? null, tracking_number ?? null]
     );
 
     if (rows.length === 0) {

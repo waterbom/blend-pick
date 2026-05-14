@@ -158,7 +158,11 @@ export default async function OrdersPage({
             ) : (
               orders.map((o) => (
                 <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{o.order_number}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                    <Link href={`/admin/orders/${o.id}`} className="hover:text-orange-500 transition-colors">
+                      {o.order_number}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
                     {new Date(o.created_at).toLocaleDateString("ko-KR")}
                   </td>

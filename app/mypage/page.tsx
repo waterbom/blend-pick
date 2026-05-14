@@ -27,11 +27,30 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   cancelled: { label: "취소됨",   color: "text-gray-400" },
 };
 
+// 택배사별 조회 URL
+const TRACKING_URL: Record<string, (n: string) => string> = {
+  cj:     (n) => `https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${n}`,
+  hanjin: (n) => `https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KOR&wblnumText2=${n}`,
+  lotte:  (n) => `https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo=${n}`,
+  post:   (n) => `https://service.epost.go.kr/trace.RetrieveDomRqst.comm?sid1=${n}`,
+  logen:  (n) => `https://www.ilogen.com/m/personal/trace/${n}`,
+  ems:    (n) => `https://service.epost.go.kr/trace.RetrieveEmsRqst.comm?POST_CODE=${n}`,
+  dhl:    (n) => `https://www.dhl.com/kr-ko/home/tracking.html?tracking-id=${n}`,
+  fedex:  (n) => `https://www.fedex.com/fedextrack/?trknbr=${n}`,
+};
+
+const CARRIER_NAME: Record<string, string> = {
+  cj: "CJ대한통운", hanjin: "한진택배", lotte: "롯데택배",
+  post: "우체국택배", logen: "로젠택배", ems: "EMS",
+  dhl: "DHL", fedex: "FedEx", etc: "기타",
+};
+
 async function getOrders(userId: string) {
   try {
     const result = await shopPool.query(
       `SELECT
         o.id, o.order_number, o.total_amount, o.status, o.paid_at,
+        o.tracking_company, o.tracking_number,
         json_agg(
           json_build_object(
             'product_id', oi.product_id,
@@ -163,7 +182,7 @@ export default async function MyPage() {
                       ))}
                     </div>
 
-                    {/* 총액 + 리뷰 */}
+                    {/* 총액 + 버튼 */}
                     <div
                       className="flex items-center justify-between pt-3"
                       style={{ borderTop: "1px solid var(--warm-gray)" }}
@@ -171,15 +190,28 @@ export default async function MyPage() {
                       <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                         총 {Number(order.total_amount).toLocaleString()}원
                       </span>
-                      {order.status === "delivered" && (
-                        <Link
-                          href={`/products/${order.items[0]?.product_id}#review`}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
-                          style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-                        >
-                          리뷰 쓰기
-                        </Link>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {order.status === "shipped" && order.tracking_company && order.tracking_number && (
+                          <a
+                            href={TRACKING_URL[order.tracking_company]?.(order.tracking_number) ?? "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+                            style={{ background: "#f3f0ff", color: "#7c3aed" }}
+                          >
+                            {CARRIER_NAME[order.tracking_company] ?? order.tracking_company} 조회
+                          </a>
+                        )}
+                        {order.status === "delivered" && (
+                          <Link
+                            href={`/products/${order.items[0]?.product_id}#review`}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+                            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                          >
+                            리뷰 쓰기
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
