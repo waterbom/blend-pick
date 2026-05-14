@@ -1,6 +1,5 @@
 import shopPool from "@/lib/db-shop";
 import Link from "next/link";
-import OrderStatusButton from "@/components/admin/OrderStatusButton";
 
 interface OrderRow {
   id: string;
@@ -177,7 +176,6 @@ export default async function OrdersPage({
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLE[o.status] || "bg-gray-100 text-gray-500"}`}>
                       {STATUS_LABEL[o.status] || o.status}
                     </span>
-                    <OrderStatusButton orderId={o.id} status={o.status} />
                   </td>
                 </tr>
               ))
