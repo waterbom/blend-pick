@@ -67,7 +67,7 @@ async function getActiveCampaigns() {
 
 async function getUpcomingCampaigns() {
   return getCampaignsByCondition(
-    `start_date > ${TODAY} AND start_date <= ${TODAY} + INTERVAL '7 days'`
+    `start_date > ${TODAY} AND start_date <= ${TODAY} + INTERVAL '30 days'`
   );
 }
 

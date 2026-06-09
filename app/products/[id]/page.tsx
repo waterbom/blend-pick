@@ -2,6 +2,7 @@ import shopPool from "@/lib/db-shop";
 import Header from "@/components/Header";
 import { notFound } from "next/navigation";
 import ProductDetail from "@/components/ProductDetail";
+import RefundPolicy from "@/components/RefundPolicy";
 
 interface Product {
   id: string;
@@ -110,6 +111,9 @@ export default async function ProductDetailPage({
         options={options}
         reviews={reviews}
       />
+      <div className="max-w-4xl mx-auto px-6">
+        <RefundPolicy />
+      </div>
     </main>
   );
 }

@@ -5,6 +5,7 @@ interface SalesPage {
   id: string;
   product_id: string;
   title: string;
+  influencer_name?: string | null;
   price: number;
   original_price: number | null;
   main_image: string | null;
@@ -12,7 +13,6 @@ interface SalesPage {
   ends_at: string | null;
   status: string;
   stock_quantity: number | null;
-  campaign_count?: number;
 }
 
 export default function SalesPageCard({ page }: { page: SalesPage }) {
@@ -50,9 +50,9 @@ export default function SalesPageCard({ page }: { page: SalesPage }) {
             </span>
           </div>
         )}
-        {page.campaign_count && page.campaign_count > 1 && (
-          <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-            {page.campaign_count}개 공구
+        {page.influencer_name && (
+          <div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+            × {page.influencer_name}
           </div>
         )}
       </div>

@@ -9,6 +9,7 @@ interface SalesPage {
   id: string;
   product_id: string;
   title: string;
+  influencer_name?: string | null;
   price: number;
   original_price: number | null;
   main_image: string | null;

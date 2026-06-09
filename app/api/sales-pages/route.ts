@@ -9,15 +9,16 @@ export async function GET() {
       WITH counts AS (
         SELECT product_id,
           SUM(CASE WHEN start_date <= ${TODAY} AND end_date >= ${TODAY} THEN 1 ELSE 0 END)::int AS active_count,
-          SUM(CASE WHEN start_date > ${TODAY} AND start_date <= ${TODAY} + INTERVAL '7 days' THEN 1 ELSE 0 END)::int AS upcoming_count,
-          SUM(CASE WHEN end_date < ${TODAY} AND end_date >= ${TODAY} - INTERVAL '7 days' THEN 1 ELSE 0 END)::int AS ended_count
+          SUM(CASE WHEN start_date > ${TODAY} THEN 1 ELSE 0 END)::int AS upcoming_count,
+          SUM(CASE WHEN end_date < ${TODAY} AND end_date >= ${TODAY} - INTERVAL '30 days' THEN 1 ELSE 0 END)::int AS ended_count
         FROM campaigns
         WHERE is_archived = false
         GROUP BY product_id
       )
-      SELECT DISTINCT ON (p.id, status_order)
+      SELECT
         c.id,
         p.name AS title,
+        i.name AS influencer_name,
         c.start_date AS starts_at,
         c.end_date AS ends_at,
         CASE
@@ -34,23 +35,18 @@ export async function GET() {
         COALESCE(NULLIF(sp.price, 0), NULLIF(c.unit_price, 0), NULLIF(p.groupbuy_price, 0), p.consumer_price, 0) AS price,
         COALESCE(sp.original_price, p.consumer_price) AS original_price,
         sp.stock_quantity,
-        p.id AS product_id,
-        CASE
-          WHEN c.start_date <= ${TODAY} AND c.end_date >= ${TODAY} THEN cnt.active_count
-          WHEN c.start_date > ${TODAY} THEN cnt.upcoming_count
-          ELSE cnt.ended_count
-        END AS campaign_count
+        p.id AS product_id
       FROM campaigns c
       JOIN products p ON c.product_id = p.id
+      LEFT JOIN influencers i ON i.id = c.influencer_id
       LEFT JOIN sales_pages sp ON sp.campaign_id = c.id
-      LEFT JOIN counts cnt ON cnt.product_id = p.id
       WHERE c.is_archived = false
         AND (
           (c.start_date <= ${TODAY} AND c.end_date >= ${TODAY})
-          OR (c.start_date > ${TODAY} AND c.start_date <= ${TODAY} + INTERVAL '7 days')
-          OR (c.end_date < ${TODAY} AND c.end_date >= ${TODAY} - INTERVAL '7 days')
+          OR (c.start_date > ${TODAY})
+          OR (c.end_date < ${TODAY} AND c.end_date >= ${TODAY} - INTERVAL '30 days')
         )
-      ORDER BY status_order, p.id, c.start_date ASC
+      ORDER BY status_order, c.start_date ASC
     `);
 
     const bannerResult = await pool.query(`

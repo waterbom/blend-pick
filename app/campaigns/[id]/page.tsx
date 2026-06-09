@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import pool from "@/lib/db";
 import InfluencerSelector from "@/components/InfluencerSelector";
+import RefundPolicy from "@/components/RefundPolicy";
 
 interface ActiveInfluencer {
   id: string;
@@ -222,6 +223,7 @@ export default async function ProductDetailPage({
             </ul>
           </div>
         )}
+        <RefundPolicy />
       </div>
     </main>
   );
