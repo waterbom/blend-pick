@@ -57,7 +57,7 @@ export default async function OrderDetailPage({
 }) {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_token")?.value;
-  if (!token || !(await verifyAdminToken(token))) redirect("/admin/login");
+  if (!token || !(await verifyAdminToken(token))) redirect("/login");
 
   const { id } = await params;
   const order = await getOrder(id);

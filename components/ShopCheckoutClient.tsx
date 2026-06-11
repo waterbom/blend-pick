@@ -20,6 +20,7 @@ export default function ShopCheckoutClient({
   productId,
   productName,
   optionId,
+  optionLabel,
   unitPrice,
   quantity,
   shippingCost,
@@ -69,6 +70,7 @@ export default function ShopCheckoutClient({
       productId,
       productName,
       optionId,
+      optionLabel: optionLabel || null,
       unitPrice,
       quantity,
       shippingCost,
@@ -183,12 +185,17 @@ export default function ShopCheckoutClient({
           </div>
           <div>
             <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>배송 메모</label>
-            <select name="shippingMemo" value={form.shippingMemo} onChange={handleChange} className={inputClass} style={{ ...inputStyle, appearance: "auto" }}>
-              <option value="">선택 안함</option>
-              <option value="문 앞에 놔주세요">문 앞에 놔주세요</option>
-              <option value="경비실에 맡겨주세요">경비실에 맡겨주세요</option>
-              <option value="배송 전 연락 부탁드려요">배송 전 연락 부탁드려요</option>
-            </select>
+            <textarea
+              name="shippingMemo"
+              value={form.shippingMemo}
+              onChange={(e) => setForm((prev) => ({ ...prev, shippingMemo: e.target.value }))}
+              placeholder="배송 시 요청사항을 입력해주세요"
+              rows={2}
+              className={inputClass}
+              style={{ ...inputStyle, resize: "none" }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--warm-gray)")}
+            />
           </div>
         </div>
       </section>

@@ -50,20 +50,25 @@ export async function POST(req: NextRequest) {
 
     const { rows } = await client.query(
       `INSERT INTO orders (
-        order_number, buyer_name, buyer_phone, buyer_email,
-        addr_zipcode, addr_address, addr_detail,
+        order_number, user_id, buyer_name, buyer_phone, buyer_email,
+        recipient_name, recipient_phone,
+        addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'paid',$10,$11,NOW())
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'paid',$14,$15,NOW())
       RETURNING id`,
       [
         orderNumber,
+        userId,
         checkoutData.customerName,
         checkoutData.customerPhone,
         checkoutData.customerEmail || null,
+        checkoutData.shippingName || checkoutData.customerName,
+        checkoutData.shippingPhone || checkoutData.customerPhone,
         checkoutData.shippingZipcode,
         checkoutData.shippingAddress,
         checkoutData.shippingAddress2 || null,
+        checkoutData.shippingMemo || null,
         checkoutData.totalAmount,
         checkoutData.shippingCost,
         paymentKey,
@@ -74,12 +79,13 @@ export async function POST(req: NextRequest) {
     const newOrderId = rows[0].id;
 
     await client.query(
-      `INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity)
-       VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         newOrderId,
         checkoutData.productId,
         checkoutData.productName,
+        checkoutData.optionLabel || null,
         checkoutData.unitPrice,
         checkoutData.quantity,
       ]

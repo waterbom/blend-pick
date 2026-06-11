@@ -36,5 +36,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }
   }
 
-  redirect("/admin/login");
+  redirect("/login");
 }

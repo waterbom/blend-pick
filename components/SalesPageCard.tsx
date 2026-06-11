@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CountdownTimer from "@/components/CountdownTimer";
+import FallbackImg from "@/components/FallbackImg";
 
 interface SalesPage {
   id: string;
@@ -32,17 +33,11 @@ export default function SalesPageCard({ page }: { page: SalesPage }) {
     <Link href={`/campaigns/${page.product_id}`} className="block group">
       {/* 이미지 */}
       <div className="relative aspect-square bg-gray-50 overflow-hidden mb-3">
-        {page.main_image ? (
-          <img
-            src={page.main_image}
-            alt={page.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-200 text-4xl">
-            📦
-          </div>
-        )}
+        <FallbackImg
+          src={page.main_image}
+          alt={page.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
         {isSoldOut && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="text-white text-sm font-bold tracking-widest">

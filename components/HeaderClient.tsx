@@ -92,24 +92,44 @@ export default function HeaderClient({ user, isAdmin = false }: { user: User | n
         </div>
 
         {/* 우측: 로그인/마이페이지 + 장바구니 */}
-        <div className="flex items-center gap-5 text-sm" style={{ color: "var(--text-secondary)" }}>
+        <div className="flex items-center gap-4 text-sm" style={{ color: "var(--text-secondary)" }}>
           {user ? (
-            <Link
-              href={isAdmin ? "/admin" : "/mypage"}
-              className="flex items-center gap-2 transition-colors duration-200 hover:opacity-80"
-            >
-              {user.profile_image ? (
-                <img
-                  src={user.profile_image}
-                  alt={user.nickname || user.name || ""}
-                  className="w-7 h-7 rounded-full object-cover ring-1"
-                  style={{ ringColor: "var(--warm-gray)" } as React.CSSProperties}
-                />
-              ) : null}
-              <span className="text-[13px] font-medium">
-                {user.nickname || user.name}
-              </span>
-            </Link>
+            isAdmin ? (
+              /* 관리자 */
+              <div className="flex items-center gap-3">
+                <span
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  관리자모드
+                </span>
+                <Link
+                  href="/admin"
+                  className="text-[13px] font-medium transition-colors duration-200 hover:opacity-80"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  관리자마이페이지
+                </Link>
+              </div>
+            ) : (
+              /* 일반 유저 */
+              <Link
+                href="/mypage"
+                className="flex items-center gap-2 transition-colors duration-200 hover:opacity-80"
+              >
+                {user.profile_image ? (
+                  <img
+                    src={user.profile_image}
+                    alt={user.nickname || user.name || ""}
+                    className="w-7 h-7 rounded-full object-cover ring-1"
+                    style={{ ringColor: "var(--warm-gray)" } as React.CSSProperties}
+                  />
+                ) : null}
+                <span className="text-[13px] font-medium">
+                  {user.nickname || user.name}
+                </span>
+              </Link>
+            )
           ) : (
             <Link
               href="/login"
@@ -121,7 +141,7 @@ export default function HeaderClient({ user, isAdmin = false }: { user: User | n
               로그인
             </Link>
           )}
-          {user && (
+          {user && !isAdmin && (
             <Link
               href="/cart"
               className="relative text-[13px] font-medium transition-colors duration-200"

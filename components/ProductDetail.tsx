@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +23,7 @@ interface Product {
   status: string;
   shipping_type: string;
   shipping_cost: number;
+  free_shipping_threshold: number | null;
   main_image: string | null;
 }
 
@@ -71,7 +73,6 @@ export default function ProductDetail({
   reviews: Review[];
 }) {
   const router = useRouter();
-  const [activeImage, setActiveImage] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
   const [cartLoading, setCartLoading] = useState(false);
@@ -156,49 +157,25 @@ export default function ProductDetail({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
-        {/* 이미지 영역 */}
-        <div>
-          <div
-            className="relative w-full aspect-square rounded-2xl overflow-hidden mb-3"
-            style={{ background: "var(--cream-dark)" }}
-          >
-            {images.length > 0 ? (
-              <img
-                src={images[activeImage].url}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-5xl">📦</div>
-            )}
-            {isSoldout && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-2xl" style={{ background: "rgba(0,0,0,0.45)" }}>
-                <span className="text-white text-lg font-bold">품절</span>
-              </div>
-            )}
-            {discount && !isSoldout && (
-              <span className="absolute top-3 left-3 text-white text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--accent)" }}>
-                -{discount}%
-              </span>
-            )}
-          </div>
-          {/* 썸네일 */}
-          {images.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto">
-              {images.map((img, i) => (
-                <button
-                  key={img.id}
-                  onClick={() => setActiveImage(i)}
-                  className="w-16 h-16 rounded-xl overflow-hidden shrink-0 transition-all"
-                  style={{
-                    border: activeImage === i ? "2px solid var(--accent)" : "2px solid transparent",
-                    background: "var(--cream-dark)",
-                  }}
-                >
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
+        {/* 대표 이미지 */}
+        <div
+          className="relative w-full aspect-square rounded-2xl overflow-hidden"
+          style={{ background: "var(--cream-dark)" }}
+        >
+          <FallbackImg
+            src={images[0]?.url}
+            alt={product.name}
+            className="w-full h-full object-cover"
+          />
+          {isSoldout && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-2xl" style={{ background: "rgba(0,0,0,0.45)" }}>
+              <span className="text-white text-lg font-bold">품절</span>
             </div>
+          )}
+          {discount && !isSoldout && (
+            <span className="absolute top-3 left-3 text-white text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--accent)" }}>
+              -{discount}%
+            </span>
           )}
         </div>
 
@@ -230,6 +207,8 @@ export default function ProductDetail({
           <div className="py-3 mb-4 text-sm" style={{ borderTop: "1px solid var(--warm-gray)", borderBottom: "1px solid var(--warm-gray)", color: "var(--text-secondary)" }}>
             {product.shipping_type === "free"
               ? "무료배송"
+              : product.shipping_type === "conditional_free" && product.free_shipping_threshold
+              ? `${product.free_shipping_threshold.toLocaleString()}원 이상 무료배송 (미만 ${product.shipping_cost.toLocaleString()}원)`
               : `배송비 ${product.shipping_cost.toLocaleString()}원`}
           </div>
 
@@ -343,16 +322,28 @@ export default function ProductDetail({
         </div>
       </div>
 
-      {/* 상품 상세 설명 */}
+      {/* 추가 이미지 — 세로 정렬 */}
+      {images.length > 1 && (
+        <div className="mb-8 space-y-2">
+          {images.slice(1).map((img, i) => (
+            <FallbackImg
+              key={img.id ?? i}
+              src={img.url}
+              alt={`상세 이미지 ${i + 1}`}
+              className="w-full rounded-xl object-contain"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 상품 상세 HTML */}
       {product.description && (
         <div className="mb-16">
-          <h2 className="text-base font-bold mb-4" style={{ color: "var(--text-primary)" }}>상품 상세</h2>
           <div
-            className="rounded-2xl p-6 text-sm leading-relaxed whitespace-pre-wrap"
-            style={{ background: "var(--cream-dark)", color: "var(--text-secondary)" }}
-          >
-            {product.description}
-          </div>
+            className="text-sm leading-relaxed"
+            style={{ color: "var(--text-secondary)" }}
+            dangerouslySetInnerHTML={{ __html: product.description }}
+          />
         </div>
       )}
 

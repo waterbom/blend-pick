@@ -16,6 +16,7 @@ interface Product {
   status: string;
   shipping_type: string;
   shipping_cost: number;
+  free_shipping_threshold: number | null;
   main_image: string | null;
 }
 
@@ -46,7 +47,7 @@ interface Review {
 async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
-            stock, status, shipping_type, shipping_cost, main_image
+            stock, status, shipping_type, shipping_cost, free_shipping_threshold, main_image
      FROM products_shop WHERE id = $1`,
     [id]
   );

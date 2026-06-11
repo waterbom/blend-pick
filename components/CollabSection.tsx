@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import FallbackImg from "@/components/FallbackImg";
 
 interface CollabProduct {
   id: string;
@@ -106,18 +107,11 @@ export default function CollabSection({
                 }}
               >
                 <div className="aspect-square overflow-hidden" style={{ background: "var(--cream)" }}>
-                  {p.product_image ? (
-                    <img
-                      src={p.product_image}
-                      alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl"
-                      style={{ color: "var(--text-muted)" }}>
-                      📦
-                    </div>
-                  )}
+                  <FallbackImg
+                    src={p.product_image}
+                    alt={p.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
                 </div>
                 <div className="px-3.5 py-3">
                   <p className="text-[10px] font-semibold tracking-[0.15em] uppercase truncate"

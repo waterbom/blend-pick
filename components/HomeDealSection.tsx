@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import CountdownTimer from "@/components/CountdownTimer";
+import FallbackImg from "@/components/FallbackImg";
 
 interface CampaignPage {
   id: string;
@@ -53,17 +54,11 @@ function ActiveCard({ page }: { page: CampaignPage }) {
     >
       {/* 이미지 */}
       <div className="relative aspect-square overflow-hidden">
-        {page.main_image ? (
-          <img
-            src={page.main_image}
-            alt={page.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "#1e1b18" }}>
-            📦
-          </div>
-        )}
+        <FallbackImg
+          src={page.main_image}
+          alt={page.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
 
         {/* 오늘 마감 뱃지 */}
         {closingToday && !isSoldOut && (

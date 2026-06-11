@@ -1,6 +1,7 @@
 import Link from "next/link";
 import shopPool from "@/lib/db-shop";
 import ProductDeleteButton from "@/components/admin/ProductDeleteButton";
+import ProductCodeCopy from "@/components/admin/ProductCodeCopy";
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   active:  { label: "판매중",  color: "bg-green-100 text-green-700" },
@@ -10,7 +11,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 async function getProducts() {
   const result = await shopPool.query(`
-    SELECT id, name, brand, price, stock, status, main_image, created_at
+    SELECT id, name, brand, price, stock, status, main_image, product_code, created_at
     FROM products_shop
     ORDER BY created_at DESC
   `);
@@ -29,6 +30,12 @@ export default async function AdminProductsPage() {
           <p className="text-sm text-gray-400 mt-0.5">총 {products.length}개 상품</p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/admin/categories"
+            className="border border-gray-200 text-gray-600 text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            카테고리 관리
+          </Link>
           <Link
             href="/admin/products/import"
             className="border border-gray-200 text-gray-600 text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
@@ -55,6 +62,7 @@ export default async function AdminProductsPage() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">상품</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">코드</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">가격</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">재고</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">상태</th>
@@ -79,6 +87,11 @@ export default async function AdminProductsPage() {
                           {p.brand && <p className="text-xs text-gray-400">{p.brand}</p>}
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.product_code
+                        ? <ProductCodeCopy code={p.product_code} />
+                        : <span className="text-xs text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {Number(p.price).toLocaleString()}원

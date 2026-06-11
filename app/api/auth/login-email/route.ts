@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       .setExpirationTime("7d")
       .sign(ADMIN_SECRET);
 
-    const res = NextResponse.json({ ok: true, redirect: "/admin" });
+    const res = NextResponse.json({ ok: true, redirect: "/" });
     res.cookies.set("admin_token", adminToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

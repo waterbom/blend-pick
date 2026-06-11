@@ -1,4 +1,5 @@
 import Link from "next/link";
+import FallbackImg from "@/components/FallbackImg";
 
 interface Product {
   id: string;
@@ -20,17 +21,11 @@ export default function ProductCard({ product }: { product: Product }) {
     <Link href={`/campaigns/${product.id}`} className="group block">
       {/* 이미지 */}
       <div className="aspect-square bg-gray-50 overflow-hidden mb-3">
-        {product.product_image ? (
-          <img
-            src={product.product_image}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-200 text-xs">
-            이미지 없음
-          </div>
-        )}
+        <FallbackImg
+          src={product.product_image}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
       </div>
 
       {/* 정보 */}

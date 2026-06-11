@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 
 interface BannerProduct {
@@ -91,20 +92,11 @@ export default function SalesBanner({
 
           {/* 오른쪽 — 이미지 */}
           <div className="w-72 h-72 shrink-0 rounded-3xl overflow-hidden" style={{ boxShadow: "var(--card-shadow-hover)" }}>
-            {p.product_image ? (
-              <img
-                src={p.product_image}
-                alt={p.name}
-                className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-              />
-            ) : (
-              <div
-                className="w-full h-full flex items-center justify-center text-6xl"
-                style={{ background: "var(--cream-dark)", color: "var(--text-muted)" }}
-              >
-                📦
-              </div>
-            )}
+            <FallbackImg
+              src={p.product_image}
+              alt={p.name}
+              className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+            />
           </div>
         </Link>
       ))}

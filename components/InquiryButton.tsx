@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import CountdownTimer from "@/components/CountdownTimer";
+import FallbackImg from "@/components/FallbackImg";
 
 type Tab = "submit" | "history";
 
@@ -155,11 +156,7 @@ export default function InquiryButton({
                 style={{ borderBottom: "1px solid var(--cream-dark)" }}
               >
                 <div className="w-12 h-12 shrink-0 overflow-hidden rounded-xl" style={{ background: "var(--cream-dark)" }}>
-                  {page.main_image ? (
-                    <img src={page.main_image} alt={page.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-lg" style={{ color: "var(--text-muted)" }}>📦</div>
-                  )}
+                  <FallbackImg src={page.main_image} alt={page.title} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium line-clamp-2 leading-snug mb-1" style={{ color: "var(--text-primary)" }}>
@@ -188,10 +185,7 @@ export default function InquiryButton({
               style={{ background: "#fff", border: "1px solid var(--warm-gray)" }}
             >
               <div className="relative w-full aspect-square">
-                {selectedRecent.main_image
-                  ? <img src={selectedRecent.main_image} alt={selectedRecent.name} className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center text-4xl" style={{ background: "var(--cream-dark)" }}>📦</div>
-                }
+                <FallbackImg src={selectedRecent.main_image} alt={selectedRecent.name} className="w-full h-full object-cover" />
                 {(selectedRecent.status === "soldout" || selectedRecent.stock === 0) && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     <span className="text-white text-sm font-bold">품절</span>
@@ -249,10 +243,7 @@ export default function InquiryButton({
                       opacity: isSoldout ? 0.5 : 1,
                     }}
                   >
-                    {p.main_image
-                      ? <img src={p.main_image} alt={p.name} className="w-full h-full object-cover" />
-                      : <div className="w-full h-full flex items-center justify-center text-xs">📦</div>
-                    }
+                    <FallbackImg src={p.main_image} alt={p.name} className="w-full h-full object-cover" />
                   </button>
                 );
               })}

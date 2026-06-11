@@ -1,6 +1,7 @@
 import shopPool from "@/lib/db-shop";
 import Header from "@/components/Header";
 import Link from "next/link";
+import FallbackImg from "@/components/FallbackImg";
 
 interface Product {
   id: string;
@@ -114,15 +115,11 @@ export default async function ShopPage({
                     className="relative w-full aspect-square rounded-2xl overflow-hidden mb-3"
                     style={{ background: "var(--cream-dark)" }}
                   >
-                    {p.main_image ? (
-                      <img
-                        src={p.main_image}
-                        alt={p.name}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-3xl">📦</div>
-                    )}
+                    <FallbackImg
+                      src={p.main_image}
+                      alt={p.name}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
                     {discount && (
                       <span
                         className="absolute top-2 left-2 text-white text-xs font-bold px-2 py-0.5 rounded-full"
