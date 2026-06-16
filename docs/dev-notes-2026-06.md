@@ -384,3 +384,145 @@ app/admin/login/  — 전용 관리자 로그인 페이지 삭제
 - **발주 엑셀 CSV** — 반드시 UTF-8 BOM 포함해야 한국어 깨지지 않음
 - **배송 타입** — `conditional_free` 추가 시 `free_shipping_threshold` 컬럼 필수
 - **admin_token vs shop_token** — 두 쿠키가 독립적으로 관리됨, 어드민은 shop_token 없어도 됨
+
+---
+
+## 13. 배송관리 시스템
+
+### 전체 주문 상태 흐름
+
+```
+paid → preparing → shipped → delivered
+ ↑          ↑          ↑          ↓
+결제완료  발주처리   운송장입력   배송완료
+                              (정산 자동생성)
+```
+
+### 배송사 추적 API — 스위트트래커
+
+- 서비스: https://info.sweettracker.co.kr
+- API 키: `.env.local`의 `SWEETTRACKER_API_KEY`
+- 무료 플랜: 월 1,000건
+- 필수 파라미터: `t_key`(API 키), `t_code`(택배사 코드), `t_invoice`(운송장번호)
+- 배송완료 감지 기준: `lastStateDetail.level >= 6`
+
+### 스위트트래커 택배사 코드표
+
+| 코드 | 택배사 |
+|------|--------|
+| 01 | 우체국택배 |
+| 04 | CJ대한통운 |
+| 05 | 한진택배 |
+| 06 | 로젠택배 |
+| 08 | 롯데택배 |
+| 23 | 경동택배 |
+| 26 | GS편의점택배 |
+| 40 | FedEx |
+| 41 | UPS |
+| 46 | CU편의점택배 |
+| 53 | 홈픽택배 |
+| 68 | DHL |
+| 77 | 대신택배 |
+
+> **핵심**: DB(`tracking_company`)에 코드 2자리("04")를 저장. UI에서 코드 → 이름 매핑해 표시.  
+> 레거시 텍스트("CJ대한통운")가 DB에 있을 수 있어 `resolveCarrierCode()`에 퍼지 매칭 폴백 유지.
+
+### API 구조
+
+```
+POST /api/admin/shipments/import   — CSV 운송장 일괄 입력 → shipped 상태 변경
+PATCH /api/admin/shipments/deliver — 선택 주문 배송완료 처리 + 정산 자동 생성
+POST /api/admin/shipments/track    — 스위트트래커 API 조회 → 배송완료 자동 처리
+```
+
+### 운송장 CSV 포맷 (2컬럼)
+
+```
+주문번호,운송장번호
+BP-20260611-XXXXX,123456789012
+```
+
+- 택배사는 UI 드롭다운에서 선택 (CSV에 포함 안 함)
+- 헤더 행 자동 감지 (첫 글자가 숫자 아니면 헤더로 간주해 skip)
+- UTF-8로 읽음
+
+### 운송장 import 로직 (import/route.ts)
+
+```
+preparing 상태인 주문 → tracking_company, tracking_number 저장 + status = 'shipped'
+이미 다른 상태인 주문 → tracking 정보만 업데이트 (상태 변경 없음)
+없는 주문번호 → failed 배열에 포함, 클라이언트에 반환
+```
+
+### 배송완료 처리 시 정산 자동 생성 (deliver/route.ts, track/route.ts 공통)
+
+```ts
+const FEE_RATE = { card: 0.0363, transfer: 0.0165 }; // 토스페이먼츠 수수료
+gross = total_amount
+fee   = round(gross * rate)
+net   = gross - fee
+→ settlements 테이블에 INSERT (중복 방지: order_id 기존 레코드 체크 후 skip)
+```
+
+### 관리자 UI — 배송관리 페이지 (/admin/shipments)
+
+**배송준비 탭**
+1. 택배사 드롭다운 선택
+2. CSV 파일 업로드 → 미리보기 (최대 5행 표시 + "외 N건")
+3. "N건 배송중으로 변경" 버튼 → import API 호출
+4. 결과: 성공/실패 건수 표시
+
+**배송중 탭**
+1. "배송추적 실행" 버튼 → track API 호출 → 완료 건 자동 처리
+2. 수동 체크박스 선택 → "배송완료 처리 (N건)" 버튼 (스위트트래커 없이도 사용 가능)
+
+### 신규 파일
+
+```
+app/api/admin/shipments/import/route.ts   — 운송장 CSV 파싱 + shipped 처리
+app/api/admin/shipments/deliver/route.ts  — 배송완료 일괄 + 정산 생성
+app/api/admin/shipments/track/route.ts    — 스위트트래커 API 조회
+app/admin/(protected)/shipments/page.tsx  — 페이지
+components/admin/ShipmentsClient.tsx      — 배송준비/배송중 탭 UI
+```
+
+### 테스트 방법 (curl 기반 E2E)
+
+```bash
+# 1. admin JWT 직접 생성 (시크릿: blend-admin-secret-2026)
+node -e "
+const { SignJWT } = require('./node_modules/jose');
+const secret = new TextEncoder().encode('blend-admin-secret-2026');
+new SignJWT({ id: 1, email: 'admin@blendpick.com', name: 'admin' })
+  .setProtectedHeader({ alg: 'HS256' })
+  .setExpirationTime('1h')
+  .sign(secret)
+  .then(t => console.log(t));
+"
+
+TOKEN="<위에서 나온 토큰>"
+
+# 2. paid → preparing
+curl -X PATCH http://localhost:3000/api/admin/orders \
+  -H "Cookie: admin_token=$TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"orderIds":["<ORDER_UUID>"]}'
+
+# 3. preparing → shipped (운송장 입력)
+curl -X POST http://localhost:3000/api/admin/shipments/import \
+  -H "Cookie: admin_token=$TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"rows":[{"order_number":"BP-XXX","carrier":"04","tracking_number":"TEST-123"}]}'
+
+# 4. shipped → delivered (수동)
+curl -X PATCH http://localhost:3000/api/admin/shipments/deliver \
+  -H "Cookie: admin_token=$TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"orderIds":["<ORDER_UUID>"]}'
+```
+
+### 주의사항
+
+- 스위트트래커는 **실제 운송장번호**만 추적 가능 (테스트 번호 조회 실패는 정상)
+- `tracking_company`는 코드("04") 저장, UI에서 이름으로 변환
+- 배송완료 처리 시 settlements 중복 생성 방지 로직 있음 (기존 레코드 있으면 skip)

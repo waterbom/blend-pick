@@ -1,6 +1,6 @@
 import pool from "@/lib/db";
 import Header from "@/components/Header";
-import SalesBanner from "@/components/SalesBanner";
+import ShopHeroBanner from "@/components/ShopHeroBanner";
 import HomeDealSection from "@/components/HomeDealSection";
 import CollabSection from "@/components/CollabSection";
 import TrendByAI from "@/components/TrendByAI";
@@ -50,9 +50,10 @@ async function getCampaignsByCondition(
       LEFT JOIN influencers i ON i.id = c.influencer_id
       JOIN counts cnt ON cnt.product_id = p.id
       WHERE c.is_archived = false AND ${dateWhere}
+        AND COALESCE(NULLIF(sp.price, 0), NULLIF(c.unit_price, 0), NULLIF(p.groupbuy_price, 0), p.consumer_price, 0) > 0
       ORDER BY p.id, c.start_date ASC
     `);
-    return result.rows;
+    return result.rows.filter((r) => r.price > 0);
   } catch (e) {
     console.error(e);
     return [];
@@ -77,23 +78,6 @@ async function getEndedCampaigns() {
   );
 }
 
-async function getBannerProducts() {
-  try {
-    const result = await pool.query(
-      `SELECT p.id, p.name, p.product_image, COUNT(c.id)::int AS campaign_count
-       FROM products p
-       JOIN campaigns c ON c.product_id = p.id
-       WHERE p.product_image IS NOT NULL
-       GROUP BY p.id, p.name, p.product_image
-       ORDER BY campaign_count DESC
-       LIMIT 3`
-    );
-    return result.rows;
-  } catch (e) {
-    console.error(e);
-    return [];
-  }
-}
 
 async function getCollabProducts() {
   try {
@@ -126,12 +110,11 @@ async function getCollabProducts() {
 }
 
 export default async function Home() {
-  const [active, upcoming, ended, banner, collab] =
+  const [active, upcoming, ended, collab] =
     await Promise.all([
       getActiveCampaigns(),
       getUpcomingCampaigns(),
       getEndedCampaigns(),
-      getBannerProducts(),
       getCollabProducts(),
     ]);
 
@@ -140,7 +123,7 @@ export default async function Home() {
       <Header />
 
       {/* 히어로 배너 슬라이더 */}
-      <SalesBanner products={banner} />
+      <ShopHeroBanner />
 
       {/* HOT DEAL 섹션 */}
       <HomeDealSection active={active} upcoming={upcoming} ended={ended} />

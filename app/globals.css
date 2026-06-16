@@ -1,27 +1,20 @@
 @import "tailwindcss";
 
-/* ── 컬러 시스템 ──
-   CSS Custom Properties(변수)로 색상을 관리하면
-   나중에 다크모드나 테마 전환을 쉽게 할 수 있다.
-
-   기존: #ffffff(순백) + orange-500(쿠팡톤) → 차갑고 촌스러움
-   변경: cream 계열 + terracotta(#c4765b) → 따뜻하고 고급스러움
-*/
 :root {
-  --background: #faf8f5;        /* 크림 화이트 — 순백보다 따뜻함 */
-  --foreground: #2d2a26;        /* 따뜻한 블랙 — 순수 검정(#000)보다 부드러움 */
-  --cream: #faf8f5;
-  --cream-dark: #f3efe9;        /* 섹션 배경용 (기존 gray-50 대체) */
-  --warm-gray: #e8e3dc;
-  --warm-gray-dark: #d4cec5;
-  --accent: #c4765b;            /* 테라코타 — 메인 포인트 컬러 */
-  --accent-light: #e8a990;
-  --accent-soft: #f5e6df;       /* 연한 포인트 배경 */
-  --text-primary: #2d2a26;
-  --text-secondary: #7a7468;    /* 보조 텍스트 */
-  --text-muted: #a69f95;        /* 흐린 텍스트 */
-  --card-shadow: 0 2px 20px rgba(45, 42, 38, 0.06);
-  --card-shadow-hover: 0 8px 32px rgba(45, 42, 38, 0.1);
+  --background: #D2B48C;
+  --foreground: #2D5A27;
+  --cream: #FFF8E7;
+  --cream-dark: #FFF8E7;
+  --warm-gray: #96AD90;
+  --warm-gray-dark: #96AD90;
+  --accent: #2D5A27;
+  --accent-light: #96AD90;
+  --accent-soft: #FFF8E7;
+  --text-primary: #2D5A27;
+  --text-secondary: #2D5A27;
+  --text-muted: #96AD90;
+  --card-shadow: 0 2px 20px rgba(45, 90, 39, 0.1);
+  --card-shadow-hover: 0 8px 32px rgba(45, 90, 39, 0.18);
 }
 
 body {
@@ -30,8 +23,6 @@ body {
   font-family: "Pretendard", "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ── 스크롤바 커스텀 ──
-   기본 스크롤바는 투박함. 얇고 둥근 스크롤바로 교체 */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -44,26 +35,19 @@ body {
   border-radius: 999px;
 }
 
-/* ── 애니메이션 ──
-   @keyframes: CSS 애니메이션의 "시나리오"를 정의
-   from → to 또는 0% → 100%로 변화를 지정한다 */
-
-/* 아래에서 위로 올라오면서 나타남 — 카드/섹션 등장에 사용 */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 부드러운 깜빡임 */
 @keyframes gentlePulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
 }
 
-/* 기존 upcoming 버튼용 — 색상만 accent로 변경 */
 @keyframes upcomingPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 118, 91, 0.4); }
-  50% { box-shadow: 0 0 0 10px rgba(196, 118, 91, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(45, 90, 39, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(45, 90, 39, 0); }
 }
 
 @keyframes upcomingRing {
@@ -71,7 +55,6 @@ body {
   100% { transform: scale(1.6); opacity: 0; }
 }
 
-/* 가로 스크롤 영역에서 스크롤바 숨기기 */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;

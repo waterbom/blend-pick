@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
 
+
 interface Product {
   id: string;
   name: string;
@@ -52,7 +53,6 @@ export default async function ShopPage({
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
-
       <div className="px-6 pt-8 pb-16 max-w-6xl mx-auto">
         {/* 헤더 */}
         <div className="mb-8">
@@ -140,7 +140,7 @@ export default async function ShopPage({
 
                   {/* 정보 */}
                   <div>
-                    <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>{p.brand}</p>
+                    <p className="text-xs mb-0.5" style={{ color: "#2D5A27" }}>{p.brand}</p>
                     <p className="text-sm font-medium line-clamp-2 leading-snug mb-1.5" style={{ color: "var(--text-primary)" }}>
                       {p.name}
                     </p>
@@ -149,12 +149,12 @@ export default async function ShopPage({
                         {p.price.toLocaleString()}원
                       </span>
                       {p.original_price && p.original_price > p.price && (
-                        <span className="text-xs line-through" style={{ color: "var(--text-muted)" }}>
+                        <span className="text-xs line-through" style={{ color: "#2D5A27" }}>
                           {p.original_price.toLocaleString()}원
                         </span>
                       )}
                     </div>
-                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                    <p className="text-xs mt-1" style={{ color: "#2D5A27" }}>
                       {p.shipping_type === "free" ? "무료배송" : `배송비 ${p.shipping_cost.toLocaleString()}원`}
                     </p>
                   </div>

@@ -43,7 +43,6 @@ interface User {
 }
 
 export default function HeaderClient({ user, isAdmin = false }: { user: User | null; isAdmin?: boolean }) {
-  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50" style={{ background: "var(--cream)" }}>
@@ -53,23 +52,17 @@ export default function HeaderClient({ user, isAdmin = false }: { user: User | n
         → 시각적으로 깔끔하고, 세로 공간 절약
       */}
       <div className="px-8 flex items-center justify-between h-14">
-        {/* 좌측: 햄버거 + 로고 */}
-        <div className="flex items-center gap-5">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="flex flex-col gap-[5px] p-1 hover:opacity-60 transition-opacity"
-          >
-            <span className="w-5 h-[1.5px] block rounded-full" style={{ background: "var(--text-primary)" }} />
-            <span className="w-3.5 h-[1.5px] block rounded-full" style={{ background: "var(--text-primary)" }} />
-            <span className="w-5 h-[1.5px] block rounded-full" style={{ background: "var(--text-primary)" }} />
-          </button>
-
-          <Link href="/" className="text-lg font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+        {/* 좌측: 로고 */}
+        <div className="flex items-center">
+          <Link href="/" className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
             BLEND PICK
           </Link>
 
+          {/* 구분선 */}
+          <div className="hidden sm:block w-px h-4 mx-6 rounded-full" style={{ background: "var(--accent)", opacity: 0.35 }} />
+
           {/* 네비게이션 */}
-          <nav className="hidden sm:flex items-center gap-6 ml-4">
+          <nav className="hidden sm:flex items-center gap-6">
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.label}
@@ -156,21 +149,7 @@ export default function HeaderClient({ user, isAdmin = false }: { user: User | n
         </div>
       </div>
 
-      {/* 하단 구분선 — 기존 border-gray-100 대신 따뜻한 톤 */}
-      <div className="h-px" style={{ background: "var(--warm-gray)" }} />
 
-      {/* 사이드 메뉴 (추후 구현) */}
-      {menuOpen && (
-        <div
-          className="absolute top-full left-0 w-64 shadow-lg p-6 z-50 rounded-br-2xl"
-          style={{
-            background: "var(--cream)",
-            border: `1px solid var(--warm-gray)`,
-          }}
-        >
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>메뉴 준비 중</p>
-        </div>
-      )}
     </header>
   );
 }

@@ -69,7 +69,7 @@ export default function CollabSection({
   if (!products.length) return null;
 
   return (
-    <section className="py-20 overflow-hidden" style={{ background: "var(--cream-dark)" }}>
+    <section className="py-20 overflow-hidden" style={{ background: "#E5D5B8" }}>
       {/* 헤더 */}
       <div className="px-8 mb-12">
         <p
