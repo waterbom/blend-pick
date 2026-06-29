@@ -20,10 +20,10 @@ export default function Footer() {
 
           {/* 사업자 정보 */}
           <div className="text-xs text-gray-400 space-y-1 leading-relaxed">
-            <p>상호명: 블렌드픽 &nbsp;|&nbsp; 대표: 유혁 &nbsp;|&nbsp; 사업자등록번호: 697-22-02084</p>
+            <p>상호명: 블랜드 펀치(BLEND PUNCH) &nbsp;|&nbsp; 대표: 유혁 &nbsp;|&nbsp; 사업자등록번호: 697-22-02084</p>
             <p>통신판매업 신고번호: 제 2024-안양만안-0082 호</p>
             <p>교환·반품 주소: 경기도 안양시 만안구 병목안로 15</p>
-            <p>고객센터: blendpick@blendpunch.com</p>
+            <p>대표전화: 010-4792-3646 &nbsp;|&nbsp; 고객센터: blendpick@blendpunch.com</p>
           </div>
 
           <p className="text-xs text-gray-300">© 2026 Blend Pick. All rights reserved.</p>
