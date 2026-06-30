@@ -186,17 +186,17 @@ export default function ProductFormClient({ mode, productId }: Props) {
         e.preventDefault();
         const file = items[i].getAsFile();
         if (!file) return;
+        // await 전에 미리 캡처 — 이후엔 currentTarget과 form 값이 stale해짐
+        const start = e.currentTarget.selectionStart ?? form.detail_html.length;
+        const end = e.currentTarget.selectionEnd ?? form.detail_html.length;
+        const currentHtml = form.detail_html;
         const fd = new FormData();
         fd.append("file", file);
         const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
         const data = await res.json();
         if (!res.ok) return;
         const tag = `<img src="${data.url}" style="max-width:100%;" />\n`;
-        const ta = e.currentTarget;
-        const start = ta.selectionStart ?? form.detail_html.length;
-        const end = ta.selectionEnd ?? form.detail_html.length;
-        const newVal = form.detail_html.slice(0, start) + tag + form.detail_html.slice(end);
-        set("detail_html", newVal);
+        set("detail_html", currentHtml.slice(0, start) + tag + currentHtml.slice(end));
         return;
       }
     }
