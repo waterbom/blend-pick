@@ -773,6 +773,19 @@ function ImageSlot({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
+  async function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) onFile(file);
+        return;
+      }
+    }
+    // 이미지 파일이 아니면 URL 텍스트 붙여넣기로 처리 (기본 동작 유지)
+  }
+
   return (
     <div className="space-y-1.5">
       <div
@@ -804,7 +817,7 @@ function ImageSlot({
             <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            {large && <span className="text-xs">클릭 또는 파일 업로드</span>}
+            {large && <span className="text-xs">클릭·파일업로드·붙여넣기(Ctrl+V)</span>}
           </div>
         )}
         {uploading && (
@@ -819,9 +832,10 @@ function ImageSlot({
       <input
         value={url}
         onChange={e => onUrl(e.target.value)}
+        onPaste={handlePaste}
         onClick={e => e.stopPropagation()}
         className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 text-gray-600 placeholder-gray-300"
-        placeholder="URL 직접 입력"
+        placeholder="URL 입력 또는 이미지 붙여넣기(Ctrl+V)"
       />
     </div>
   );
