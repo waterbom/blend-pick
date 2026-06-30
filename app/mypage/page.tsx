@@ -5,6 +5,7 @@ import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import Header from "@/components/Header";
 import WithdrawButton from "@/components/WithdrawButton";
+import CancelOrderButton from "@/components/CancelOrderButton";
 import Link from "next/link";
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
@@ -20,11 +21,17 @@ const ROLE_STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  paid:      { label: "결제완료", color: "text-blue-500" },
-  preparing: { label: "배송준비", color: "text-yellow-500" },
-  shipped:   { label: "배송중",   color: "text-orange-500" },
-  delivered: { label: "배송완료", color: "text-green-500" },
-  cancelled: { label: "취소됨",   color: "text-gray-400" },
+  paid:               { label: "결제완료",   color: "text-blue-500" },
+  confirmed:          { label: "주문확인",   color: "text-blue-600" },
+  preparing:          { label: "배송준비",   color: "text-yellow-500" },
+  shipped:            { label: "배송중",     color: "text-orange-500" },
+  delivered:          { label: "배송완료",   color: "text-green-500" },
+  cancelled:          { label: "취소됨",     color: "text-gray-400" },
+  cancel_requested:   { label: "취소요청중", color: "text-red-400" },
+  exchange_requested: { label: "교환신청",   color: "text-purple-500" },
+  exchange_completed: { label: "교환완료",   color: "text-purple-400" },
+  return_requested:   { label: "반품신청",   color: "text-orange-400" },
+  return_completed:   { label: "반품완료",   color: "text-orange-300" },
 };
 
 // 택배사별 조회 URL
@@ -201,6 +208,9 @@ export default async function MyPage() {
                           >
                             {CARRIER_NAME[order.tracking_company] ?? order.tracking_company} 조회
                           </a>
+                        )}
+                        {(order.status === "paid" || order.status === "confirmed") && (
+                          <CancelOrderButton orderId={order.id} />
                         )}
                         {order.status === "delivered" && (
                           <Link

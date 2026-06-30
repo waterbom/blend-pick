@@ -61,20 +61,33 @@ export async function GET(req: Request) {
   return NextResponse.json(result.rows);
 }
 
-// 일괄 발주처리 — 선택 주문들을 preparing 상태로 변경
+// 일괄 상태 변경
+// action: "confirm" | "dispatch" | "exchange_complete" | "return_complete" | "cancel_confirm"
 export async function PATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { orderIds } = await req.json();
+  const { orderIds, action } = await req.json();
   if (!Array.isArray(orderIds) || orderIds.length === 0) {
     return NextResponse.json({ error: "주문 ID가 없습니다" }, { status: 400 });
   }
 
-  await shopPool.query(
-    `UPDATE orders SET status = 'preparing' WHERE id = ANY($1::uuid[]) AND status = 'paid'`,
-    [orderIds]
+  const TRANSITIONS: Record<string, { from: string; to: string }> = {
+    confirm:          { from: "paid",              to: "confirmed" },
+    dispatch:         { from: "confirmed",          to: "preparing" },
+    exchange_complete: { from: "exchange_requested", to: "exchange_completed" },
+    return_complete:  { from: "return_requested",   to: "return_completed" },
+    cancel_confirm:   { from: "cancel_requested",   to: "cancelled" },
+  };
+
+  const t = TRANSITIONS[action];
+  if (!t) return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+
+  const result = await shopPool.query(
+    `UPDATE orders SET status = $1, updated_at = NOW()
+     WHERE id = ANY($2::uuid[]) AND status = $3`,
+    [t.to, orderIds, t.from]
   );
 
-  return NextResponse.json({ ok: true, updated: orderIds.length });
+  return NextResponse.json({ ok: true, updated: result.rowCount });
 }

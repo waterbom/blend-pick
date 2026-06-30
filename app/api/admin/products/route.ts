@@ -15,7 +15,7 @@ export async function GET() {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const result = await shopPool.query(`
-    SELECT id, name, brand, price, original_price, stock, category, status,
+    SELECT id, name, brand, price, original_price, stock, category, status, sale_type,
            shipping_type, shipping_cost, main_image, created_at
     FROM products_shop
     ORDER BY created_at DESC
@@ -29,10 +29,19 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const {
-    name, brand, description, price, original_price,
-    stock, category, status, shipping_type, shipping_cost,
-    free_shipping_threshold, main_image,
-    extra_images, options,
+    name, brand, description, price, original_price, instant_discount_price,
+    stock, category, status, sale_type,
+    presale_enabled, presale_start_at, presale_end_at,
+    sale_start_at, sale_end_at, tax_type,
+    shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost,
+    shipping_carrier, shipping_attr,
+    island_shipping_cost, installation_cost,
+    release_address, return_address,
+    return_cost_oneway, return_cost_roundtrip,
+    exchange_cost_oneway, exchange_cost_roundtrip,
+    as_notes,
+    manufacturer, origin_country, product_condition, manufacture_date,
+    main_image, extra_images, options,
   } = body;
 
   if (!name || price == null) {
@@ -44,32 +53,54 @@ export async function POST(req: Request) {
     await client.query("BEGIN");
 
     const result = await client.query(`
-      INSERT INTO products_shop
-        (name, brand, description, price, original_price, stock, category,
-         status, shipping_type, shipping_cost, free_shipping_threshold, main_image)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      RETURNING id
+      INSERT INTO products_shop (
+        name, brand, description, price, original_price, instant_discount_price,
+        stock, category, status, sale_type,
+        presale_enabled, presale_start_at, presale_end_at,
+        sale_start_at, sale_end_at, tax_type,
+        shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost,
+        shipping_carrier, shipping_attr,
+        island_shipping_cost, installation_cost,
+        release_address, return_address,
+        return_cost_oneway, return_cost_roundtrip,
+        exchange_cost_oneway, exchange_cost_roundtrip,
+        as_notes,
+        manufacturer, origin_country, product_condition, manufacture_date,
+        main_image
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+        $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+        $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
+        $31,$32,$33,$34,$35,$36
+      ) RETURNING id
     `, [
       name, brand || null, description || null,
-      price, original_price || null, stock ?? 0,
-      category || null, status || "active",
-      shipping_type || "paid", shipping_cost ?? 3000,
-      free_shipping_threshold || null,
+      price, original_price || null, instant_discount_price || null,
+      stock ?? 0, category || null,
+      status || "active", sale_type || "always",
+      presale_enabled ?? false, presale_start_at || null, presale_end_at || null,
+      sale_start_at || null, sale_end_at || null, tax_type || "taxable",
+      shipping_type || "paid", shipping_cost ?? 3000, free_shipping_threshold || null,
+      per_unit_shipping_cost ?? 0,
+      shipping_carrier || null, shipping_attr || "standard",
+      island_shipping_cost ?? 0, installation_cost ?? 0,
+      release_address || null, return_address || null,
+      return_cost_oneway ?? 0, return_cost_roundtrip ?? 0,
+      exchange_cost_oneway ?? 0, exchange_cost_roundtrip ?? 0,
+      as_notes || null,
+      manufacturer || null, origin_country || null,
+      product_condition || "new", manufacture_date || null,
       main_image || null,
     ]);
 
     const productId = result.rows[0].id;
 
-    // product_code 자동 채번: 기존 최댓값 + 1 (P001, P002, ...)
     const codeResult = await client.query(
       `SELECT COALESCE(MAX(CAST(SUBSTRING(product_code FROM 2) AS INTEGER)), 0) + 1 AS next_num
        FROM products_shop WHERE product_code ~ '^P[0-9]+$'`
     );
     const nextCode = "P" + String(codeResult.rows[0].next_num).padStart(3, "0");
-    await client.query(
-      `UPDATE products_shop SET product_code = $1 WHERE id = $2`,
-      [nextCode, productId]
-    );
+    await client.query(`UPDATE products_shop SET product_code = $1 WHERE id = $2`, [nextCode, productId]);
 
     if (Array.isArray(extra_images)) {
       for (let i = 0; i < extra_images.length; i++) {

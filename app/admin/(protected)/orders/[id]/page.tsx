@@ -6,19 +6,31 @@ import Link from "next/link";
 import TrackingForm from "@/components/admin/TrackingForm";
 
 const STATUS_LABEL: Record<string, string> = {
-  paid: "신규주문",
-  preparing: "배송준비",
-  shipped: "배송중",
-  delivered: "배송완료",
-  cancelled: "취소",
+  paid:               "신규주문",
+  confirmed:          "주문확인",
+  preparing:          "배송준비",
+  shipped:            "배송중",
+  delivered:          "배송완료",
+  cancelled:          "취소완료",
+  cancel_requested:   "취소요청",
+  exchange_requested: "교환신청",
+  exchange_completed: "교환완료",
+  return_requested:   "반품신청",
+  return_completed:   "반품완료",
 };
 
 const STATUS_STYLE: Record<string, string> = {
-  paid: "bg-blue-50 text-blue-600",
-  preparing: "bg-yellow-50 text-yellow-600",
-  shipped: "bg-purple-50 text-purple-600",
-  delivered: "bg-green-50 text-green-600",
-  cancelled: "bg-red-50 text-red-500",
+  paid:               "bg-blue-50 text-blue-600",
+  confirmed:          "bg-indigo-50 text-indigo-600",
+  preparing:          "bg-yellow-50 text-yellow-600",
+  shipped:            "bg-purple-50 text-purple-600",
+  delivered:          "bg-green-50 text-green-600",
+  cancelled:          "bg-gray-100 text-gray-400",
+  cancel_requested:   "bg-red-50 text-red-500",
+  exchange_requested: "bg-violet-50 text-violet-600",
+  exchange_completed: "bg-violet-50 text-violet-400",
+  return_requested:   "bg-orange-50 text-orange-500",
+  return_completed:   "bg-orange-50 text-orange-400",
 };
 
 async function getOrder(id: string) {
@@ -26,6 +38,7 @@ async function getOrder(id: string) {
     `SELECT
       o.id, o.order_number, o.status,
       o.buyer_name, o.buyer_phone, o.buyer_email,
+      o.recipient_name, o.recipient_phone,
       o.addr_zipcode, o.addr_address, o.addr_detail, o.addr_memo,
       o.total_amount, o.shipping_fee,
       o.payment_method, o.payment_key,
@@ -36,7 +49,7 @@ async function getOrder(id: string) {
           'id', oi.id,
           'product_id', oi.product_id,
           'product_name', oi.product_name,
-          'option_id', oi.option_id,
+          'option_label', oi.option_label,
           'unit_price', oi.unit_price,
           'quantity', oi.quantity
         ) ORDER BY oi.id
@@ -48,6 +61,24 @@ async function getOrder(id: string) {
     [id]
   );
   return result.rows[0] ?? null;
+}
+
+function formatDateTime(dt: string | null): string {
+  if (!dt) return "-";
+  return new Date(dt).toLocaleString("ko-KR", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  });
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex gap-3 py-2.5 border-b border-gray-50 last:border-0">
+      <span className="text-xs text-gray-400 w-28 shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-gray-800 font-medium break-all">{value ?? "-"}</span>
+    </div>
+  );
 }
 
 export default async function OrderDetailPage({
@@ -64,125 +95,103 @@ export default async function OrderDetailPage({
   if (!order) notFound();
 
   const paymentMethodLabel =
-    order.payment_method === "card"
-      ? "카드"
-      : order.payment_method === "transfer"
-      ? "계좌이체"
-      : order.payment_method ?? "-";
+    order.payment_method === "card" ? "카드" :
+    order.payment_method === "transfer" ? "계좌이체" :
+    order.payment_method ?? "-";
+
+  const itemTotal = order.items.reduce(
+    (sum: number, item: { unit_price: number; quantity: number }) =>
+      sum + item.unit_price * item.quantity,
+    0
+  );
 
   return (
     <div className="max-w-2xl">
       {/* 헤더 */}
       <div className="flex items-center gap-3 mb-6">
-        <Link
-          href="/admin/orders"
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          ←
-        </Link>
+        <Link href="/admin/orders" className="text-gray-400 hover:text-gray-600 transition-colors">←</Link>
         <div>
-          <p className="text-xs text-gray-400 font-mono">
-            {order.order_number}
-          </p>
+          <p className="text-xs text-gray-400 font-mono">{order.order_number}</p>
           <h1 className="text-lg font-bold text-gray-800">주문 상세</h1>
         </div>
-        <span
-          className={`ml-auto px-2.5 py-1 rounded-full text-xs font-semibold ${
-            STATUS_STYLE[order.status] ?? "bg-gray-100 text-gray-500"
-          }`}
-        >
+        <span className={`ml-auto px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[order.status] ?? "bg-gray-100 text-gray-500"}`}>
           {STATUS_LABEL[order.status] ?? order.status}
         </span>
       </div>
 
-      {/* 구매자 정보 */}
+      {/* 주문 정보 */}
       <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-          구매자
-        </h2>
-        <div className="grid grid-cols-2 gap-y-3 text-sm">
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">이름</p>
-            <p className="font-medium text-gray-800">{order.buyer_name}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">연락처</p>
-            <p className="font-medium text-gray-800">{order.buyer_phone}</p>
-          </div>
-          <div className="col-span-2">
-            <p className="text-xs text-gray-400 mb-0.5">이메일</p>
-            <p className="font-medium text-gray-800">
-              {order.buyer_email ?? "-"}
-            </p>
-          </div>
-        </div>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">주문 정보</h2>
+        <Row label="주문번호" value={<span className="font-mono">{order.order_number}</span>} />
+        <Row label="주문일시" value={formatDateTime(order.created_at)} />
+        <Row label="결제일시" value={formatDateTime(order.paid_at)} />
+        <Row label="결제수단" value={paymentMethodLabel} />
       </div>
 
-      {/* 배송지 */}
+      {/* 주문자 */}
       <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-          배송지
-        </h2>
-        <div className="text-sm space-y-1.5">
-          <p className="text-gray-800">
-            [{order.addr_zipcode}] {order.addr_address}
-          </p>
-          {order.addr_detail && (
-            <p className="text-gray-600">{order.addr_detail}</p>
-          )}
-          {order.addr_memo && (
-            <p className="text-gray-400 text-xs mt-2">
-              배송 메모: {order.addr_memo}
-            </p>
-          )}
-        </div>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">주문자</h2>
+        <Row label="이름" value={order.buyer_name} />
+        <Row label="연락처" value={order.buyer_phone} />
+        <Row label="이메일" value={order.buyer_email ?? "-"} />
+      </div>
+
+      {/* 수령인 */}
+      <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">수령인</h2>
+        <Row label="이름" value={order.recipient_name ?? order.buyer_name} />
+        <Row label="연락처" value={order.recipient_phone ?? order.buyer_phone} />
+        <Row label="우편번호" value={order.addr_zipcode} />
+        <Row label="주소" value={order.addr_address} />
+        {order.addr_detail && <Row label="상세주소" value={order.addr_detail} />}
+        {order.addr_memo && <Row label="배송 메모" value={order.addr_memo} />}
       </div>
 
       {/* 주문 상품 */}
       <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-          주문 상품
-        </h2>
-        <div className="space-y-3">
-          {order.items.map(
-            (item: {
-              id: string;
-              product_id: string;
-              product_name: string;
-              unit_price: number;
-              quantity: number;
-            }) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="text-gray-800 font-medium">
-                  {item.product_name}
-                </span>
-                <span className="text-gray-400 shrink-0 ml-4">
-                  {item.unit_price.toLocaleString()}원 × {item.quantity}
-                </span>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">주문 상품</h2>
+        <div className="space-y-0">
+          {order.items.map((item: {
+            id: string;
+            product_name: string;
+            option_label: string | null;
+            unit_price: number;
+            quantity: number;
+          }) => (
+            <div key={item.id} className="py-3 border-b border-gray-50 last:border-0">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800">{item.product_name}</p>
+                  {item.option_label && (
+                    <p className="text-xs text-gray-400 mt-0.5">옵션: {item.option_label}</p>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-gray-400">
+                    {item.unit_price.toLocaleString()}원 × {item.quantity}
+                  </p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">
+                    {(item.unit_price * item.quantity).toLocaleString()}원
+                  </p>
+                </div>
               </div>
-            )
-          )}
+            </div>
+          ))}
         </div>
-        <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
-          <div className="text-xs text-gray-400 space-y-1">
-            <p>결제수단: {paymentMethodLabel}</p>
-            <p>
-              결제일:{" "}
-              {order.paid_at
-                ? new Date(order.paid_at).toLocaleString("ko-KR")
-                : "-"}
-            </p>
+
+        {/* 금액 합계 */}
+        <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+          <div className="flex justify-between text-xs text-gray-400">
+            <span>상품 합계</span>
+            <span>{itemTotal.toLocaleString()}원</span>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-400">
-              배송비 {Number(order.shipping_fee ?? 0).toLocaleString()}원 포함
-            </p>
-            <p className="text-base font-bold text-gray-800 mt-0.5">
-              총 {Number(order.total_amount).toLocaleString()}원
-            </p>
+          <div className="flex justify-between text-xs text-gray-400">
+            <span>배송비</span>
+            <span>{Number(order.shipping_fee ?? 0).toLocaleString()}원</span>
+          </div>
+          <div className="flex justify-between text-sm font-bold text-gray-800 pt-1.5 border-t border-gray-50">
+            <span>최종 결제금액</span>
+            <span className="text-base">{Number(order.total_amount).toLocaleString()}원</span>
           </div>
         </div>
       </div>

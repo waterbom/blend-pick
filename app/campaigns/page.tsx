@@ -49,8 +49,8 @@ export default function ProductsPage() {
     <main className="min-h-screen bg-white">
       <div className="px-6 pt-8">
         <div className="mb-6">
-          <h2 className="text-2xl font-black">⏰ HOT DEAL!</h2>
-          <p className="text-sm text-gray-400 mt-1">놓치면 후회하는 인플로랩 핫 딜!</p>
+          <h2 className="text-2xl font-black">BLEND PICK만의 공동구매 !!</h2>
+          <p className="text-sm text-gray-400 mt-1">놓치면 후회하는 핫딜</p>
         </div>
 
         <div className="flex gap-1 mb-8 border-b border-gray-100">

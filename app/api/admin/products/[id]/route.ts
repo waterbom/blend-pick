@@ -25,12 +25,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   return NextResponse.json({
     ...product.rows[0],
-    extra_images: images.rows.map((r) => r.url),
-    options: options.rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      price: r.extra_price,
-      stock: r.stock,
+    extra_images: images.rows.map(r => r.url),
+    options: options.rows.map(r => ({
+      id: r.id, name: r.name, price: r.extra_price, stock: r.stock,
     })),
   });
 }
@@ -42,10 +39,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const body = await req.json();
   const {
-    name, brand, description, price, original_price,
-    stock, category, status, shipping_type, shipping_cost,
-    free_shipping_threshold, main_image,
-    extra_images, options,
+    name, brand, description, price, original_price, instant_discount_price,
+    stock, category, status, sale_type,
+    presale_enabled, presale_start_at, presale_end_at,
+    sale_start_at, sale_end_at, tax_type,
+    shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost,
+    shipping_carrier, shipping_attr,
+    island_shipping_cost, installation_cost,
+    release_address, return_address,
+    return_cost_oneway, return_cost_roundtrip,
+    exchange_cost_oneway, exchange_cost_roundtrip,
+    as_notes,
+    manufacturer, origin_country, product_condition, manufacture_date,
+    main_image, extra_images, options,
   } = body;
 
   const client = await shopPool.connect();
@@ -54,17 +60,41 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     await client.query(`
       UPDATE products_shop SET
-        name = $1, brand = $2, description = $3, price = $4,
-        original_price = $5, stock = $6, category = $7, status = $8,
-        shipping_type = $9, shipping_cost = $10, free_shipping_threshold = $11,
-        main_image = $12, updated_at = NOW()
-      WHERE id = $13
+        name = $1, brand = $2, description = $3,
+        price = $4, original_price = $5, instant_discount_price = $6,
+        stock = $7, category = $8, status = $9, sale_type = $10,
+        presale_enabled = $11, presale_start_at = $12, presale_end_at = $13,
+        sale_start_at = $14, sale_end_at = $15, tax_type = $16,
+        shipping_type = $17, shipping_cost = $18, free_shipping_threshold = $19,
+        per_unit_shipping_cost = $20, shipping_carrier = $21, shipping_attr = $22,
+        island_shipping_cost = $23, installation_cost = $24,
+        release_address = $25, return_address = $26,
+        return_cost_oneway = $27, return_cost_roundtrip = $28,
+        exchange_cost_oneway = $29, exchange_cost_roundtrip = $30,
+        as_notes = $31,
+        manufacturer = $32, origin_country = $33,
+        product_condition = $34, manufacture_date = $35,
+        main_image = $36, updated_at = NOW()
+      WHERE id = $37
     `, [
-      name, brand || null, description || null, price,
-      original_price || null, stock ?? 0, category || null,
-      status, shipping_type, shipping_cost ?? 3000,
-      free_shipping_threshold || null,
-      main_image || null, id,
+      name, brand || null, description || null,
+      price, original_price || null, instant_discount_price || null,
+      stock ?? 0, category || null,
+      status || "active", sale_type || "always",
+      presale_enabled ?? false, presale_start_at || null, presale_end_at || null,
+      sale_start_at || null, sale_end_at || null, tax_type || "taxable",
+      shipping_type, shipping_cost ?? 3000, free_shipping_threshold || null,
+      per_unit_shipping_cost ?? 0,
+      shipping_carrier || null, shipping_attr || "standard",
+      island_shipping_cost ?? 0, installation_cost ?? 0,
+      release_address || null, return_address || null,
+      return_cost_oneway ?? 0, return_cost_roundtrip ?? 0,
+      exchange_cost_oneway ?? 0, exchange_cost_roundtrip ?? 0,
+      as_notes || null,
+      manufacturer || null, origin_country || null,
+      product_condition || "new", manufacture_date || null,
+      main_image || null,
+      id,
     ]);
 
     await client.query("DELETE FROM product_images WHERE product_id = $1", [id]);

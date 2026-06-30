@@ -28,7 +28,12 @@ export async function PATCH(
   const { id } = await params;
   const { status, tracking_company, tracking_number } = await request.json();
 
-  const VALID = ["preparing", "shipped", "delivered", "cancelled"];
+  const VALID = [
+    "confirmed", "preparing", "shipped", "delivered", "cancelled",
+    "exchange_requested", "exchange_completed",
+    "return_requested", "return_completed",
+    "cancel_requested",
+  ];
   if (!VALID.includes(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }

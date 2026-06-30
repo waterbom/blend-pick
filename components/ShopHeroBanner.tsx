@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 
 const SLIDES = [
   { image: "/banner-1.jpeg", href: "/products" },
@@ -27,7 +26,7 @@ export default function ShopHeroBanner() {
 
   return (
     <div
-      className="relative w-full"
+      className="relative w-full overflow-hidden"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -42,14 +41,12 @@ export default function ShopHeroBanner() {
             pointerEvents: i === current ? "auto" : "none",
           }}
         >
-          <Link href={slide.href} className="block w-full">
-            <img
-              src={slide.image}
-              alt=""
-              style={{ width: "100%", height: "auto", display: "block" }}
-              draggable={false}
-            />
-          </Link>
+          <img
+            src={slide.image}
+            alt=""
+            style={{ width: "100%", height: "auto", display: "block" }}
+            draggable={false}
+          />
         </div>
       ))}
 
