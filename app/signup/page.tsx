@@ -99,11 +99,12 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-6 py-12">
+    <main className="min-h-screen flex items-center justify-center px-6 py-12" style={{ background: "var(--background)" }}>
       <div className="w-full max-w-sm">
         <Link
           href="/"
-          className="block text-center text-2xl font-black tracking-tighter mb-10"
+          className="block text-center text-2xl font-extrabold tracking-tight mb-10"
+          style={{ color: "var(--text-primary)" }}
         >
           BLEND PICK
         </Link>
@@ -120,7 +121,7 @@ export default function SignupPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full border border-gray-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-xl px-4 py-3 text-sm border border-[var(--line)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
               <input
                 type="email"
@@ -128,7 +129,7 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full border border-gray-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-xl px-4 py-3 text-sm border border-[var(--line)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
               <input
                 type="password"
@@ -137,7 +138,7 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={8}
                 required
-                className="w-full border border-gray-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-xl px-4 py-3 text-sm border border-[var(--line)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
               <input
                 type="password"
@@ -145,23 +146,23 @@ export default function SignupPage() {
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}
                 required
-                className="w-full border border-gray-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-xl px-4 py-3 text-sm border border-[var(--line)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
 
               {/* 약관 동의 */}
-              <div className="border border-gray-100 rounded-sm p-4 space-y-3 mt-2">
+              <div className="rounded-xl p-4 space-y-3 mt-2" style={{ border: "1px solid var(--line)" }}>
                 {/* 전체 동의 */}
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={allAgreed}
                     onChange={(e) => handleAllAgree(e.target.checked)}
-                    className="w-4 h-4 accent-black"
+                    className="w-4 h-4 accent-[#2D5A27]"
                   />
                   <span className="text-sm font-semibold">전체 동의</span>
                 </label>
 
-                <div className="border-t border-gray-100 pt-3 space-y-2">
+                <div className="pt-3 space-y-2" style={{ borderTop: "1px solid var(--line)" }}>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -176,7 +177,7 @@ export default function SignupPage() {
                           emailMarketingAgreed
                         );
                       }}
-                      className="w-4 h-4 accent-black"
+                      className="w-4 h-4 accent-[#2D5A27]"
                     />
                     <span className="text-xs text-gray-700">
                       [필수] 이용약관 동의
@@ -196,7 +197,7 @@ export default function SignupPage() {
                           emailMarketingAgreed
                         );
                       }}
-                      className="w-4 h-4 accent-black"
+                      className="w-4 h-4 accent-[#2D5A27]"
                     />
                     <span className="text-xs text-gray-700">
                       [필수] 개인정보 수집 및 이용 동의
@@ -216,7 +217,7 @@ export default function SignupPage() {
                           emailMarketingAgreed
                         );
                       }}
-                      className="w-4 h-4 accent-black"
+                      className="w-4 h-4 accent-[#2D5A27]"
                     />
                     <span className="text-xs text-gray-500">
                       [선택] 쇼핑정보 수신 동의
@@ -236,7 +237,7 @@ export default function SignupPage() {
                           emailMarketingAgreed
                         );
                       }}
-                      className="w-4 h-4 accent-black"
+                      className="w-4 h-4 accent-[#2D5A27]"
                     />
                     <span className="text-xs text-gray-500">
                       [선택] SMS 수신 동의
@@ -256,7 +257,7 @@ export default function SignupPage() {
                           e.target.checked
                         );
                       }}
-                      className="w-4 h-4 accent-black"
+                      className="w-4 h-4 accent-[#2D5A27]"
                     />
                     <span className="text-xs text-gray-500">
                       [선택] 이메일 수신 동의
@@ -269,7 +270,8 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-black text-white py-3 text-sm font-bold hover:bg-gray-800 transition-colors rounded-sm disabled:opacity-50"
+                className="w-full text-white py-3.5 text-sm font-bold rounded-xl transition-all hover:brightness-95 disabled:opacity-50"
+                style={{ background: "var(--accent)" }}
               >
                 {loading ? "처리 중..." : "인증 코드 받기"}
               </button>
@@ -291,13 +293,14 @@ export default function SignupPage() {
                 onChange={(e) => setCode(e.target.value)}
                 maxLength={6}
                 required
-                className="w-full border border-gray-200 rounded-sm px-4 py-3 text-sm text-center tracking-widest text-lg focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full rounded-xl px-4 py-3 text-sm text-center tracking-widest text-lg border border-[var(--line)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
               {error && <p className="text-red-500 text-xs">{error}</p>}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-black text-white py-3 text-sm font-bold hover:bg-gray-800 transition-colors rounded-sm disabled:opacity-50"
+                className="w-full text-white py-3.5 text-sm font-bold rounded-xl transition-all hover:brightness-95 disabled:opacity-50"
+                style={{ background: "var(--accent)" }}
               >
                 {loading ? "확인 중..." : "인증 완료"}
               </button>
@@ -316,7 +319,8 @@ export default function SignupPage() {
           이미 계정이 있나요?{" "}
           <Link
             href="/login"
-            className="text-black font-medium hover:underline"
+            className="font-semibold hover:underline"
+            style={{ color: "var(--accent)" }}
           >
             로그인
           </Link>

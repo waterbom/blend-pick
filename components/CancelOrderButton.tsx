@@ -26,7 +26,7 @@ export default function CancelOrderButton({ orderId }: { orderId: string }) {
       onClick={handleCancel}
       disabled={loading}
       className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-      style={{ background: "#fff1f0", color: "#ef4444" }}
+      style={{ background: "var(--sale-soft)", color: "var(--sale)" }}
     >
       {loading ? "처리 중..." : "주문 취소"}
     </button>

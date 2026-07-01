@@ -102,18 +102,18 @@ export default async function MyPage() {
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
 
-      <div className="max-w-2xl mx-auto px-6 py-12">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
         {/* 프로필 */}
         <div className="flex items-center gap-5 mb-10">
-          <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 shrink-0">
+          <div className="w-20 h-20 rounded-full overflow-hidden shrink-0" style={{ background: "var(--surface-soft)" }}>
             {user.profile_image ? (
               <img src={user.profile_image} alt={user.nickname} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">👤</div>
+              <div className="w-full h-full flex items-center justify-center text-3xl" style={{ color: "var(--text-muted)" }}>👤</div>
             )}
           </div>
           <div>
-            <p className="text-xl font-black text-gray-900 mb-1">
+            <p className="text-xl font-extrabold mb-1.5" style={{ color: "var(--text-primary)" }}>
               {user.nickname || user.name || "이름 없음"}
             </p>
             <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ export default async function MyPage() {
                 {roleInfo.label}
               </span>
               {user.role_status && user.role !== "customer" && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                   {ROLE_STATUS_LABEL[user.role_status] ?? user.role_status}
                 </span>
               )}
@@ -129,17 +129,17 @@ export default async function MyPage() {
           </div>
         </div>
 
-        <hr className="border-gray-100 mb-10" />
+        <hr className="mb-10" style={{ borderColor: "var(--line)" }} />
 
         {/* 구매 내역 */}
         <section className="mb-10">
-          <h2 className="text-sm font-black mb-3" style={{ color: "var(--text-primary)" }}>
+          <h2 className="text-base font-extrabold mb-3" style={{ color: "var(--text-primary)" }}>
             구매 내역
           </h2>
           {orders.length === 0 ? (
             <div
               className="rounded-2xl p-5 text-sm"
-              style={{ border: "1px solid var(--warm-gray)", color: "var(--text-muted)" }}
+              style={{ border: "1px solid var(--line)", color: "var(--text-muted)" }}
             >
               구매 내역이 없습니다.
             </div>
@@ -154,7 +154,7 @@ export default async function MyPage() {
                   <div
                     key={order.id}
                     className="bg-white rounded-2xl p-4"
-                    style={{ border: "1px solid var(--warm-gray)" }}
+                    style={{ border: "1px solid var(--line)" }}
                   >
                     {/* 주문 헤더 */}
                     <div className="flex items-center justify-between mb-3">
@@ -192,9 +192,9 @@ export default async function MyPage() {
                     {/* 총액 + 버튼 */}
                     <div
                       className="flex items-center justify-between pt-3"
-                      style={{ borderTop: "1px solid var(--warm-gray)" }}
+                      style={{ borderTop: "1px solid var(--line)" }}
                     >
-                      <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                      <span className="text-sm font-bold tnum" style={{ color: "var(--text-primary)" }}>
                         총 {Number(order.total_amount).toLocaleString()}원
                       </span>
                       <div className="flex items-center gap-2">
@@ -204,7 +204,7 @@ export default async function MyPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
-                            style={{ background: "#f3f0ff", color: "#7c3aed" }}
+                            style={{ background: "var(--surface-soft)", color: "var(--text-secondary)" }}
                           >
                             {CARRIER_NAME[order.tracking_company] ?? order.tracking_company} 조회
                           </a>
@@ -232,10 +232,13 @@ export default async function MyPage() {
 
         {/* OS 구독 */}
         <section className="mb-10">
-          <h2 className="text-sm font-black text-gray-900 mb-3">OS 구독</h2>
-          <div className="border border-gray-100 p-5">
-            <p className="text-sm text-gray-400">구독을 하지 않은 상태입니다.</p>
-            <button className="mt-4 text-sm font-bold text-white bg-black px-5 py-2.5 hover:bg-gray-800 transition-colors">
+          <h2 className="text-base font-extrabold mb-3" style={{ color: "var(--text-primary)" }}>OS 구독</h2>
+          <div className="rounded-2xl p-5" style={{ border: "1px solid var(--line)" }}>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>구독을 하지 않은 상태입니다.</p>
+            <button
+              className="mt-4 text-sm font-bold text-white px-5 py-2.5 rounded-xl transition-all hover:brightness-95"
+              style={{ background: "var(--accent)" }}
+            >
               구독하기
             </button>
           </div>
@@ -243,10 +246,10 @@ export default async function MyPage() {
 
         {/* 로그아웃 */}
         <div className="text-center">
-          <a href="/api/auth/logout" className="text-xs text-gray-300 hover:text-gray-500 transition-colors">
+          <a href="/api/auth/logout" className="text-xs transition-colors hover:underline" style={{ color: "var(--text-muted)" }}>
             로그아웃
           </a>
-          <span className="text-gray-200 mx-3">|</span>
+          <span className="mx-3" style={{ color: "var(--line)" }}>|</span>
           <WithdrawButton />
         </div>
       </div>

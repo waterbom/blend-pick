@@ -30,33 +30,37 @@ export default function LoginPage() {
     window.location.href = data.redirect || "/";
   }
 
+  const inputCls =
+    "w-full rounded-xl px-4 py-3 text-sm border border-[var(--line)] focus:outline-none focus:border-[var(--accent)] transition-colors";
+
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-6">
+    <main className="min-h-screen flex items-center justify-center px-6" style={{ background: "var(--background)" }}>
       <div className="w-full max-w-sm">
         <Link
           href="/"
-          className="block text-center text-2xl font-black tracking-tighter mb-10"
+          className="block text-center text-2xl font-extrabold tracking-tight mb-10"
+          style={{ color: "var(--text-primary)" }}
         >
           BLEND PICK
         </Link>
 
-        <p className="text-center text-sm text-gray-400 mb-8">
+        <p className="text-center text-sm mb-8" style={{ color: "var(--text-muted)" }}>
           간편하게 시작해요
         </p>
 
         {/* 카카오 로그인 */}
         <a
           href="/api/auth/kakao"
-          className="w-full bg-yellow-400 text-black py-4 text-sm font-bold hover:bg-yellow-300 transition-colors flex items-center justify-center gap-2 rounded-sm"
+          className="w-full bg-[#FEE500] text-[#191600] py-4 text-sm font-bold hover:brightness-95 transition-all flex items-center justify-center gap-2 rounded-xl"
         >
           <span>💬</span> 카카오로 시작하기
         </a>
 
         {/* 구분선 */}
         <div className="flex items-center gap-3 my-6">
-          <div className="flex-1 border-t border-gray-100" />
-          <span className="text-xs text-gray-300">또는</span>
-          <div className="flex-1 border-t border-gray-100" />
+          <div className="flex-1 border-t" style={{ borderColor: "var(--line)" }} />
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>또는</span>
+          <div className="flex-1 border-t" style={{ borderColor: "var(--line)" }} />
         </div>
 
         {/* 이메일 로그인 */}
@@ -67,7 +71,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full border border-gray-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            className={inputCls}
           />
           <input
             type="password"
@@ -75,29 +79,27 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full border border-gray-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            className={inputCls}
           />
-          {error && <p className="text-red-500 text-xs">{error}</p>}
+          {error && <p className="text-xs" style={{ color: "var(--sale)" }}>{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-black text-white py-3 text-sm font-bold hover:bg-gray-800 transition-colors rounded-sm disabled:opacity-50"
+            className="w-full text-white py-3.5 text-sm font-bold rounded-xl transition-all hover:brightness-95 disabled:opacity-50"
+            style={{ background: "var(--accent)" }}
           >
             {loading ? "로그인 중..." : "이메일로 로그인"}
           </button>
         </form>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-xs mt-6" style={{ color: "var(--text-muted)" }}>
           아직 계정이 없나요?{" "}
-          <Link
-            href="/signup"
-            className="text-black font-medium hover:underline"
-          >
+          <Link href="/signup" className="font-semibold hover:underline" style={{ color: "var(--accent)" }}>
             회원가입
           </Link>
         </p>
 
-        <p className="text-center text-xs text-gray-300 mt-10">
+        <p className="text-center text-xs mt-10" style={{ color: "var(--text-muted)" }}>
           로그인 시 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
         </p>
       </div>
