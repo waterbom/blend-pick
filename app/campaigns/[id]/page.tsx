@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import pool from "@/lib/db";
+import Header from "@/components/Header";
+import FallbackImg from "@/components/FallbackImg";
 import InfluencerSelector from "@/components/InfluencerSelector";
 import RefundPolicy from "@/components/RefundPolicy";
 
@@ -99,90 +102,111 @@ export default async function ProductDetailPage({
     : 0;
   const displayPrice = hasDiscount ? product.groupbuy_price : product.consumer_price;
 
-  return (
-    <main className="min-h-screen bg-white">
+  const shippingLabel =
+    product.shipping_type === "free"
+      ? "무료배송"
+      : product.shipping_cost
+      ? `${product.shipping_cost.toLocaleString()}원`
+      : "배송비 별도";
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+  return (
+    <main className="min-h-screen" style={{ background: "var(--background)" }}>
+      <Header />
+
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+        {/* 브레드크럼 */}
+        <div className="flex items-center gap-2 text-xs mb-6" style={{ color: "var(--text-muted)" }}>
+          <Link href="/campaigns" className="hover:underline">공동구매</Link>
+          <span>›</span>
+          <span>{product.category}</span>
+          <span>›</span>
+          <span style={{ color: "var(--text-primary)" }} className="truncate">{product.name}</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
           {/* 이미지 */}
-          <div className="aspect-square bg-gray-50 overflow-hidden rounded-xl">
-            {product.product_image ? (
-              <img
-                src={product.product_image}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-200 text-sm">
-                이미지 없음
-              </div>
+          <div
+            className="relative aspect-square overflow-hidden rounded-2xl"
+            style={{ background: "var(--surface-soft)", border: "1px solid var(--line)" }}
+          >
+            <FallbackImg
+              src={product.product_image}
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+            {hasDiscount && (
+              <span
+                className="absolute top-3 left-3 text-white text-xs font-extrabold px-2.5 py-1 rounded-full"
+                style={{ background: "var(--sale)" }}
+              >
+                -{discountRate}%
+              </span>
             )}
           </div>
 
           {/* 정보 */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             <div>
-              <p className="text-xs text-gray-400 mb-1">{product.brand}</p>
-              <h1 className="text-xl font-bold text-gray-900 leading-snug">
+              <p className="text-[11px] font-medium tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>
+                {product.brand}
+              </p>
+              <h1 className="text-xl sm:text-2xl font-extrabold leading-snug tracking-tight" style={{ color: "var(--text-primary)" }}>
                 {product.name}
               </h1>
             </div>
 
             {/* 가격 */}
-            <div className="border-t border-b border-gray-100 py-4">
+            <div className="py-4 tnum" style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
               {hasDiscount ? (
                 <>
-                  <p className="text-xs text-gray-400 line-through mb-0.5">
+                  <p className="text-xs line-through mb-1" style={{ color: "var(--text-muted)" }}>
                     {product.consumer_price.toLocaleString()}원
                   </p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-red-500 font-bold text-lg">
+                  <div className="flex items-baseline gap-2.5">
+                    <span className="text-xl font-extrabold" style={{ color: "var(--sale)" }}>
                       {discountRate}%
                     </span>
-                    <span className="text-2xl font-bold text-gray-900">
+                    <span className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>
                       {product.groupbuy_price.toLocaleString()}원
                     </span>
                   </div>
                 </>
               ) : (
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>
                   {product.consumer_price.toLocaleString()}원
                 </p>
               )}
             </div>
 
             {/* 배송 정보 */}
-            <div className="text-sm text-gray-500 space-y-1">
-              <div className="flex gap-2">
-                <span className="text-gray-400 w-16">배송</span>
-                <span>
-                  {product.shipping_type === "free"
-                    ? "무료배송"
-                    : product.shipping_cost
-                    ? `${product.shipping_cost.toLocaleString()}원`
-                    : "배송비 별도"}
+            <div className="text-sm space-y-2">
+              <div className="flex gap-3">
+                <span className="w-14 shrink-0" style={{ color: "var(--text-muted)" }}>배송</span>
+                <span className="font-medium" style={{ color: product.shipping_type === "free" ? "var(--accent)" : "var(--text-secondary)" }}>
+                  {shippingLabel}
                 </span>
               </div>
               {product.dispatch_days && (
-                <div className="flex gap-2">
-                  <span className="text-gray-400 w-16">출고</span>
-                  <span>{product.dispatch_days}</span>
+                <div className="flex gap-3">
+                  <span className="w-14 shrink-0" style={{ color: "var(--text-muted)" }}>출고</span>
+                  <span className="font-medium" style={{ color: "var(--text-secondary)" }}>{product.dispatch_days}</span>
                 </div>
               )}
             </div>
 
-            {/* 옵션 */}
+            {/* 옵션 구성 */}
             {product.set_options && product.set_options.length > 0 && (
               <div>
-                <p className="text-xs text-gray-400 mb-2">구성</p>
-                <div className="space-y-1">
+                <p className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>구성</p>
+                <div className="space-y-1.5">
                   {product.set_options.map((opt, i) => (
                     <div
                       key={i}
-                      className="flex justify-between text-sm bg-gray-50 rounded-lg px-3 py-2"
+                      className="flex justify-between text-sm rounded-xl px-3.5 py-2.5"
+                      style={{ background: "var(--surface-soft)" }}
                     >
-                      <span className="text-gray-700">{opt.name}</span>
-                      <span className="text-gray-400">x{opt.qty}</span>
+                      <span style={{ color: "var(--text-secondary)" }}>{opt.name}</span>
+                      <span className="tnum" style={{ color: "var(--text-muted)" }}>x{opt.qty}</span>
                     </div>
                   ))}
                 </div>
@@ -190,20 +214,22 @@ export default async function ProductDetailPage({
             )}
 
             {/* 인플루언서 선택 + 구매 버튼 */}
-            <InfluencerSelector
-              influencers={activeInfluencers}
-              productId={product.id}
-              displayPrice={displayPrice}
-              isUpcoming={isUpcoming && activeInfluencers.length === 0}
-            />
+            <div className="mt-1">
+              <InfluencerSelector
+                influencers={activeInfluencers}
+                productId={product.id}
+                displayPrice={displayPrice}
+                isUpcoming={isUpcoming && activeInfluencers.length === 0}
+              />
+            </div>
           </div>
         </div>
 
         {/* 상품 설명 */}
         {product.description && (
-          <div className="mt-12 border-t border-gray-100 pt-8">
-            <h2 className="text-base font-semibold text-gray-900 mb-4">상품 설명</h2>
-            <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+          <div className="mt-12 pt-8" style={{ borderTop: "1px solid var(--line)" }}>
+            <h2 className="text-base font-bold mb-4" style={{ color: "var(--text-primary)" }}>상품 설명</h2>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               {product.description}
             </p>
           </div>
@@ -212,11 +238,11 @@ export default async function ProductDetailPage({
         {/* 주요 혜택 */}
         {product.key_benefits && product.key_benefits.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-base font-semibold text-gray-900 mb-3">주요 혜택</h2>
+            <h2 className="text-base font-bold mb-3" style={{ color: "var(--text-primary)" }}>주요 혜택</h2>
             <ul className="space-y-2">
               {product.key_benefits.map((b, i) => (
-                <li key={i} className="flex gap-2 text-sm text-gray-600">
-                  <span className="text-gray-300 mt-0.5">•</span>
+                <li key={i} className="flex gap-2.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <span className="mt-0.5" style={{ color: "var(--accent)" }}>✓</span>
                   <span>{b}</span>
                 </li>
               ))}

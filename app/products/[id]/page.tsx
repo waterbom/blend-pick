@@ -112,7 +112,7 @@ export default async function ProductDetailPage({
         options={options}
         reviews={reviews}
       />
-      <div className="max-w-4xl mx-auto px-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <RefundPolicy />
       </div>
     </main>

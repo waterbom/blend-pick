@@ -173,7 +173,7 @@ export default function ProductDetail({
             </div>
           )}
           {discount && !isSoldout && (
-            <span className="absolute top-3 left-3 text-white text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "var(--accent)" }}>
+            <span className="absolute top-3 left-3 text-white text-xs font-extrabold px-2.5 py-1 rounded-full" style={{ background: "var(--sale)" }}>
               -{discount}%
             </span>
           )}
@@ -187,12 +187,17 @@ export default function ProductDetail({
           </h1>
 
           {/* 가격 */}
-          <div className="flex items-end gap-2 mb-1">
-            <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+          <div className="flex items-end gap-2.5 mb-1 tnum">
+            {discount && (
+              <span className="text-xl font-extrabold mb-0.5" style={{ color: "var(--sale)" }}>
+                {discount}%
+              </span>
+            )}
+            <span className="text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>
               {finalPrice.toLocaleString()}원
             </span>
             {product.original_price && product.original_price > product.price && (
-              <span className="text-sm line-through mb-0.5" style={{ color: "var(--text-muted)" }}>
+              <span className="text-sm line-through mb-1" style={{ color: "var(--text-muted)" }}>
                 {product.original_price.toLocaleString()}원
               </span>
             )}
@@ -204,7 +209,7 @@ export default function ProductDetail({
           )}
 
           {/* 배송 */}
-          <div className="py-3 mb-4 text-sm" style={{ borderTop: "1px solid var(--warm-gray)", borderBottom: "1px solid var(--warm-gray)", color: "var(--text-secondary)" }}>
+          <div className="py-3 mb-4 text-sm" style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", color: "var(--text-secondary)" }}>
             {product.shipping_type === "free"
               ? "무료배송"
               : product.shipping_type === "conditional_free" && product.free_shipping_threshold
@@ -231,7 +236,7 @@ export default function ProductDetail({
                           disabled={isOptSoldout}
                           className="px-3 py-1.5 rounded-xl text-sm font-medium transition-all"
                           style={{
-                            border: isSelected ? "1.5px solid var(--accent)" : "1.5px solid var(--warm-gray)",
+                            border: isSelected ? "1.5px solid var(--accent)" : "1.5px solid var(--line)",
                             color: isOptSoldout ? "var(--text-muted)" : isSelected ? "var(--accent)" : "var(--text-secondary)",
                             background: isSelected ? "var(--accent-soft)" : "#fff",
                             textDecoration: isOptSoldout ? "line-through" : "none",
@@ -253,7 +258,7 @@ export default function ProductDetail({
           {!isSoldout && (
             <div className="flex items-center gap-3 mb-6">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>수량</span>
-              <div className="flex items-center rounded-xl overflow-hidden" style={{ border: "1px solid var(--warm-gray)" }}>
+              <div className="flex items-center rounded-xl overflow-hidden" style={{ border: "1px solid var(--line)" }}>
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   className="w-9 h-9 flex items-center justify-center text-lg transition-colors hover:bg-gray-50"
@@ -287,7 +292,7 @@ export default function ProductDetail({
               style={{
                 border: "1.5px solid var(--accent)",
                 color: canBuy ? "var(--accent)" : "var(--text-muted)",
-                borderColor: canBuy ? "var(--accent)" : "var(--warm-gray)",
+                borderColor: canBuy ? "var(--accent)" : "var(--line)",
                 background: "#fff",
                 cursor: !canBuy ? "not-allowed" : "pointer",
               }}
@@ -359,7 +364,7 @@ export default function ProductDetail({
         ) : (
           <div className="space-y-4">
             {reviews.map((r) => (
-              <div key={r.id} className="rounded-2xl p-5" style={{ background: "#fff", border: "1px solid var(--warm-gray)" }}>
+              <div key={r.id} className="rounded-2xl p-5" style={{ background: "#fff", border: "1px solid var(--line)" }}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.buyer_name}</span>

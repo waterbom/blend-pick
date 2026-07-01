@@ -43,9 +43,10 @@ export default function InfluencerSelector({
     <div className="flex flex-col gap-4">
       {/* 인플루언서 선택 */}
       {influencers.length > 0 && (
-        <div className="bg-orange-50 rounded-xl px-4 py-3">
-          <p className="text-xs font-bold text-orange-500 mb-3">
-            🔥 {influencers.length}명이 지금 공구 진행중! 함께할 인플루언서를 선택하세요
+        <div className="rounded-2xl px-4 py-3.5" style={{ background: "var(--accent-soft)", border: "1px solid var(--line)" }}>
+          <p className="text-xs font-bold mb-3 flex items-center gap-1.5" style={{ color: "var(--accent)" }}>
+            <span aria-hidden>🔥</span>
+            {influencers.length}명이 지금 공구 진행중! 함께할 인플루언서를 선택하세요
           </p>
           <div className="flex flex-col gap-2">
             {influencers.map((inf) => {
@@ -54,11 +55,12 @@ export default function InfluencerSelector({
                 <button
                   key={inf.id}
                   onClick={() => setSelected(inf.id)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 transition-colors text-left ${
-                    isSelected
-                      ? "border-orange-400 bg-orange-100"
-                      : "border-transparent bg-white hover:border-orange-200"
-                  }`}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left"
+                  style={{
+                    border: isSelected ? "1.5px solid var(--accent)" : "1.5px solid transparent",
+                    background: isSelected ? "#fff" : "rgba(255,255,255,0.6)",
+                    boxShadow: isSelected ? "var(--card-shadow)" : "none",
+                  }}
                 >
                   {inf.profile_image ? (
                     <img
@@ -67,25 +69,28 @@ export default function InfluencerSelector({
                       className="w-8 h-8 rounded-full object-cover shrink-0"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-orange-200 flex items-center justify-center text-orange-600 text-sm font-bold shrink-0">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                      style={{ background: "var(--accent)", color: "#fff" }}
+                    >
                       {inf.name[0]}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{inf.name}</p>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{inf.name}</p>
                     {inf.platform && (
-                      <p className="text-xs text-gray-400">{inf.platform}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{inf.platform}</p>
                     )}
                   </div>
                   {isSelected && (
-                    <span className="text-orange-500 text-sm font-bold shrink-0">✓</span>
+                    <span className="text-sm font-bold shrink-0" style={{ color: "var(--accent)" }}>✓</span>
                   )}
                 </button>
               );
             })}
           </div>
           {selectedInf && (
-            <p className="text-xs text-orange-600 mt-2 font-medium">
+            <p className="text-xs mt-2.5 font-medium" style={{ color: "var(--accent)" }}>
               {selectedInf.name}의 공구로 구매합니다
             </p>
           )}
@@ -96,7 +101,8 @@ export default function InfluencerSelector({
       <button
         onClick={handleBuy}
         disabled={isUpcoming}
-        className="w-full text-center bg-gray-900 text-white font-semibold py-4 rounded-xl hover:bg-gray-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+        className="w-full text-center text-white font-bold py-4 rounded-2xl transition-all hover:brightness-95 disabled:cursor-not-allowed"
+        style={{ background: isUpcoming ? "var(--warm-gray)" : "var(--accent)" }}
       >
         {isUpcoming ? "곧 열릴 제품입니다" : `구매하기 · ${displayPrice.toLocaleString()}원`}
       </button>
