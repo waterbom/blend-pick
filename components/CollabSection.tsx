@@ -69,17 +69,17 @@ export default function CollabSection({
   if (!products.length) return null;
 
   return (
-    <section className="py-20 overflow-hidden" style={{ background: "#E5D5B8" }}>
+    <section className="py-16 sm:py-20 overflow-hidden" style={{ background: "var(--surface-soft)" }}>
       {/* 헤더 */}
-      <div className="px-8 mb-12">
+      <div className="container-blend mb-10 sm:mb-12">
         <p
-          className="text-xs font-medium tracking-[0.2em] uppercase mb-3"
+          className="text-[11px] font-bold tracking-[0.22em] uppercase mb-3"
           style={{ color: "var(--accent)" }}
         >
           BLEND PICK x BRAND
         </p>
         <h2
-          className="text-3xl font-bold tracking-tight"
+          className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold tracking-tight"
           style={{ color: "var(--text-primary)" }}
         >
           지금 협업 가능한 제품들
@@ -130,8 +130,8 @@ export default function CollabSection({
       </div>
 
       {/* 홍보 문구 */}
-      <div className="px-8 mt-16 text-center">
-        <p className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+      <div className="container-blend mt-14 sm:mt-16 text-center">
+        <p className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
           현재{" "}
           <span
             className="inline-block px-3 py-1 rounded-full text-white mx-1"

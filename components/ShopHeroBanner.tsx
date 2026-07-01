@@ -26,7 +26,7 @@ export default function ShopHeroBanner() {
 
   return (
     <div
-      className="relative w-full overflow-hidden"
+      className="relative w-full max-w-[2400px] mx-auto overflow-hidden"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -59,7 +59,7 @@ export default function ShopHeroBanner() {
             className="h-1.5 rounded-full transition-all duration-500"
             style={{
               width: i === current ? 28 : 12,
-              background: i === current ? "#2D5A27" : "rgba(45,90,39,0.3)",
+              background: i === current ? "var(--accent)" : "rgba(45,90,39,0.25)",
             }}
           />
         ))}

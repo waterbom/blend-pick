@@ -1,26 +1,77 @@
 @import "tailwindcss";
 
+/* 폰트(Wanted Sans)는 layout.tsx <head>의 <link>로 로드 —
+   Tailwind v4의 @import "tailwindcss" 전개 때문에 여기서 @import 하면 순서 위반. */
+
+/* ── 반응형 브레이크포인트 (px 기준) ──
+   mobile   : ~639   (base)
+   sm       : 640~   (큰 모바일 / 가로)
+   md/tablet: 768~   (태블릿)
+   lg       : 1024~  (작은 데스크톱)
+   xl       : 1280~  (데스크톱)
+   2xl      : 1536~  (와이드)
+   3xl      : 1920~  (풀HD 모니터)
+   4xl      : 2400   (초광폭 상한)
+*/
+@theme {
+  --breakpoint-3xl: 1920px;
+  --breakpoint-4xl: 2400px;
+}
+
 :root {
-  --background: #D2B48C;
-  --foreground: #2D5A27;
-  --cream: #FFF8E7;
-  --cream-dark: #FFF8E7;
-  --warm-gray: #96AD90;
-  --warm-gray-dark: #96AD90;
-  --accent: #2D5A27;
-  --accent-light: #96AD90;
-  --accent-soft: #FFF8E7;
-  --text-primary: #2D5A27;
-  --text-secondary: #2D5A27;
-  --text-muted: #96AD90;
-  --card-shadow: 0 2px 20px rgba(45, 90, 39, 0.1);
-  --card-shadow-hover: 0 8px 32px rgba(45, 90, 39, 0.18);
+  /* 배경 계열 — 클린 뉴트럴 */
+  --background: #FDFCF9;      /* 페이지 바탕: 아이보리 화이트 */
+  --surface: #FFFFFF;        /* 카드/헤더 표면 */
+  --surface-soft: #F6F4EE;   /* 섹션 구분용 소프트 톤 */
+  --cream: #FFFFFF;          /* (legacy 별칭) 헤더 등 표면 */
+  --cream-dark: #F6F4EE;     /* (legacy 별칭) */
+
+  /* 텍스트 계열 */
+  --foreground: #1C2B1A;     /* 본문 기본: 진한 그린블랙 */
+  --text-primary: #1C2B1A;   /* 강조/제목 */
+  --text-secondary: #4A5647; /* 보조 본문 */
+  --text-muted: #8A9484;     /* 캡션/희미한 텍스트 */
+
+  /* 포인트 계열 — 그린 */
+  --accent: #2D5A27;         /* 포레스트 그린 (브랜드 포인트) */
+  --accent-hover: #244B1F;
+  --accent-light: #7A8B6F;   /* 뮤트 세이지 (보조) */
+  --accent-soft: #EAF0E6;    /* 그린 틴트 (칩/뱃지 배경) */
+  --warm-gray: #8A9484;      /* (legacy 별칭) */
+  --warm-gray-dark: #C9CDBF; /* (legacy 별칭) 스크롤바 */
+
+  /* 세일/강조 */
+  --sale: #D14343;           /* 세일가·할인율 레드 강조 */
+  --sale-soft: #FBECEC;
+
+  /* 라인/구분선 */
+  --line: #ECE9E1;
+  --line-soft: #F3F1EB;
+
+  /* 그림자 — 얇고 은은하게 (탁한 느낌 제거) */
+  --card-shadow: 0 1px 2px rgba(28, 43, 26, 0.04), 0 8px 24px rgba(28, 43, 26, 0.06);
+  --card-shadow-hover: 0 12px 32px rgba(28, 43, 26, 0.12);
+
+  /* 라운드 규격 통일 */
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 20px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Pretendard", "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Wanted Sans Variable", "Wanted Sans", "Pretendard",
+    "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "ss01", "cv01";
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 숫자·가격은 tabular-nums로 정렬감 확보 */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
 ::-webkit-scrollbar {
@@ -61,4 +112,29 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ── 반응형 컨테이너 ──
+   콘텐츠는 화면 중앙에 정렬, 최대 2400px에서 상한.
+   좌우 패딩은 뷰포트에 따라 단계적으로 커짐(모바일 16 → 초광폭 80). */
+.container-blend {
+  width: 100%;
+  max-width: 2400px;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+@media (min-width: 640px) {
+  .container-blend { padding-inline: 24px; }
+}
+@media (min-width: 768px) {
+  .container-blend { padding-inline: 32px; }
+}
+@media (min-width: 1024px) {
+  .container-blend { padding-inline: 48px; }
+}
+@media (min-width: 1536px) {
+  .container-blend { padding-inline: 64px; }
+}
+@media (min-width: 1920px) {
+  .container-blend { padding-inline: 80px; }
 }

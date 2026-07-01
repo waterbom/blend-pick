@@ -40,17 +40,17 @@ function ActiveCard({ page }: { page: CampaignPage }) {
   return (
     <Link
       href={`/campaigns/${page.product_id}`}
-      className="group block shrink-0 w-52 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1.5"
+      className="group block shrink-0 w-48 sm:w-52 lg:w-56 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1.5"
       style={{
-        background: "#ffffff",
-        border: "1px solid rgba(150,173,144,0.35)",
-        boxShadow: "0 4px 24px rgba(45,90,39,0.15)",
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        boxShadow: "var(--card-shadow)",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 12px 32px rgba(45,90,39,0.25)";
+        (e.currentTarget as HTMLElement).style.boxShadow = "var(--card-shadow-hover)";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 24px rgba(45,90,39,0.15)";
+        (e.currentTarget as HTMLElement).style.boxShadow = "var(--card-shadow)";
       }}
     >
       {/* 이미지 */}
@@ -65,7 +65,7 @@ function ActiveCard({ page }: { page: CampaignPage }) {
         {closingToday && !isSoldOut && (
           <div
             className="absolute top-3 left-3 text-white text-[10px] font-bold px-2 py-1 rounded-md tracking-wide"
-            style={{ background: "#96AD90" }}
+            style={{ background: "var(--sale)" }}
           >
             오늘 마감
           </div>
@@ -83,8 +83,8 @@ function ActiveCard({ page }: { page: CampaignPage }) {
         {/* 공구 수 or 단독 뱃지 (오른쪽 상단) */}
         {!closingToday && page.campaign_count && page.campaign_count > 1 ? (
           <div
-            className="absolute top-3 right-3 text-white text-[10px] font-bold px-2 py-1 rounded-md"
-            style={{ background: "#D2B48C" }}
+            className="absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded-md"
+            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
           >
             {page.campaign_count}개 공구
           </div>
@@ -98,23 +98,23 @@ function ActiveCard({ page }: { page: CampaignPage }) {
             <CountdownTimer target={page.ends_at} label="마감까지" dark />
           </div>
         )}
-        <p className="text-sm font-medium line-clamp-2 leading-snug mb-2" style={{ color: "#2D5A27" }}>
+        <p className="text-sm font-medium line-clamp-2 leading-snug mb-2" style={{ color: "var(--text-primary)" }}>
           {page.title}
           {page.influencer_name && (
-            <span style={{ color: "#96AD90" }}> x {page.influencer_name}</span>
+            <span style={{ color: "var(--text-muted)" }}> x {page.influencer_name}</span>
           )}
         </p>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-baseline gap-1.5 flex-wrap tnum">
           {discount && (
-            <span className="text-xs font-bold" style={{ color: "#96AD90" }}>
+            <span className="text-sm font-extrabold" style={{ color: "var(--sale)" }}>
               {discount}%
             </span>
           )}
-          <span className="text-sm font-bold" style={{ color: "#2D5A27" }}>
+          <span className="text-[15px] font-extrabold" style={{ color: "var(--text-primary)" }}>
             {page.price.toLocaleString()}원
           </span>
           {page.original_price && (
-            <span className="text-xs line-through" style={{ color: "#96AD90" }}>
+            <span className="text-xs line-through" style={{ color: "var(--text-muted)" }}>
               {page.original_price.toLocaleString()}원
             </span>
           )}
@@ -136,45 +136,45 @@ export default function HomeDealSection({
   const closingCount = active.filter((p) => isClosingToday(p.ends_at)).length;
 
   return (
-    <section style={{ background: "#FFF8E7" }} className="py-16">
-      {/* 헤더 */}
-      <div className="flex items-end justify-between mb-10 px-8">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.25em] uppercase mb-2" style={{ color: "#96AD90" }}>
-            BLEND PICK
-          </p>
-          <h2 className="text-3xl font-bold tracking-tight" style={{ color: "#2D5A27" }}>
-            지금 놓치면 끝{" "}
-            <span style={{ color: "#96AD90" }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" className="inline-block align-middle mb-1">
+    <section style={{ background: "var(--surface)", borderColor: "var(--line)" }} className="py-14 sm:py-16 lg:py-20 border-y">
+      <div className="container-blend">
+        {/* 헤더 */}
+        <div className="flex items-end justify-between mb-8 sm:mb-10">
+          <div>
+            <p className="text-[11px] font-bold tracking-[0.28em] uppercase mb-2.5" style={{ color: "var(--accent)" }}>
+              BLEND PICK
+            </p>
+            <h2 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold tracking-tight flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+              지금 놓치면 끝
+              <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" strokeWidth="1.8" className="inline-block">
                 <circle cx="12" cy="13" r="8" />
                 <path strokeLinecap="round" d="M12 5V3M9 3h6" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4.5l2.5 2.5" />
                 <path strokeLinecap="round" d="M6.3 6.3l1 1M17.7 6.3l-1 1" />
               </svg>
-            </span>
-          </h2>
-          {closingCount > 0 && (
-            <p className="mt-1.5 text-sm" style={{ color: "#96AD90" }}>
-              오늘 마감{" "}
-              <span style={{ color: "#96AD90" }} className="font-semibold">
-                {closingCount}개
-              </span>
-            </p>
-          )}
+            </h2>
+            {closingCount > 0 && (
+              <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                오늘 마감{" "}
+                <span style={{ color: "var(--sale)" }} className="font-bold">
+                  {closingCount}개
+                </span>
+              </p>
+            )}
+          </div>
+          <Link
+            href="/campaigns"
+            className="text-sm font-medium transition-opacity duration-200 hover:opacity-70 mb-1 shrink-0"
+            style={{ color: "var(--accent)" }}
+          >
+            전체보기 →
+          </Link>
         </div>
-        <Link
-          href="/campaigns"
-          className="text-sm transition-opacity duration-200 hover:opacity-70 mb-1"
-          style={{ color: "#96AD90" }}
-        >
-          전체보기 →
-        </Link>
       </div>
 
       {/* 카드 리스트 */}
       <div className="overflow-x-auto scrollbar-hide">
-        <div className="flex gap-5 px-8 pb-2">
+        <div className="flex gap-4 sm:gap-5 pb-2 px-4 sm:px-6 md:px-8 lg:px-12 3xl:px-20">
           {active.map((page) => (
             <ActiveCard key={page.id} page={page} />
           ))}

@@ -45,21 +45,24 @@ interface User {
 export default function HeaderClient({ user, isAdmin = false }: { user: User | null; isAdmin?: boolean }) {
 
   return (
-    <header className="sticky top-0 z-50" style={{ background: "var(--cream)" }}>
+    <header
+      className="sticky top-0 z-50 border-b"
+      style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "saturate(180%) blur(12px)", WebkitBackdropFilter: "saturate(180%) blur(12px)", borderColor: "var(--line)" }}
+    >
       {/*
         기존: 2줄 헤더 (로고+로그인 / 햄버거+네비)
         변경: 1줄로 통합 — 로고, 네비, 우측 액션을 한 줄에 배치
         → 시각적으로 깔끔하고, 세로 공간 절약
       */}
-      <div className="px-8 flex items-center justify-between h-14">
+      <div className="container-blend flex items-center justify-between h-14 sm:h-16">
         {/* 좌측: 로고 */}
         <div className="flex items-center">
-          <Link href="/" className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+          <Link href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
             BLEND PICK
           </Link>
 
           {/* 구분선 */}
-          <div className="hidden sm:block w-px h-4 mx-6 rounded-full" style={{ background: "var(--accent)", opacity: 0.35 }} />
+          <div className="hidden sm:block w-px h-4 mx-5 lg:mx-6 rounded-full" style={{ background: "var(--line)" }} />
 
           {/* 네비게이션 */}
           <nav className="hidden sm:flex items-center gap-6">

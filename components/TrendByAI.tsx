@@ -68,7 +68,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 function ScoreBar({ score }: { score: number }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--warm-gray)" }}>
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--line)" }}>
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{
@@ -136,7 +136,7 @@ function TrendCard({ item }: { item: TrendItem }) {
 
       {/* AI 매칭 제품 */}
       {item.matched_products.length > 0 && (
-        <div className="pt-3" style={{ borderTop: "1px solid var(--warm-gray)" }}>
+        <div className="pt-3" style={{ borderTop: "1px solid var(--line)" }}>
           <p className="text-[10px] mb-2" style={{ color: "var(--text-muted)" }}>AI 매칭 제품</p>
           <ul className="space-y-1.5">
             {item.matched_products.map((p) => (
@@ -166,13 +166,13 @@ export default function TrendByAI() {
   const [first, ...rest] = DUMMY_TRENDS;
 
   return (
-    <section className="px-8 py-20">
+    <section className="container-blend py-16 sm:py-20">
       {/* 헤더 */}
-      <div className="mb-12">
-        <p className="text-xs font-medium tracking-[0.2em] uppercase mb-3" style={{ color: "var(--accent)" }}>
+      <div className="mb-10 sm:mb-12">
+        <p className="text-[11px] font-bold tracking-[0.22em] uppercase mb-3" style={{ color: "var(--accent)" }}>
           POWERED BY AI
         </p>
-        <h2 className="text-3xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+        <h2 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
           Trend by AI
         </h2>
         <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>

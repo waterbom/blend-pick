@@ -53,13 +53,13 @@ export default async function ShopPage({
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
-      <div className="px-6 pt-8 pb-16 max-w-6xl mx-auto">
+      <div className="container-blend pt-8 sm:pt-10 pb-16">
         {/* 헤더 */}
         <div className="mb-8">
-          <p className="text-xs font-medium tracking-[0.2em] uppercase mb-2" style={{ color: "var(--accent)" }}>
+          <p className="text-[11px] font-bold tracking-[0.22em] uppercase mb-2" style={{ color: "var(--accent)" }}>
             BLEND PICK SHOP
           </p>
-          <h1 className="text-3xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
             Products
           </h1>
           <div className="mt-3 h-0.5 w-12 rounded-full" style={{ background: "var(--accent)" }} />
@@ -102,7 +102,7 @@ export default async function ShopPage({
             등록된 상품이 없습니다.
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 3xl:grid-cols-6 gap-x-4 gap-y-8">
             {products.map((p) => {
               const discount = p.original_price && p.original_price > p.price
                 ? Math.round((1 - p.price / p.original_price) * 100)
@@ -122,8 +122,8 @@ export default async function ShopPage({
                     />
                     {discount && (
                       <span
-                        className="absolute top-2 left-2 text-white text-xs font-bold px-2 py-0.5 rounded-full"
-                        style={{ background: "var(--accent)" }}
+                        className="absolute top-2 left-2 text-white text-xs font-extrabold px-2 py-0.5 rounded-full"
+                        style={{ background: "var(--sale)" }}
                       >
                         -{discount}%
                       </span>
@@ -140,7 +140,7 @@ export default async function ShopPage({
 
                   {/* 정보 */}
                   <div>
-                    <p className="text-xs mb-0.5" style={{ color: "#2D5A27" }}>{p.brand}</p>
+                    <p className="text-[11px] font-medium mb-1" style={{ color: "var(--text-muted)" }}>{p.brand}</p>
                     <p className="text-sm font-medium line-clamp-2 leading-snug mb-1.5" style={{ color: "var(--text-primary)" }}>
                       {p.name}
                     </p>
@@ -149,12 +149,12 @@ export default async function ShopPage({
                         {p.price.toLocaleString()}원
                       </span>
                       {p.original_price && p.original_price > p.price && (
-                        <span className="text-xs line-through" style={{ color: "#2D5A27" }}>
+                        <span className="text-xs line-through" style={{ color: "var(--text-muted)" }}>
                           {p.original_price.toLocaleString()}원
                         </span>
                       )}
                     </div>
-                    <p className="text-xs mt-1" style={{ color: "#2D5A27" }}>
+                    <p className="text-xs mt-1" style={{ color: p.shipping_type === "free" ? "var(--accent)" : "var(--text-muted)" }}>
                       {p.shipping_type === "free" ? "무료배송" : `배송비 ${p.shipping_cost.toLocaleString()}원`}
                     </p>
                   </div>
