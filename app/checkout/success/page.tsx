@@ -58,13 +58,14 @@ function SuccessContent() {
 
   if (error) {
     return (
-      <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-sm border border-gray-100">
+      <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
         <div className="text-4xl mb-4">⚠️</div>
-        <h1 className="text-lg font-bold text-gray-900 mb-2">결제 오류</h1>
-        <p className="text-sm text-gray-500 mb-6">{error}</p>
+        <h1 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>결제 오류</h1>
+        <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{error}</p>
         <Link
           href="/campaigns"
-          className="block w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl"
+          className="block w-full text-white text-sm font-semibold py-3 rounded-2xl"
+          style={{ background: "var(--accent)" }}
         >
           쇼핑 계속하기
         </Link>
@@ -73,49 +74,58 @@ function SuccessContent() {
   }
 
   if (!result) {
-    return <p className="text-sm text-gray-400">결제 확인 중...</p>;
+    return <p className="text-sm" style={{ color: "var(--text-muted)" }}>결제 확인 중...</p>;
   }
 
   return (
-    <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-sm border border-gray-100">
+    <div className="bg-white rounded-2xl p-8 max-w-sm w-full" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
       <div className="text-center mb-6">
-        <div className="text-5xl mb-3">✅</div>
-        <h1 className="text-xl font-bold text-gray-900">결제 완료!</h1>
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+          style={{ background: "var(--accent-soft)" }}
+        >
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-extrabold" style={{ color: "var(--text-primary)" }}>결제 완료!</h1>
       </div>
 
-      <div className="space-y-3 text-sm mb-6">
+      <div className="space-y-3 text-sm mb-6 tnum" style={{ color: "var(--text-secondary)" }}>
         <div className="flex justify-between">
-          <span className="text-gray-400">주문번호</span>
-          <span className="font-medium text-gray-900">{result.orderNumber}</span>
+          <span>주문번호</span>
+          <span className="font-medium font-mono" style={{ color: "var(--text-primary)" }}>{result.orderNumber}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-400">상품</span>
-          <span className="font-medium text-gray-900 text-right max-w-[180px] truncate">
+          <span>상품</span>
+          <span className="font-medium text-right max-w-[180px] truncate" style={{ color: "var(--text-primary)" }}>
             {result.productName}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-gray-400">결제 금액</span>
-          <span className="font-bold text-gray-900">
+        <div className="flex justify-between items-baseline pt-3" style={{ borderTop: "1px solid var(--line)" }}>
+          <span className="font-bold" style={{ color: "var(--text-primary)" }}>결제 금액</span>
+          <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>
             {result.totalAmount.toLocaleString()}원
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-400">결제 수단</span>
-          <span className="text-gray-700">{result.paymentMethod}</span>
+          <span>결제 수단</span>
+          <span style={{ color: "var(--text-secondary)" }}>{result.paymentMethod}</span>
         </div>
       </div>
 
       <div className="space-y-2">
         <Link
           href="/campaigns"
-          className="block w-full text-center bg-gray-900 text-white text-sm font-semibold py-3 rounded-xl hover:bg-gray-700 transition-colors"
+          className="block w-full text-center text-white text-sm font-semibold py-3 rounded-2xl transition-all hover:brightness-95"
+          style={{ background: "var(--accent)" }}
         >
           쇼핑 계속하기
         </Link>
         <Link
           href="/mypage"
-          className="block w-full text-center bg-gray-50 text-gray-600 text-sm font-medium py-3 rounded-xl hover:bg-gray-100 transition-colors"
+          className="block w-full text-center text-sm font-medium py-3 rounded-2xl transition-all"
+          style={{ background: "var(--surface-soft)", color: "var(--text-secondary)" }}
         >
           마이페이지에서 확인
         </Link>
@@ -126,8 +136,8 @@ function SuccessContent() {
 
 export default function CheckoutSuccessPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
-      <Suspense fallback={<p className="text-sm text-gray-400">로딩 중...</p>}>
+    <main className="min-h-screen flex items-center justify-center px-6" style={{ background: "var(--background)" }}>
+      <Suspense fallback={<p className="text-sm" style={{ color: "var(--text-muted)" }}>로딩 중...</p>}>
         <SuccessContent />
       </Suspense>
     </main>

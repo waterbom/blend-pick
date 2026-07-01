@@ -99,121 +99,84 @@ export default function CheckoutClient({
     }
   }
 
+  const inputClass = "w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-colors";
+  const inputStyle = { border: "1px solid var(--line)", background: "#fff" };
+  const focusOn = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = "var(--accent)");
+  const focusOff = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = "var(--line)");
+
   return (
     <div className="space-y-4">
       {/* 구매자 정보 */}
-      <section className="bg-white rounded-xl border border-gray-100 p-5">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">구매자 정보</h2>
+      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)" }}>
+        <h2 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>구매자 정보</h2>
         <div className="space-y-3">
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">이름 *</label>
-            <input
-              name="customerName"
-              value={form.customerName}
-              onChange={handleChange}
-              placeholder="홍길동"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">연락처 *</label>
-            <input
-              name="customerPhone"
-              value={form.customerPhone}
-              onChange={handleChange}
-              placeholder="010-0000-0000"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">이메일 (선택)</label>
-            <input
-              name="customerEmail"
-              value={form.customerEmail}
-              onChange={handleChange}
-              placeholder="example@email.com"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-            />
-          </div>
+          {[
+            { name: "customerName", label: "이름 *", placeholder: "홍길동" },
+            { name: "customerPhone", label: "연락처 *", placeholder: "010-0000-0000" },
+            { name: "customerEmail", label: "이메일 (선택)", placeholder: "example@email.com" },
+          ].map(({ name, label, placeholder }) => (
+            <div key={name}>
+              <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>{label}</label>
+              <input
+                name={name}
+                value={(form as any)[name]}
+                onChange={handleChange}
+                placeholder={placeholder}
+                className={inputClass}
+                style={inputStyle}
+                onFocus={focusOn}
+                onBlur={focusOff}
+              />
+            </div>
+          ))}
         </div>
       </section>
 
       {/* 배송지 정보 */}
-      <section className="bg-white rounded-xl border border-gray-100 p-5">
+      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)" }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-900">배송지 정보</h2>
-          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-            <input
-              type="checkbox"
-              name="sameAsBuyer"
-              checked={form.sameAsBuyer}
-              onChange={handleChange}
-              className="rounded"
-            />
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>배송지 정보</h2>
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "var(--text-muted)" }}>
+            <input type="checkbox" name="sameAsBuyer" checked={form.sameAsBuyer} onChange={handleChange} className="rounded" />
             구매자 정보와 동일
           </label>
         </div>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">받는 분 *</label>
-              <input
-                name="shippingName"
-                value={form.shippingName}
-                onChange={handleChange}
-                placeholder="홍길동"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">연락처 *</label>
-              <input
-                name="shippingPhone"
-                value={form.shippingPhone}
-                onChange={handleChange}
-                placeholder="010-0000-0000"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-              />
-            </div>
+            {[
+              { name: "shippingName", label: "받는 분 *", placeholder: "홍길동" },
+              { name: "shippingPhone", label: "연락처 *", placeholder: "010-0000-0000" },
+            ].map(({ name, label, placeholder }) => (
+              <div key={name}>
+                <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>{label}</label>
+                <input
+                  name={name}
+                  value={(form as any)[name]}
+                  onChange={handleChange}
+                  placeholder={placeholder}
+                  className={inputClass}
+                  style={inputStyle}
+                  onFocus={focusOn}
+                  onBlur={focusOff}
+                />
+              </div>
+            ))}
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">우편번호 *</label>
-            <input
-              name="shippingZipcode"
-              value={form.shippingZipcode}
-              onChange={handleChange}
-              placeholder="12345"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-            />
+            <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>우편번호 *</label>
+            <input name="shippingZipcode" value={form.shippingZipcode} onChange={handleChange} placeholder="12345" className={inputClass} style={inputStyle} onFocus={focusOn} onBlur={focusOff} />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">주소 *</label>
-            <input
-              name="shippingAddress"
-              value={form.shippingAddress}
-              onChange={handleChange}
-              placeholder="서울시 강남구 테헤란로 123"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-            />
+            <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>주소 *</label>
+            <input name="shippingAddress" value={form.shippingAddress} onChange={handleChange} placeholder="서울시 강남구 테헤란로 123" className={inputClass} style={inputStyle} onFocus={focusOn} onBlur={focusOff} />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">상세주소</label>
-            <input
-              name="shippingAddress2"
-              value={form.shippingAddress2}
-              onChange={handleChange}
-              placeholder="101동 101호"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-            />
+            <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>상세주소</label>
+            <input name="shippingAddress2" value={form.shippingAddress2} onChange={handleChange} placeholder="101동 101호" className={inputClass} style={inputStyle} onFocus={focusOn} onBlur={focusOff} />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">배송 메모</label>
-            <select
-              name="shippingMemo"
-              value={form.shippingMemo}
-              onChange={handleChange}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400 bg-white"
-            >
+            <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>배송 메모</label>
+            <select name="shippingMemo" value={form.shippingMemo} onChange={handleChange} className={inputClass} style={{ ...inputStyle, appearance: "auto" }}>
               <option value="">선택 안함</option>
               <option value="문 앞에 놔주세요">문 앞에 놔주세요</option>
               <option value="경비실에 맡겨주세요">경비실에 맡겨주세요</option>
@@ -224,8 +187,8 @@ export default function CheckoutClient({
       </section>
 
       {/* 결제 금액 요약 + 버튼 */}
-      <section className="bg-white rounded-xl border border-gray-100 p-5">
-        <div className="space-y-2 text-sm text-gray-600 mb-4">
+      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
+        <div className="space-y-2 text-sm mb-4 tnum" style={{ color: "var(--text-secondary)" }}>
           <div className="flex justify-between">
             <span>상품 금액</span>
             <span>{unitPrice.toLocaleString()}원</span>
@@ -234,16 +197,17 @@ export default function CheckoutClient({
             <span>배송비</span>
             <span>{shippingCost === 0 ? "무료" : `${shippingCost.toLocaleString()}원`}</span>
           </div>
-          <div className="flex justify-between font-bold text-gray-900 border-t border-gray-100 pt-2 mt-2">
-            <span>총 결제 금액</span>
-            <span>{totalAmount.toLocaleString()}원</span>
+          <div className="flex justify-between items-baseline pt-2 mt-1" style={{ borderTop: "1px solid var(--line)" }}>
+            <span className="font-bold" style={{ color: "var(--text-primary)" }}>총 결제 금액</span>
+            <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>{totalAmount.toLocaleString()}원</span>
           </div>
         </div>
 
         <button
           onClick={handlePay}
           disabled={loading}
-          className="w-full bg-gray-900 text-white font-semibold py-4 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full text-white font-bold py-4 rounded-2xl transition-all hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: "var(--accent)" }}
         >
           {loading ? "처리 중..." : `${totalAmount.toLocaleString()}원 결제하기`}
         </button>

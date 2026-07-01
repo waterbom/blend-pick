@@ -111,12 +111,12 @@ export default function ShopCheckoutClient({
   }
 
   const inputClass = "w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-colors";
-  const inputStyle = { border: "1px solid var(--warm-gray)", background: "#fff" };
+  const inputStyle = { border: "1px solid var(--line)", background: "#fff" };
 
   return (
     <div className="space-y-4">
       {/* 구매자 정보 */}
-      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--warm-gray)" }}>
+      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)" }}>
         <h2 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>구매자 정보</h2>
         <div className="space-y-3">
           {[
@@ -134,7 +134,7 @@ export default function ShopCheckoutClient({
                 className={inputClass}
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--warm-gray)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--line)")}
               />
             </div>
           ))}
@@ -142,7 +142,7 @@ export default function ShopCheckoutClient({
       </section>
 
       {/* 배송지 정보 */}
-      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--warm-gray)" }}>
+      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)" }}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>배송지 정보</h2>
           <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "var(--text-muted)" }}>
@@ -166,22 +166,22 @@ export default function ShopCheckoutClient({
                   className={inputClass}
                   style={inputStyle}
                   onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-                  onBlur={(e) => (e.target.style.borderColor = "var(--warm-gray)")}
+                  onBlur={(e) => (e.target.style.borderColor = "var(--line)")}
                 />
               </div>
             ))}
           </div>
           <div>
             <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>우편번호 *</label>
-            <input name="shippingZipcode" value={form.shippingZipcode} onChange={handleChange} placeholder="12345" className={inputClass} style={inputStyle} onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--warm-gray)")} />
+            <input name="shippingZipcode" value={form.shippingZipcode} onChange={handleChange} placeholder="12345" className={inputClass} style={inputStyle} onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
           </div>
           <div>
             <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>주소 *</label>
-            <input name="shippingAddress" value={form.shippingAddress} onChange={handleChange} placeholder="서울시 강남구 테헤란로 123" className={inputClass} style={inputStyle} onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--warm-gray)")} />
+            <input name="shippingAddress" value={form.shippingAddress} onChange={handleChange} placeholder="서울시 강남구 테헤란로 123" className={inputClass} style={inputStyle} onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
           </div>
           <div>
             <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>상세주소</label>
-            <input name="shippingAddress2" value={form.shippingAddress2} onChange={handleChange} placeholder="101동 101호" className={inputClass} style={inputStyle} onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--warm-gray)")} />
+            <input name="shippingAddress2" value={form.shippingAddress2} onChange={handleChange} placeholder="101동 101호" className={inputClass} style={inputStyle} onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
           </div>
           <div>
             <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>배송 메모</label>
@@ -194,15 +194,15 @@ export default function ShopCheckoutClient({
               className={inputClass}
               style={{ ...inputStyle, resize: "none" }}
               onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-              onBlur={(e) => (e.target.style.borderColor = "var(--warm-gray)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--line)")}
             />
           </div>
         </div>
       </section>
 
       {/* 결제 금액 요약 */}
-      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--warm-gray)" }}>
-        <div className="space-y-2 text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
+        <div className="space-y-2 text-sm mb-4 tnum" style={{ color: "var(--text-secondary)" }}>
           <div className="flex justify-between">
             <span>상품 금액</span>
             <span>{(unitPrice * quantity).toLocaleString()}원</span>
@@ -211,15 +211,15 @@ export default function ShopCheckoutClient({
             <span>배송비</span>
             <span>{shippingCost === 0 ? "무료" : `${shippingCost.toLocaleString()}원`}</span>
           </div>
-          <div className="flex justify-between font-bold pt-2 mt-1" style={{ borderTop: "1px solid var(--warm-gray)", color: "var(--text-primary)" }}>
-            <span>총 결제 금액</span>
-            <span>{totalAmount.toLocaleString()}원</span>
+          <div className="flex justify-between items-baseline pt-2 mt-1" style={{ borderTop: "1px solid var(--line)" }}>
+            <span className="font-bold" style={{ color: "var(--text-primary)" }}>총 결제 금액</span>
+            <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>{totalAmount.toLocaleString()}원</span>
           </div>
         </div>
         <button
           onClick={handlePay}
           disabled={loading}
-          className="w-full text-white font-semibold py-4 rounded-xl transition-all disabled:opacity-40"
+          className="w-full text-white font-bold py-4 rounded-2xl transition-all hover:brightness-95 disabled:opacity-40"
           style={{ background: "var(--accent)" }}
         >
           {loading ? "처리 중..." : `${totalAmount.toLocaleString()}원 결제하기`}

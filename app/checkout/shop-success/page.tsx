@@ -48,7 +48,7 @@ function ShopSuccessContent() {
 
   if (error) {
     return (
-      <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-sm" style={{ border: "1px solid var(--warm-gray)" }}>
+      <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-sm" style={{ border: "1px solid var(--line)" }}>
         <div className="text-4xl mb-4">⚠️</div>
         <h1 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>결제 오류</h1>
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{error}</p>
@@ -64,7 +64,7 @@ function ShopSuccessContent() {
   }
 
   return (
-    <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-sm" style={{ border: "1px solid var(--warm-gray)" }}>
+    <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-sm" style={{ border: "1px solid var(--line)" }}>
       <div className="text-center mb-6">
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
@@ -86,9 +86,9 @@ function ShopSuccessContent() {
           <span>상품</span>
           <span className="font-medium text-right max-w-[180px] truncate" style={{ color: "var(--text-primary)" }}>{result.productName}</span>
         </div>
-        <div className="flex justify-between font-bold" style={{ borderTop: "1px solid var(--warm-gray)", paddingTop: "0.75rem", color: "var(--text-primary)" }}>
-          <span>결제 금액</span>
-          <span>{result.totalAmount.toLocaleString()}원</span>
+        <div className="flex justify-between items-baseline tnum" style={{ borderTop: "1px solid var(--line)", paddingTop: "0.75rem" }}>
+          <span className="font-bold" style={{ color: "var(--text-primary)" }}>결제 금액</span>
+          <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>{result.totalAmount.toLocaleString()}원</span>
         </div>
         <div className="flex justify-between">
           <span>결제 수단</span>

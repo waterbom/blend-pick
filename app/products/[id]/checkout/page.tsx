@@ -50,11 +50,11 @@ export default async function ShopCheckoutPage({
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
-      <div className="max-w-2xl mx-auto px-6 py-10">
-        <h1 className="text-xl font-bold mb-6" style={{ color: "var(--text-primary)" }}>주문 / 결제</h1>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <h1 className="text-2xl font-extrabold tracking-tight mb-6" style={{ color: "var(--text-primary)" }}>주문 / 결제</h1>
 
         {/* 상품 요약 */}
-        <div className="bg-white rounded-2xl p-5 mb-4 flex gap-4 items-center" style={{ border: "1px solid var(--warm-gray)" }}>
+        <div className="bg-white rounded-2xl p-5 mb-4 flex gap-4 items-center" style={{ border: "1px solid var(--line)" }}>
           {product.main_image && (
             <img src={product.main_image} alt={product.name} className="w-16 h-16 object-cover rounded-xl" />
           )}

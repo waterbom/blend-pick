@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import pool from "@/lib/db";
+import Header from "@/components/Header";
 import CheckoutClient from "@/components/CheckoutClient";
 
 interface Product {
@@ -49,29 +50,30 @@ export default async function CheckoutPage({
   const clientKey = process.env.TOSS_CLIENT_KEY!;
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-6 py-10">
-        <h1 className="text-xl font-bold text-gray-900 mb-6">주문 / 결제</h1>
+    <main className="min-h-screen" style={{ background: "var(--background)" }}>
+      <Header />
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <h1 className="text-2xl font-extrabold tracking-tight mb-6" style={{ color: "var(--text-primary)" }}>주문 / 결제</h1>
 
         {/* 상품 요약 */}
-        <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4 flex gap-4 items-center">
+        <div className="bg-white rounded-2xl p-5 mb-4 flex gap-4 items-center" style={{ border: "1px solid var(--line)" }}>
           {product.product_image && (
             <img
               src={product.product_image}
               alt={product.name}
-              className="w-16 h-16 object-cover rounded-lg"
+              className="w-16 h-16 object-cover rounded-xl"
             />
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-400">{product.brand}</p>
-            <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{product.brand}</p>
+            <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{product.name}</p>
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-sm font-bold text-gray-900">
+          <div className="text-right shrink-0 tnum">
+            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
               {displayPrice.toLocaleString()}원
             </p>
             {shippingCost > 0 && (
-              <p className="text-xs text-gray-400">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                 배송비 {shippingCost.toLocaleString()}원
               </p>
             )}

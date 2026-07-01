@@ -84,9 +84,9 @@ export default function CartClient() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <h1 className="text-xl font-bold mb-6" style={{ color: "var(--text-primary)" }}>
-        장바구니 <span className="text-base font-normal" style={{ color: "var(--text-muted)" }}>({items.length})</span>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <h1 className="text-2xl font-extrabold tracking-tight mb-6" style={{ color: "var(--text-primary)" }}>
+        장바구니 <span className="text-base font-medium" style={{ color: "var(--text-muted)" }}>({items.length})</span>
       </h1>
 
       <div className="space-y-3 mb-6">
@@ -97,7 +97,7 @@ export default function CartClient() {
             <div
               key={item.id}
               className="bg-white rounded-2xl p-4 flex gap-4"
-              style={{ border: "1px solid var(--warm-gray)", opacity: isSoldout ? 0.5 : 1 }}
+              style={{ border: "1px solid var(--line)", opacity: isSoldout ? 0.5 : 1 }}
             >
               <Link href={`/products/${item.product_id}`} className="shrink-0">
                 <div className="w-16 h-16 rounded-xl overflow-hidden" style={{ background: "var(--cream-dark)" }}>
@@ -122,7 +122,7 @@ export default function CartClient() {
                 <div className="flex items-center justify-between mt-3">
                   {/* 수량 조절 */}
                   {!isSoldout && (
-                    <div className="flex items-center rounded-lg overflow-hidden" style={{ border: "1px solid var(--warm-gray)" }}>
+                    <div className="flex items-center rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
                       <button
                         onClick={() => updateQty(item.id, Math.max(1, item.quantity - 1))}
                         className="w-7 h-7 flex items-center justify-center text-base hover:bg-gray-50 transition-colors"
@@ -160,8 +160,8 @@ export default function CartClient() {
       </div>
 
       {/* 결제 요약 */}
-      <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--warm-gray)" }}>
-        <div className="space-y-2.5 text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
+      <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
+        <div className="space-y-2.5 text-sm mb-5 tnum" style={{ color: "var(--text-secondary)" }}>
           <div className="flex justify-between">
             <span>상품 금액</span>
             <span>{totalAmount.toLocaleString()}원</span>
@@ -171,11 +171,11 @@ export default function CartClient() {
             <span>{shippingCost === 0 ? "무료" : `${shippingCost.toLocaleString()}원`}</span>
           </div>
           <div
-            className="flex justify-between font-bold pt-3"
-            style={{ borderTop: "1px solid var(--warm-gray)", color: "var(--text-primary)" }}
+            className="flex justify-between items-baseline pt-3"
+            style={{ borderTop: "1px solid var(--line)" }}
           >
-            <span>총 결제 금액</span>
-            <span>{(totalAmount + shippingCost).toLocaleString()}원</span>
+            <span className="font-bold" style={{ color: "var(--text-primary)" }}>총 결제 금액</span>
+            <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>{(totalAmount + shippingCost).toLocaleString()}원</span>
           </div>
         </div>
 
@@ -185,7 +185,7 @@ export default function CartClient() {
           </p>
         ) : (
           <button
-            className="w-full text-white font-semibold py-3.5 rounded-xl text-sm transition-all hover:opacity-90"
+            className="w-full text-white font-bold py-3.5 rounded-2xl text-sm transition-all hover:brightness-95"
             style={{ background: "var(--accent)" }}
             onClick={() => {
               sessionStorage.setItem(
