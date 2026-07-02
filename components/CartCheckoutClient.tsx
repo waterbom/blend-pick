@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import AddressSearchButton from "@/components/AddressSearchButton";
+import { shopUnitPrice } from "@/lib/shop-price";
 
 interface CartItem {
   id: string;
@@ -163,7 +164,7 @@ export default function CartCheckoutClient({ clientKey }: Props) {
         </h2>
         <div className="space-y-3">
           {checkoutData.items.map((item) => {
-            const unitPrice = item.price + (item.extra_price ?? 0);
+            const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
             return (
               <div key={item.id} className="flex gap-3 items-center">
                 <div

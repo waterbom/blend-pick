@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { shopUnitPrice } from "@/lib/shop-price";
 
 interface CartItem {
   id: string;
@@ -60,7 +61,7 @@ export default function CartClient() {
 
   const availableItems = items.filter((i) => i.status !== "soldout" && i.stock > 0);
   const totalAmount = availableItems.reduce((sum, i) => {
-    return sum + (i.price + (i.extra_price ?? 0)) * i.quantity;
+    return sum + shopUnitPrice(i.price, i.extra_price, i.option_id != null) * i.quantity;
   }, 0);
   const shippingCost = availableItems.some((i) => i.shipping_type !== "free") ? 3000 : 0;
 
@@ -91,7 +92,7 @@ export default function CartClient() {
 
       <div className="space-y-3 mb-6">
         {items.map((item) => {
-          const unitPrice = item.price + (item.extra_price ?? 0);
+          const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
           const isSoldout = item.status === "soldout" || item.stock === 0;
           return (
             <div

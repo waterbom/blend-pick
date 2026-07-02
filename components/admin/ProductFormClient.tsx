@@ -532,14 +532,14 @@ export default function ProductFormClient({ mode, productId }: Props) {
             <>
               <div className="space-y-2">
                 <div className="grid grid-cols-[1fr_90px_80px_28px] gap-2 text-xs text-gray-400">
-                  <span>옵션명</span><span>추가금액</span><span>재고</span><span />
+                  <span>옵션명</span><span>옵션 가격</span><span>재고</span><span />
                 </div>
                 {options.map((opt, i) => (
                   <div key={i} className="grid grid-cols-[1fr_90px_80px_28px] gap-2 items-center">
                     <input value={opt.name} onChange={e => setOption(i, "name", e.target.value)}
                       className={inp} placeholder="예: 빨강/XL" />
                     <input value={opt.price} onChange={e => setOption(i, "price", e.target.value)}
-                      type="number" min="0" className={inp} placeholder="0" />
+                      type="number" min="0" className={inp} placeholder="판매가" />
                     <input value={opt.stock} onChange={e => setOption(i, "stock", e.target.value)}
                       type="number" min="0" className={inp} placeholder="0" />
                     <button type="button" onClick={() => removeOption(i)}

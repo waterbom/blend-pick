@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import shopPool from "@/lib/db-shop";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
+import { shopUnitPrice } from "@/lib/shop-price";
 import { randomBytes } from "crypto";
 
 function generateOrderNumber() {
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     // order_items: 장바구니 아이템 수만큼 INSERT
     for (const item of items) {
-      const unitPrice = item.price + (item.extra_price ?? 0);
+      const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
       await client.query(
         `INSERT INTO order_items (order_id, product_id, option_id, product_name, unit_price, quantity)
          VALUES ($1, $2, $3, $4, $5, $6)`,

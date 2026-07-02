@@ -2,6 +2,7 @@ import shopPool from "@/lib/db-shop";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import ShopCheckoutClient from "@/components/ShopCheckoutClient";
+import { shopUnitPrice } from "@/lib/shop-price";
 
 async function getProduct(id: string) {
   const result = await shopPool.query(
@@ -38,7 +39,7 @@ export default async function ShopCheckoutPage({
 
   if (!product) notFound();
 
-  const unitPrice = product.price + (option?.extra_price ?? 0);
+  const unitPrice = shopUnitPrice(product.price, option?.extra_price, !!option);
   const shippingCost = product.shipping_type === "free" ? 0 : (product.shipping_cost ?? 0);
   const totalAmount = unitPrice * quantity + shippingCost;
   const clientKey = process.env.TOSS_CLIENT_KEY!;
