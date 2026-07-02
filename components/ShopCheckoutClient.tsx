@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
+import AddressSearchButton from "@/components/AddressSearchButton";
 
 interface Props {
   productId: string;
@@ -172,12 +173,20 @@ export default function ShopCheckoutClient({
             ))}
           </div>
           <div>
-            <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>우편번호 *</label>
-            <input name="shippingZipcode" value={form.shippingZipcode} onChange={handleChange} placeholder="12345" className={inputClass} style={inputStyle} onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
+            <AddressSearchButton
+              onSelect={(zip, addr) =>
+                setForm((prev) => ({ ...prev, shippingZipcode: zip, shippingAddress: addr }))
+              }
+            />
+            {form.shippingZipcode && (
+              <p className="text-xs mt-1.5 tnum" style={{ color: "var(--text-muted)" }}>
+                [{form.shippingZipcode}] {form.shippingAddress}
+              </p>
+            )}
           </div>
-          <div>
-            <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>주소 *</label>
-            <input name="shippingAddress" value={form.shippingAddress} onChange={handleChange} placeholder="서울시 강남구 테헤란로 123" className={inputClass} style={inputStyle} onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
+          <div style={{ display: "none" }}>
+            <input name="shippingZipcode" value={form.shippingZipcode} onChange={handleChange} readOnly />
+            <input name="shippingAddress" value={form.shippingAddress} onChange={handleChange} readOnly />
           </div>
           <div>
             <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>상세주소</label>

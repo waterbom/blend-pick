@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
+import AddressSearchButton from "@/components/AddressSearchButton";
 
 interface Props {
   productId: string;
   productName: string;
   unitPrice: number;
+  quantity?: number;
   shippingCost: number;
   clientKey: string;
 }
@@ -15,11 +17,13 @@ export default function CheckoutClient({
   productId,
   productName,
   unitPrice,
+  quantity = 1,
   shippingCost,
   clientKey,
 }: Props) {
   const [loading, setLoading] = useState(false);
-  const totalAmount = unitPrice + shippingCost;
+  const itemTotal = unitPrice * quantity;
+  const totalAmount = itemTotal + shippingCost;
 
   const [form, setForm] = useState({
     customerName: "",
@@ -63,6 +67,7 @@ export default function CheckoutClient({
       productId,
       productName,
       unitPrice,
+      quantity,
       shippingCost,
       totalAmount,
       customerName: form.customerName,
@@ -163,12 +168,20 @@ export default function CheckoutClient({
             ))}
           </div>
           <div>
-            <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>우편번호 *</label>
-            <input name="shippingZipcode" value={form.shippingZipcode} onChange={handleChange} placeholder="12345" className={inputClass} style={inputStyle} onFocus={focusOn} onBlur={focusOff} />
+            <AddressSearchButton
+              onSelect={(zip, addr) =>
+                setForm((prev) => ({ ...prev, shippingZipcode: zip, shippingAddress: addr }))
+              }
+            />
+            {form.shippingZipcode && (
+              <p className="text-xs mt-1.5 tnum" style={{ color: "var(--text-muted)" }}>
+                [{form.shippingZipcode}] {form.shippingAddress}
+              </p>
+            )}
           </div>
-          <div>
-            <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>주소 *</label>
-            <input name="shippingAddress" value={form.shippingAddress} onChange={handleChange} placeholder="서울시 강남구 테헤란로 123" className={inputClass} style={inputStyle} onFocus={focusOn} onBlur={focusOff} />
+          <div style={{ display: "none" }}>
+            <input name="shippingZipcode" value={form.shippingZipcode} onChange={handleChange} readOnly />
+            <input name="shippingAddress" value={form.shippingAddress} onChange={handleChange} readOnly />
           </div>
           <div>
             <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>상세주소</label>
@@ -190,8 +203,8 @@ export default function CheckoutClient({
       <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
         <div className="space-y-2 text-sm mb-4 tnum" style={{ color: "var(--text-secondary)" }}>
           <div className="flex justify-between">
-            <span>상품 금액</span>
-            <span>{unitPrice.toLocaleString()}원</span>
+            <span>상품 금액{quantity > 1 ? ` (${unitPrice.toLocaleString()}원 × ${quantity})` : ""}</span>
+            <span>{itemTotal.toLocaleString()}원</span>
           </div>
           <div className="flex justify-between">
             <span>배송비</span>
