@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       shipping_address2: checkoutData.shippingAddress2,
       shipping_zipcode: checkoutData.shippingZipcode,
       shipping_memo: checkoutData.shippingMemo,
-      quantity: 1,
+      quantity: checkoutData.quantity ?? 1,
       unit_price: checkoutData.unitPrice,
       total_price: checkoutData.totalAmount,
       payment_key: paymentKey,
