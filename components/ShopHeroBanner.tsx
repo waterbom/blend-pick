@@ -12,23 +12,19 @@ const DURATION = 4000;
 
 export default function ShopHeroBanner() {
   const [current, setCurrent] = useState(0);
-  const [paused, setPaused] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (paused) return;
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setCurrent((c) => (c + 1) % SLIDES.length);
     }, DURATION);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [paused, current]);
+  }, [current]);
 
   return (
     <div
       className="relative w-full max-w-[2400px] mx-auto overflow-hidden"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
     >
       {SLIDES.map((slide, i) => (
         <div
