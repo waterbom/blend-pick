@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
-  PACKAGES, ROOM_META, TIERS, getTier, nightlyWon, stayPriceWon, listWon, maxNightsFrom, manLabel, isSoldOut, nextISO,
-  BOOKABLE_FROM, BOOKABLE_TO, WON,
+  PACKAGES, ROOM_META, TIERS, getTier, nightlyWon, stayPriceWon, listWon, manLabel, nextISO,
+  BOOKABLE_FROM, BOOKABLE_TO, GROUPBUY_DEADLINE, SALE_START, SALE_FROM, SALE_TO, ymdKor, mdKor, WON,
   type PkgKey, type RoomType,
 } from "@/lib/hotel";
 
@@ -19,27 +20,87 @@ function fmtDate(iso: string) {
   return `${m}월 ${d}일 (${dow})`;
 }
 
+function daysBetween(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
+
+const md = (iso: string) => { const [, m, d] = iso.split("-").map(Number); return `${m}/${d}`; };
+
+function calcRemain(targetISO: string, now: number) {
+  const diff = new Date(targetISO).getTime() - now;
+  if (diff <= 0) return null;
+  return {
+    d: Math.floor(diff / 86400000),
+    h: Math.floor((diff % 86400000) / 3600000),
+    m: Math.floor((diff % 3600000) / 60000),
+    s: Math.floor((diff % 60000) / 1000),
+  };
+}
+
 export default function HotelReserveClient() {
+  const router = useRouter();
   const [pkg, setPkg] = useState<PkgKey>("p2");
   const [room, setRoom] = useState<RoomType>("디럭스 더블");
-  const [nights, setNights] = useState(1);
   const [monthIdx, setMonthIdx] = useState(0); // MONTHS 인덱스
-  const [selected, setSelected] = useState<string | null>(null);
+  const [checkIn, setCheckIn] = useState<string | null>(null);
+  const [checkOut, setCheckOut] = useState<string | null>(null);
+  const [soldOut, setSoldOut] = useState<Set<string>>(new Set());
+
+  // 선택 객실의 실시간 재고 마감일 (DB)
+  useEffect(() => {
+    fetch(`/api/hotel/availability?room=${encodeURIComponent(room)}`)
+      .then((r) => r.json())
+      .then((d) => setSoldOut(new Set<string>(d.soldOut || [])))
+      .catch(() => setSoldOut(new Set<string>()));
+  }, [room, checkIn, checkOut]);
 
   const pack = PACKAGES[pkg];
   const rm = ROOM_META[room];
   const month = MONTHS[monthIdx];
 
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const sale: "before" | "open" | "closed" =
+    now < new Date(SALE_START).getTime() ? "before"
+    : now > new Date(GROUPBUY_DEADLINE).getTime() ? "closed" : "open";
+  const remain = calcRemain(sale === "before" ? SALE_START : GROUPBUY_DEADLINE, now);
+
+  function resetDates() { setCheckIn(null); setCheckOut(null); }
+
   function choosePkg(k: PkgKey) {
     setPkg(k);
     setRoom(PACKAGES[k].rooms[0]); // 패키지 바꾸면 항상 해당 패키지 기본 객실로
-    setSelected(null);
-    setNights(1);
+    resetDates();
   }
 
-  // 입실 가능 여부 (예약기간 내 + 해당 밤 재고 있음)
+  // 클릭 가능 여부 (예약기간 내 + 해당 날 재고 있음)
   function selectable(iso: string): boolean {
-    return iso >= BOOKABLE_FROM && iso <= BOOKABLE_TO && !isSoldOut(room, iso);
+    return iso >= BOOKABLE_FROM && iso <= BOOKABLE_TO && !soldOut.has(iso);
+  }
+
+  // 입실일부터 연속 예약 가능한 최대 박수 (재고 마감 전까지)
+  function maxNights(from: string): number {
+    let n = 0;
+    let cur = from;
+    while (cur <= BOOKABLE_TO && !soldOut.has(cur)) { n++; cur = nextISO(cur); }
+    return Math.max(1, n);
+  }
+
+  // 날짜 클릭 → 입실/퇴실 범위 선택
+  function onDateClick(iso: string) {
+    // 새로 시작: 입실이 없거나 이미 범위가 완성된 경우
+    if (!checkIn || checkOut) { setCheckIn(iso); setCheckOut(null); return; }
+    // 입실보다 이르거나 같으면 입실을 다시 잡음
+    if (iso <= checkIn) { setCheckIn(iso); setCheckOut(null); return; }
+    // 퇴실 후보: 입실~퇴실 사이 밤이 전부 재고 있어야(연속 예약 가능 박수 이내)
+    const n = daysBetween(checkIn, iso);
+    if (n <= maxNights(checkIn)) setCheckOut(iso);
+    else { setCheckIn(iso); setCheckOut(null); }
   }
 
   const cells = useMemo(() => {
@@ -51,13 +112,11 @@ export default function HotelReserveClient() {
     return arr;
   }, [month]);
 
-  const maxNights = selected ? maxNightsFrom(room, selected) : 1;
-  const total = selected ? stayPriceWon(pkg, selected, nights) : 0;
-  const listTotal = selected ? listWon(pkg, room, nights) : 0;
+  const nights = checkIn && checkOut ? daysBetween(checkIn, checkOut) : 0;
+  const complete = !!(checkIn && checkOut && nights > 0);
+  const total = complete ? stayPriceWon(pkg, checkIn!, nights) : 0;
+  const listTotal = complete ? listWon(pkg, room, nights) : 0;
   const discountPct = listTotal > total && listTotal > 0 ? Math.round((1 - total / listTotal) * 100) : 0;
-  const checkout = selected
-    ? (() => { let c = selected; for (let i = 0; i < nights; i++) c = nextISO(c); return c; })()
-    : null;
 
   const tabBtn = (active: boolean) =>
     `flex-1 py-3 rounded-xl text-sm font-bold transition-all ${active ? "text-white" : ""}`;
@@ -71,33 +130,42 @@ export default function HotelReserveClient() {
         원하는 패키지와 날짜를 선택하면 요금이 자동으로 계산돼요.
       </p>
 
+      {/* 공구 마감 카운트다운 + 투숙 가능 기간 */}
+      <div className="mt-5 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 text-white" style={{ background: "var(--accent)" }}>
+        <div className="min-w-0">
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.72)" }}>
+            {sale === "before" ? "판매 시작까지" : "공동구매 마감까지"}
+          </p>
+          <p className="text-2xl font-extrabold font-mono tnum mt-1" suppressHydrationWarning>
+            {remain
+              ? `${remain.d}일 ${pad(remain.h)}:${pad(remain.m)}:${pad(remain.s)}`
+              : sale === "before" ? "잠시 후 오픈" : "마감되었습니다"}
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.72)" }}>투숙 가능 기간</p>
+          <p className="text-lg font-extrabold tnum mt-1">{md(BOOKABLE_FROM)} ~ {md(BOOKABLE_TO)}</p>
+        </div>
+      </div>
+
+      {/* 판매정보 */}
+      <div className="mt-4 rounded-2xl p-4" style={{ border: "1.5px dashed var(--accent)", background: "var(--surface-soft)" }}>
+        <p className="text-sm font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>■ 판매정보</p>
+        <ul className="space-y-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <li>1) 판매기간 : {ymdKor(SALE_FROM)} ~ {mdKor(SALE_TO)}</li>
+          <li>2) 투숙기간 : {ymdKor(BOOKABLE_FROM)} ~ {mdKor(BOOKABLE_TO)}</li>
+          <li>3) 연휴기간 : 하단 기간별 구분표 참조</li>
+        </ul>
+      </div>
+
       {/* 후킹 카피 */}
-      <div className="mt-5 rounded-2xl p-5" style={{ background: "var(--accent-soft)", border: "1px solid var(--line)" }}>
+      <div className="mt-4 rounded-2xl p-5" style={{ background: "var(--accent-soft)", border: "1px solid var(--line)" }}>
         <p className="text-sm font-bold leading-relaxed" style={{ color: "var(--accent)" }}>
           룸온리 가격 수준에 조식 + 인피니티풀까지 다 넣은 이 구성..<br />
           후다닥맘 독점이라 가능한 거예요! 🙅‍♀️ 다른 곳에선 절대 못 찾아요
         </p>
         <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           여기에 미친 혜택까지 꽉꽉 채워왔으니, <b style={{ color: "var(--text-primary)" }}>이번 공구는 진심 놓치면 후회합니다!!</b>
-        </p>
-      </div>
-
-      {/* 선택 객실 사진 (public/hotel/room/ 에 넣으면 표시, 없으면 플레이스홀더) */}
-      <div className="mt-5">
-        <div className={`grid gap-2 ${rm.images.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-          {rm.images.map((src, i) => (
-            <div key={src} className="relative rounded-2xl overflow-hidden aspect-[4/3]"
-              style={{ background: "linear-gradient(135deg,#e8efe9,#cde0d5)", border: "1px solid var(--line)" }}>
-              <span className="absolute inset-0 flex items-center justify-center text-xs" style={{ color: "var(--text-muted)" }}>
-                {room} 사진 {i + 1}
-              </span>
-              <img src={src} alt="" draggable={false} className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-            </div>
-          ))}
-        </div>
-        <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-          <b style={{ color: "var(--text-primary)" }}>{room}</b> · {rm.bed} · {rm.capacity}
         </p>
       </div>
 
@@ -140,35 +208,39 @@ export default function HotelReserveClient() {
         </div>
       </div>
 
-      {/* 객실 + 박수 */}
-      <div className="mt-5 grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-sm font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>객실 타입</p>
-          <div className="flex gap-2">
-            {pack.rooms.map((r) => {
-              const on = room === r;
-              return (
-                <button key={r} onClick={() => { setRoom(r); setSelected(null); setNights(1); }}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all"
-                  style={{ background: on ? "var(--accent-soft)" : "#fff", color: on ? "var(--accent)" : "var(--text-secondary)", border: `1.5px solid ${on ? "var(--accent)" : "var(--line)"}` }}>
-                  {r}
-                </button>
-              );
-            })}
-          </div>
+      {/* 객실 타입 */}
+      <div className="mt-5">
+        <p className="text-sm font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>객실 타입</p>
+        <div className="flex gap-2">
+          {pack.rooms.map((r) => {
+            const on = room === r;
+            return (
+              <button key={r} onClick={() => { setRoom(r); resetDates(); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: on ? "var(--accent-soft)" : "#fff", color: on ? "var(--accent)" : "var(--text-secondary)", border: `1.5px solid ${on ? "var(--accent)" : "var(--line)"}` }}>
+                {r}
+              </button>
+            );
+          })}
         </div>
-        <div>
-          <p className="text-sm font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>숙박</p>
-          <div className="flex items-center justify-between rounded-xl px-1.5 py-1.5" style={{ border: "1.5px solid var(--line)", background: "#fff" }}>
-            <button onClick={() => setNights((n) => Math.max(1, n - 1))} disabled={!selected || nights <= 1}
-              className="w-9 h-9 flex items-center justify-center text-lg rounded-lg disabled:opacity-30 hover:bg-gray-50" style={{ color: "var(--text-secondary)" }} aria-label="박수 감소">−</button>
-            <span className="text-sm font-bold tnum" style={{ color: selected ? "var(--text-primary)" : "var(--text-muted)" }}>{selected ? nights : 1}박</span>
-            <button onClick={() => setNights((n) => Math.min(maxNights, n + 1))} disabled={!selected || nights >= maxNights}
-              className="w-9 h-9 flex items-center justify-center text-lg rounded-lg disabled:opacity-30 hover:bg-gray-50" style={{ color: "var(--text-secondary)" }} aria-label="박수 증가">+</button>
+
+        {/* 선택 객실 사진 (public/hotel/room/ 에 넣으면 표시, 없으면 플레이스홀더) */}
+        <div className="mt-3">
+          <div className={`grid gap-2 ${rm.images.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+            {rm.images.map((src, i) => (
+              <div key={src} className="relative rounded-2xl overflow-hidden aspect-[4/3]"
+                style={{ background: "linear-gradient(135deg,#e8efe9,#cde0d5)", border: "1px solid var(--line)" }}>
+                <span className="absolute inset-0 flex items-center justify-center text-xs" style={{ color: "var(--text-muted)" }}>
+                  {room} 사진 {i + 1}
+                </span>
+                <img src={src} alt="" draggable={false} className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+              </div>
+            ))}
           </div>
-          {selected && maxNights < 30 && (
-            <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>최대 {maxNights}박 (재고 기준)</p>
-          )}
+          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+            <b style={{ color: "var(--text-primary)" }}>{room}</b> · {rm.bed} · {rm.capacity}
+          </p>
         </div>
       </div>
 
@@ -192,6 +264,12 @@ export default function HotelReserveClient() {
             className="w-9 h-9 rounded-lg flex items-center justify-center text-lg disabled:opacity-30 hover:bg-gray-50" style={{ color: "var(--text-secondary)" }}>›</button>
         </div>
 
+        {!complete && (
+          <p className="text-center text-xs mb-2 font-medium" style={{ color: "var(--accent)" }}>
+            {checkIn ? "🏁 퇴실 날짜를 선택하세요" : "📅 입실 날짜를 선택하세요"}
+          </p>
+        )}
+
         <div className="grid grid-cols-7 gap-1">
           {WEEKDAYS.map((w, i) => (
             <div key={w} className="text-center text-xs font-semibold py-1.5"
@@ -202,20 +280,23 @@ export default function HotelReserveClient() {
             const [, , d] = iso.split("-").map(Number);
             const inRange = iso >= BOOKABLE_FROM && iso <= BOOKABLE_TO;
             const canPick = selectable(iso);
-            const sold = inRange && isSoldOut(room, iso);
+            const sold = inRange && soldOut.has(iso);
             const tier = getTier(iso);
-            const on = selected === iso;
+            const isIn = iso === checkIn;
+            const isOut = iso === checkOut;
+            const isMid = !!(checkIn && checkOut && iso > checkIn && iso < checkOut);
+            const endpoint = isIn || isOut;
 
             return (
               <button
                 key={iso}
                 disabled={!canPick}
-                onClick={() => { setSelected(iso); setNights(1); }}
+                onClick={() => onDateClick(iso)}
                 className="aspect-square rounded-lg flex flex-col items-center justify-center text-center transition-all"
                 style={{
-                  background: on ? "var(--accent)" : inRange ? TIERS[tier].bg : "transparent",
-                  border: on ? "1.5px solid var(--accent)" : inRange ? "1px solid var(--line)" : "1px solid transparent",
-                  color: on ? "#fff" : inRange ? "var(--text-primary)" : "var(--text-muted)",
+                  background: endpoint ? "var(--accent)" : isMid ? "var(--accent-soft)" : inRange ? TIERS[tier].bg : "transparent",
+                  border: endpoint ? "1.5px solid var(--accent)" : isMid ? "1px solid var(--accent-soft)" : inRange ? "1px solid var(--line)" : "1px solid transparent",
+                  color: endpoint ? "#fff" : isMid ? "var(--accent)" : inRange ? "var(--text-primary)" : "var(--text-muted)",
                   opacity: !inRange ? 0.35 : sold || !canPick ? 0.5 : 1,
                   cursor: canPick ? "pointer" : "default",
                 }}
@@ -223,9 +304,11 @@ export default function HotelReserveClient() {
                 <span className="text-xs font-bold leading-none">{d}</span>
                 {inRange && (
                   sold ? (
-                    <span className="text-[10px] mt-0.5 font-bold" style={{ color: on ? "#fff" : "#dc2626" }}>마감</span>
+                    <span className="text-[10px] mt-0.5 font-bold" style={{ color: endpoint ? "#fff" : "#dc2626" }}>마감</span>
+                  ) : endpoint ? (
+                    <span className="text-[10px] mt-0.5 font-bold" style={{ color: "rgba(255,255,255,0.95)" }}>{isIn ? "입실" : "퇴실"}</span>
                   ) : canPick ? (
-                    <span className="text-[10px] mt-0.5 tnum" style={{ color: on ? "rgba(255,255,255,0.9)" : TIERS[tier].text }}>
+                    <span className="text-[10px] mt-0.5 tnum" style={{ color: isMid ? "var(--accent)" : TIERS[tier].text }}>
                       {manLabel(nightlyWon(pkg, iso))}
                     </span>
                   ) : null
@@ -250,12 +333,13 @@ export default function HotelReserveClient() {
       <div className="sticky bottom-0 mt-6 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-4"
         style={{ background: "linear-gradient(to top, var(--background) 78%, transparent)" }}>
         <div className="rounded-2xl p-4 bg-white" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
-          {selected ? (
+          {complete ? (
             <div className="flex items-center justify-between mb-3 text-sm">
               <div style={{ color: "var(--text-secondary)" }}>
-                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{fmtDate(selected)}</span>
-                {" "}입실 · {nights}박 · {pack.label} · {room}
-                {checkout && <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{fmtDate(checkout)} 퇴실</div>}
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{fmtDate(checkIn!)}</span>
+                {" ~ "}
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{fmtDate(checkOut!)}</span>
+                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{nights}박 · {pack.label} · {room}</div>
               </div>
               <div className="text-right shrink-0">
                 {discountPct > 0 && (
@@ -268,15 +352,22 @@ export default function HotelReserveClient() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-center mb-3" style={{ color: "var(--text-muted)" }}>달력에서 입실 날짜를 선택하세요</p>
+            <p className="text-sm text-center mb-3" style={{ color: "var(--text-muted)" }}>
+              {checkIn ? "퇴실 날짜를 선택하세요" : "달력에서 입실 날짜를 선택하세요"}
+            </p>
           )}
           <button
-            disabled={!selected}
-            onClick={() => alert(`선택 내역\n\n${pack.label} · ${room}\n${fmtDate(selected!)} 입실 · ${nights}박\n총 ${WON(total)}\n\n(결제 연동은 다음 단계에서 붙일게요)`)}
+            disabled={!complete || sale !== "open"}
+            onClick={() => {
+              if (!complete || sale !== "open") return;
+              router.push(`/hotel/reserve/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}`);
+            }}
             className="w-full py-4 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40"
             style={{ background: "var(--accent)" }}
           >
-            {selected ? `예약하기 · ${WON(total)}` : "날짜를 선택하세요"}
+            {sale === "before" ? "오늘 오전 10시 오픈"
+              : sale === "closed" ? "판매가 마감되었어요"
+              : complete ? `예약하기 · ${WON(total)}` : "날짜를 선택하세요"}
           </button>
         </div>
       </div>

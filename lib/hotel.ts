@@ -17,9 +17,106 @@ export const TIERS: Record<Tier, { label: string; text: string; bg: string; chip
   highpeak: { label: "극성수기",   text: "#dc2626", bg: "#fef2f2", chip: "#fecaca" },
 };
 
-// 공동구매 예약 가능 기간
+// 공동구매 예약 가능(투숙) 기간
 export const BOOKABLE_FROM = "2026-07-13";
 export const BOOKABLE_TO = "2026-10-31";
+
+// 판매(주문 가능) 기간
+export const SALE_FROM = "2026-07-04";
+export const SALE_TO = "2026-07-07";
+// 판매 오픈 일시(KST) — 이 시각부터 예약/결제 가능
+export const SALE_START = "2026-07-04T10:00:00+09:00";
+// 공동구매 마감 일시(KST) = 판매 종료일 끝. 카운트다운 기준.
+export const GROUPBUY_DEADLINE = "2026-07-07T23:59:59+09:00";
+
+// 판매 상태: 오픈 전 / 진행 중 / 마감
+export function saleState(): "before" | "open" | "closed" {
+  const now = Date.now();
+  if (now < new Date(SALE_START).getTime()) return "before";
+  if (now > new Date(GROUPBUY_DEADLINE).getTime()) return "closed";
+  return "open";
+}
+
+export function ymdKor(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${y}년 ${String(m).padStart(2, "0")}월 ${String(d).padStart(2, "0")}일`;
+}
+export function mdKor(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${String(m).padStart(2, "0")}월 ${String(d).padStart(2, "0")}일`;
+}
+
+// 업체정보 — 투숙객 제휴 혜택(그 외 즐길거리)
+export const PARTNER_BENEFITS: { title: string; lines: string[] }[] = [
+  {
+    title: "① 낭만포차24번 (본관·2관) 10% 할인",
+    lines: [
+      "모든 음식류 10% 할인 (음주류 제외)",
+      "이용방법: 결제 시 낭만포차24번 데스크에 유탑 마리나 호텔 예약 내역 확인 후 할인가 결제",
+      "유효기간: 입실일 ~ 퇴실일 (퇴실 이후 이용불가)",
+      "운영시간: (유동적) 13:00 ~ 03:00",
+    ],
+  },
+  {
+    title: "② 여수 맛나당 딸기모찌 10% 할인",
+    lines: [
+      "기본모찌 6구·10구 구입 시",
+      "이용방법: 결제 시 여수 맛나당 데스크에 예약 내역 확인 후 할인가 결제",
+      "유효기간: 입실일 ~ 퇴실일 (퇴실 이후 이용불가)",
+      "운영시간: 10:00 ~ 22:00",
+      "이용장소: 전남 여수시 중앙로 72-6 1층 (이순신광장)",
+    ],
+  },
+  {
+    title: "③ 야간 요트 투어",
+    lines: [
+      "이용방법: 유탑 마리나 호텔 1층 요트 데스크 방문",
+      "이용요금: 1인 25,000원 (주중 월~목 50% 할인가)",
+      "유효기간: 입실일 ~ 퇴실 전 (퇴실 시 이용불가)",
+      "운영시간: 출항 일정 홈페이지 참고 (월별 상이)",
+      "※ 매주 금~일, 7월 말~8월 중순은 할인 제공이 어려우며 투숙객 할인가 42,000원 적용",
+      "이용장소: 전남 여수시 중앙로 72-6 1층 (이순신광장)",
+    ],
+  },
+  {
+    title: "④ 아쿠아플라넷 (대인권) 20% 할인 · 정가 37,900원",
+    lines: [
+      "이용방법: 체크인 시 프런트에서 티켓 구매",
+      "이용요금: 성인 1매 30,320원 (20% 할인)",
+      "유효기간: 아쿠아플라넷 입장권 유효기간 내",
+      "운영시간: 09:30 ~ 20:00 (매표 마감 18:00) / 홈페이지 확인 필수",
+      "36개월 미만 무료입장 (증빙서류 지참 필수 · 직계가족 동반에 한함)",
+    ],
+  },
+  {
+    title: "⑤ 블루 요트 · 주간 요트 1인 무료 + 동반자 추가 할인",
+    lines: [
+      "이용방법: 유탑 마리나 호텔 1층 요트 데스크 방문",
+      "이용요금: 객실당 1인 무료(박수 무관 1회), 동반자 1인 15,000원 (40% 할인)",
+      "36개월 미만 무료입장 (증빙서류 지참 필수 · 직계가족 동반에 한함)",
+      "유효기간: 입실일 ~ 퇴실 전 (퇴실 시 이용불가)",
+      "운영시간: 10:00 ~ 20:00 (출항시간 상이, 요트 데스크 확인 필수)",
+      "출발시간(주간): 09:40 / 10:20 / 11:00 / 11:40 / 12:20 / 14:00 / 14:40 / 15:20 / 16:00",
+    ],
+  },
+];
+
+// 예약 및 취소 규정
+export const REFUND_POLICY: { when: string; rate: string }[] = [
+  { when: "체크인일 기준 6일 전", rate: "100% 환불" },
+  { when: "체크인일 기준 5~3일 전", rate: "50% 환불" },
+  { when: "체크인일 기준 2~1일 전", rate: "30% 환불" },
+  { when: "체크인 당일 · No-show", rate: "환불 불가" },
+];
+
+// 호텔 정보 (결제 요약 카드용)
+export const HOTEL = {
+  name: "여수 UTOP 마리나 호텔",
+  tagline: "여수 엑스포 · 오션뷰 리조트",
+  image: "/hotel/4.png",
+  checkInTime: "15:00",
+  checkOutTime: "11:00",
+};
 
 // 시즌 구간(범위) — 이 안의 날짜는 해당 티어, 나머지는 토요일/주중 규칙(금요일=주중)
 const SEASON_RANGES: { from: string; to: string; tier: Tier }[] = [
@@ -122,6 +219,41 @@ export function maxNightsFrom(room: RoomType, checkin: string): number {
   let cur = checkin;
   while (cur <= BOOKABLE_TO && !isSoldOut(room, cur)) { n++; cur = nextISO(cur); }
   return Math.max(1, n);
+}
+
+// 입실~퇴실 사이 박수
+export function nightsBetween(checkIn: string, checkOut: string): number {
+  const [ay, am, ad] = checkIn.split("-").map(Number);
+  const [by, bm, bd] = checkOut.split("-").map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
+
+// M/D 표기
+export function mdLabel(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${m}/${d}`;
+}
+
+// 예약 검증 + 금액 재계산 (서버에서 클라 값 미신뢰용)
+export function quoteReservation(pkgRaw: string, roomRaw: string, checkIn: string, checkOut: string) {
+  if (!(pkgRaw in PACKAGES)) return null;
+  const pkg = pkgRaw as PkgKey;
+  if (!PACKAGES[pkg].rooms.includes(roomRaw as RoomType)) return null;
+  const room = roomRaw as RoomType;
+  if (!checkIn || !checkOut || checkIn < BOOKABLE_FROM || checkIn > BOOKABLE_TO) return null;
+  const nights = nightsBetween(checkIn, checkOut);
+  if (nights < 1 || nights > maxNightsFrom(room, checkIn)) return null;
+  return { pkg, room, checkIn, checkOut, nights, total: stayPriceWon(pkg, checkIn, nights), label: PACKAGES[pkg].label };
+}
+
+// 요금 상세: 밤별 1박 요금 + 연박(공구) 할인 + 총액
+export function stayBreakdown(pkg: PkgKey, checkIn: string, nights: number) {
+  const items: { iso: string; won: number }[] = [];
+  let cur = checkIn;
+  for (let i = 0; i < nights; i++) { items.push({ iso: cur, won: RATE[pkg][getTier(cur)] }); cur = nextISO(cur); }
+  const discount = Math.max(0, nights - 1) * TWO_NIGHT_DISCOUNT[pkg];
+  const total = items.reduce((s, x) => s + x.won, 0) - discount;
+  return { items, discount, total };
 }
 
 // 달력 셀용 간결 표기: 139000 → "13.9만", 200000 → "20만"

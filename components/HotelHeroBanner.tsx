@@ -45,8 +45,8 @@ export default function HotelHeroBanner() {
   }, [current]);
 
   return (
-    <section className="relative w-full max-w-[2400px] mx-auto overflow-hidden">
-      <div className="relative h-[70vh] min-h-[460px] max-h-[760px] w-full">
+    <section className="relative w-full overflow-hidden">
+      <div className="relative h-screen w-full">
         {SLIDES.map((slide, i) => (
           <div
             key={i}
