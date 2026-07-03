@@ -8,13 +8,15 @@ interface OrderResult {
   orderNumber: string;
   productName: string;
   totalAmount: number;
-  paymentMethod: string;
+  shippingAddress: string;
+  productId: string;
 }
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const [result, setResult] = useState<OrderResult | null>(null);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const paymentKey = searchParams.get("paymentKey");
@@ -42,19 +44,46 @@ function SuccessContent() {
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
-          sessionStorage.removeItem("checkoutData");
           setResult({
-            orderNumber: data.orderNumber,
+            orderNumber: data.orderNumber ?? "-",
             productName: data.productName,
             totalAmount: data.totalAmount,
-            paymentMethod: data.paymentMethod,
+            shippingAddress: checkoutData.shippingAddress ?? "",
+            productId: checkoutData.productId,
           });
+          sessionStorage.removeItem("checkoutData");
         } else {
           setError(data.error || "결제 확인 중 오류가 발생했습니다.");
         }
       })
       .catch(() => setError("네트워크 오류가 발생했습니다."));
   }, [searchParams]);
+
+  async function handleShare() {
+    if (!result) return;
+    const url = `${window.location.origin}/campaigns/${result.productId}`;
+    const shareData = {
+      title: "블렌드픽 공동구매",
+      text: `${result.productName} 공동구매 같이 참여해요!`,
+      url,
+    };
+    // 모바일: OS 기본 공유 시트(카톡/링크복사 등) / 미지원: 링크 복사 폴백
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        /* 사용자가 공유를 취소한 경우 무시 */
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        alert(url);
+      }
+    }
+  }
 
   if (error) {
     return (
@@ -78,57 +107,65 @@ function SuccessContent() {
   }
 
   return (
-    <div className="bg-white rounded-2xl p-8 max-w-sm w-full" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
+    <div className="bg-white rounded-3xl p-7 max-w-sm w-full" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
+      {/* 아이콘 + 타이틀 */}
       <div className="text-center mb-6">
         <div
-          className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
           style={{ background: "var(--accent-soft)" }}
         >
-          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round">
+            <line x1="7" y1="8" x2="17" y2="8" />
+            <line x1="7" y1="12" x2="17" y2="12" />
+            <line x1="7" y1="16" x2="13" y2="16" />
           </svg>
         </div>
-        <h1 className="text-xl font-extrabold" style={{ color: "var(--text-primary)" }}>결제 완료!</h1>
+        <h1 className="text-2xl font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>공구 참여 완료!</h1>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          주문번호 <span className="font-bold font-mono" style={{ color: "var(--text-primary)" }}>{result.orderNumber}</span>
+        </p>
+        <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+          공구 마감 후 순차 발송됩니다 (결제 후 3~7일)
+        </p>
       </div>
 
-      <div className="space-y-3 text-sm mb-6 tnum" style={{ color: "var(--text-secondary)" }}>
-        <div className="flex justify-between">
-          <span>주문번호</span>
-          <span className="font-medium font-mono" style={{ color: "var(--text-primary)" }}>{result.orderNumber}</span>
+      {/* 요약 박스 */}
+      <div className="rounded-2xl p-4 space-y-2.5 mb-4" style={{ background: "var(--surface-soft)" }}>
+        <div className="flex justify-between items-baseline gap-3">
+          <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>상품</span>
+          <span className="text-sm font-bold text-right truncate" style={{ color: "var(--text-primary)" }}>{result.productName}</span>
         </div>
-        <div className="flex justify-between">
-          <span>상품</span>
-          <span className="font-medium text-right max-w-[180px] truncate" style={{ color: "var(--text-primary)" }}>
-            {result.productName}
-          </span>
+        <div className="flex justify-between items-baseline gap-3">
+          <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>결제금액</span>
+          <span className="text-sm font-bold tnum" style={{ color: "var(--text-primary)" }}>{result.totalAmount.toLocaleString()}원</span>
         </div>
-        <div className="flex justify-between items-baseline pt-3" style={{ borderTop: "1px solid var(--line)" }}>
-          <span className="font-bold" style={{ color: "var(--text-primary)" }}>결제 금액</span>
-          <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>
-            {result.totalAmount.toLocaleString()}원
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>결제 수단</span>
-          <span style={{ color: "var(--text-secondary)" }}>{result.paymentMethod}</span>
+        <div className="flex justify-between items-baseline gap-3">
+          <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>배송지</span>
+          <span className="text-sm font-bold text-right truncate" style={{ color: "var(--text-primary)" }}>{result.shippingAddress || "-"}</span>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Link
-          href="/campaigns"
-          className="block w-full text-center text-white text-sm font-semibold py-3 rounded-2xl transition-all hover:brightness-95"
-          style={{ background: "var(--accent)" }}
-        >
-          쇼핑 계속하기
-        </Link>
+      {/* 알림 안내 */}
+      <p className="text-xs text-center mb-6" style={{ color: "var(--text-muted)" }}>
+        📮 배송 시작 시 카카오톡으로 알려드려요
+      </p>
+
+      {/* 버튼 */}
+      <div className="space-y-2.5">
         <Link
           href="/mypage"
-          className="block w-full text-center text-sm font-medium py-3 rounded-2xl transition-all"
-          style={{ background: "var(--surface-soft)", color: "var(--text-secondary)" }}
+          className="block w-full text-center text-white text-sm font-bold py-4 rounded-2xl transition-all hover:brightness-95"
+          style={{ background: "var(--accent)" }}
         >
-          마이페이지에서 확인
+          주문 상세 보기
         </Link>
+        <button
+          onClick={handleShare}
+          className="block w-full text-center text-sm font-bold py-4 rounded-2xl transition-all hover:bg-gray-50"
+          style={{ border: "1.5px solid var(--line)", color: "var(--text-secondary)" }}
+        >
+          {copied ? "링크가 복사되었어요 ✓" : "이 공구 친구에게 공유"}
+        </button>
       </div>
     </div>
   );
@@ -136,7 +173,7 @@ function SuccessContent() {
 
 export default function CheckoutSuccessPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-6" style={{ background: "var(--background)" }}>
+    <main className="min-h-screen flex items-center justify-center px-6 py-12" style={{ background: "var(--background)" }}>
       <Suspense fallback={<p className="text-sm" style={{ color: "var(--text-muted)" }}>로딩 중...</p>}>
         <SuccessContent />
       </Suspense>
