@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
+import { nextISO } from "@/lib/hotel";
 
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
   return NextResponse.json(result.rows);
 }
 
-// 예약 상태 변경
+// 예약 상태 변경 (취소 시 토스 환불 + 재고 복원)
 export async function PATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,10 +50,70 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
 
-  const r = await shopPool.query(
-    `UPDATE orders SET status = $1, updated_at = NOW()
-     WHERE id = $2 AND order_type = 'hotel'`,
-    [status, id]
+  // 취소가 아니면 상태만 변경
+  if (status !== "cancelled") {
+    const r = await shopPool.query(
+      `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 AND order_type = 'hotel'`,
+      [status, id]
+    );
+    return NextResponse.json({ ok: true, updated: r.rowCount });
+  }
+
+  // 취소 → 결제 환불 + 재고 복원
+  const { rows } = await shopPool.query(
+    `SELECT o.status, o.payment_key,
+            to_char(o.stay_check_in, 'YYYY-MM-DD') AS ci,
+            to_char(o.stay_check_out, 'YYYY-MM-DD') AS co,
+            (SELECT option_label FROM order_items WHERE order_id = o.id LIMIT 1) AS opt
+       FROM orders o WHERE o.id = $1 AND o.order_type = 'hotel'`,
+    [id]
   );
-  return NextResponse.json({ ok: true, updated: r.rowCount });
+  const ord = rows[0];
+  if (!ord) return NextResponse.json({ error: "예약을 찾을 수 없습니다." }, { status: 404 });
+  if (ord.status === "cancelled") return NextResponse.json({ ok: true, alreadyCancelled: true });
+
+  // 1) 토스 결제 취소 (실결제 건만)
+  if (ord.payment_key && !ord.payment_key.startsWith("SIM_")) {
+    const secretKey = process.env.TOSS_SECRET_KEY;
+    const tossRes = await fetch(`https://api.tosspayments.com/v1/payments/${ord.payment_key}/cancel`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ cancelReason: "관리자 예약 취소" }),
+    });
+    if (!tossRes.ok) {
+      const e = await tossRes.json().catch(() => ({}));
+      return NextResponse.json({ ok: false, error: e.message || "토스 환불에 실패했습니다." }, { status: 400 });
+    }
+  }
+
+  // 2) 상태 취소 + 재고 복원 (option_label = "객실 · 기간" → 앞이 객실타입)
+  const room = String(ord.opt || "").split(" · ")[0];
+  const client = await shopPool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [id]);
+    if (room && ord.ci && ord.co) {
+      let cur = ord.ci;
+      while (cur < ord.co) {
+        await client.query(
+          `UPDATE hotel_room_inventory SET booked = GREATEST(booked - 1, 0) WHERE stay_date = $1 AND room_type = $2`,
+          [cur, room]
+        );
+        cur = nextISO(cur);
+      }
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("[reservations cancel] 재고 복원 실패:", e);
+    // 결제는 이미 환불됨 → 상태는 취소로 처리(재고는 수동 조정)
+    await shopPool.query(`UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [id]);
+  } finally {
+    client.release();
+  }
+
+  return NextResponse.json({ ok: true, refunded: true });
 }

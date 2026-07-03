@@ -71,12 +71,21 @@ export default function ReservationsClient() {
   );
 
   async function updateStatus(id: string, status: string) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
-    await fetch("/api/admin/reservations", {
+    if (status === "cancelled" && !confirm("이 예약을 취소하고 결제를 환불할까요? (되돌릴 수 없어요)")) return;
+    const prev = rows;
+    setRows((p) => p.map((r) => (r.id === id ? { ...r, status } : r)));
+    const res = await fetch("/api/admin/reservations", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || "처리에 실패했습니다.");
+      setRows(prev); // 롤백
+    } else if (status === "cancelled") {
+      alert("취소·환불 완료되었어요.");
+    }
   }
 
   const cards = [
