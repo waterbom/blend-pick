@@ -94,7 +94,7 @@ export default function HotelHeroBanner() {
                     {slide.subtitle}
                   </p>
                   <Link
-                    href="#hotel-deals"
+                    href="/hotel/reserve"
                     className="inline-flex items-center gap-2 mt-7 px-6 py-3.5 rounded-2xl text-sm font-bold transition-all hover:brightness-95"
                     style={{ background: "#fff", color: "var(--accent)" }}
                   >
