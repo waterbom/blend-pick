@@ -197,7 +197,7 @@ export const ROOM_META: Record<RoomType, { bed: string; capacity: string; images
 };
 
 // ⚠️⚠️ 임시 테스트: 이 날짜 1박을 100원으로 (라이브 결제 테스트용). 테스트 끝나면 아래 2줄 지우기! ⚠️⚠️
-const TEST_100_DATE = "2026-07-13";
+const TEST_100_DATE = "2026-07-19";
 function rateFor(pkg: PkgKey, iso: string): number {
   if (iso === TEST_100_DATE) return 100;
   return RATE[pkg][getTier(iso)];
