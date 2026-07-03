@@ -71,7 +71,10 @@ export async function GET(req: NextRequest) {
   // 4. JWT 발급 → 쿠키 저장
   const token = await signToken({ id: userId, kakao_id: kakaoId, nickname: nickname || "", role });
 
-  const res = NextResponse.redirect(new URL("/", baseUrl));
+  // 로그인 후 돌아갈 경로(state, 내부 경로만) — 없으면 홈
+  const state = req.nextUrl.searchParams.get("state");
+  const dest = state && state.startsWith("/") ? state : "/";
+  const res = NextResponse.redirect(new URL(dest, baseUrl));
   res.cookies.set("shop_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

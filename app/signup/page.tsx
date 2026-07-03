@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -9,6 +9,12 @@ export default function SignupPage() {
   const [step, setStep] = useState<"form" | "verify">("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [redirect, setRedirect] = useState("");
+
+  useEffect(() => {
+    const r = new URLSearchParams(window.location.search).get("redirect");
+    if (r && r.startsWith("/")) setRedirect(r);
+  }, []);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -111,9 +117,18 @@ export default function SignupPage() {
 
         {step === "form" ? (
           <>
-            <p className="text-center text-sm text-gray-400 mb-8">
-              이메일로 회원가입
-            </p>
+            {/* 카카오톡 1초 가입 (카카오 로그인 = 자동 가입) */}
+            <a
+              href={`/api/auth/kakao${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`}
+              className="w-full bg-[#FEE500] text-[#191600] py-4 text-sm font-bold hover:brightness-95 transition-all flex items-center justify-center gap-2 rounded-xl"
+            >
+              <span>💬</span> 카카오톡 1초 가입
+            </a>
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 border-t" style={{ borderColor: "var(--line)" }} />
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>또는 이메일로 가입</span>
+              <div className="flex-1 border-t" style={{ borderColor: "var(--line)" }} />
+            </div>
             <form onSubmit={handleSignup} className="space-y-3">
               <input
                 type="text"

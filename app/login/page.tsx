@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -8,6 +8,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [redirect, setRedirect] = useState("");
+
+  useEffect(() => {
+    const r = new URLSearchParams(window.location.search).get("redirect");
+    if (r && r.startsWith("/")) setRedirect(r);
+  }, []);
 
   async function handleEmailLogin(e: React.SyntheticEvent) {
     e.preventDefault();
@@ -27,7 +33,7 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.href = data.redirect || "/";
+    window.location.href = redirect || data.redirect || "/";
   }
 
   const inputCls =
@@ -50,7 +56,7 @@ export default function LoginPage() {
 
         {/* 카카오 로그인 */}
         <a
-          href="/api/auth/kakao"
+          href={`/api/auth/kakao${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`}
           className="w-full bg-[#FEE500] text-[#191600] py-4 text-sm font-bold hover:brightness-95 transition-all flex items-center justify-center gap-2 rounded-xl"
         >
           <span>💬</span> 카카오로 시작하기

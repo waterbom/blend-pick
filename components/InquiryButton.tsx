@@ -9,6 +9,9 @@ type Tab = "submit" | "history";
 
 const CATEGORIES = ["제품문의", "서비스문의", "기타"];
 
+// 카카오톡 채널 채팅 URL (env로 덮어쓰기 가능)
+const KAKAO_CHANNEL_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
+
 interface Inquiry {
   id: string;
   category: string;
@@ -279,17 +282,19 @@ export default function InquiryButton({
           </div>
         )}
 
-        {/* 문의하기 버튼 — 검정 → 따뜻한 다크 */}
-        <button
-          onClick={() => { setOpen(true); setDone(false); }}
-          className="text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
-          title="문의하기"
-          style={{ background: "var(--text-primary)" }}
+        {/* 카카오톡 채널 문의 버튼 */}
+        <a
+          href={KAKAO_CHANNEL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
+          title="카카오톡 문의"
+          style={{ background: "#FEE500", color: "#191600" }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 3C6.48 3 2 6.54 2 10.9c0 2.82 1.87 5.29 4.68 6.68-.15.53-.83 2.86-.86 3.05 0 0-.02.14.07.2.09.05.2.01.2.01.26-.04 3.03-1.98 3.51-2.32.79.11 1.6.17 2.4.17 5.52 0 10-3.54 10-7.9S17.52 3 12 3z"/>
           </svg>
-        </button>
+        </a>
       </div>
 
       {/* 문의 모달 */}
