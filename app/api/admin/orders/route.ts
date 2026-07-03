@@ -88,8 +88,7 @@ export async function PATCH(req: Request) {
   if (!t) return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 
   const result = await shopPool.query(
-    `UPDATE orders SET status = $1, updated_at = NOW()
-     WHERE id = ANY($2::uuid[]) AND status = $3`,
+    `UPDATE orders SET status = $1     WHERE id = ANY($2::uuid[]) AND status = $3`,
     [t.to, orderIds, t.from]
   );
 

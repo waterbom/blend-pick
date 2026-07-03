@@ -53,7 +53,7 @@ export async function PATCH(req: Request) {
   // 취소가 아니면 상태만 변경
   if (status !== "cancelled") {
     const r = await shopPool.query(
-      `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 AND order_type = 'hotel'`,
+      `UPDATE orders SET status = $1 WHERE id = $2 AND order_type = 'hotel'`,
       [status, id]
     );
     return NextResponse.json({ ok: true, updated: r.rowCount });
@@ -85,7 +85,10 @@ export async function PATCH(req: Request) {
     });
     if (!tossRes.ok) {
       const e = await tossRes.json().catch(() => ({}));
-      return NextResponse.json({ ok: false, error: e.message || "토스 환불에 실패했습니다." }, { status: 400 });
+      // 이미 취소된 결제는 정상 처리(상태·재고 정리 계속 진행)
+      if (e.code !== "ALREADY_CANCELED_PAYMENT") {
+        return NextResponse.json({ ok: false, error: e.message || "토스 환불에 실패했습니다." }, { status: 400 });
+      }
     }
   }
 
@@ -94,7 +97,7 @@ export async function PATCH(req: Request) {
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(`UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [id]);
+    await client.query(`UPDATE orders SET status = 'cancelled' WHERE id = $1`, [id]);
     if (room && ord.ci && ord.co) {
       let cur = ord.ci;
       while (cur < ord.co) {
@@ -110,7 +113,7 @@ export async function PATCH(req: Request) {
     await client.query("ROLLBACK");
     console.error("[reservations cancel] 재고 복원 실패:", e);
     // 결제는 이미 환불됨 → 상태는 취소로 처리(재고는 수동 조정)
-    await shopPool.query(`UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [id]);
+    await shopPool.query(`UPDATE orders SET status = 'cancelled' WHERE id = $1`, [id]);
   } finally {
     client.release();
   }
