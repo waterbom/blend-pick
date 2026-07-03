@@ -25,7 +25,8 @@ export const BOOKABLE_TO = "2026-10-31";
 export const SALE_FROM = "2026-07-04";
 export const SALE_TO = "2026-07-07";
 // 판매 오픈 일시(KST) — 이 시각부터 예약/결제 가능
-export const SALE_START = "2026-07-04T10:00:00+09:00";
+// ⚠️ 임시 테스트: 판매 즉시 오픈(버튼 활성화). 테스트 끝나면 "2026-07-04T10:00:00+09:00" 로 원복!
+export const SALE_START = "2026-07-01T00:00:00+09:00";
 // 공동구매 마감 일시(KST) = 판매 종료일 끝. 카운트다운 기준.
 export const GROUPBUY_DEADLINE = "2026-07-07T23:59:59+09:00";
 
@@ -195,16 +196,23 @@ export const ROOM_META: Record<RoomType, { bed: string; capacity: string; images
   },
 };
 
+// ⚠️⚠️ 임시 테스트: 이 날짜 1박을 100원으로 (라이브 결제 테스트용). 테스트 끝나면 아래 2줄 지우기! ⚠️⚠️
+const TEST_100_DATE = "2026-07-13";
+function rateFor(pkg: PkgKey, iso: string): number {
+  if (iso === TEST_100_DATE) return 100;
+  return RATE[pkg][getTier(iso)];
+}
+
 // 1박 요금(원)
 export function nightlyWon(pkg: PkgKey, iso: string): number {
-  return RATE[pkg][getTier(iso)];
+  return rateFor(pkg, iso);
 }
 
 // 연박 총요금(원) = 밤별 1박가 합 − (박수−1) × 연박할인
 export function stayPriceWon(pkg: PkgKey, checkin: string, nights: number): number {
   let sum = 0;
   let cur = checkin;
-  for (let i = 0; i < nights; i++) { sum += RATE[pkg][getTier(cur)]; cur = nextISO(cur); }
+  for (let i = 0; i < nights; i++) { sum += rateFor(pkg, cur); cur = nextISO(cur); }
   return sum - Math.max(0, nights - 1) * TWO_NIGHT_DISCOUNT[pkg];
 }
 
@@ -250,7 +258,7 @@ export function quoteReservation(pkgRaw: string, roomRaw: string, checkIn: strin
 export function stayBreakdown(pkg: PkgKey, checkIn: string, nights: number) {
   const items: { iso: string; won: number }[] = [];
   let cur = checkIn;
-  for (let i = 0; i < nights; i++) { items.push({ iso: cur, won: RATE[pkg][getTier(cur)] }); cur = nextISO(cur); }
+  for (let i = 0; i < nights; i++) { items.push({ iso: cur, won: rateFor(pkg, cur) }); cur = nextISO(cur); }
   const discount = Math.max(0, nights - 1) * TWO_NIGHT_DISCOUNT[pkg];
   const total = items.reduce((s, x) => s + x.won, 0) - discount;
   return { items, discount, total };
