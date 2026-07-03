@@ -68,10 +68,43 @@ async function getOrders(userId: string) {
         ) AS items
       FROM orders o
       JOIN order_items oi ON oi.order_id = o.id
-      WHERE o.user_id = $1
+      WHERE o.user_id = $1 AND o.order_type <> 'hotel'
       GROUP BY o.id
       ORDER BY o.paid_at DESC
       LIMIT 20`,
+      [userId]
+    );
+    return result.rows;
+  } catch {
+    return [];
+  }
+}
+
+const HOTEL_STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  paid:       { label: "예약확정",   color: "text-blue-600" },
+  checked_in: { label: "체크인완료", color: "text-green-600" },
+  cancelled:  { label: "취소됨",     color: "text-gray-400" },
+  no_show:    { label: "노쇼",       color: "text-red-500" },
+};
+
+const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+function fmtStayDate(iso: string | null) {
+  if (!iso) return "-";
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${m}/${d}(${WEEK[new Date(y, m - 1, d).getDay()]})`;
+}
+
+async function getHotelReservations(userId: string) {
+  try {
+    const result = await shopPool.query(
+      `SELECT o.id, o.order_number, o.total_amount, o.status, o.paid_at, o.addr_memo,
+              to_char(o.stay_check_in, 'YYYY-MM-DD')  AS check_in,
+              to_char(o.stay_check_out, 'YYYY-MM-DD') AS check_out,
+              (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name
+         FROM orders o
+        WHERE o.user_id = $1 AND o.order_type = 'hotel'
+        ORDER BY o.paid_at DESC
+        LIMIT 20`,
       [userId]
     );
     return result.rows;
@@ -96,6 +129,7 @@ export default async function MyPage() {
   if (!user) redirect("/login");
 
   const orders = await getOrders(payload.id);
+  const hotelReservations = await getHotelReservations(payload.id);
   const roleInfo = ROLE_LABEL[user.role] ?? ROLE_LABEL.customer;
 
   return (
@@ -130,6 +164,46 @@ export default async function MyPage() {
         </div>
 
         <hr className="mb-10" style={{ borderColor: "var(--line)" }} />
+
+        {/* 호텔 예약 내역 */}
+        <section className="mb-10">
+          <h2 className="text-base font-extrabold mb-3" style={{ color: "var(--text-primary)" }}>🏨 호텔 예약 내역</h2>
+          {hotelReservations.length === 0 ? (
+            <div className="rounded-2xl p-5 text-sm" style={{ border: "1px solid var(--line)", color: "var(--text-muted)" }}>
+              호텔 예약 내역이 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {hotelReservations.map((rv) => {
+                const st = HOTEL_STATUS_LABEL[rv.status] ?? { label: rv.status, color: "text-gray-400" };
+                const paidAt = rv.paid_at ? new Date(rv.paid_at).toLocaleDateString("ko-KR") : "";
+                return (
+                  <div key={rv.id} className="bg-white rounded-2xl p-4" style={{ border: "1px solid var(--line)" }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{rv.order_number}</span>
+                        <span className="text-xs ml-2" style={{ color: "var(--text-muted)" }}>{paidAt}</span>
+                      </div>
+                      <span className={`text-xs font-semibold ${st.color}`}>{st.label}</span>
+                    </div>
+                    <p className="text-sm font-bold mb-1.5" style={{ color: "var(--text-primary)" }}>{rv.product_name}</p>
+                    <p className="text-sm tnum mb-3" style={{ color: "var(--text-secondary)" }}>
+                      🗓 {fmtStayDate(rv.check_in)} ~ {fmtStayDate(rv.check_out)}
+                    </p>
+                    <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid var(--line)" }}>
+                      <span className="text-sm font-bold tnum" style={{ color: "var(--text-primary)" }}>
+                        총 {Number(rv.total_amount).toLocaleString()}원
+                      </span>
+                      {rv.status === "paid" && (
+                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>변경·취소는 고객센터로 문의</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         {/* 구매 내역 */}
         <section className="mb-10">

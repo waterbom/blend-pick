@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
 import { randomBytes } from "crypto";
+import { verifyToken } from "@/lib/auth";
 import { quoteReservation, mdLabel } from "@/lib/hotel";
 import { decrementStay, isStayAvailable } from "@/lib/hotel-inventory";
 
@@ -47,6 +49,10 @@ export async function POST(req: NextRequest) {
   const productName = `${cd.hotelName} · ${cd.packageLabel} · ${cd.room}`;
   const orderNumber = genOrderNumber();
 
+  // 로그인 유저 연결 (마이페이지 예약 조회용)
+  const token = (await cookies()).get("shop_token")?.value;
+  const userId = token ? (await verifyToken(token))?.id ?? null : null;
+
   const client = await shopPool.connect();
   let saved = false;
   try {
@@ -59,7 +65,7 @@ export async function POST(req: NextRequest) {
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at, order_type,
         stay_check_in, stay_check_out
-      ) VALUES ($1,NULL,$2,$3,NULL,$4,$5,NULL,NULL,NULL,$6,$7,0,'paid',$8,$9,NOW(),'hotel',$10,$11)
+      ) VALUES ($1,$12,$2,$3,NULL,$4,$5,NULL,NULL,NULL,$6,$7,0,'paid',$8,$9,NOW(),'hotel',$10,$11)
       RETURNING id`,
       [
         orderNumber,
@@ -73,6 +79,7 @@ export async function POST(req: NextRequest) {
         tossData.method,
         cd.checkIn,
         cd.checkOut,
+        userId,
       ]
     );
     await client.query(
