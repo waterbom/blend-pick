@@ -32,6 +32,7 @@ function CartCount() {
  * - hot: true면 액센트 컬러로 강조 (기존 animate-pulse는 제거 — 깜빡이는 건 촌스러움)
  */
 const NAV_ITEMS = [
+  { label: "호텔공구 × 여수 UTOP 마리나 호텔", href: "/hotel", hot: true },
   { label: "PRODUCTS", href: "/products", hot: false },
   { label: "CONTACT", href: "/blend-picked" },
 ];
@@ -66,24 +67,41 @@ export default function HeaderClient({ user, isAdmin = false }: { user: User | n
 
           {/* 네비게이션 */}
           <nav className="hidden sm:flex items-center gap-6">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="text-[13px] font-medium tracking-wide transition-colors duration-200"
-                style={{
-                  color: item.hot ? "var(--accent)" : "var(--text-secondary)",
-                }}
-                onMouseEnter={(e) => {
-                  (e.target as HTMLElement).style.color = "var(--text-primary)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.target as HTMLElement).style.color = item.hot ? "var(--accent)" : "var(--text-secondary)";
-                }}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map((item) =>
+              item.href === "/hotel" ? (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="text-[13px] font-extrabold tracking-wide whitespace-nowrap transition-all duration-200 hover:brightness-110"
+                  style={{
+                    backgroundImage: "linear-gradient(90deg,#14b8a6,#22d3ee,#ec4899)",
+                    WebkitBackgroundClip: "text",
+                    backgroundClip: "text",
+                    color: "transparent",
+                    filter: "drop-shadow(0 0 6px rgba(34,211,238,0.45))",
+                  }}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="text-[13px] font-medium tracking-wide transition-colors duration-200"
+                  style={{
+                    color: item.hot ? "var(--accent)" : "var(--text-secondary)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.target as HTMLElement).style.color = "var(--text-primary)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.target as HTMLElement).style.color = item.hot ? "var(--accent)" : "var(--text-secondary)";
+                  }}
+                >
+                  {item.label}
+                </Link>
+              )
+            )}
           </nav>
         </div>
 
