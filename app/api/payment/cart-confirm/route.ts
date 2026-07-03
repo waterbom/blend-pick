@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
         order_number, user_id, buyer_name, buyer_phone, buyer_email,
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
-        status, payment_key, payment_method, paid_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'paid',$12,$13,NOW())
+        status, payment_key, payment_method, paid_at, order_type
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'paid',$12,$13,NOW(),'shop')
       RETURNING id`,
       [
         orderNumber,

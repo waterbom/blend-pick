@@ -19,6 +19,11 @@ const STATUS_LABEL: Record<string, string> = {
   return_completed:   "반품완료",
 };
 
+const ORDER_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  campaign: { label: "공동구매", cls: "bg-emerald-50 text-emerald-600" },
+  shop:     { label: "상품",     cls: "bg-slate-100 text-slate-600" },
+};
+
 const STATUS_STYLE: Record<string, string> = {
   paid:               "bg-blue-50 text-blue-600",
   confirmed:          "bg-indigo-50 text-indigo-600",
@@ -36,7 +41,7 @@ const STATUS_STYLE: Record<string, string> = {
 async function getOrder(id: string) {
   const result = await shopPool.query(
     `SELECT
-      o.id, o.order_number, o.status,
+      o.id, o.order_number, o.status, o.order_type,
       o.buyer_name, o.buyer_phone, o.buyer_email,
       o.recipient_name, o.recipient_phone,
       o.addr_zipcode, o.addr_address, o.addr_detail, o.addr_memo,
@@ -114,9 +119,14 @@ export default async function OrderDetailPage({
           <p className="text-xs text-gray-400 font-mono">{order.order_number}</p>
           <h1 className="text-lg font-bold text-gray-800">주문 상세</h1>
         </div>
-        <span className={`ml-auto px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[order.status] ?? "bg-gray-100 text-gray-500"}`}>
-          {STATUS_LABEL[order.status] ?? order.status}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${(ORDER_TYPE_BADGE[order.order_type] ?? ORDER_TYPE_BADGE.shop).cls}`}>
+            {(ORDER_TYPE_BADGE[order.order_type] ?? ORDER_TYPE_BADGE.shop).label}
+          </span>
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[order.status] ?? "bg-gray-100 text-gray-500"}`}>
+            {STATUS_LABEL[order.status] ?? order.status}
+          </span>
+        </div>
       </div>
 
       {/* 주문 정보 */}

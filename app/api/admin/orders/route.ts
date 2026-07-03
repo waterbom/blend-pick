@@ -25,6 +25,7 @@ export async function GET(req: Request) {
       o.id,
       o.order_number,
       o.status,
+      o.order_type,
       o.buyer_name,
       o.buyer_phone,
       o.recipient_name,

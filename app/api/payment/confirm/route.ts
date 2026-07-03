@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import shopPool from "@/lib/db-shop";
+import { randomBytes } from "crypto";
+
+function generateOrderNumber() {
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const suffix = randomBytes(3).toString("hex").toUpperCase();
+  return `BP-${date}-${suffix}`;
+}
 
 export async function POST(req: NextRequest) {
   const { paymentKey, orderId, amount, checkoutData } = await req.json();
 
   const secretKey = process.env.TOSS_SECRET_KEY!;
-  const osUrl = process.env.OS_API_URL || "http://localhost:8000";
 
-  // 1. Toss 결제 승인
+  // 1. 토스 결제 승인
   const tossRes = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
     method: "POST",
     headers: {
@@ -25,39 +32,55 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 2. OS에 주문 저장
-  const orderRes = await fetch(`${osUrl}/orders/api/create`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      product_id: checkoutData.productId,
-      customer_name: checkoutData.customerName,
-      customer_phone: checkoutData.customerPhone,
-      customer_email: checkoutData.customerEmail,
-      shipping_name: checkoutData.shippingName,
-      shipping_phone: checkoutData.shippingPhone,
-      shipping_address: checkoutData.shippingAddress,
-      shipping_address2: checkoutData.shippingAddress2,
-      shipping_zipcode: checkoutData.shippingZipcode,
-      shipping_memo: checkoutData.shippingMemo,
-      quantity: checkoutData.quantity ?? 1,
-      unit_price: checkoutData.unitPrice,
-      total_price: checkoutData.totalAmount,
-      payment_key: paymentKey,
-      payment_method: tossData.method,
-    }),
-  });
-
-  const orderData = await orderRes.json();
-
-  if (!orderRes.ok || !orderData.ok) {
-    // 토스 승인은 됐지만 DB 저장 실패 — 로그 남기고 성공으로 처리
-    console.error("[payment/confirm] OS order save failed:", orderData);
+  // 2. 샵 orders에 공동구매 주문 저장 (order_type='campaign')
+  //    캠페인 상품은 다른 DB라 product_id=NULL + product_name(텍스트)로 저장.
+  //    저장 실패해도 토스 승인은 됐으므로 결제완료로 처리(로그만 남김).
+  const orderNumber = generateOrderNumber();
+  const client = await shopPool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `INSERT INTO orders (
+        order_number, user_id, buyer_name, buyer_phone, buyer_email,
+        recipient_name, recipient_phone,
+        addr_zipcode, addr_address, addr_detail, addr_memo,
+        total_amount, shipping_fee,
+        status, payment_key, payment_method, paid_at, order_type
+      ) VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'paid',$13,$14,NOW(),'campaign')
+      RETURNING id`,
+      [
+        orderNumber,
+        checkoutData.customerName,
+        checkoutData.customerPhone,
+        checkoutData.customerEmail || null,
+        checkoutData.shippingName || checkoutData.customerName,
+        checkoutData.shippingPhone || checkoutData.customerPhone,
+        checkoutData.shippingZipcode,
+        checkoutData.shippingAddress,
+        checkoutData.shippingAddress2 || null,
+        checkoutData.shippingMemo || null,
+        checkoutData.totalAmount,
+        checkoutData.shippingCost ?? 0,
+        paymentKey,
+        tossData.method,
+      ]
+    );
+    await client.query(
+      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity)
+       VALUES ($1, NULL, $2, NULL, $3, $4)`,
+      [rows[0].id, checkoutData.productName, checkoutData.unitPrice, checkoutData.quantity ?? 1]
+    );
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("[payment/confirm] 공동구매 주문 저장 실패:", e);
+  } finally {
+    client.release();
   }
 
   return NextResponse.json({
     ok: true,
-    orderNumber: orderData.order_number,
+    orderNumber,
     productName: checkoutData.productName,
     totalAmount: checkoutData.totalAmount,
     paymentMethod: tossData.method,

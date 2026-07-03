@@ -17,6 +17,7 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
+  order_type: string;
   buyer_name: string;
   buyer_phone: string;
   recipient_name: string | null;
@@ -59,6 +60,11 @@ const STATUS_STYLE: Record<string, string> = {
   exchange_completed: "bg-violet-50 text-violet-400",
   return_requested:   "bg-orange-50 text-orange-500",
   return_completed:   "bg-orange-50 text-orange-400",
+};
+
+const ORDER_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  campaign: { label: "공동구매", cls: "bg-emerald-50 text-emerald-600" },
+  shop:     { label: "상품",     cls: "bg-slate-100 text-slate-600" },
 };
 
 const COLUMNS = [
@@ -114,6 +120,7 @@ export default function OrdersClient() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [acting, setActing] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -129,15 +136,29 @@ export default function OrdersClient() {
 
   useEffect(() => { load(statusFilter); }, [statusFilter]);
 
+  const visibleOrders = useMemo(
+    () => (typeFilter ? orders.filter((o) => o.order_type === typeFilter) : orders),
+    [orders, typeFilter]
+  );
+
+  const typeCounts = useMemo(() => {
+    let shop = 0, campaign = 0;
+    for (const o of orders) {
+      if (o.order_type === "campaign") campaign++;
+      else shop++;
+    }
+    return { all: orders.length, shop, campaign };
+  }, [orders]);
+
   const groups = useMemo(() => {
     const map = new Map<string, Order[]>();
-    for (const o of orders) {
+    for (const o of visibleOrders) {
       const key = o.items[0]?.product_name ?? "기타";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(o);
     }
     return map;
-  }, [orders]);
+  }, [visibleOrders]);
 
   const counts = useMemo(() => {
     const c = { paid: 0, confirmed: 0, preparing: 0, delivered: 0, total: orders.length };
@@ -167,8 +188,13 @@ export default function OrdersClient() {
   }
 
   function toggleAll() {
-    if (selected.size === orders.length) setSelected(new Set());
-    else setSelected(new Set(orders.map((o) => o.id)));
+    const allVisibleSelected = visibleOrders.length > 0 && visibleOrders.every((o) => selected.has(o.id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleOrders.forEach((o) => next.delete(o.id));
+      else visibleOrders.forEach((o) => next.add(o.id));
+      return next;
+    });
   }
 
   function toggleGroupExpand(key: string) {
@@ -255,7 +281,26 @@ export default function OrdersClient() {
         </div>
       </div>
 
-      {/* 필터 탭 + 액션 */}
+      {/* 판매 유형 필터 */}
+      <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-3 w-fit">
+        {[
+          { key: "", label: "전체", count: typeCounts.all },
+          { key: "shop", label: "상품판매", count: typeCounts.shop },
+          { key: "campaign", label: "공동구매", count: typeCounts.campaign },
+        ].map((t) => (
+          <button key={t.key} onClick={() => setTypeFilter(t.key)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              typeFilter === t.key ? "bg-emerald-600 text-white" : "text-gray-500 hover:bg-gray-50"
+            }`}>
+            {t.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              typeFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+            }`}>{t.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 상태 필터 탭 + 액션 */}
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 flex-wrap">
           {filterTabs.map((tab) => (
@@ -278,17 +323,17 @@ export default function OrdersClient() {
       {/* 주문 테이블 */}
       {loading ? (
         <div className="bg-white rounded-xl border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>
-      ) : orders.length === 0 ? (
+      ) : visibleOrders.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 p-16 text-center text-sm text-gray-400">주문이 없습니다</div>
       ) : (
         <div className="space-y-2">
           <div className="flex items-center gap-3 px-4 py-2 text-xs text-gray-400">
             <input type="checkbox"
-              checked={selected.size === orders.length && orders.length > 0}
+              checked={visibleOrders.length > 0 && visibleOrders.every((o) => selected.has(o.id))}
               onChange={toggleAll}
               className="w-4 h-4 rounded accent-orange-500"
             />
-            <span>전체 선택 ({orders.length}건)</span>
+            <span>전체 선택 ({visibleOrders.length}건)</span>
           </div>
 
           {[...groups.entries()].map(([productName, groupOrders]) => {
@@ -296,6 +341,7 @@ export default function OrdersClient() {
             const groupSelected = groupOrders.every((o) => selected.has(o.id));
             const groupPartial = groupOrders.some((o) => selected.has(o.id)) && !groupSelected;
             const productCode = groupOrders[0]?.items[0]?.product_code;
+            const typeBadge = ORDER_TYPE_BADGE[groupOrders[0]?.order_type] ?? ORDER_TYPE_BADGE.shop;
 
             return (
               <div key={productName} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -310,6 +356,7 @@ export default function OrdersClient() {
                     className="w-4 h-4 rounded accent-orange-500"
                   />
                   <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded shrink-0 ${typeBadge.cls}`}>{typeBadge.label}</span>
                     {productCode && (
                       <span className="text-xs font-mono bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded shrink-0">{productCode}</span>
                     )}
