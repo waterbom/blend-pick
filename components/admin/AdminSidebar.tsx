@@ -7,6 +7,7 @@ const NAV = [
   { label: "대시보드",  href: "/admin",              icon: "📊" },
   { label: "상품 관리", href: "/admin/products",      icon: "📦" },
   { label: "판매 관리", href: "/admin/orders",         icon: "🛒" },
+  { label: "예약 관리", href: "/admin/reservations",   icon: "🏨" },
   { label: "배송 관리", href: "/admin/shipments",      icon: "🚚" },
   { label: "정산 관리", href: "/admin/settlements",    icon: "💰" },
   { label: "리뷰 관리", href: "/admin/reviews",        icon: "⭐" },

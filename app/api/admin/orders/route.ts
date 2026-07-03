@@ -17,7 +17,10 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") || "";
 
-  const where = status ? `WHERE o.status = $1` : "";
+  // 호텔 예약(order_type='hotel')은 '예약 관리'에서 따로 관리 → 판매 관리에서 제외
+  const where = status
+    ? `WHERE o.status = $1 AND o.order_type <> 'hotel'`
+    : `WHERE o.order_type <> 'hotel'`;
   const params = status ? [status] : [];
 
   const result = await shopPool.query(`
