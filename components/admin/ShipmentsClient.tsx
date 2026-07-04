@@ -44,7 +44,10 @@ const CARRIERS = [
 function parseTrackingCSV(text: string): { order_number: string; tracking_number: string }[] {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const results = [];
-  const startIdx = /^[0-9]/.test(lines[0]) ? 0 : 1;
+  // 헤더 감지: 첫 줄에 '주문/운송장/order/tracking' 이 있으면 헤더로 보고 스킵
+  // (주문번호가 BP… 처럼 문자로 시작해도 데이터가 누락되지 않게)
+  const hasHeader = /주문|운송장|order|tracking/i.test(lines[0] ?? "");
+  const startIdx = hasHeader ? 1 : 0;
   for (let i = startIdx; i < lines.length; i++) {
     const cols = lines[i].split(",").map((c) => c.replace(/^"|"$/g, "").trim());
     if (cols.length < 2 || !cols[0] || !cols[1]) continue;
@@ -111,6 +114,10 @@ export default function ShipmentsClient() {
   const [trackResult, setTrackResult] = useState<{ checked: number; delivered: number } | null>(null);
   const [acting, setActing] = useState(false);
 
+  // 선택 주문 운송장 입력 모달
+  const [showTrackModal, setShowTrackModal] = useState(false);
+  const [modalTracking, setModalTracking] = useState<Record<string, string>>({});
+
   async function load(status: Tab) {
     setLoading(true);
     setSelected(new Set());
@@ -161,6 +168,27 @@ export default function ShipmentsClient() {
     const data = await res.json();
     setImportResult(data);
     setCsvRows([]);
+    await load("preparing");
+    setImporting(false);
+  }
+
+  // 선택 주문에 운송장 직접 입력 → 배송중 (CSV import API 재사용)
+  async function handleModalSubmit() {
+    const rows = orders
+      .filter((o) => selected.has(o.id))
+      .map((o) => ({ order_number: o.order_number, carrier: carrierCode, tracking_number: (modalTracking[o.id] || "").trim() }))
+      .filter((r) => r.tracking_number);
+    if (rows.length === 0) { alert("운송장번호를 하나 이상 입력해주세요."); return; }
+    setImporting(true);
+    const res = await fetch("/api/admin/shipments/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    const data = await res.json();
+    setImportResult(data);
+    setShowTrackModal(false);
+    setModalTracking({});
     await load("preparing");
     setImporting(false);
   }
@@ -303,6 +331,15 @@ export default function ShipmentsClient() {
             )}
           </div>
 
+          {selected.size > 0 && (
+            <div className="mb-3">
+              <button onClick={() => { setModalTracking({}); setShowTrackModal(true); }}
+                className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors">
+                선택 {selected.size}건 운송장 입력 → 배송중
+              </button>
+            </div>
+          )}
+
           <OrderTable orders={orders} loading={loading} selected={selected}
             onToggleAll={toggleAll} onToggle={toggleOrder}
             emptyText="배송준비 중인 주문이 없습니다" />
@@ -366,6 +403,53 @@ export default function ShipmentsClient() {
         <OrderTable orders={orders} loading={loading} selected={new Set()}
           onToggleAll={() => {}} onToggle={() => {}} showTracking={tab === "delivered"}
           emptyText={`${TABS.find(t => t.key === tab)?.label} 주문이 없습니다`} />
+      )}
+
+      {/* ── 운송장 입력 모달 (선택 주문 → 배송중) ── */}
+      {showTrackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !importing && setShowTrackModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-100">
+              <p className="text-sm font-bold text-gray-800">운송장 입력 후 배송중 처리</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                선택 {orders.filter((o) => selected.has(o.id)).length}건 · 번호를 입력한 건만 배송중으로 변경됩니다
+              </p>
+            </div>
+            <div className="p-5 border-b border-gray-100">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 (전체 공통)</label>
+              <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-orange-400 bg-white">
+                {CARRIERS.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="overflow-auto p-5 space-y-2 flex-1">
+              {orders.filter((o) => selected.has(o.id)).map((o) => (
+                <div key={o.id} className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-xs text-gray-500">{o.order_number}</div>
+                    <div className="text-xs text-gray-700 truncate">{o.recipient_name ?? o.buyer_name}</div>
+                  </div>
+                  <input value={modalTracking[o.id] ?? ""}
+                    onChange={(e) => setModalTracking((p) => ({ ...p, [o.id]: e.target.value }))}
+                    placeholder="운송장번호" inputMode="numeric"
+                    className="w-40 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
+                </div>
+              ))}
+            </div>
+            <div className="p-5 border-t border-gray-100 flex gap-2">
+              <button onClick={handleModalSubmit} disabled={importing}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg transition-colors">
+                {importing ? "처리 중..." : "배송중으로 변경"}
+              </button>
+              <button onClick={() => setShowTrackModal(false)} disabled={importing}
+                className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg">
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
