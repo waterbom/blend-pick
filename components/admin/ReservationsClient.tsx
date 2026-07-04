@@ -81,12 +81,37 @@ export default function ReservationsClient() {
   const [rows, setRows] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("");
+  const [pending, setPending] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/reservations")
       .then((r) => r.json())
       .then((d) => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+    fetch("/api/admin/reservations/notify")
+      .then((r) => r.json())
+      .then((d) => setPending(typeof d.pending === "number" ? d.pending : null))
+      .catch(() => {});
   }, []);
+
+  async function sendAlimtalk() {
+    if (!confirm(`미발송 예약 ${pending ?? 0}건에 카카오톡 예약확인 메시지를 일괄 발송할까요?`)) return;
+    setSending(true);
+    try {
+      const res = await fetch("/api/admin/reservations/notify", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.ok === false) {
+        alert(d.error || "발송에 실패했습니다.");
+      } else {
+        setPending(0);
+        let msg = `발송 완료 — 성공 ${d.sent}건 / 실패 ${d.failed}건 (대상 ${d.total}건)`;
+        if (d.errors?.length) msg += `\n\n실패 예시:\n${d.errors.join("\n")}`;
+        alert(msg);
+      }
+    } finally {
+      setSending(false);
+    }
+  }
 
   const stats = useMemo(() => {
     const today = todayISO();
@@ -155,14 +180,25 @@ export default function ReservationsClient() {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => downloadCSV(toCSV(visible), `호텔예약명단_${todayISO().replace(/-/g, "")}.csv`)}
-          disabled={visible.length === 0}
-          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
-          title="호텔에 전달할 예약자 명단 다운로드"
-        >
-          📋 예약자 명단 다운로드 ({visible.length})
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={sendAlimtalk}
+            disabled={sending || pending === 0}
+            className="flex items-center gap-1.5 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
+            style={{ background: "#FEE500", color: "#191600" }}
+            title="공구 마감 후 예약확인 카카오톡 일괄발송"
+          >
+            💬 {sending ? "발송 중…" : `예약확인 카톡 일괄발송${pending != null ? ` (${pending})` : ""}`}
+          </button>
+          <button
+            onClick={() => downloadCSV(toCSV(visible), `호텔예약명단_${todayISO().replace(/-/g, "")}.csv`)}
+            disabled={visible.length === 0}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
+            title="호텔에 전달할 예약자 명단 다운로드"
+          >
+            📋 예약자 명단 다운로드 ({visible.length})
+          </button>
+        </div>
       </div>
 
       {/* 예약 테이블 */}

@@ -3,12 +3,20 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { HOTEL } from "@/lib/hotel";
 
 interface Result {
   orderNumber: string;
-  productName: string;
-  stay: string;
   total: number;
+  room: string;
+  checkIn: string;
+  checkOut: string;
+}
+
+const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+function fmt(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${m}/${d} (${WEEK[new Date(y, m - 1, d).getDay()]})`;
 }
 
 function SuccessContent() {
@@ -25,17 +33,23 @@ function SuccessContent() {
       setError("결제 정보를 찾을 수 없습니다.");
       return;
     }
-    const checkoutData = JSON.parse(raw);
+    const cd = JSON.parse(raw);
     fetch("/api/payment/hotel-confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), checkoutData }),
+      body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), checkoutData: cd }),
     })
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
+          setResult({
+            orderNumber: data.orderNumber,
+            total: data.total,
+            room: cd.room,
+            checkIn: cd.checkIn,
+            checkOut: cd.checkOut,
+          });
           sessionStorage.removeItem("hotelCheckoutData");
-          setResult({ orderNumber: data.orderNumber, productName: data.productName, stay: data.stay, total: data.total });
         } else {
           setError(data.error || "결제 확인 중 오류가 발생했습니다.");
         }
@@ -56,37 +70,59 @@ function SuccessContent() {
   if (!result) return <p className="text-sm" style={{ color: "var(--text-muted)" }}>결제 확인 중...</p>;
 
   return (
-    <div className="bg-white rounded-3xl p-7 max-w-sm w-full" style={{ border: "1px solid var(--line)", boxShadow: "var(--card-shadow)" }}>
+    <div className="max-w-sm w-full">
+      {/* 아이콘 + 타이틀 */}
       <div className="text-center mb-6">
         <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "var(--accent-soft)" }}>
-          <svg width="30" height="30" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round">
+            <line x1="7" y1="8" x2="17" y2="8" /><line x1="7" y1="12" x2="17" y2="12" /><line x1="7" y1="16" x2="13" y2="16" />
           </svg>
         </div>
-        <h1 className="text-2xl font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>예약 완료!</h1>
+        <h1 className="text-2xl font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>예약이 확정됐어요!</h1>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          주문번호 <span className="font-bold font-mono" style={{ color: "var(--text-primary)" }}>{result.orderNumber}</span>
+          예약번호 <span className="font-bold font-mono" style={{ color: "var(--text-primary)" }}>{result.orderNumber}</span>
         </p>
       </div>
 
-      <div className="rounded-2xl p-4 space-y-2.5 mb-6" style={{ background: "var(--surface-soft)" }}>
-        <div className="flex justify-between items-baseline gap-3">
-          <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>숙소</span>
-          <span className="text-sm font-bold text-right" style={{ color: "var(--text-primary)" }}>{result.productName}</span>
-        </div>
-        <div className="flex justify-between items-baseline gap-3">
-          <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>투숙</span>
-          <span className="text-sm font-bold tnum" style={{ color: "var(--text-primary)" }}>{result.stay}</span>
-        </div>
-        <div className="flex justify-between items-baseline gap-3 pt-2" style={{ borderTop: "1px solid var(--line)" }}>
-          <span className="text-sm font-bold shrink-0" style={{ color: "var(--text-primary)" }}>결제금액</span>
-          <span className="text-lg font-extrabold tnum" style={{ color: "var(--accent)" }}>{result.total.toLocaleString()}원</span>
+      {/* 호텔 카드 */}
+      <div className="rounded-2xl overflow-hidden mb-5" style={{ border: "1.5px dashed var(--line)" }}>
+        <img src={HOTEL.image} alt="" className="w-full h-44 object-cover"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+        <div className="p-5 bg-white">
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{HOTEL.tagline}</p>
+          <p className="text-lg font-extrabold mt-0.5" style={{ color: "var(--text-primary)" }}>{HOTEL.name}</p>
+
+          <div className="grid grid-cols-3 mt-4 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
+            {[
+              { label: "체크인", value: fmt(result.checkIn), sub: HOTEL.checkInTime },
+              { label: "체크아웃", value: fmt(result.checkOut), sub: HOTEL.checkOutTime },
+              { label: "객실", value: result.room, sub: "" },
+            ].map((c) => (
+              <div key={c.label} className="text-center">
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.label}</p>
+                <p className="text-sm font-bold mt-1" style={{ color: "var(--text-primary)" }}>{c.value}</p>
+                {c.sub && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{c.sub}</p>}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: "1px solid var(--line)" }}>
+            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>결제금액</span>
+            <span className="text-lg font-extrabold tnum" style={{ color: "var(--accent)" }}>{result.total.toLocaleString()}원</span>
+          </div>
         </div>
       </div>
 
+      {/* 안내 */}
+      <div className="text-center mb-6 space-y-1">
+        <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>📮 공구 일정이 끝나면 자동으로 카카오톡 예약 확인 메시지가 발송됩니다!</p>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>체크인 시 예약자 성함으로 확인됩니다</p>
+      </div>
+
+      {/* 버튼 */}
       <div className="space-y-2.5">
-        <Link href="/mypage" className="block w-full text-center text-white text-sm font-bold py-4 rounded-2xl transition-all hover:brightness-95" style={{ background: "var(--accent)" }}>주문 상세 보기</Link>
-        <Link href="/hotel" className="block w-full text-center text-sm font-medium py-4 rounded-2xl transition-all" style={{ background: "var(--surface-soft)", color: "var(--text-secondary)" }}>호텔공구 더 보기</Link>
+        <Link href="/mypage" className="block w-full text-center text-white text-sm font-bold py-4 rounded-2xl transition-all hover:brightness-95" style={{ background: "var(--accent)" }}>예약 상세 보기</Link>
+        <Link href="/mypage" className="block w-full text-center text-sm font-medium py-4 rounded-2xl transition-all" style={{ border: "1px solid var(--line)", color: "var(--text-secondary)" }}>예약 내역으로</Link>
       </div>
     </div>
   );

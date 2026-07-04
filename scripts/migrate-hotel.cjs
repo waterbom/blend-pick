@@ -50,6 +50,7 @@ const twin = [
   await pool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type text NOT NULL DEFAULT 'shop'");
   await pool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS stay_check_in date");
   await pool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS stay_check_out date");
+  await pool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS kakao_notified_at timestamptz");
   await pool.query(`CREATE TABLE IF NOT EXISTS hotel_room_inventory (
     stay_date  date NOT NULL,
     room_type  text NOT NULL,
