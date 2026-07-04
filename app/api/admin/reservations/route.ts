@@ -52,6 +52,18 @@ export async function PATCH(req: Request) {
 
   // 취소가 아니면 상태만 변경
   if (status !== "cancelled") {
+    // 이미 취소·환불된 예약은 되돌릴 수 없음 (결제 환불·재고 복원이 끝난 최종 상태)
+    const cur = await shopPool.query(
+      `SELECT status FROM orders WHERE id = $1 AND order_type = 'hotel'`,
+      [id]
+    );
+    if (!cur.rows[0]) return NextResponse.json({ error: "예약을 찾을 수 없습니다." }, { status: 404 });
+    if (cur.rows[0].status === "cancelled") {
+      return NextResponse.json(
+        { error: "이미 취소·환불된 예약은 상태를 변경할 수 없습니다." },
+        { status: 409 }
+      );
+    }
     const r = await shopPool.query(
       `UPDATE orders SET status = $1 WHERE id = $2 AND order_type = 'hotel'`,
       [status, id]

@@ -252,18 +252,24 @@ export default function ReservationsClient() {
                 <span className="text-sm text-gray-700">{hotelRoom(r.product_name)}</span>
                 <span className="text-xs text-gray-500 tnum">{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</span>
                 <span className="text-sm font-semibold text-gray-800 text-right tnum">{Number(r.total_amount).toLocaleString()}원</span>
-                <select
-                  value={r.status}
-                  onChange={(e) => updateStatus(r.id, e.target.value)}
-                  className={`justify-self-center text-xs font-semibold rounded-full px-2 py-1 cursor-pointer border-0 focus:outline-none ${st.cls}`}
-                  style={{ appearance: "auto" }}
-                  title="상태 변경"
-                >
-                  <option value="paid">예약확정</option>
-                  <option value="checked_in">체크인완료</option>
-                  <option value="cancelled">취소</option>
-                  <option value="no_show">노쇼</option>
-                </select>
+                {r.status === "cancelled" ? (
+                  <span className={`justify-self-center text-xs font-semibold rounded-full px-3 py-1 ${st.cls}`} title="환불 완료된 예약은 되돌릴 수 없습니다">
+                    취소
+                  </span>
+                ) : (
+                  <select
+                    value={r.status}
+                    onChange={(e) => updateStatus(r.id, e.target.value)}
+                    className={`justify-self-center text-xs font-semibold rounded-full px-2 py-1 cursor-pointer border-0 focus:outline-none ${st.cls}`}
+                    style={{ appearance: "auto" }}
+                    title="상태 변경"
+                  >
+                    <option value="paid">예약확정</option>
+                    <option value="checked_in">체크인완료</option>
+                    <option value="cancelled">취소</option>
+                    <option value="no_show">노쇼</option>
+                  </select>
+                )}
               </div>
             );
           })
