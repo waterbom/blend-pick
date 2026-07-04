@@ -122,6 +122,7 @@ export const HOTEL = {
 const SEASON_RANGES: { from: string; to: string; tier: Tier }[] = [
   { from: "2026-07-17", to: "2026-07-18", tier: "peak" },
   { from: "2026-07-19", to: "2026-07-23", tier: "shoulder" },
+  { from: "2026-07-24", to: "2026-07-24", tier: "saturday" }, // 금요일이지만 토요일가 적용
   { from: "2026-07-26", to: "2026-07-29", tier: "peak" },
   { from: "2026-07-30", to: "2026-08-16", tier: "highpeak" },
   { from: "2026-09-23", to: "2026-09-23", tier: "shoulder" },
