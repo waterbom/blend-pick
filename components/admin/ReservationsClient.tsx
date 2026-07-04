@@ -95,7 +95,7 @@ export default function ReservationsClient() {
   }, []);
 
   async function sendAlimtalk() {
-    if (!confirm(`미발송 예약 ${pending ?? 0}건에 카카오톡 예약확인 메시지를 일괄 발송할까요?`)) return;
+    if (!confirm(`미발송 예약 ${pending ?? 0}건에 예약확인 문자를 일괄 발송할까요?`)) return;
     setSending(true);
     try {
       const res = await fetch("/api/admin/reservations/notify", { method: "POST" });
@@ -184,11 +184,10 @@ export default function ReservationsClient() {
           <button
             onClick={sendAlimtalk}
             disabled={sending || pending === 0}
-            className="flex items-center gap-1.5 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
-            style={{ background: "#FEE500", color: "#191600" }}
-            title="공구 마감 후 예약확인 카카오톡 일괄발송"
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
+            title="공구 마감 후 예약확인 문자 일괄발송"
           >
-            💬 {sending ? "발송 중…" : `예약확인 카톡 일괄발송${pending != null ? ` (${pending})` : ""}`}
+            📩 {sending ? "발송 중…" : `예약확인 문자 일괄발송${pending != null ? ` (${pending})` : ""}`}
           </button>
           <button
             onClick={() => downloadCSV(toCSV(visible), `호텔예약명단_${todayISO().replace(/-/g, "")}.csv`)}

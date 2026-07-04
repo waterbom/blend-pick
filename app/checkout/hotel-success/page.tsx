@@ -115,7 +115,7 @@ function SuccessContent() {
 
       {/* 안내 */}
       <div className="text-center mb-6 space-y-1">
-        <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>📮 공구 일정이 끝나면 자동으로 카카오톡 예약 확인 메시지가 발송됩니다!</p>
+        <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>📩 공구 일정이 끝나면 예약 확인 메시지를 문자로 보내드려요!</p>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>체크인 시 예약자 성함으로 확인됩니다</p>
       </div>
 

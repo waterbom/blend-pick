@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { HOTEL } from "@/lib/hotel";
-import { sendAlimtalk, alimtalkConfigured } from "@/lib/alimtalk";
+import { sendSMS, smsConfigured } from "@/lib/sms";
 
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
@@ -35,17 +35,17 @@ export async function GET() {
        FROM orders
       WHERE order_type = 'hotel' AND status = 'paid' AND kakao_notified_at IS NULL`
   );
-  return NextResponse.json({ pending: rows[0].pending, configured: alimtalkConfigured() });
+  return NextResponse.json({ pending: rows[0].pending, configured: smsConfigured() });
 }
 
-// 예약확인 알림톡 일괄발송 (미발송 & 예약확정 건만)
+// 예약확인 문자 일괄발송 (미발송 & 예약확정 건만)
 export async function POST() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!alimtalkConfigured()) {
+  if (!smsConfigured()) {
     return NextResponse.json(
-      { ok: false, error: "알림톡 설정이 없습니다. SOLAPI 키·발신프로필·템플릿·발신번호를 환경변수에 등록해주세요." },
+      { ok: false, error: "문자 설정이 없습니다. SOLAPI API 키·발신번호를 환경변수에 등록해주세요." },
       { status: 400 }
     );
   }
@@ -68,18 +68,16 @@ export async function POST() {
   for (const r of rows) {
     const room = (r.product_name || "").split(" · ")[2] || "";
     const nights = r.check_in && r.check_out ? nightsOf(r.check_in, r.check_out) : 1;
-    const variables: Record<string, string> = {
-      "#{예약자}": r.buyer_name || "",
-      "#{예약번호}": r.order_number,
-      "#{호텔}": HOTEL.name,
-      "#{객실}": room,
-      "#{체크인}": r.check_in || "",
-      "#{체크아웃}": r.check_out || "",
-      "#{박수}": String(nights),
-      "#{결제금액}": Number(r.total_amount).toLocaleString(),
-    };
+    const text =
+      `[${HOTEL.name}] 예약 확인\n\n` +
+      `${r.buyer_name || "고객"}님, 예약이 확정되었습니다.\n\n` +
+      `▪ 예약번호: ${r.order_number}\n` +
+      `▪ 객실: ${room}\n` +
+      `▪ 투숙: ${r.check_in} ~ ${r.check_out} (${nights}박)\n` +
+      `▪ 결제금액: ${Number(r.total_amount).toLocaleString()}원\n\n` +
+      `체크인 시 예약자 성함으로 확인됩니다.`;
 
-    const result = await sendAlimtalk(r.buyer_phone, variables);
+    const result = await sendSMS(r.buyer_phone, text, "예약 확인");
     if (result.ok) {
       sent++;
       await shopPool.query(`UPDATE orders SET kakao_notified_at = NOW() WHERE id = $1`, [r.id]);

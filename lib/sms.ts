@@ -18,7 +18,8 @@ export function smsConfigured() {
   return !!(process.env.SOLAPI_API_KEY && process.env.SOLAPI_API_SECRET && process.env.SOLAPI_SENDER);
 }
 
-export async function sendSMS(to: string, text: string): Promise<{ ok: boolean; error?: string }> {
+// subject 를 넘기면 장문(LMS)로 발송 (예약확인처럼 긴 안내문). 짧은 인증번호는 subject 없이 SMS.
+export async function sendSMS(to: string, text: string, subject?: string): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.SOLAPI_API_KEY;
   const apiSecret = process.env.SOLAPI_API_SECRET;
   const from = process.env.SOLAPI_SENDER;
@@ -27,6 +28,9 @@ export async function sendSMS(to: string, text: string): Promise<{ ok: boolean; 
   const phone = to.replace(/[^0-9]/g, "");
   if (phone.length < 10) return { ok: false, error: "잘못된 번호" };
 
+  const message: Record<string, unknown> = { to: phone, from: from.replace(/[^0-9]/g, ""), text };
+  if (subject) { message.subject = subject; message.type = "LMS"; }
+
   try {
     const res = await fetch(`${BASE}/messages/v4/send`, {
       method: "POST",
@@ -34,7 +38,7 @@ export async function sendSMS(to: string, text: string): Promise<{ ok: boolean; 
         Authorization: authHeader(apiKey, apiSecret),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ message: { to: phone, from: from.replace(/[^0-9]/g, ""), text } }),
+      body: JSON.stringify({ message }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
