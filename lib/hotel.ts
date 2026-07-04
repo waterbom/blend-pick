@@ -118,25 +118,32 @@ export const HOTEL = {
   checkOutTime: "11:00",
 };
 
-// 시즌 구간(범위) — 이 안의 날짜는 해당 티어, 나머지는 토요일/주중 규칙(금요일=주중)
+// 시즌 구간(범위) — 요금 달력(색상표) 그대로. 여기 없는 날은 전부 주중가(흰색).
+// 색: 주중=흰 / 토요일가=파랑 / 준성수기=초록 / 성수기=주황 / 극성수기=빨강
 const SEASON_RANGES: { from: string; to: string; tier: Tier }[] = [
-  { from: "2026-07-17", to: "2026-07-18", tier: "peak" },
-  { from: "2026-07-19", to: "2026-07-23", tier: "shoulder" },
-  { from: "2026-07-24", to: "2026-07-24", tier: "saturday" }, // 금요일이지만 토요일가 적용
-  { from: "2026-07-26", to: "2026-07-29", tier: "peak" },
-  { from: "2026-07-30", to: "2026-08-16", tier: "highpeak" },
-  { from: "2026-09-23", to: "2026-09-23", tier: "shoulder" },
-  { from: "2026-09-24", to: "2026-09-26", tier: "peak" },
-  { from: "2026-10-02", to: "2026-10-02", tier: "shoulder" },
-  { from: "2026-10-03", to: "2026-10-04", tier: "peak" },
-  { from: "2026-10-08", to: "2026-10-08", tier: "shoulder" },
-  { from: "2026-10-09", to: "2026-10-10", tier: "peak" },
+  // 7월
+  { from: "2026-07-17", to: "2026-07-18", tier: "peak" },      // 금·토 주황
+  { from: "2026-07-19", to: "2026-07-23", tier: "shoulder" },  // 일~목 초록
+  { from: "2026-07-24", to: "2026-07-24", tier: "saturday" },  // 금 파랑
+  { from: "2026-07-25", to: "2026-07-29", tier: "peak" },      // 토~수 주황
+  { from: "2026-07-30", to: "2026-08-08", tier: "highpeak" },  // 목~토 빨강
+  // 8월
+  { from: "2026-08-09", to: "2026-08-12", tier: "saturday" },  // 일~수 파랑
+  { from: "2026-08-13", to: "2026-08-13", tier: "peak" },      // 목 주황
+  { from: "2026-08-14", to: "2026-08-16", tier: "highpeak" },  // 금~일 빨강
+  // 9월
+  { from: "2026-09-23", to: "2026-09-23", tier: "shoulder" },  // 수 초록
+  { from: "2026-09-24", to: "2026-09-26", tier: "peak" },      // 목~토 주황
+  // 10월
+  { from: "2026-10-02", to: "2026-10-02", tier: "shoulder" },  // 금 초록
+  { from: "2026-10-03", to: "2026-10-04", tier: "peak" },      // 토·일 주황
+  { from: "2026-10-08", to: "2026-10-08", tier: "shoulder" },  // 목 초록
+  { from: "2026-10-09", to: "2026-10-10", tier: "peak" },      // 금·토 주황
 ];
 
 export function getTier(iso: string): Tier {
   for (const r of SEASON_RANGES) if (iso >= r.from && iso <= r.to) return r.tier;
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).getDay() === 6 ? "saturday" : "weekday";
+  return "weekday"; // 달력상 색 없는 날은 토요일 포함 전부 주중가
 }
 
 // 패키지 × 티어 → 1박 판매가(원). 금요일 = 주중과 동일.
