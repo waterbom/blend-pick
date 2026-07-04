@@ -5,7 +5,7 @@ import { randomBytes } from "crypto";
 import { verifyToken } from "@/lib/auth";
 import { quoteReservation, mdLabel } from "@/lib/hotel";
 import { decrementStay, isStayAvailable } from "@/lib/hotel-inventory";
-import { smsConfigured } from "@/lib/sms";
+import { phoneVerifyOn } from "@/lib/sms";
 import { isPhoneVerified } from "@/lib/phone-verify";
 
 function genOrderNumber() {
@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
   if (!(await isStayAvailable(cd.room, q.checkIn, q.nights))) {
     return NextResponse.json({ ok: false, error: "선택하신 날짜가 마감되었습니다." }, { status: 409 });
   }
-  // 휴대폰 인증 강제 (SMS 인증이 설정된 경우에만 — 미설정 시 기존대로 통과)
-  if (smsConfigured()) {
+  // 휴대폰 인증 강제 (인증 스위치가 켜진 경우에만 — 꺼져있으면 기존대로 통과)
+  if (phoneVerifyOn()) {
     const verifiedToken = (await cookies()).get("phone_verified")?.value;
     if (!(await isPhoneVerified(verifiedToken, cd.customerPhone))) {
       return NextResponse.json({ ok: false, error: "휴대폰 인증이 필요합니다." }, { status: 403 });

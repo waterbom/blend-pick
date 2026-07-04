@@ -18,6 +18,13 @@ export function smsConfigured() {
   return !!(process.env.SOLAPI_API_KEY && process.env.SOLAPI_API_SECRET && process.env.SOLAPI_SENDER);
 }
 
+// ⚠️ 임시 스위치: 문자 한도초과로 결제 전 휴대폰 인증을 잠시 꺼둠.
+// 한도 풀리면 true 로만 바꾸면 인증 다시 켜짐. (예약확인 문자 발송과는 별개)
+export const PHONE_VERIFY_ENABLED = false;
+export function phoneVerifyOn() {
+  return PHONE_VERIFY_ENABLED && smsConfigured();
+}
+
 // subject 를 넘기면 장문(LMS)로 발송 (예약확인처럼 긴 안내문). 짧은 인증번호는 subject 없이 SMS.
 export async function sendSMS(to: string, text: string, subject?: string): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.SOLAPI_API_KEY;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendSMS, smsConfigured } from "@/lib/sms";
+import { sendSMS, phoneVerifyOn } from "@/lib/sms";
 import { signChallenge, normPhone } from "@/lib/phone-verify";
 
 // 인증번호 발송
@@ -9,8 +9,8 @@ export async function POST(req: NextRequest) {
   if (p.length < 10) {
     return NextResponse.json({ ok: false, error: "올바른 휴대폰 번호를 입력해주세요." }, { status: 400 });
   }
-  if (!smsConfigured()) {
-    return NextResponse.json({ ok: false, error: "문자 인증이 아직 설정되지 않았어요." }, { status: 400 });
+  if (!phoneVerifyOn()) {
+    return NextResponse.json({ ok: false, error: "문자 인증이 현재 비활성화되어 있어요." }, { status: 400 });
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
