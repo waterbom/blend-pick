@@ -5,6 +5,7 @@ import HotelCheckoutClient from "@/components/HotelCheckoutClient";
 import { verifyToken } from "@/lib/auth";
 import { PACKAGES, HOTEL, quoteReservation, stayBreakdown, saleState } from "@/lib/hotel";
 import { isStayAvailable } from "@/lib/hotel-inventory";
+import { smsConfigured } from "@/lib/sms";
 
 export const metadata = { title: "예약 / 결제 · BLEND PICK" };
 
@@ -34,6 +35,7 @@ export default async function HotelCheckoutPage({
       <HotelCheckoutClient
         clientKey={clientKey}
         isLoggedIn={isLoggedIn}
+        phoneVerifyEnabled={smsConfigured()}
         hotel={HOTEL}
         reservation={{
           pkg: q.pkg,

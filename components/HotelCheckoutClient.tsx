@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { WON, REFUND_POLICY, PARTNER_BENEFITS, type PkgKey, type RoomType } from "@/lib/hotel";
 
@@ -32,6 +32,9 @@ function fmt(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   return `${m}/${d} (${WEEK[new Date(y, m - 1, d).getDay()]})`;
 }
+function mmss(s: number) {
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 
 const PAY_METHODS = [
   { key: "card", label: "카드" },
@@ -40,10 +43,11 @@ const PAY_METHODS = [
 ] as const;
 
 export default function HotelCheckoutClient({
-  clientKey, isLoggedIn, hotel, reservation, breakdown,
+  clientKey, isLoggedIn, phoneVerifyEnabled, hotel, reservation, breakdown,
 }: {
   clientKey: string;
   isLoggedIn: boolean;
+  phoneVerifyEnabled: boolean;
   hotel: Hotel;
   reservation: Reservation;
   breakdown: Breakdown;
@@ -52,10 +56,65 @@ export default function HotelCheckoutClient({
   const [method, setMethod] = useState<(typeof PAY_METHODS)[number]["key"]>("card");
   const [loading, setLoading] = useState(false);
 
+  // 휴대폰 인증
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [left, setLeft] = useState(0); // 남은 초
+
+  useEffect(() => {
+    if (left <= 0) return;
+    const t = setInterval(() => setLeft((s) => (s <= 1 ? 0 : s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [left]);
+
+  function onPhoneChange(v: string) {
+    setForm((p) => ({ ...p, phone: v }));
+    if (phoneVerified) setPhoneVerified(false);
+    if (codeSent) { setCodeSent(false); setLeft(0); }
+  }
+
+  async function sendCode() {
+    if (form.phone.replace(/[^0-9]/g, "").length < 10) {
+      alert("휴대폰 번호를 정확히 입력해주세요.");
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch("/api/verify/phone", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: form.phone }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.ok) { alert(d.error || "인증번호 발송에 실패했어요."); return; }
+      setCodeSent(true); setCode(""); setLeft(180);
+    } finally { setSending(false); }
+  }
+
+  async function confirmCode() {
+    if (code.trim().length < 4) { alert("인증번호를 입력해주세요."); return; }
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/verify/phone/confirm", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: form.phone, code: code.trim() }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.ok) { alert(d.error || "인증에 실패했어요."); return; }
+      setPhoneVerified(true); setCodeSent(false); setLeft(0);
+    } finally { setVerifying(false); }
+  }
+
   async function handlePay() {
     // 비회원도 결제 가능 — 예약자 성함/연락처만 필수 (로그인 시 주문이 계정에 연결됨)
     if (!form.name || !form.phone) {
       alert("예약자 성함과 연락처를 입력해주세요.");
+      return;
+    }
+    if (phoneVerifyEnabled && !phoneVerified) {
+      alert("휴대폰 인증을 완료해주세요.");
       return;
     }
     setLoading(true);
@@ -136,9 +195,48 @@ export default function HotelCheckoutClient({
           <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
             placeholder="예약자 성함" className={inputCls} style={inputStyle}
             onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
-          <input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-            placeholder="연락처" className={inputCls} style={inputStyle}
-            onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
+
+          {/* 연락처 (+ 휴대폰 인증) */}
+          {phoneVerifyEnabled ? (
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input value={form.phone} onChange={(e) => onPhoneChange(e.target.value)}
+                  placeholder="연락처 ( - 없이 숫자만 )" inputMode="numeric" disabled={phoneVerified}
+                  className={inputCls} style={{ ...inputStyle, background: phoneVerified ? "var(--surface-soft)" : "#fff" }}
+                  onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
+                {phoneVerified ? (
+                  <span className="shrink-0 px-4 flex items-center gap-1 rounded-xl text-sm font-bold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>✓ 인증완료</span>
+                ) : (
+                  <button type="button" onClick={sendCode} disabled={sending}
+                    className="shrink-0 px-4 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-50"
+                    style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "#fff" }}>
+                    {sending ? "발송 중…" : codeSent ? "재전송" : "인증번호 받기"}
+                  </button>
+                )}
+              </div>
+              {codeSent && !phoneVerified && (
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="인증번호 6자리" inputMode="numeric" maxLength={6}
+                      className={inputCls} style={inputStyle}
+                      onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
+                    {left > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs tnum" style={{ color: "var(--sale)" }}>{mmss(left)}</span>}
+                  </div>
+                  <button type="button" onClick={confirmCode} disabled={verifying}
+                    className="shrink-0 px-5 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-50"
+                    style={{ background: "var(--accent)" }}>
+                    {verifying ? "확인 중…" : "확인"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <input value={form.phone} onChange={(e) => onPhoneChange(e.target.value)}
+              placeholder="연락처" className={inputCls} style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
+          )}
+
           <input value={form.memo} onChange={(e) => setForm((p) => ({ ...p, memo: e.target.value }))}
             placeholder="요청사항 (선택) — 예: 고층 요청" className={inputCls} style={inputStyle}
             onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
@@ -203,7 +301,10 @@ export default function HotelCheckoutClient({
         {!isLoggedIn && (
           <p className="text-xs text-center mb-2" style={{ color: "var(--text-muted)" }}>비회원으로도 예약할 수 있어요 · 예약번호로 확인됩니다</p>
         )}
-        <button onClick={handlePay} disabled={loading}
+        {phoneVerifyEnabled && !phoneVerified && (
+          <p className="text-xs text-center mb-2" style={{ color: "var(--sale)" }}>📱 휴대폰 인증 후 결제할 수 있어요</p>
+        )}
+        <button onClick={handlePay} disabled={loading || (phoneVerifyEnabled && !phoneVerified)}
           className="w-full py-4 rounded-2xl text-sm font-bold text-white transition-all hover:brightness-95 disabled:opacity-50"
           style={{ background: "var(--accent)" }}>
           {loading ? "처리 중..." : `${WON(breakdown.total)} 결제하기`}
