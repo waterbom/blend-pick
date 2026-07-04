@@ -78,9 +78,17 @@ export default function HotelReserveClient() {
     resetDates();
   }
 
-  // 클릭 가능 여부 (예약기간 내 + 해당 날 재고 있음)
+  // 클릭 가능 여부.
+  // - 재고 있는 날: 언제나 클릭 가능(입실/퇴실/재선택)
+  // - 마감(sold-out)인 날: 입실이 정해진 상태에서 '퇴실'로만 선택 가능
+  //   (퇴실일은 그 날 밤을 점유하지 않으므로 마감이어도 무방)
   function selectable(iso: string): boolean {
-    return iso >= BOOKABLE_FROM && iso <= BOOKABLE_TO && !soldOut.has(iso);
+    if (iso < BOOKABLE_FROM || iso > BOOKABLE_TO) return false;
+    if (!soldOut.has(iso)) return true;
+    if (checkIn && !checkOut && iso > checkIn) {
+      return daysBetween(checkIn, iso) <= maxNights(checkIn);
+    }
+    return false;
   }
 
   // 입실일부터 연속 예약 가능한 최대 박수 (재고 마감 전까지)
@@ -297,16 +305,16 @@ export default function HotelReserveClient() {
                   background: endpoint ? "var(--accent)" : isMid ? "var(--accent-soft)" : inRange ? TIERS[tier].bg : "transparent",
                   border: endpoint ? "1.5px solid var(--accent)" : isMid ? "1px solid var(--accent-soft)" : inRange ? "1px solid var(--line)" : "1px solid transparent",
                   color: endpoint ? "#fff" : isMid ? "var(--accent)" : inRange ? "var(--text-primary)" : "var(--text-muted)",
-                  opacity: !inRange ? 0.35 : sold || !canPick ? 0.5 : 1,
+                  opacity: !inRange ? 0.35 : !canPick ? 0.5 : 1,
                   cursor: canPick ? "pointer" : "default",
                 }}
               >
                 <span className="text-xs font-bold leading-none">{d}</span>
                 {inRange && (
-                  sold ? (
-                    <span className="text-[10px] mt-0.5 font-bold" style={{ color: endpoint ? "#fff" : "#dc2626" }}>마감</span>
-                  ) : endpoint ? (
+                  endpoint ? (
                     <span className="text-[10px] mt-0.5 font-bold" style={{ color: "rgba(255,255,255,0.95)" }}>{isIn ? "입실" : "퇴실"}</span>
+                  ) : sold ? (
+                    <span className="text-[10px] mt-0.5 font-bold" style={{ color: "#dc2626" }}>마감</span>
                   ) : canPick ? (
                     <span className="text-[10px] mt-0.5 tnum" style={{ color: isMid ? "var(--accent)" : TIERS[tier].text }}>
                       {manLabel(nightlyWon(pkg, iso))}
