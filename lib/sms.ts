@@ -18,9 +18,8 @@ export function smsConfigured() {
   return !!(process.env.SOLAPI_API_KEY && process.env.SOLAPI_API_SECRET && process.env.SOLAPI_SENDER);
 }
 
-// ⚠️ 임시 스위치: 문자 한도초과로 결제 전 휴대폰 인증을 잠시 꺼둠.
-// 한도 풀리면 true 로만 바꾸면 인증 다시 켜짐. (예약확인 문자 발송과는 별개)
-export const PHONE_VERIFY_ENABLED = false;
+// 결제 전 휴대폰 인증 사용 여부. (문자 한도초과 등으로 잠시 꺼야 하면 false)
+export const PHONE_VERIFY_ENABLED = true;
 export function phoneVerifyOn() {
   return PHONE_VERIFY_ENABLED && smsConfigured();
 }
