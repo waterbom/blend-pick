@@ -42,11 +42,12 @@ export async function sendSMS(to: string, text: string, subject?: string): Promi
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, error: data?.errorMessage || data?.message || `HTTP ${res.status}` };
+      const code = data?.errorCode ? `[${data.errorCode}] ` : "";
+      return { ok: false, error: `${code}${data?.errorMessage || data?.message || `HTTP ${res.status}`}` };
     }
     const sc = String(data?.statusCode ?? "");
     if (sc && !sc.startsWith("2")) {
-      return { ok: false, error: data?.statusMessage || sc };
+      return { ok: false, error: `[${sc}] ${data?.statusMessage || ""}`.trim() };
     }
     return { ok: true };
   } catch (e) {
