@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
-import { HOTEL } from "@/lib/hotel";
-import { sendSMS, smsConfigured } from "@/lib/sms";
+import { smsConfigured } from "@/lib/sms";
+import { sendReservationSMS } from "@/lib/hotel-notify";
 
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
@@ -68,16 +68,15 @@ export async function POST() {
   for (const r of rows) {
     const room = (r.product_name || "").split(" · ")[2] || "";
     const nights = r.check_in && r.check_out ? nightsOf(r.check_in, r.check_out) : 1;
-    const text =
-      `[${HOTEL.name}] 예약 확인\n\n` +
-      `${r.buyer_name || "고객"}님, 예약이 확정되었습니다.\n\n` +
-      `▪ 예약번호: ${r.order_number}\n` +
-      `▪ 객실: ${room}\n` +
-      `▪ 투숙: ${r.check_in} ~ ${r.check_out} (${nights}박)\n` +
-      `▪ 결제금액: ${Number(r.total_amount).toLocaleString()}원\n\n` +
-      `체크인 시 예약자 성함으로 확인됩니다.`;
-
-    const result = await sendSMS(r.buyer_phone, text, "예약 확인");
+    const result = await sendReservationSMS(r.buyer_phone, {
+      buyerName: r.buyer_name,
+      orderNumber: r.order_number,
+      room,
+      checkIn: r.check_in,
+      checkOut: r.check_out,
+      nights,
+      total: Number(r.total_amount),
+    });
     if (result.ok) {
       sent++;
       await shopPool.query(`UPDATE orders SET kakao_notified_at = NOW() WHERE id = $1`, [r.id]);

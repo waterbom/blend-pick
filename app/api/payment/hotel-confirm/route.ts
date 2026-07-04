@@ -5,8 +5,9 @@ import { randomBytes } from "crypto";
 import { verifyToken } from "@/lib/auth";
 import { quoteReservation, mdLabel } from "@/lib/hotel";
 import { decrementStay, isStayAvailable } from "@/lib/hotel-inventory";
-import { phoneVerifyOn } from "@/lib/sms";
+import { phoneVerifyOn, smsConfigured } from "@/lib/sms";
 import { isPhoneVerified } from "@/lib/phone-verify";
+import { sendReservationSMS } from "@/lib/hotel-notify";
 
 function genOrderNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -113,6 +114,28 @@ export async function POST(req: NextRequest) {
       { ok: false, error: "결제는 승인됐으나 예약 저장에 실패했어요. 고객센터로 문의해주세요." },
       { status: 500 }
     );
+  }
+
+  // 예약 확정 즉시 예약확인 문자 자동 발송 (실패해도 예약엔 영향 없음 → 일괄발송으로 재시도 가능)
+  if (smsConfigured()) {
+    try {
+      const r = await sendReservationSMS(cd.customerPhone, {
+        buyerName: cd.customerName,
+        orderNumber,
+        room: cd.room,
+        checkIn: cd.checkIn,
+        checkOut: cd.checkOut,
+        nights,
+        total,
+      });
+      if (r.ok) {
+        await shopPool.query(`UPDATE orders SET kakao_notified_at = NOW() WHERE order_number = $1`, [orderNumber]);
+      } else {
+        console.error("[hotel-confirm] 예약확인 문자 발송 실패:", r.error);
+      }
+    } catch (e) {
+      console.error("[hotel-confirm] 예약확인 문자 예외:", e);
+    }
   }
 
   return NextResponse.json({
