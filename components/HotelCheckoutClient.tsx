@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { WON, REFUND_POLICY, PARTNER_BENEFITS, type PkgKey, type RoomType } from "@/lib/hotel";
 
@@ -49,18 +48,12 @@ export default function HotelCheckoutClient({
   reservation: Reservation;
   breakdown: Breakdown;
 }) {
-  const router = useRouter();
   const [form, setForm] = useState({ name: "", phone: "", memo: "" });
   const [method, setMethod] = useState<(typeof PAY_METHODS)[number]["key"]>("card");
   const [loading, setLoading] = useState(false);
 
   async function handlePay() {
-    // 로그인 게이트 — 미로그인 시 로그인 페이지로(결제 화면으로 복귀)
-    if (!isLoggedIn) {
-      const back = window.location.pathname + window.location.search;
-      router.push(`/login?redirect=${encodeURIComponent(back)}`);
-      return;
-    }
+    // 비회원도 결제 가능 — 예약자 성함/연락처만 필수 (로그인 시 주문이 계정에 연결됨)
     if (!form.name || !form.phone) {
       alert("예약자 성함과 연락처를 입력해주세요.");
       return;
@@ -208,12 +201,12 @@ export default function HotelCheckoutClient({
       {/* 결제 버튼 */}
       <div className="mb-6">
         {!isLoggedIn && (
-          <p className="text-xs text-center mb-2" style={{ color: "var(--text-muted)" }}>🔒 결제 전 로그인이 필요해요</p>
+          <p className="text-xs text-center mb-2" style={{ color: "var(--text-muted)" }}>비회원으로도 예약할 수 있어요 · 예약번호로 확인됩니다</p>
         )}
         <button onClick={handlePay} disabled={loading}
           className="w-full py-4 rounded-2xl text-sm font-bold text-white transition-all hover:brightness-95 disabled:opacity-50"
           style={{ background: "var(--accent)" }}>
-          {loading ? "처리 중..." : !isLoggedIn ? "로그인하고 결제하기" : `${WON(breakdown.total)} 결제하기`}
+          {loading ? "처리 중..." : `${WON(breakdown.total)} 결제하기`}
         </button>
       </div>
 
