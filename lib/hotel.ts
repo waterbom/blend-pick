@@ -25,7 +25,7 @@ export const BOOKABLE_TO = "2026-10-31";
 export const SALE_FROM = "2026-07-04";
 export const SALE_TO = "2026-07-07";
 // 판매 오픈 일시(KST) — 이 시각부터 예약/결제 가능
-export const SALE_START = "2026-07-04T10:00:00+09:00";
+export const SALE_START = "2026-07-04T11:00:00+09:00";
 // 공동구매 마감 일시(KST) = 판매 종료일 끝. 카운트다운 기준.
 export const GROUPBUY_DEADLINE = "2026-07-07T23:59:59+09:00";
 

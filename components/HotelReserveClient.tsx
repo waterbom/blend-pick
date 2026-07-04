@@ -365,7 +365,7 @@ export default function HotelReserveClient() {
             className="w-full py-4 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40"
             style={{ background: "var(--accent)" }}
           >
-            {sale === "before" ? "오늘 오전 10시 오픈"
+            {sale === "before" ? "오늘 오전 11시 오픈"
               : sale === "closed" ? "판매가 마감되었어요"
               : complete ? `예약하기 · ${WON(total)}` : "날짜를 선택하세요"}
           </button>
