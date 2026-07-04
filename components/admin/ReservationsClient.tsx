@@ -44,6 +44,39 @@ function hotelRoom(name: string | null) {
 }
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+function nightsOf(ci: string | null, co: string | null) {
+  if (!ci || !co) return "";
+  const [ay, am, ad] = ci.split("-").map(Number);
+  const [by, bm, bd] = co.split("-").map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
+
+// 호텔 전달용 예약자 명단 CSV
+function toCSV(list: Reservation[]) {
+  const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "체크인", "체크아웃", "박수", "상태", "결제금액", "예약일"];
+  const rows = list.map((r) => {
+    const parts = (r.product_name || "").split(" · ");
+    const pkg = parts[1] || "";
+    const room = parts[2] || parts[0] || "";
+    const st = (STATUS[r.status] ?? { label: r.status }).label;
+    return [
+      r.order_number, r.buyer_name, r.buyer_phone, pkg, room,
+      r.stay_check_in || "", r.stay_check_out || "", nightsOf(r.stay_check_in, r.stay_check_out),
+      st, Number(r.total_amount).toLocaleString(), new Date(r.created_at).toLocaleDateString("ko-KR"),
+    ].map(esc).join(",");
+  });
+  return "﻿" + [header.map(esc).join(","), ...rows].join("\n");
+}
+
+function downloadCSV(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ReservationsClient() {
   const [rows, setRows] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,16 +143,26 @@ export default function ReservationsClient() {
         ))}
       </div>
 
-      {/* 필터 탭 */}
-      <div className="flex gap-1 bg-white rounded-full border border-gray-100 p-1 mb-3 w-fit">
-        {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              tab === t.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
-            }`}>
-            {t.label}
-          </button>
-        ))}
+      {/* 필터 탭 + 명단 내보내기 */}
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div className="flex gap-1 bg-white rounded-full border border-gray-100 p-1 w-fit">
+          {TABS.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                tab === t.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => downloadCSV(toCSV(visible), `호텔예약명단_${todayISO().replace(/-/g, "")}.csv`)}
+          disabled={visible.length === 0}
+          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
+          title="호텔에 전달할 예약자 명단 다운로드"
+        >
+          📋 예약자 명단 다운로드 ({visible.length})
+        </button>
       </div>
 
       {/* 예약 테이블 */}
