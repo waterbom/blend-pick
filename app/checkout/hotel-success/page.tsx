@@ -125,8 +125,8 @@ function SuccessContent() {
 
       {/* 버튼 */}
       <div className="space-y-2.5">
-        <Link href="/mypage" className="block w-full text-center text-white text-sm font-bold py-4 rounded-2xl transition-all hover:brightness-95" style={{ background: "var(--accent)" }}>예약 상세 보기</Link>
-        <Link href="/mypage" className="block w-full text-center text-sm font-medium py-4 rounded-2xl transition-all" style={{ border: "1px solid var(--line)", color: "var(--text-secondary)" }}>예약 내역으로</Link>
+        <Link href="/mypage" className="block w-full text-center text-white text-sm font-bold py-4 rounded-2xl transition-all hover:brightness-95" style={{ background: "var(--accent)" }}>예약 내역 보기 (회원)</Link>
+        <Link href={`/hotel/lookup?on=${result.orderNumber}`} className="block w-full text-center text-sm font-medium py-4 rounded-2xl transition-all" style={{ border: "1px solid var(--line)", color: "var(--text-secondary)" }}>예약번호로 조회 (비회원)</Link>
       </div>
     </div>
   );
