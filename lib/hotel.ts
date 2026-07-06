@@ -143,7 +143,9 @@ const SEASON_RANGES: { from: string; to: string; tier: Tier }[] = [
 
 export function getTier(iso: string): Tier {
   for (const r of SEASON_RANGES) if (iso >= r.from && iso <= r.to) return r.tier;
-  return "weekday"; // 달력상 색 없는 날은 토요일 포함 전부 주중가
+  // 색칠된 구간 외의 날: 매주 토요일은 토요일가(파랑), 나머지는 주중가
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay() === 6 ? "saturday" : "weekday";
 }
 
 // 패키지 × 티어 → 1박 판매가(원). 금요일 = 주중과 동일.
