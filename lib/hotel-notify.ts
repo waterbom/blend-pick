@@ -20,7 +20,8 @@ export function reservationSMSText(p: ReservationSMSData) {
     `▪ 객실: ${p.room}\n` +
     `▪ 투숙: ${p.checkIn} ~ ${p.checkOut} (${p.nights}박)\n` +
     `▪ 결제금액: ${Number(p.total).toLocaleString()}원\n\n` +
-    `체크인 시 예약자 성함으로 확인됩니다.`
+    `체크인 시 호텔 프런트에 본 문자를 보여주시면 입장 가능합니다.\n` +
+    `(예약번호·예약자 성함으로 확인)`
   );
 }
 

@@ -114,9 +114,13 @@ function SuccessContent() {
       </div>
 
       {/* 안내 */}
-      <div className="text-center mb-6 space-y-1">
-        <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>📩 공구 일정이 끝나면 예약 확인 메시지를 문자로 보내드려요!</p>
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>체크인 시 예약자 성함으로 확인됩니다</p>
+      <div className="mb-6 space-y-2">
+        <p className="text-sm font-semibold text-center" style={{ color: "var(--accent)" }}>📩 예약 확인 문자를 보내드렸어요</p>
+        <div className="rounded-xl px-4 py-3 text-center" style={{ background: "var(--accent-soft)" }}>
+          <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>🏨 체크인 시 호텔 프런트에</p>
+          <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>예약 확인 문자를 보여주시면 입장 가능합니다</p>
+        </div>
+        <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>예약번호 · 예약자 성함으로 확인됩니다</p>
       </div>
 
       {/* 버튼 */}
