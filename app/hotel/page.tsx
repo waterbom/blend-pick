@@ -11,18 +11,14 @@ export default function HotelPage() {
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
-      <HotelHeroBanner />
 
-      {/* 예약 조회 안내 */}
-      <div className="max-w-2xl mx-auto px-5 py-5">
+      {/* 히어로 + 예약조회 오버레이 */}
+      <div className="relative">
+        <HotelHeroBanner />
         <Link href="/hotel/lookup"
-          className="flex items-center justify-between rounded-2xl px-5 py-4 transition-transform active:scale-[0.99]"
-          style={{ background: "var(--surface)", border: "1px solid var(--line)" }}>
-          <div>
-            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🔎 예약 조회</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>비회원도 예약번호로 예약을 확인할 수 있어요</p>
-          </div>
-          <span className="text-sm font-bold" style={{ color: "var(--accent)" }}>바로가기 →</span>
+          className="absolute top-4 right-4 z-30 flex items-center gap-1.5 rounded-full pl-3.5 pr-4 py-2 text-xs font-bold shadow-lg backdrop-blur-sm transition-transform active:scale-95"
+          style={{ background: "rgba(255,255,255,0.92)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.6)" }}>
+          🔎 예약 조회
         </Link>
       </div>
 
