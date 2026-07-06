@@ -32,7 +32,7 @@ const STATUS: Record<string, { label: string; color: string; bg: string }> = {
 
 export default function ReservationLookupClient() {
   const [orderNumber, setOrderNumber] = useState("");
-  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rv, setRv] = useState<Reservation | null>(null);
@@ -45,13 +45,13 @@ export default function ReservationLookupClient() {
 
   async function lookup(e: React.FormEvent) {
     e.preventDefault();
-    if (!orderNumber.trim() || !name.trim()) { setError("예약번호와 예약자 성함을 입력해주세요."); return; }
+    if (!orderNumber.trim() || phone.replace(/[^0-9]/g, "").length < 10) { setError("예약번호와 연락처를 정확히 입력해주세요."); return; }
     setLoading(true); setError(""); setRv(null);
     try {
       const res = await fetch("/api/hotel/reservation/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderNumber, name }),
+        body: JSON.stringify({ orderNumber, phone }),
       });
       const d = await res.json();
       if (d.ok) setRv(d.reservation);
@@ -74,15 +74,15 @@ export default function ReservationLookupClient() {
   return (
     <div className="max-w-md mx-auto px-5 py-8">
       <h1 className="text-xl font-extrabold tracking-tight mb-1" style={{ color: "var(--text-primary)" }}>예약 조회</h1>
-      <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>비회원도 예약번호와 성함으로 예약을 확인할 수 있어요.</p>
+      <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>비회원도 예약번호와 연락처로 예약을 확인할 수 있어요.</p>
 
       {/* 조회 폼 */}
       <form onSubmit={lookup} className="bg-white rounded-2xl p-5 mb-5 space-y-2.5" style={{ border: "1px solid var(--line)" }}>
         <input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)}
           placeholder="예약번호 (예: BP-H-20260801-A1B2C3)" className={inputCls} style={inputStyle}
           onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
-        <input value={name} onChange={(e) => setName(e.target.value)}
-          placeholder="예약자 성함" className={inputCls} style={inputStyle}
+        <input value={phone} onChange={(e) => setPhone(e.target.value)}
+          placeholder="예약자 연락처 ( - 없이 숫자만 )" inputMode="numeric" className={inputCls} style={inputStyle}
           onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
         <button type="submit" disabled={loading}
           className="w-full py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:brightness-95 disabled:opacity-50"

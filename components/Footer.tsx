@@ -13,6 +13,7 @@ export default function Footer() {
 
           {/* 링크 */}
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+            <Link href="/hotel/lookup" className="transition-colors hover:underline font-semibold" style={{ color: "var(--accent)" }}>예약 조회</Link>
             <Link href="/terms" className="transition-colors hover:underline" style={{ color: "var(--text-secondary)" }}>이용약관</Link>
             <Link href="/privacy" className="transition-colors hover:underline font-semibold" style={{ color: "var(--text-primary)" }}>개인정보처리방침</Link>
             <Link href="/guide" className="transition-colors hover:underline" style={{ color: "var(--text-secondary)" }}>이용안내</Link>
