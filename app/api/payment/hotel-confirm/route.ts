@@ -22,18 +22,22 @@ export async function POST(req: NextRequest) {
   // 0. 승인 '전' 검증 — 예약 유효성 + 금액 변조 + 재고 (통과 못하면 결제 승인 안 함)
   const q = quoteReservation(cd.pkg, cd.room, cd.checkIn, cd.checkOut);
   if (!q) {
+    console.warn("[hotel-confirm] 거절: 예약정보 무효", { pkg: cd.pkg, room: cd.room, in: cd.checkIn, out: cd.checkOut });
     return NextResponse.json({ ok: false, error: "예약 정보가 올바르지 않습니다." }, { status: 400 });
   }
   if (Number(amount) !== q.total) {
+    console.warn("[hotel-confirm] 거절: 금액 불일치", { paid: Number(amount), expected: q.total });
     return NextResponse.json({ ok: false, error: "결제 금액이 일치하지 않습니다." }, { status: 400 });
   }
   if (!(await isStayAvailable(cd.room, q.checkIn, q.nights))) {
+    console.warn("[hotel-confirm] 거절: 재고 마감", { room: cd.room, in: q.checkIn, nights: q.nights });
     return NextResponse.json({ ok: false, error: "선택하신 날짜가 마감되었습니다." }, { status: 409 });
   }
   // 휴대폰 인증 강제 (인증 스위치가 켜진 경우에만 — 꺼져있으면 기존대로 통과)
   if (phoneVerifyOn()) {
     const verifiedToken = (await cookies()).get("phone_verified")?.value;
     if (!(await isPhoneVerified(verifiedToken, cd.customerPhone))) {
+      console.warn("[hotel-confirm] 거절: 휴대폰 미인증", { phone: cd.customerPhone, hasToken: !!verifiedToken });
       return NextResponse.json({ ok: false, error: "휴대폰 인증이 필요합니다." }, { status: 403 });
     }
   }
@@ -49,6 +53,7 @@ export async function POST(req: NextRequest) {
   });
   const tossData = await tossRes.json();
   if (!tossRes.ok) {
+    console.error("[hotel-confirm] 토스 승인 실패(승인거절):", { code: tossData.code, message: tossData.message, amount });
     return NextResponse.json({ ok: false, error: tossData.message || "결제 승인 실패" }, { status: 400 });
   }
 
