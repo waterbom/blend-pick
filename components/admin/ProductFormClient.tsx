@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import RichEditor from "@/components/admin/RichEditor";
 
 interface Category { id: string; name: string; }
 interface OptionRow { name: string; price: string; stock: string; }
@@ -24,7 +25,6 @@ export default function ProductFormClient({ mode, productId }: Props) {
   const [options, setOptions] = useState<OptionRow[]>([]);
   const [stockConfirmed, setStockConfirmed] = useState(false);
   const [detailFullscreen, setDetailFullscreen] = useState(false);
-  const detailRef = useRef<HTMLTextAreaElement>(null);
 
   const [form, setForm] = useState({
     name: "", brand: "", category: "",
@@ -176,30 +176,6 @@ export default function ProductFormClient({ mode, productId }: Props) {
     const data = await res.json();
     if (res.ok) setImage(i, data.url);
     setUploadingSlot(null);
-  }
-
-  // 상세 페이지 붙여넣기 - 이미지 파일이면 업로드 후 <img> 태그 삽입
-  async function handleDetailPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const items = e.clipboardData.items;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith("image/")) {
-        e.preventDefault();
-        const file = items[i].getAsFile();
-        if (!file) return;
-        // await 전에 미리 캡처 — 이후엔 currentTarget과 form 값이 stale해짐
-        const start = e.currentTarget.selectionStart ?? form.detail_html.length;
-        const end = e.currentTarget.selectionEnd ?? form.detail_html.length;
-        const currentHtml = form.detail_html;
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
-        const data = await res.json();
-        if (!res.ok) return;
-        const tag = `<img src="${data.url}" style="max-width:100%;" />\n`;
-        set("detail_html", currentHtml.slice(0, start) + tag + currentHtml.slice(end));
-        return;
-      }
-    }
   }
 
   function addOption() {
@@ -706,25 +682,14 @@ export default function ProductFormClient({ mode, productId }: Props) {
             전체화면 편집 ↗
           </button>
         }>
-          <p className="text-xs text-gray-400">이미지 복사(Ctrl+V) 또는 URL, HTML 태그 붙여넣기 가능해요</p>
-          <textarea
-            ref={detailRef}
+          <p className="text-xs text-gray-400">스마트스토어 등에서 글씨·이미지를 복사해 붙여넣으면 서식·이미지가 그대로 들어가요 (Ctrl+V)</p>
+          <RichEditor
             value={form.detail_html}
-            onChange={e => set("detail_html", e.target.value)}
-            onPaste={handleDetailPaste}
-            rows={10}
-            className={`${inp} resize-y font-mono text-xs`}
-            placeholder={"<img src='https://...' />\n<p>상품 설명...</p>"}
+            onChange={v => set("detail_html", v)}
+            className="min-h-[240px] max-h-[520px] overflow-auto border border-gray-200 rounded-lg p-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 [&_img]:max-w-full [&_img]:rounded-lg"
+            style={{ lineHeight: 1.6 }}
+            placeholder="여기에 상세 내용을 붙여넣으세요"
           />
-          {form.detail_html.trim() && (
-            <div className="mt-2">
-              <p className="text-[11px] text-gray-400 mb-1">미리보기</p>
-              <div
-                className="border border-gray-100 rounded-lg p-3 max-h-96 overflow-auto bg-white [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-1"
-                dangerouslySetInnerHTML={{ __html: form.detail_html }}
-              />
-            </div>
-          )}
         </Section>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
@@ -749,30 +714,20 @@ export default function ProductFormClient({ mode, productId }: Props) {
           <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 shrink-0">
             <div>
               <p className="text-sm font-bold text-gray-800">상세 페이지 편집</p>
-              <p className="text-xs text-gray-400 mt-0.5">이미지 복사(Ctrl+V)하면 자동 업로드 후 태그 삽입됩니다</p>
+              <p className="text-xs text-gray-400 mt-0.5">스마트스토어 등에서 복사해 붙여넣으면 서식·이미지가 그대로 들어가요</p>
             </div>
             <button type="button" onClick={() => setDetailFullscreen(false)}
               className="bg-gray-900 text-white text-sm font-bold px-5 py-2 rounded-lg hover:bg-gray-700 transition-colors">
               완료
             </button>
           </div>
-          <div className="flex-1 flex overflow-hidden">
-            <textarea
-              value={form.detail_html}
-              onChange={e => set("detail_html", e.target.value)}
-              onPaste={handleDetailPaste}
-              className="w-1/2 p-6 text-sm font-mono resize-none focus:outline-none leading-relaxed border-r border-gray-200"
-              placeholder={"<img src='https://...' />\n<p>상품 설명...</p>"}
-              autoFocus
-            />
-            <div className="w-1/2 overflow-auto bg-gray-50">
-              <p className="text-[11px] text-gray-400 px-6 pt-4">미리보기</p>
-              <div
-                className="p-6 pt-2 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-1"
-                dangerouslySetInnerHTML={{ __html: form.detail_html || "<p style='color:#bbb'>여기에 결과가 표시됩니다</p>" }}
-              />
-            </div>
-          </div>
+          <RichEditor
+            value={form.detail_html}
+            onChange={v => set("detail_html", v)}
+            className="flex-1 p-6 text-sm overflow-auto focus:outline-none [&_img]:max-w-full [&_img]:rounded-lg"
+            style={{ lineHeight: 1.7 }}
+            placeholder="여기에 상세 내용을 붙여넣으세요"
+          />
         </div>
       )}
     </div>

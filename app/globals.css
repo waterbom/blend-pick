@@ -138,3 +138,10 @@ body {
 @media (min-width: 1920px) {
   .container-blend { padding-inline: 80px; }
 }
+
+/* contenteditable 리치 에디터 placeholder */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+}
