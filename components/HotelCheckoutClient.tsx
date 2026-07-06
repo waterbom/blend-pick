@@ -36,6 +36,8 @@ function mmss(s: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+const KAKAO_CHANNEL_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
+
 const PAY_METHODS = [
   { key: "card", label: "카드" },
   { key: "kakao", label: "카카오페이" },
@@ -286,6 +288,17 @@ export default function HotelCheckoutClient({
       {/* 예약 및 취소 규정 */}
       <section className="bg-white rounded-2xl p-5 mb-4" style={{ border: "1px solid var(--line)" }}>
         <h2 className="text-sm font-bold mb-3" style={{ color: "var(--text-primary)" }}>📌 예약 및 취소규정</h2>
+
+        {/* 특가 취소·환불 안내 */}
+        <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-xl px-4 py-3 mb-4 transition-transform active:scale-[0.99]"
+          style={{ background: "#FEE500", color: "#191600" }}>
+          <span className="text-lg">💬</span>
+          <span className="text-xs font-bold leading-snug">
+            특가 이벤트 상품 특성상 취소·환불은 카카오톡 채널로 문의 주시면 담당자가 직접 도와드립니다 →
+          </span>
+        </a>
+
         <ul className="space-y-1.5">
           {REFUND_POLICY.map((r) => (
             <li key={r.when} className="flex items-center justify-between text-sm">

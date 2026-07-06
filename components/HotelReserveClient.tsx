@@ -11,6 +11,7 @@ import {
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const MONTHS = [7, 8, 9, 10]; // 2026 시즌
 const YEAR = 2026;
+const KAKAO_CHANNEL_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoOf = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 
@@ -213,7 +214,25 @@ export default function HotelReserveClient() {
           <p className="text-xs mt-2.5" style={{ color: "var(--text-muted)" }}>
             연박 시 조식·인피니티풀 매일 제공
           </p>
+          <div className="mt-2.5 pt-2.5 space-y-1" style={{ borderTop: "1px dashed var(--line)" }}>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              · 인원 추가비: <b style={{ color: "var(--text-primary)" }}>3·4인 패키지 무료</b>, 2인 패키지 1인당 <b style={{ color: "var(--text-primary)" }}>10,000원</b>
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              · 특가 패키지 특성상 <b style={{ color: "var(--text-primary)" }}>침구 추가는 불가</b>한 점 양해 부탁드립니다
+            </p>
+          </div>
         </div>
+
+        {/* 취소·환불 안내 (특가) */}
+        <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
+          className="mt-3 flex items-center gap-2.5 rounded-2xl px-4 py-3 transition-transform active:scale-[0.99]"
+          style={{ background: "#FEE500", color: "#191600" }}>
+          <span className="text-lg">💬</span>
+          <span className="text-xs font-bold leading-snug">
+            특가 이벤트 상품으로 취소·환불은 카카오톡 채널로 문의 주시면 직접 도와드려요 →
+          </span>
+        </a>
       </div>
 
       {/* 객실 타입 */}
