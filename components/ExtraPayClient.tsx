@@ -46,9 +46,18 @@ export default function ExtraPayClient({
 
   return (
     <div className="max-w-sm w-full">
-      <div className="text-center mb-6">
+      <div className="text-center mb-5">
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>BLEND PICK</p>
         <h1 className="text-xl font-extrabold mt-1" style={{ color: "var(--text-primary)" }}>추가 결제</h1>
+      </div>
+
+      {/* 사과 안내 */}
+      <div className="rounded-2xl px-5 py-4 mb-4" style={{ background: "#fff", border: "1px solid var(--line)" }}>
+        <p className="text-sm font-bold mb-1.5" style={{ color: "var(--text-primary)" }}>🙇 차액 발생에 대해 깊은 사과의 말씀을 드립니다.</p>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          요금 안내 과정에서 착오로 결제 차액이 발생하였습니다. 고객님께 불편을 드려 진심으로 죄송합니다.
+          번거로우시겠지만 아래 금액으로 결제를 도와주시면 감사하겠습니다.
+        </p>
       </div>
 
       {/* 결제 금액 */}
