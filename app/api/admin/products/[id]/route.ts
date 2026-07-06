@@ -139,6 +139,22 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  await shopPool.query("DELETE FROM products_shop WHERE id = $1", [id]);
-  return NextResponse.json({ ok: true });
+  const client = await shopPool.connect();
+  try {
+    await client.query("BEGIN");
+    // 주문내역은 보존(order_items에 상품명·가격 스냅샷이 남아있음) — 상품 링크만 해제
+    await client.query("UPDATE order_items SET product_id = NULL WHERE product_id = $1", [id]);
+    // 리뷰 제거 (product_id NO ACTION)
+    await client.query("DELETE FROM reviews WHERE product_id = $1", [id]);
+    // 이미지·옵션·장바구니는 FK CASCADE로 자동 삭제됨
+    const r = await client.query("DELETE FROM products_shop WHERE id = $1", [id]);
+    await client.query("COMMIT");
+    return NextResponse.json({ ok: true, deleted: r.rowCount });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("[product delete]", e);
+    return NextResponse.json({ error: "삭제에 실패했습니다. (연결된 데이터 확인 필요)" }, { status: 500 });
+  } finally {
+    client.release();
+  }
 }

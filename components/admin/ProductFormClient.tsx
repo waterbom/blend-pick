@@ -716,6 +716,15 @@ export default function ProductFormClient({ mode, productId }: Props) {
             className={`${inp} resize-y font-mono text-xs`}
             placeholder={"<img src='https://...' />\n<p>상품 설명...</p>"}
           />
+          {form.detail_html.trim() && (
+            <div className="mt-2">
+              <p className="text-[11px] text-gray-400 mb-1">미리보기</p>
+              <div
+                className="border border-gray-100 rounded-lg p-3 max-h-96 overflow-auto bg-white [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-1"
+                dangerouslySetInnerHTML={{ __html: form.detail_html }}
+              />
+            </div>
+          )}
         </Section>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
@@ -747,14 +756,23 @@ export default function ProductFormClient({ mode, productId }: Props) {
               완료
             </button>
           </div>
-          <textarea
-            value={form.detail_html}
-            onChange={e => set("detail_html", e.target.value)}
-            onPaste={handleDetailPaste}
-            className="flex-1 p-6 text-sm font-mono resize-none focus:outline-none leading-relaxed"
-            placeholder={"<img src='https://...' />\n<p>상품 설명...</p>"}
-            autoFocus
-          />
+          <div className="flex-1 flex overflow-hidden">
+            <textarea
+              value={form.detail_html}
+              onChange={e => set("detail_html", e.target.value)}
+              onPaste={handleDetailPaste}
+              className="w-1/2 p-6 text-sm font-mono resize-none focus:outline-none leading-relaxed border-r border-gray-200"
+              placeholder={"<img src='https://...' />\n<p>상품 설명...</p>"}
+              autoFocus
+            />
+            <div className="w-1/2 overflow-auto bg-gray-50">
+              <p className="text-[11px] text-gray-400 px-6 pt-4">미리보기</p>
+              <div
+                className="p-6 pt-2 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-1"
+                dangerouslySetInnerHTML={{ __html: form.detail_html || "<p style='color:#bbb'>여기에 결과가 표시됩니다</p>" }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

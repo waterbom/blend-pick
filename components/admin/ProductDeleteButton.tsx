@@ -7,7 +7,12 @@ export default function ProductDeleteButton({ id }: { id: string }) {
 
   async function handleDelete() {
     if (!confirm("정말 삭제할까요?")) return;
-    await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || "삭제에 실패했습니다.");
+      return;
+    }
     router.refresh();
   }
 
