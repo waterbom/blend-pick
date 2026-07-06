@@ -59,17 +59,24 @@ function nightsOf(ci: string | null, co: string | null) {
   return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
 }
 
+// addr_memo("투숙 … · 요청: OOO")에서 고객 요청사항만 추출
+function requestMemo(memo: string | null) {
+  if (!memo) return "";
+  const i = memo.indexOf("요청: ");
+  return i >= 0 ? memo.slice(i + "요청: ".length).trim() : "";
+}
+
 // 호텔 전달용 예약자 명단 CSV
 function toCSV(list: Reservation[]) {
   const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "체크인", "체크아웃", "박수", "상태", "결제금액", "예약일"];
+  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "예약일"];
   const rows = list.map((r) => {
     const parts = (r.product_name || "").split(" · ");
     const pkg = parts[1] || "";
     const room = parts[2] || parts[0] || "";
     const st = (STATUS[r.status] ?? { label: r.status }).label;
     return [
-      r.order_number, r.buyer_name, r.buyer_phone, pkg, room,
+      r.order_number, r.buyer_name, r.buyer_phone, pkg, room, requestMemo(r.addr_memo),
       r.stay_check_in || "", r.stay_check_out || "", nightsOf(r.stay_check_in, r.stay_check_out),
       st, Number(r.total_amount).toLocaleString(), new Date(r.created_at).toLocaleDateString("ko-KR"),
     ].map(esc).join(",");
@@ -249,7 +256,14 @@ export default function ReservationsClient() {
                   <div className="font-medium text-gray-800">{r.buyer_name}</div>
                   <div className="text-xs text-gray-400">{r.buyer_phone}</div>
                 </div>
-                <span className="text-sm text-gray-700">{hotelRoom(r.product_name)}</span>
+                <div className="text-sm text-gray-700 min-w-0">
+                  <div>{hotelRoom(r.product_name)}</div>
+                  {requestMemo(r.addr_memo) && (
+                    <div className="text-xs mt-0.5 truncate" style={{ color: "#c2410c" }} title={requestMemo(r.addr_memo)}>
+                      📝 요청: {requestMemo(r.addr_memo)}
+                    </div>
+                  )}
+                </div>
                 <span className="text-xs text-gray-500 tnum">{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</span>
                 <span className="text-sm font-semibold text-gray-800 text-right tnum">{Number(r.total_amount).toLocaleString()}원</span>
                 {r.status === "cancelled" ? (
