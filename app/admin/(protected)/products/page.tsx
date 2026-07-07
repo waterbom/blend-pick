@@ -83,7 +83,15 @@ export default async function AdminProductsPage() {
                           <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-lg">□</div>
                         )}
                         <div>
-                          <p className="font-medium text-gray-900 truncate max-w-xs">{p.name}</p>
+                          <a
+                            href={`/products/${p.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-gray-900 truncate max-w-xs block hover:text-orange-600 hover:underline"
+                            title="공개 상품 페이지 열기"
+                          >
+                            {p.name}
+                          </a>
                           {p.brand && <p className="text-xs text-gray-400">{p.brand}</p>}
                         </div>
                       </div>
@@ -107,14 +115,6 @@ export default async function AdminProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-3">
-                        <a
-                          href={`/products/${p.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-gray-500 font-bold hover:text-gray-700"
-                        >
-                          🔗 보기
-                        </a>
                         <Link
                           href={`/admin/products/${p.id}`}
                           className="text-xs text-orange-500 font-bold hover:text-orange-600"
