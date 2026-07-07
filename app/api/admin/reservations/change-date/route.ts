@@ -4,7 +4,6 @@ import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { quoteReservation, nextISO, mdLabel, type PkgKey, type RoomType } from "@/lib/hotel";
 import { decrementStay } from "@/lib/hotel-inventory";
-import { signPayLink } from "@/lib/pay-link";
 
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
@@ -106,7 +105,7 @@ export async function POST(req: Request) {
 
     // 4) 차액 처리
     let refunded = 0;
-    let payLink: string | null = null;
+    let needRepay = false;
 
     if (diff < 0) {
       // 더 저렴 → 토스 부분취소(자동 환불)
@@ -127,10 +126,8 @@ export async function POST(req: Request) {
       refunded = refundAmount;
       await client.query(`UPDATE orders SET total_amount = $1 WHERE id = $2`, [newTotal, id]);
     } else if (diff > 0) {
-      // 더 비쌈 → 차액 결제 링크 자동 생성 (관리자가 고객에게 전달)
-      const token = await signPayLink(diff, `날짜 변경 차액 (${ord.order_number})`);
-      const origin = new URL(req.url).origin;
-      payLink = `${origin}/pay/extra?t=${token}`;
+      // 더 비쌈 → 자동 결제 불가(기존 결제 증액 불가). 재결제요망 플래그만 반환.
+      needRepay = true;
     }
 
     await client.query("COMMIT");
@@ -142,7 +139,7 @@ export async function POST(req: Request) {
       checkOut: q.checkOut,
       nights: q.nights,
       refunded,
-      payLink,
+      needRepay,
     });
   } catch (e) {
     await client.query("ROLLBACK");

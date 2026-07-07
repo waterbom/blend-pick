@@ -14,6 +14,7 @@ interface Reservation {
   stay_check_out: string | null;
   total_amount: number;
   created_at: string;
+  paid_at_kst: string | null;
   product_name: string | null;
 }
 
@@ -70,7 +71,7 @@ function requestMemo(memo: string | null) {
 // 호텔 전달용 예약자 명단 CSV
 function toCSV(list: Reservation[]) {
   const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "예약일"];
+  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "결제시간", "예약일"];
   const rows = list.map((r) => {
     const parts = (r.product_name || "").split(" · ");
     const pkg = parts[1] || "";
@@ -79,7 +80,7 @@ function toCSV(list: Reservation[]) {
     return [
       r.order_number, r.buyer_name, r.buyer_phone, pkg, room, requestMemo(r.addr_memo),
       r.stay_check_in || "", r.stay_check_out || "", nightsOf(r.stay_check_in, r.stay_check_out),
-      st, Number(r.total_amount).toLocaleString(), new Date(r.created_at).toLocaleDateString("ko-KR"),
+      st, Number(r.total_amount).toLocaleString(), r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
     ].map(esc).join(",");
   });
   return "﻿" + [header.map(esc).join(","), ...rows].join("\n");
@@ -141,7 +142,7 @@ export default function ReservationsClient() {
   const [newOut, setNewOut] = useState("");
   const [changing, setChanging] = useState(false);
   const [datePreview, setDatePreview] = useState<{ diff: number; oldTotal: number; newTotal: number; nights: number } | null>(null);
-  const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; payLink: string | null } | null>(null);
+  const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; needRepay: boolean } | null>(null);
 
   function openDateModal(r: Reservation) {
     setDateEdit(r);
@@ -180,7 +181,7 @@ export default function ReservationsClient() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d.ok) { alert(d.error || "날짜 변경에 실패했습니다."); return; }
-      setDateResult({ diff: d.diff, refunded: d.refunded, payLink: d.payLink });
+      setDateResult({ diff: d.diff, refunded: d.refunded, needRepay: d.needRepay });
       const rr = await fetch("/api/admin/reservations").then((r) => r.json());
       setRows(Array.isArray(rr) ? rr : []);
     } finally {
@@ -324,7 +325,10 @@ export default function ReservationsClient() {
                     <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 날짜변경</button>
                   )}
                 </div>
-                <span className="text-sm font-semibold text-gray-800 text-right tnum">{Number(r.total_amount).toLocaleString()}원</span>
+                <div className="text-right tnum">
+                  <div className="text-sm font-semibold text-gray-800">{Number(r.total_amount).toLocaleString()}원</div>
+                  {r.paid_at_kst && <div className="text-[11px] text-gray-400 mt-0.5">💳 {r.paid_at_kst}</div>}
+                </div>
                 {r.status === "cancelled" ? (
                   <span className={`justify-self-center text-xs font-semibold rounded-full px-3 py-1 ${st.cls}`} title="환불 완료된 예약은 되돌릴 수 없습니다">
                     취소
@@ -448,8 +452,8 @@ export default function ReservationsClient() {
                   </div>
                 </div>
                 {datePreview.diff > 0 ? (
-                  <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                    추가 차액 <b>{datePreview.diff.toLocaleString()}원</b> 발생 → 확정 시 <b>결제 링크</b>가 생성됩니다. 고객에게 전달해 결제받으세요.
+                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700">
+                    추가 차액 <b>{datePreview.diff.toLocaleString()}원</b> 발생 → <b>재결제요망</b>. 고객에게 차액 재결제를 별도로 안내해주세요.
                   </div>
                 ) : datePreview.diff < 0 ? (
                   <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -479,14 +483,9 @@ export default function ReservationsClient() {
                 {dateResult.diff === 0 && (
                   <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음</div>
                 )}
-                {dateResult.payLink && (
-                  <div className="rounded-lg bg-blue-50 px-4 py-3 space-y-2">
-                    <p className="text-sm text-blue-700">추가 차액 <b>{dateResult.diff.toLocaleString()}원</b> 발생 — 아래 링크를 고객에게 보내주세요</p>
-                    <div className="flex gap-2">
-                      <input readOnly value={dateResult.payLink} className="flex-1 border border-blue-200 rounded-lg px-2 py-1.5 text-xs font-mono bg-white" onFocus={(e) => e.target.select()} />
-                      <button onClick={() => { navigator.clipboard?.writeText(dateResult.payLink!); alert("링크 복사됨"); }}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg whitespace-nowrap">복사</button>
-                    </div>
+                {dateResult.needRepay && (
+                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700">
+                    <b>⚠️ 재결제요망</b> — 추가 차액 <b>{dateResult.diff.toLocaleString()}원</b> 발생. 고객에게 차액 재결제를 별도로 안내해주세요.
                   </div>
                 )}
                 <button onClick={() => setDateEdit(null)} className="w-full py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg">완료</button>
