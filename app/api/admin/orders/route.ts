@@ -18,9 +18,16 @@ export async function GET(req: Request) {
   const status = searchParams.get("status") || "";
 
   // 호텔 예약(order_type='hotel')은 '예약 관리'에서 따로 관리 → 판매 관리에서 제외
+  // 삭제된 상품만 담긴 주문은 목록에서 숨김(데이터는 보존 — 상품 삭제 시 order_items.product_id가 NULL이 됨).
+  //  · 차액(extra) 주문은 원래 상품 연결이 없으므로 그대로 노출
+  //  · 살아있는 상품이 하나라도 있는 주문은 노출
+  const notDeletedProduct = `(
+    o.order_type = 'extra'
+    OR EXISTS (SELECT 1 FROM order_items oi2 WHERE oi2.order_id = o.id AND oi2.product_id IS NOT NULL)
+  )`;
   const where = status
-    ? `WHERE o.status = $1 AND o.order_type <> 'hotel'`
-    : `WHERE o.order_type <> 'hotel'`;
+    ? `WHERE o.status = $1 AND o.order_type <> 'hotel' AND ${notDeletedProduct}`
+    : `WHERE o.order_type <> 'hotel' AND ${notDeletedProduct}`;
   const params = status ? [status] : [];
 
   const result = await shopPool.query(`
