@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, checkIn, checkOut } = await req.json();
+  const { id, checkIn, checkOut, preview } = await req.json();
   if (!id || !checkIn || !checkOut) {
     return NextResponse.json({ error: "날짜를 입력해주세요." }, { status: 400 });
   }
@@ -55,6 +55,20 @@ export async function POST(req: Request) {
   const oldTotal = Number(ord.total_amount);
   const newTotal = q.total;
   const diff = newTotal - oldTotal; // >0 추가결제 필요, <0 환불
+
+  // 미리보기 — 실제 변경 없이 차액만 계산해서 반환 (확인창용)
+  if (preview) {
+    return NextResponse.json({
+      ok: true,
+      preview: true,
+      diff,
+      oldTotal,
+      newTotal,
+      checkIn: q.checkIn,
+      checkOut: q.checkOut,
+      nights: q.nights,
+    });
+  }
 
   const client = await shopPool.connect();
   try {
