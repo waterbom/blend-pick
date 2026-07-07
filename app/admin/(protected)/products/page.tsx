@@ -107,6 +107,14 @@ export default async function AdminProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-3">
+                        <a
+                          href={`/products/${p.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-gray-500 font-bold hover:text-gray-700"
+                        >
+                          🔗 보기
+                        </a>
                         <Link
                           href={`/admin/products/${p.id}`}
                           className="text-xs text-orange-500 font-bold hover:text-orange-600"
