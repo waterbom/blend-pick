@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { BOOKABLE_FROM, BOOKABLE_TO } from "@/lib/hotel";
 
 interface Reservation {
   id: string;
@@ -134,6 +135,39 @@ export default function ReservationsClient() {
     }
   }
 
+  // 날짜 변경 모달
+  const [dateEdit, setDateEdit] = useState<Reservation | null>(null);
+  const [newIn, setNewIn] = useState("");
+  const [newOut, setNewOut] = useState("");
+  const [changing, setChanging] = useState(false);
+  const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; payLink: string | null } | null>(null);
+
+  function openDateModal(r: Reservation) {
+    setDateEdit(r);
+    setNewIn(r.stay_check_in || "");
+    setNewOut(r.stay_check_out || "");
+    setDateResult(null);
+  }
+
+  async function submitDateChange() {
+    if (!dateEdit) return;
+    if (!newIn || !newOut || newOut <= newIn) { alert("체크아웃은 체크인 이후 날짜여야 해요."); return; }
+    setChanging(true);
+    try {
+      const res = await fetch("/api/admin/reservations/change-date", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.ok) { alert(d.error || "날짜 변경에 실패했습니다."); return; }
+      setDateResult({ diff: d.diff, refunded: d.refunded, payLink: d.payLink });
+      const rr = await fetch("/api/admin/reservations").then((r) => r.json());
+      setRows(Array.isArray(rr) ? rr : []);
+    } finally {
+      setChanging(false);
+    }
+  }
+
   const stats = useMemo(() => {
     const today = todayISO();
     let confirmed = 0, upcoming = 0, cancelled = 0;
@@ -264,7 +298,12 @@ export default function ReservationsClient() {
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-gray-500 tnum">{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</span>
+                <div className="text-xs text-gray-500 tnum">
+                  <div>{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</div>
+                  {r.status === "paid" && (
+                    <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 날짜변경</button>
+                  )}
+                </div>
                 <span className="text-sm font-semibold text-gray-800 text-right tnum">{Number(r.total_amount).toLocaleString()}원</span>
                 {r.status === "cancelled" ? (
                   <span className={`justify-self-center text-xs font-semibold rounded-full px-3 py-1 ${st.cls}`} title="환불 완료된 예약은 되돌릴 수 없습니다">
@@ -339,6 +378,70 @@ export default function ReservationsClient() {
           </div>
         </div>
       </div>
+
+      {/* 날짜 변경 모달 */}
+      {dateEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !changing && setDateEdit(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-100">
+              <p className="text-sm font-bold text-gray-800">📅 예약 날짜 변경</p>
+              <p className="text-xs text-gray-400 mt-0.5 font-mono">{dateEdit.order_number} · {dateEdit.buyer_name} · {hotelRoom(dateEdit.product_name)}</p>
+            </div>
+
+            {!dateResult ? (
+              <div className="p-5 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">체크인</label>
+                    <input type="date" value={newIn} min={BOOKABLE_FROM} max={BOOKABLE_TO}
+                      onChange={(e) => setNewIn(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">체크아웃</label>
+                    <input type="date" value={newOut} min={newIn || BOOKABLE_FROM} max={BOOKABLE_TO}
+                      onChange={(e) => setNewOut(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400">현재: {md(dateEdit.stay_check_in)} ~ {md(dateEdit.stay_check_out)} · 요금 차이는 자동 환불(저렴)/차액 링크(비쌈)로 처리돼요.</p>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={submitDateChange} disabled={changing}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg">
+                    {changing ? "변경 중…" : "날짜 변경"}
+                  </button>
+                  <button onClick={() => setDateEdit(null)} disabled={changing}
+                    className="px-4 py-2.5 text-sm text-gray-400 border border-gray-200 rounded-lg hover:text-gray-600">닫기</button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5 space-y-3">
+                <p className="text-sm font-bold text-gray-800">✅ 날짜 변경 완료</p>
+                {dateResult.refunded > 0 && (
+                  <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+                    차액 <b>{dateResult.refunded.toLocaleString()}원</b> 자동 환불 완료
+                  </div>
+                )}
+                {dateResult.diff === 0 && (
+                  <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음</div>
+                )}
+                {dateResult.payLink && (
+                  <div className="rounded-lg bg-blue-50 px-4 py-3 space-y-2">
+                    <p className="text-sm text-blue-700">추가 차액 <b>{dateResult.diff.toLocaleString()}원</b> 발생 — 아래 링크를 고객에게 보내주세요</p>
+                    <div className="flex gap-2">
+                      <input readOnly value={dateResult.payLink} className="flex-1 border border-blue-200 rounded-lg px-2 py-1.5 text-xs font-mono bg-white" onFocus={(e) => e.target.select()} />
+                      <button onClick={() => { navigator.clipboard?.writeText(dateResult.payLink!); alert("링크 복사됨"); }}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg whitespace-nowrap">복사</button>
+                    </div>
+                  </div>
+                )}
+                <button onClick={() => setDateEdit(null)} className="w-full py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg">완료</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
