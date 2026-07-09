@@ -33,6 +33,7 @@ interface ProductOption {
   extra_price: number;
   stock: number;
   sort_order: number;
+  is_active: boolean;
 }
 
 interface Review {
@@ -65,7 +66,7 @@ async function getImages(productId: string) {
 
 async function getOptions(productId: string) {
   const result = await shopPool.query(
-    `SELECT id, name, value, extra_price, stock, sort_order
+    `SELECT id, name, value, extra_price, stock, sort_order, is_active
      FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC, name ASC`,
     [productId]
   );

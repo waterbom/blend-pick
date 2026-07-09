@@ -118,9 +118,9 @@ export async function POST(req: Request) {
         const opt = options[i];
         if (opt.name) {
           await client.query(
-            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [productId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i]
+            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [productId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false]
           );
         }
       }

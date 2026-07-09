@@ -41,6 +41,17 @@ interface ProductOption {
   extra_price: number;
   stock: number;
   sort_order: number;
+  is_active: boolean;
+}
+
+// 옵션 구매 가능 여부: 판매중이고 재고가 있어야 함
+function optUnavailable(o: ProductOption) {
+  return !o.is_active || o.stock === 0;
+}
+function optLabel(o: ProductOption) {
+  if (!o.is_active) return " · 판매중지";
+  if (o.stock === 0) return " · 품절";
+  return "";
 }
 
 interface Review {
@@ -112,7 +123,7 @@ export default function ProductDetail({
 
   const anySelectedSoldout = lines.some((l) => {
     const o = optById(l.optionId);
-    return !o || o.stock === 0;
+    return !o || optUnavailable(o);
   });
   const canBuy =
     !isSoldout && (hasOptions ? lines.length > 0 && !anySelectedSoldout : true);
@@ -281,10 +292,10 @@ export default function ProductDetail({
               >
                 <option value="" disabled>옵션</option>
                 {options.map((o) => (
-                  <option key={o.id} value={o.id} disabled={o.stock === 0}>
+                  <option key={o.id} value={o.id} disabled={optUnavailable(o)}>
                     {o.value}
                     {o.extra_price > 0 ? ` (+${o.extra_price.toLocaleString()}원)` : ""}
-                    {o.stock === 0 ? " · 품절" : ""}
+                    {optLabel(o)}
                   </option>
                 ))}
               </select>

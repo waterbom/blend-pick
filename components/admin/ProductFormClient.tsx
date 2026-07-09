@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import RichEditor from "@/components/admin/RichEditor";
 
 interface Category { id: string; name: string; }
-interface OptionRow { name: string; price: string; stock: string; }
+// active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
+interface OptionRow { name: string; price: string; stock: string; active: boolean; sel: boolean; }
 
 const EMPTY_IMAGES = ["", "", "", "", ""];
 
@@ -122,8 +123,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
         const padded = [...allImgs, ...EMPTY_IMAGES].slice(0, 5);
         setImages(padded);
         setOptions(
-          (data.options ?? []).map((o: { name: string; price: number; stock: number }) => ({
+          (data.options ?? []).map((o: { name: string; price: number; stock: number; active?: boolean }) => ({
             name: o.name, price: String(o.price), stock: String(o.stock),
+            active: o.active !== false, sel: false,
           }))
         );
       })
@@ -179,16 +181,45 @@ export default function ProductFormClient({ mode, productId }: Props) {
   }
 
   function addOption() {
-    setOptions(opts => [...opts, { name: "", price: "", stock: "" }]);
+    setOptions(opts => [...opts, { name: "", price: "", stock: "", active: true, sel: false }]);
     setStockConfirmed(false);
   }
   function removeOption(i: number) {
     setOptions(opts => opts.filter((_, idx) => idx !== i));
     setStockConfirmed(false);
   }
-  function setOption(i: number, key: keyof OptionRow, val: string) {
+  function setOption(i: number, key: "name" | "price" | "stock", val: string) {
     setOptions(opts => opts.map((opt, idx) => idx === i ? { ...opt, [key]: val } : opt));
     if (key === "stock") setStockConfirmed(false);
+  }
+  function setOptionActive(i: number, val: boolean) {
+    setOptions(opts => opts.map((opt, idx) => idx === i ? { ...opt, active: val } : opt));
+  }
+
+  // ── 옵션 일괄 관리 ──
+  const [bulkPrice, setBulkPrice] = useState("");
+  const [bulkStock, setBulkStock] = useState("");
+  const selCount = options.filter(o => o.sel).length;
+  const allSelected = options.length > 0 && selCount === options.length;
+
+  function toggleSel(i: number) {
+    setOptions(opts => opts.map((opt, idx) => idx === i ? { ...opt, sel: !opt.sel } : opt));
+  }
+  function toggleSelAll() {
+    const next = !allSelected;
+    setOptions(opts => opts.map(opt => ({ ...opt, sel: next })));
+  }
+  function applyBulkPrice() {
+    if (bulkPrice === "") { alert("적용할 판매가를 입력해주세요."); return; }
+    setOptions(opts => opts.map(opt => opt.sel ? { ...opt, price: bulkPrice } : opt));
+  }
+  function applyBulkStock() {
+    if (bulkStock === "") { alert("적용할 재고를 입력해주세요."); return; }
+    setOptions(opts => opts.map(opt => opt.sel ? { ...opt, stock: bulkStock } : opt));
+    setStockConfirmed(false);
+  }
+  function applyBulkStatus(active: boolean) {
+    setOptions(opts => opts.map(opt => opt.sel ? { ...opt, active } : opt));
   }
 
   function buildPayload() {
@@ -235,7 +266,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       main_image: images[0] || null,
       extra_images: images.slice(1).filter(Boolean),
       options: options.filter(o => o.name).map(o => ({
-        name: o.name, price: Number(o.price) || 0, stock: Number(o.stock) || 0,
+        name: o.name, price: Number(o.price) || 0, stock: Number(o.stock) || 0, active: o.active !== false,
       })),
     };
   }
@@ -506,18 +537,58 @@ export default function ProductFormClient({ mode, productId }: Props) {
             </div>
           ) : (
             <>
+              {/* 일괄 관리 툴바 — 옵션이 선택되면 노출 */}
+              {selCount > 0 && (
+                <div className="mb-3 rounded-lg bg-orange-50 border border-orange-100 p-3 space-y-2">
+                  <p className="text-xs font-bold text-orange-600">선택한 {selCount}개 옵션 일괄 변경</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <input value={bulkPrice} onChange={e => setBulkPrice(e.target.value)}
+                        type="number" min="0" placeholder="판매가"
+                        className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-orange-400" />
+                      <button type="button" onClick={applyBulkPrice}
+                        className="text-xs bg-white border border-orange-200 text-orange-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-orange-100">판매가 적용</button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input value={bulkStock} onChange={e => setBulkStock(e.target.value)}
+                        type="number" min="0" placeholder="재고"
+                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-orange-400" />
+                      <button type="button" onClick={applyBulkStock}
+                        className="text-xs bg-white border border-orange-200 text-orange-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-orange-100">재고 적용</button>
+                    </div>
+                    <span className="w-px h-5 bg-orange-200" />
+                    <button type="button" onClick={() => applyBulkStatus(true)}
+                      className="text-xs bg-white border border-green-200 text-green-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50">판매중으로</button>
+                    <button type="button" onClick={() => applyBulkStatus(false)}
+                      className="text-xs bg-white border border-gray-200 text-gray-500 font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50">판매중지로</button>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
-                <div className="grid grid-cols-[1fr_90px_80px_28px] gap-2 text-xs text-gray-400">
-                  <span>옵션명</span><span>옵션 가격</span><span>재고</span><span />
+                <div className="grid grid-cols-[24px_1fr_90px_70px_92px_28px] gap-2 text-xs text-gray-400 items-center">
+                  <input type="checkbox" checked={allSelected} onChange={toggleSelAll}
+                    className="w-4 h-4 accent-orange-500 cursor-pointer" title="전체 선택/해제" />
+                  <span>옵션명</span><span>옵션 가격</span><span>재고</span><span>판매상태</span><span />
                 </div>
                 {options.map((opt, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_90px_80px_28px] gap-2 items-center">
+                  <div key={i} className="grid grid-cols-[24px_1fr_90px_70px_92px_28px] gap-2 items-center">
+                    <input type="checkbox" checked={opt.sel} onChange={() => toggleSel(i)}
+                      className="w-4 h-4 accent-orange-500 cursor-pointer" />
                     <input value={opt.name} onChange={e => setOption(i, "name", e.target.value)}
                       className={inp} placeholder="예: 빨강/XL" />
                     <input value={opt.price} onChange={e => setOption(i, "price", e.target.value)}
                       type="number" min="0" className={inp} placeholder="판매가" />
                     <input value={opt.stock} onChange={e => setOption(i, "stock", e.target.value)}
                       type="number" min="0" className={inp} placeholder="0" />
+                    <button type="button" onClick={() => setOptionActive(i, !opt.active)}
+                      className={`text-xs font-bold px-2 py-1.5 rounded-lg border transition-colors ${
+                        opt.active
+                          ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                          : "bg-gray-100 border-gray-200 text-gray-400 hover:bg-gray-200"
+                      }`}
+                      title="클릭하여 판매중/판매중지 전환">
+                      {opt.active ? "판매중" : "판매중지"}
+                    </button>
                     <button type="button" onClick={() => removeOption(i)}
                       className="text-red-400 hover:text-red-600 text-xs font-bold">✕</button>
                   </div>

@@ -18,7 +18,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const [product, images, options] = await Promise.all([
     shopPool.query("SELECT * FROM products_shop WHERE id = $1", [id]),
     shopPool.query("SELECT url, sort_order FROM product_images WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
-    shopPool.query("SELECT id, name, extra_price, stock, sort_order FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
+    shopPool.query("SELECT id, name, extra_price, stock, sort_order, is_active FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
   ]);
 
   if (!product.rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -27,7 +27,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     ...product.rows[0],
     extra_images: images.rows.map(r => r.url),
     options: options.rows.map(r => ({
-      id: r.id, name: r.name, price: r.extra_price, stock: r.stock,
+      id: r.id, name: r.name, price: r.extra_price, stock: r.stock, active: r.is_active,
     })),
   });
 }
@@ -115,9 +115,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         const opt = options[i];
         if (opt.name) {
           await client.query(
-            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i]
+            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false]
           );
         }
       }
