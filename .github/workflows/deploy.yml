@@ -10,19 +10,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Check secrets (temporary debug)
-        env:
-          KEY: ${{ secrets.EC2_SSH_KEY }}
-          H: ${{ secrets.EC2_HOST }}
-          U: ${{ secrets.EC2_USER }}
-        run: |
-          printf '%s\n' "$KEY" > /tmp/k
-          chmod 600 /tmp/k
-          echo "derived public key from secret: $(ssh-keygen -y -f /tmp/k 2>/dev/null || echo FAILED)"
-          echo "expected public key on server : ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK1wbj524paka0oCdyngxq81mYkCDu0jI8OmJk/ENu2s"
-          if [ "$H" = "3.34.51.70" ]; then echo "HOST: matches 3.34.51.70"; else echo "HOST: DIFFERENT from 3.34.51.70 (length ${#H})"; fi
-          if [ "$U" = "ubuntu" ]; then echo "USER: matches ubuntu"; else echo "USER: DIFFERENT from ubuntu (length ${#U})"; fi
-          rm -f /tmp/k
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
