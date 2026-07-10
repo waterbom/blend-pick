@@ -7,6 +7,8 @@ import RichEditor from "@/components/admin/RichEditor";
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
 interface OptionRow { name: string; price: string; stock: string; active: boolean; sel: boolean; }
+// 추가옵션(추가상품): 메인 구매 시 함께 살 수 있는 부가상품
+interface AddonRow { name: string; price: string; active: boolean; }
 
 const EMPTY_IMAGES = ["", "", "", "", ""];
 
@@ -24,6 +26,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
   const [images, setImages] = useState<string[]>([...EMPTY_IMAGES]);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
   const [options, setOptions] = useState<OptionRow[]>([]);
+  const [addons, setAddons] = useState<AddonRow[]>([]);
+  const [addonMulti, setAddonMulti] = useState(true);
   const [stockConfirmed, setStockConfirmed] = useState(false);
   const [detailFullscreen, setDetailFullscreen] = useState(false);
 
@@ -128,6 +132,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
             active: o.active !== false, sel: false,
           }))
         );
+        setAddons(
+          (data.addons ?? []).map((a: { name: string; price: number; active?: boolean }) => ({
+            name: a.name, price: String(a.price), active: a.active !== false,
+          }))
+        );
+        setAddonMulti(data.addon_multi !== false);
       })
       .finally(() => setLoading(false));
   }, [mode, productId]);
@@ -222,6 +232,20 @@ export default function ProductFormClient({ mode, productId }: Props) {
     setOptions(opts => opts.map(opt => opt.sel ? { ...opt, active } : opt));
   }
 
+  // ── 추가옵션(추가상품) ──
+  function addAddon() {
+    setAddons(a => [...a, { name: "", price: "", active: true }]);
+  }
+  function removeAddon(i: number) {
+    setAddons(a => a.filter((_, idx) => idx !== i));
+  }
+  function setAddon(i: number, key: "name" | "price", val: string) {
+    setAddons(a => a.map((row, idx) => idx === i ? { ...row, [key]: val } : row));
+  }
+  function setAddonActive(i: number, val: boolean) {
+    setAddons(a => a.map((row, idx) => idx === i ? { ...row, active: val } : row));
+  }
+
   function buildPayload() {
     const shippingAttrValue = form.shipping_attr === "custom" ? form.shipping_attr_custom : "standard";
     const statusMap: Record<string, string> = {
@@ -268,6 +292,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
       options: options.filter(o => o.name).map(o => ({
         name: o.name, price: Number(o.price) || 0, stock: Number(o.stock) || 0, active: o.active !== false,
       })),
+      addons: addons.filter(a => a.name).map(a => ({
+        name: a.name, price: Number(a.price) || 0, active: a.active !== false,
+      })),
+      addon_multi: addonMulti,
     };
   }
 
@@ -606,6 +634,53 @@ export default function ProductFormClient({ mode, productId }: Props) {
                   }
                 </p>
               </div>
+            </>
+          )}
+        </Section>
+
+        {/* ⑤-2 추가옵션(추가상품) */}
+        <Section title="추가옵션 (추가상품)" action={
+          <button type="button" onClick={addAddon} className="text-xs text-orange-500 font-bold hover:text-orange-600">
+            + 추가옵션
+          </button>
+        }>
+          <p className="text-xs text-gray-400 mb-3">
+            메인상품 구매 시 함께 담을 수 있는 부가상품이에요. (예: 아이스팩 +1,000 / 보냉백 +3,000)
+            <br />고객은 <b>메인상품(옵션)</b>을 선택해야 추가옵션을 담을 수 있어요.
+          </p>
+          {addons.length === 0 ? (
+            <p className="text-sm text-gray-300 py-2">등록된 추가옵션이 없어요. "+ 추가옵션"으로 추가하세요.</p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <div className="grid grid-cols-[1fr_110px_92px_28px] gap-2 text-xs text-gray-400">
+                  <span>추가옵션명</span><span>추가금액(원)</span><span>판매상태</span><span />
+                </div>
+                {addons.map((ad, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_110px_92px_28px] gap-2 items-center">
+                    <input value={ad.name} onChange={e => setAddon(i, "name", e.target.value)}
+                      className={inp} placeholder="예: 아이스팩 추가" />
+                    <input value={ad.price} onChange={e => setAddon(i, "price", e.target.value)}
+                      type="number" min="0" className={inp} placeholder="1000" />
+                    <button type="button" onClick={() => setAddonActive(i, !ad.active)}
+                      className={`text-xs font-bold px-2 py-1.5 rounded-lg border transition-colors ${
+                        ad.active
+                          ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
+                          : "bg-gray-100 border-gray-200 text-gray-400 hover:bg-gray-200"
+                      }`}
+                      title="클릭하여 판매중/판매중지 전환">
+                      {ad.active ? "판매중" : "판매중지"}
+                    </button>
+                    <button type="button" onClick={() => removeAddon(i)}
+                      className="text-red-400 hover:text-red-600 text-xs font-bold">✕</button>
+                  </div>
+                ))}
+              </div>
+              <label className="flex items-center gap-2 pt-3 mt-1 border-t border-gray-100 cursor-pointer">
+                <input type="checkbox" checked={addonMulti} onChange={e => setAddonMulti(e.target.checked)}
+                  className="w-4 h-4 accent-orange-500" />
+                <span className="text-sm text-gray-600">여러 개 선택 허용 <span className="text-xs text-gray-400">(끄면 추가옵션 중 1개만 선택 가능)</span></span>
+              </label>
             </>
           )}
         </Section>

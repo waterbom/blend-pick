@@ -9,7 +9,7 @@ import { shopUnitPrice } from "@/lib/shop-price";
 interface CartItem {
   id: string;
   quantity: number;
-  product_id: string;
+  product_id: string | null;
   name: string;
   brand: string;
   price: number;
@@ -22,6 +22,7 @@ interface CartItem {
   option_name: string | null;
   option_value: string | null;
   extra_price: number | null;
+  is_addon?: boolean;
 }
 
 interface CartCheckoutData {
@@ -176,7 +177,11 @@ export default function CartCheckoutClient({ clientKey }: Props) {
                     : <div className="w-full h-full flex items-center justify-center text-lg">📦</div>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{item.brand}</p>
+                  {item.is_addon ? (
+                    <span className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "var(--cream-dark)", color: "var(--text-muted)" }}>추가상품</span>
+                  ) : (
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{item.brand}</p>
+                  )}
                   <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{item.name}</p>
                   {item.option_value && (
                     <p className="text-xs" style={{ color: "var(--accent)" }}>

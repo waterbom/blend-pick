@@ -18,6 +18,13 @@ interface Product {
   shipping_cost: number;
   free_shipping_threshold: number | null;
   main_image: string | null;
+  addon_multi: boolean;
+}
+
+interface ProductAddon {
+  id: string;
+  name: string;
+  extra_price: number;
 }
 
 interface ProductImage {
@@ -48,7 +55,7 @@ interface Review {
 async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
-            stock, status, shipping_type, shipping_cost, free_shipping_threshold, main_image
+            stock, status, shipping_type, shipping_cost, free_shipping_threshold, main_image, addon_multi
      FROM products_shop WHERE id = $1`,
     [id]
   );
@@ -73,6 +80,15 @@ async function getOptions(productId: string) {
   return result.rows as ProductOption[];
 }
 
+async function getAddons(productId: string) {
+  const result = await shopPool.query(
+    `SELECT id, name, extra_price
+     FROM product_addons WHERE product_id = $1 AND is_active = true ORDER BY sort_order ASC`,
+    [productId]
+  );
+  return result.rows as ProductAddon[];
+}
+
 async function getReviews(productId: string) {
   const result = await shopPool.query(
     `SELECT id, buyer_name, rating, content, images, created_at
@@ -89,10 +105,11 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [product, images, options, reviews] = await Promise.all([
+  const [product, images, options, addons, reviews] = await Promise.all([
     getProduct(id),
     getImages(id),
     getOptions(id),
+    getAddons(id),
     getReviews(id),
   ]);
 
@@ -111,6 +128,8 @@ export default async function ProductDetailPage({
         product={product}
         images={allImages}
         options={options}
+        addons={addons}
+        addonMulti={product.addon_multi}
         reviews={reviews}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">

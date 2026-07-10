@@ -42,6 +42,7 @@ export async function POST(req: Request) {
     as_notes,
     manufacturer, origin_country, product_condition, manufacture_date,
     main_image, extra_images, options,
+    addons, addon_multi,
   } = body;
 
   if (!name || price == null) {
@@ -66,12 +67,12 @@ export async function POST(req: Request) {
         exchange_cost_oneway, exchange_cost_roundtrip,
         as_notes,
         manufacturer, origin_country, product_condition, manufacture_date,
-        main_image
+        main_image, addon_multi
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
         $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
         $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
-        $31,$32,$33,$34,$35,$36
+        $31,$32,$33,$34,$35,$36,$37
       ) RETURNING id
     `, [
       name, brand || null, description || null,
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
       manufacturer || null, origin_country || null,
       product_condition || "new", manufacture_date || null,
       main_image || null,
+      addon_multi !== false,
     ]);
 
     const productId = result.rows[0].id;
@@ -121,6 +123,19 @@ export async function POST(req: Request) {
             `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [productId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false]
+          );
+        }
+      }
+    }
+
+    if (Array.isArray(addons)) {
+      for (let i = 0; i < addons.length; i++) {
+        const ad = addons[i];
+        if (ad.name) {
+          await client.query(
+            `INSERT INTO product_addons (product_id, name, extra_price, sort_order, is_active)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [productId, ad.name, ad.price ?? 0, i, ad.active !== false]
           );
         }
       }

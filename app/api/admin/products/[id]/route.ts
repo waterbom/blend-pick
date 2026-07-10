@@ -15,10 +15,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const [product, images, options] = await Promise.all([
+  const [product, images, options, addons] = await Promise.all([
     shopPool.query("SELECT * FROM products_shop WHERE id = $1", [id]),
     shopPool.query("SELECT url, sort_order FROM product_images WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
     shopPool.query("SELECT id, name, extra_price, stock, sort_order, is_active FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
+    shopPool.query("SELECT id, name, extra_price, is_active FROM product_addons WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
   ]);
 
   if (!product.rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -28,6 +29,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     extra_images: images.rows.map(r => r.url),
     options: options.rows.map(r => ({
       id: r.id, name: r.name, price: r.extra_price, stock: r.stock, active: r.is_active,
+    })),
+    addons: addons.rows.map(r => ({
+      name: r.name, price: r.extra_price, active: r.is_active,
     })),
   });
 }
@@ -52,6 +56,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     as_notes,
     manufacturer, origin_country, product_condition, manufacture_date,
     main_image, extra_images, options,
+    addons, addon_multi,
   } = body;
 
   const client = await shopPool.connect();
@@ -74,8 +79,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         as_notes = $31,
         manufacturer = $32, origin_country = $33,
         product_condition = $34, manufacture_date = $35,
-        main_image = $36, updated_at = NOW()
-      WHERE id = $37
+        main_image = $36, addon_multi = $37, updated_at = NOW()
+      WHERE id = $38
     `, [
       name, brand || null, description || null,
       price, original_price || null, instant_discount_price || null,
@@ -94,6 +99,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       manufacturer || null, origin_country || null,
       product_condition || "new", manufacture_date || null,
       main_image || null,
+      addon_multi !== false,
       id,
     ]);
 
@@ -118,6 +124,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false]
+          );
+        }
+      }
+    }
+
+    await client.query("DELETE FROM product_addons WHERE product_id = $1", [id]);
+    if (Array.isArray(addons)) {
+      for (let i = 0; i < addons.length; i++) {
+        const ad = addons[i];
+        if (ad.name) {
+          await client.query(
+            `INSERT INTO product_addons (product_id, name, extra_price, sort_order, is_active)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [id, ad.name, ad.price ?? 0, i, ad.active !== false]
           );
         }
       }

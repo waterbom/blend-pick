@@ -47,12 +47,13 @@ export async function POST(req: NextRequest) {
   const orderNumber = generateOrderNumber();
   const items: Array<{
     id: string; // cart item id (장바구니 비우기용)
-    product_id: string;
+    product_id: string | null; // 추가옵션은 null
     name: string;
     price: number;
     extra_price: number | null;
     quantity: number;
     option_id: string | null;
+    is_addon?: boolean;
   }> = checkoutData.items;
 
   const client = await shopPool.connect();

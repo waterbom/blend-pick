@@ -69,20 +69,32 @@ interface SelectedLine {
   qty: number;
 }
 
+// 추가옵션(추가상품)
+interface ProductAddon {
+  id: string;
+  name: string;
+  extra_price: number;
+}
+
 export default function ProductDetail({
   product,
   images,
   options,
+  addons,
+  addonMulti,
   reviews,
 }: {
   product: Product;
   images: ProductImage[];
   options: ProductOption[];
+  addons: ProductAddon[];
+  addonMulti: boolean;
   reviews: Review[];
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<SelectedLine[]>([]);
   const [quantity, setQuantity] = useState(1); // 옵션 없는 상품용
+  const [selAddons, setSelAddons] = useState<Set<string>>(new Set()); // 선택된 추가옵션 id
   const [cartLoading, setCartLoading] = useState(false);
   const [cartDone, setCartDone] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
@@ -120,6 +132,26 @@ export default function ProductDetail({
   }, 0);
   const itemsTotal = hasOptions ? linesTotal : product.price * quantity;
   const totalCount = hasOptions ? lines.reduce((s, l) => s + l.qty, 0) : quantity;
+
+  // 추가옵션: 메인(옵션 선택 or 옵션없는 상품)이 정해져야 담을 수 있음
+  const hasAddons = addons.length > 0;
+  const mainSelected = hasOptions ? lines.length > 0 : true;
+  const selectedAddons = mainSelected ? addons.filter((a) => selAddons.has(a.id)) : [];
+  const addonsTotal = selectedAddons.reduce((s, a) => s + a.extra_price, 0);
+  const grandTotal = itemsTotal + addonsTotal;
+
+  function toggleAddon(id: string) {
+    setSelAddons((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        if (!addonMulti) next.clear(); // 단일 선택 모드면 기존 선택 해제
+        next.add(id);
+      }
+      return next;
+    });
+  }
 
   const anySelectedSoldout = lines.some((l) => {
     const o = optById(l.optionId);
@@ -171,36 +203,72 @@ export default function ProductDetail({
 
   function handleBuyNow() {
     if (!canBuy) return;
-    // 옵션 없는 상품 → 기존 단일 결제 흐름
-    if (!hasOptions) {
+
+    // 추가옵션이 선택되지 않았고 옵션도 없는 단일상품 → 기존 단일 결제 흐름
+    if (selectedAddons.length === 0 && !hasOptions) {
       router.push(buildCheckoutUrl(product.id, null, quantity));
       return;
     }
-    // 옵션 상품 → 선택 라인들을 장바구니 결제 흐름(cartCheckoutData)으로 재활용
+
+    // 그 외(옵션 상품 or 추가옵션 포함) → 장바구니 결제 흐름(cartCheckoutData)으로 통일
     setBuyLoading(true);
-    const items = lines.map((l) => {
-      const o = optById(l.optionId)!;
-      return {
-        id: crypto.randomUUID(), // 실제 장바구니 행 아님 → cart 삭제 시 no-op
-        product_id: product.id,
-        name: product.name,
-        brand: product.brand,
-        price: product.price,
-        main_image: product.main_image,
-        shipping_type: product.shipping_type,
-        shipping_cost: product.shipping_cost,
-        status: product.status,
-        stock: product.stock,
-        option_id: o.id,
-        option_name: o.name,
-        option_value: o.value,
-        extra_price: o.extra_price,
-        quantity: l.qty,
-      };
-    });
+    const base = {
+      brand: product.brand,
+      main_image: product.main_image,
+      shipping_type: product.shipping_type,
+      shipping_cost: product.shipping_cost,
+      status: product.status,
+    };
+    // 메인 상품 items
+    const mainItems = hasOptions
+      ? lines.map((l) => {
+          const o = optById(l.optionId)!;
+          return {
+            id: crypto.randomUUID(), // 실제 장바구니 행 아님 → cart 삭제 시 no-op
+            product_id: product.id,
+            name: product.name,
+            price: product.price,
+            ...base,
+            stock: product.stock,
+            option_id: o.id,
+            option_name: o.name,
+            option_value: o.value,
+            extra_price: o.extra_price,
+            quantity: l.qty,
+          };
+        })
+      : [{
+          id: crypto.randomUUID(),
+          product_id: product.id,
+          name: product.name,
+          price: product.price,
+          ...base,
+          stock: product.stock,
+          option_id: null,
+          option_name: null,
+          option_value: null,
+          extra_price: null,
+          quantity,
+        }];
+    // 추가옵션 items (product_id 없음, 고정가)
+    const addonItems = selectedAddons.map((a) => ({
+      id: crypto.randomUUID(),
+      product_id: null,
+      is_addon: true,
+      name: `[추가] ${a.name}`,
+      price: a.extra_price,
+      ...base,
+      stock: 9999,
+      option_id: null,
+      option_name: null,
+      option_value: null,
+      extra_price: null,
+      quantity: 1,
+    }));
+    const items = [...mainItems, ...addonItems];
     sessionStorage.setItem(
       "cartCheckoutData",
-      JSON.stringify({ items, totalAmount: linesTotal, shippingCost })
+      JSON.stringify({ items, totalAmount: grandTotal, shippingCost })
     );
     router.push("/cart/checkout");
   }
@@ -348,12 +416,44 @@ export default function ProductDetail({
             </div>
           )}
 
+          {/* 추가옵션(추가상품) */}
+          {hasAddons && !isSoldout && (
+            <div className="mb-4">
+              <p className="text-sm font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
+                추가옵션 {!addonMulti && <span className="text-xs font-normal text-gray-400">(1개만 선택 가능)</span>}
+              </p>
+              {!mainSelected && (
+                <p className="text-xs text-gray-400 mb-2">먼저 위에서 옵션을 선택하면 추가옵션을 담을 수 있어요.</p>
+              )}
+              <div className={`space-y-1.5 ${!mainSelected ? "opacity-40 pointer-events-none" : ""}`}>
+                {addons.map((a) => (
+                  <label key={a.id} className="flex items-center gap-2 cursor-pointer py-1">
+                    <input
+                      type="checkbox"
+                      checked={selAddons.has(a.id)}
+                      onChange={() => toggleAddon(a.id)}
+                      disabled={!mainSelected}
+                      className="w-4 h-4"
+                      style={{ accentColor: "var(--accent)" }}
+                    />
+                    <span className="text-sm flex-1" style={{ color: "var(--text-primary)" }}>{a.name}</span>
+                    <span className="text-sm font-semibold tnum" style={{ color: "var(--text-secondary)" }}>
+                      +{a.extra_price.toLocaleString()}원
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 합계 */}
           {(itemsTotal > 0 && (hasOptions ? lines.length > 0 : true) && !isSoldout) && (
             <div className="flex items-baseline justify-between mb-5 pt-1">
-              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>총 {totalCount}개</span>
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                총 {totalCount}개{addonsTotal > 0 ? ` + 추가옵션 ${selectedAddons.length}개` : ""}
+              </span>
               <span className="text-2xl font-extrabold tnum" style={{ color: "var(--accent)" }}>
-                {itemsTotal.toLocaleString()}원
+                {grandTotal.toLocaleString()}원
               </span>
             </div>
           )}
