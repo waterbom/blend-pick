@@ -14,10 +14,19 @@ jobs:
         env:
           KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          echo "lines: $(printf '%s' "$KEY" | wc -l)"
-          echo "chars: $(printf '%s' "$KEY" | wc -c)"
-          echo "starts with BEGIN: $(printf '%s' "$KEY" | head -1 | grep -c 'BEGIN' || true)"
-          echo "ends with END: $(printf '%s' "$KEY" | tail -1 | grep -c 'END' || true)"
+          printf '%s\n' "$KEY" > /tmp/k
+          chmod 600 /tmp/k
+          echo "--- header bytes ---"
+          head -1 /tmp/k | od -c | head -4
+          echo "--- footer bytes ---"
+          tail -1 /tmp/k | od -c | head -4
+          echo "--- carriage returns: $(grep -c $'\r' /tmp/k || true) ---"
+          if ssh-keygen -y -f /tmp/k > /dev/null 2>&1; then
+            echo "RESULT: KEY IS VALID"
+          else
+            echo "RESULT: KEY IS INVALID"
+          fi
+          rm -f /tmp/k
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
