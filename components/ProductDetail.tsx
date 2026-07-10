@@ -48,9 +48,9 @@ interface ProductOption {
 function optUnavailable(o: ProductOption) {
   return !o.is_active || o.stock === 0;
 }
-function optLabel(o: ProductOption) {
+function optLabel(o: ProductOption, productSoldout = false) {
   if (!o.is_active) return " · 판매중지";
-  if (o.stock === 0) return " · 품절";
+  if (productSoldout || o.stock === 0) return " · 품절";
   return "";
 }
 
@@ -354,16 +354,15 @@ export default function ProductDetail({
                   addLine(e.target.value);
                   e.target.value = "";
                 }}
-                disabled={isSoldout}
                 className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
                 style={{ border: "1px solid var(--line)", background: "#fff", appearance: "auto", color: "var(--text-primary)" }}
               >
                 <option value="" disabled>옵션</option>
                 {options.map((o) => (
-                  <option key={o.id} value={o.id} disabled={optUnavailable(o)}>
+                  <option key={o.id} value={o.id} disabled={isSoldout || optUnavailable(o)}>
                     {o.value}
                     {o.extra_price > 0 ? ` (+${o.extra_price.toLocaleString()}원)` : ""}
-                    {optLabel(o)}
+                    {optLabel(o, isSoldout)}
                   </option>
                 ))}
               </select>
