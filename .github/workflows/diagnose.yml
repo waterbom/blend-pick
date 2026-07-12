@@ -1,0 +1,35 @@
+name: Server Diagnose
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run read-only diagnostics over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            echo "===== 1. local postgres clusters ====="
+            pg_lsclusters 2>&1 || true
+            echo "===== 2. postgres packages ====="
+            dpkg -l 2>/dev/null | grep -i postgres || true
+            echo "===== 3. postgres services ====="
+            systemctl list-units --all 2>&1 | grep -i postgres || true
+            echo "===== 4. blend-pick.service ====="
+            systemctl cat blend-pick.service 2>&1 || true
+            echo "--- enabled/active ---"
+            systemctl is-enabled blend-pick.service 2>&1 || true
+            systemctl is-active blend-pick.service 2>&1 || true
+            echo "===== 5. pm2 list ====="
+            pm2 list 2>&1 || true
+            echo "===== 6. listening ports (3000/5432) ====="
+            sudo ss -tlnp 2>&1 | grep -E ':3000|:5432' || true
+            echo "===== 7. node processes ====="
+            ps aux | grep -E 'node|next-server|PM2' | grep -v grep || true
