@@ -61,12 +61,19 @@ db_exists() {
 copy_db() {
   local src_url="$1" dev_db="$2" dev_url="$3"
   if db_exists "$dev_db"; then
-    echo "⚠️  $dev_db 가 이미 존재합니다. 새로 만들려면 먼저 삭제하세요:"
-    echo "    psql \"\$ADMIN_URL\" -c 'DROP DATABASE $dev_db;'"
-    return 0
+    # 존재하지만 테이블이 하나도 없으면(이전 실행이 중간에 실패) 이어서 복사
+    local tables
+    tables=$(psql "$dev_url" -tAc "SELECT count(*) FROM pg_tables WHERE schemaname='public'")
+    if [ "$tables" -gt 0 ]; then
+      echo "⚠️  $dev_db 가 이미 존재합니다(테이블 ${tables}개). 상용 데이터로 다시 초기화하려면:"
+      echo "    psql \"$ADMIN_URL\" -c 'DROP DATABASE $dev_db;' && bash scripts/create-dev-dbs.sh"
+      return 0
+    fi
+    echo "▶ $dev_db 가 비어있어 복사만 이어서 진행합니다"
+  else
+    echo "▶ CREATE DATABASE $dev_db"
+    psql "$ADMIN_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE $dev_db;"
   fi
-  echo "▶ CREATE DATABASE $dev_db"
-  psql "$ADMIN_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE $dev_db;"
   echo "▶ 데이터 복사 중... (상용 → $dev_db)"
   pg_dump "$src_url" --no-owner --no-privileges | psql "$dev_url" -q -v ON_ERROR_STOP=1
   echo "✅ $dev_db 완료"
