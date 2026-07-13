@@ -47,3 +47,6 @@ next-env.d.ts
 
 # 주문 초기화 백업 (고객정보 포함, 커밋 금지)
 scripts/backup-orders-*.json
+
+# 인플루언서 민감 서류 (public 밖, 절대 커밋 금지)
+private-uploads/
