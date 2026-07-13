@@ -72,8 +72,8 @@ export default function LoginPage() {
         {/* 이메일 로그인 */}
         <form onSubmit={handleEmailLogin} className="space-y-3">
           <input
-            type="email"
-            placeholder="이메일"
+            type="text"
+            placeholder="이메일 또는 아이디"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
