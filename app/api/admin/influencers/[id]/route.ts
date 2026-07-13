@@ -18,7 +18,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const [inf, campaigns] = await Promise.all([
     pool.query(
       `SELECT i.*, u.email AS account_email
-       FROM influencers i LEFT JOIN shop_users u ON u.id = i.user_id
+       FROM influencers i LEFT JOIN shop_users u ON u.id = i.user_id::text
        WHERE i.id = $1`,
       [id]
     ),

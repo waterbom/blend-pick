@@ -35,7 +35,7 @@ export async function GET(req: Request) {
               u.email AS account_email,
               (SELECT COUNT(*) FROM campaigns c WHERE c.influencer_id = i.id AND c.is_archived = false) AS campaign_count
        FROM influencers i
-       LEFT JOIN shop_users u ON u.id = i.user_id
+       LEFT JOIN shop_users u ON u.id = i.user_id::text
        ${where}
        ORDER BY i.name ASC`,
       params

@@ -327,7 +327,7 @@ export default function InfluencerFormClient({
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
         <button type="submit" disabled={saving}
           className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-6 py-2.5 rounded-lg disabled:opacity-40">
           {saving ? "저장 중..." : mode === "new" ? "등록" : "저장"}
@@ -336,6 +336,21 @@ export default function InfluencerFormClient({
           className="border border-gray-200 text-gray-600 text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-gray-50">
           취소
         </button>
+        {mode === "edit" && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!window.confirm("이 인플루언서를 삭제할까요? (진행한 공구가 있으면 삭제되지 않습니다)")) return;
+              const res = await fetch(`/api/admin/influencers/${influencerId}`, { method: "DELETE" });
+              const d = await res.json().catch(() => ({}));
+              if (res.ok) { router.push("/admin/influencers"); router.refresh(); }
+              else alert(d.error || "삭제 실패");
+            }}
+            className="ml-auto text-sm text-red-400 hover:text-red-600 font-bold px-3 py-2.5"
+          >
+            삭제
+          </button>
+        )}
       </div>
     </form>
   );
