@@ -103,6 +103,7 @@ export default function InfluencerFormClient({
     id_card_file: "", biz_cert_file: "", bankbook_file: "",
   });
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [portalPassword, setPortalPassword] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
 
   // 계정 발급 — 자동 생성된 아이디/비밀번호 (발급 직후 1회만 표시)
@@ -126,6 +127,7 @@ export default function InfluencerFormClient({
           bankbook_file: d.bankbook_file ?? "",
         });
         setAccountEmail(d.account_email ?? null);
+        setPortalPassword(d.portal_password ?? null);
         setCampaigns(d.campaigns ?? []);
       })
       .finally(() => setLoading(false));
@@ -165,6 +167,7 @@ export default function InfluencerFormClient({
     if (res.ok) {
       setIssued({ login_id: d.login_id, password: d.password });
       setAccountEmail(d.login_id);
+      setPortalPassword(d.password);
     } else alert(d.error || "발급 실패");
   }
 
@@ -174,13 +177,16 @@ export default function InfluencerFormClient({
     const res = await fetch(`/api/admin/influencers/${influencerId}/account`, { method: "PUT" });
     const d = await res.json();
     setAccBusy(false);
-    if (res.ok) setIssued({ login_id: d.login_id, password: d.password });
-    else alert(d.error || "변경 실패");
+    if (res.ok) {
+      setIssued({ login_id: d.login_id, password: d.password });
+      setPortalPassword(d.password);
+    } else alert(d.error || "변경 실패");
   }
 
   async function copyCredentials() {
-    if (!issued) return;
-    const text = `블렌드픽 인플루언서 계정\n아이디: ${issued.login_id}\n비밀번호: ${issued.password}\n로그인: ${window.location.origin}/login`;
+    const creds = issued ?? (accountEmail && portalPassword ? { login_id: accountEmail, password: portalPassword } : null);
+    if (!creds) return;
+    const text = `블렌드픽 인플루언서 계정\n아이디: ${creds.login_id}\n비밀번호: ${creds.password}\n로그인: ${window.location.origin}/login`;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -227,7 +233,19 @@ export default function InfluencerFormClient({
           </div>
           <div>
             <label className={lbl}>프로필 이미지 URL</label>
-            <input value={form.profile_image} onChange={(e) => set("profile_image", e.target.value)} className={inp} placeholder="https://..." />
+            <div className="flex items-center gap-2">
+              <input value={form.profile_image} onChange={(e) => set("profile_image", e.target.value)} className={inp} placeholder="이미지 주소 복사 후 붙여넣기" />
+              {form.profile_image && (
+                <img
+                  src={form.profile_image}
+                  alt="미리보기"
+                  className="w-10 h-10 rounded-full object-cover bg-gray-100 shrink-0 border border-gray-100"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  onLoad={(e) => { (e.target as HTMLImageElement).style.display = "block"; }}
+                />
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">저장 시 이미지를 서버로 복사해둬요 (원본 링크가 만료돼도 안전)</p>
           </div>
         </div>
         <div>
@@ -297,10 +315,21 @@ export default function InfluencerFormClient({
                 </button>
               </div>
             ) : accountEmail ? (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-700">
-                  발급됨 — 아이디: <b className="text-green-600">{accountEmail}</b>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm text-gray-700 font-mono">
+                  아이디: <b className="text-green-600">{accountEmail}</b>
+                  {portalPassword && (
+                    <> <span className="text-gray-300 mx-1">·</span> 비밀번호: <b className="text-green-600">{portalPassword}</b></>
+                  )}
                 </span>
+                {portalPassword && (
+                  <button type="button" onClick={copyCredentials}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+                      credCopied ? "bg-green-600 border-green-600 text-white" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}>
+                    {credCopied ? "복사됨 ✓" : "복사"}
+                  </button>
+                )}
                 <button type="button" onClick={resetPassword} disabled={accBusy}
                   className="text-xs border border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40">
                   {accBusy ? "처리 중..." : "비밀번호 재발급"}

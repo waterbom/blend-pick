@@ -4,6 +4,7 @@ import { verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import { COUNTABLE_ORDER_STATUSES } from "@/lib/settlement";
+import { cacheExternalImage } from "@/lib/cache-image";
 import { randomUUID } from "crypto";
 
 async function getAdmin() {
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
 
   const b = await req.json();
   if (!b.name) return NextResponse.json({ error: "이름은 필수입니다" }, { status: 400 });
+  const profileImage = await cacheExternalImage(b.profile_image || null);
 
   // 레거시 테이블 제약: id 기본값 없음(직접 생성), platform/handle NOT NULL
   const { rows } = await pool.query(
@@ -79,7 +81,7 @@ export async function POST(req: Request) {
      RETURNING id`,
     [
       randomUUID(), b.handle || b.name,
-      b.name, b.platform || "", b.profile_image || null, b.phone || null,
+      b.name, b.platform || "", profileImage, b.phone || null,
       b.followers_count ?? null, b.category || null,
       b.business_type || null, b.bank_name || null, b.bank_account || null,
       b.bank_holder || null, b.tax_email || null, b.memo || null,

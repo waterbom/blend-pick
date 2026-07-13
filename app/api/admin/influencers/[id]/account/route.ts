@@ -72,7 +72,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
        VALUES ($1, $2, $3, $4, 'influencer', 'approved', true, true)`,
       [userId, inf.rows[0].name, loginId, hash]
     );
-    await client.query("UPDATE influencers SET user_id = $1 WHERE id = $2", [userId, id]);
+    await client.query("UPDATE influencers SET user_id = $1, portal_password = $2 WHERE id = $3", [userId, password, id]);
 
     await client.query("COMMIT");
     return NextResponse.json({ ok: true, login_id: loginId, password }, { status: 201 });
@@ -107,5 +107,6 @@ export async function PUT(_: Request, { params }: { params: Promise<{ id: string
     hash,
     inf.rows[0].user_id,
   ]);
+  await pool.query("UPDATE influencers SET portal_password = $1 WHERE id = $2", [password, id]);
   return NextResponse.json({ ok: true, login_id: inf.rows[0].email, password });
 }

@@ -44,6 +44,7 @@ const pool = new Pool({ connectionString: conn, ssl: { rejectUnauthorized: false
     "id_card_file     text",   // 신분증 사본 (private-uploads 파일명)
     "biz_cert_file    text",   // 사업자등록증
     "bankbook_file    text",   // 통장사본
+    "portal_password  text",   // 발급된 포털 비밀번호 (관리자 재확인용)
   ];
   for (const col of influencerCols) {
     await pool.query(`ALTER TABLE influencers ADD COLUMN IF NOT EXISTS ${col}`);

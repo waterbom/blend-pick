@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
+import { cacheExternalImage } from "@/lib/cache-image";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -42,6 +43,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const b = await req.json();
   if (!b.name) return NextResponse.json({ error: "이름은 필수입니다" }, { status: 400 });
+  const profileImage = await cacheExternalImage(b.profile_image || null);
 
   const r = await pool.query(
     `UPDATE influencers SET
@@ -53,7 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
        id_card_file = $13, biz_cert_file = $14, bankbook_file = $15
      WHERE id = $16`,
     [
-      b.name, b.platform || "", b.profile_image || null, b.phone || null,
+      b.name, b.platform || "", profileImage, b.phone || null,
       b.followers_count ?? null, b.category || null, b.business_type || null,
       b.bank_name || null, b.bank_account || null, b.bank_holder || null,
       b.tax_email || null, b.memo || null,
