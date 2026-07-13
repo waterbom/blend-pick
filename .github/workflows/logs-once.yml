@@ -1,0 +1,27 @@
+name: App Logs (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check influencer list issue
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "===== app error logs (last 20 min, filtered) ====="
+            sudo journalctl -u blend-pick --since "20 minutes ago" --no-pager \
+              | grep -iE "error|failed|violates|column|relation|operator|cast" \
+              | tail -40 || echo "(no error lines)"
+            cd ${{ secrets.EC2_APP_DIR }}
+            PSQL="/usr/lib/postgresql/17/bin/psql"
+            OS_URL="$(grep '^DATABASE_URL=' .env.local | cut -d= -f2-)"
+            echo "===== influencers row count / last created ====="
+            PGSSLMODE=require $PSQL "$OS_URL" -c "SELECT COUNT(*) AS total, MAX(created_at) AS last_created FROM influencers"
+            echo "===== list query dry-run (id/email only) ====="
+            PGSSLMODE=require $PSQL "$OS_URL" -c "SELECT i.id, u.email AS account_email, (SELECT COUNT(*) FROM campaigns c WHERE c.influencer_id = i.id AND c.is_archived = false) AS cc FROM influencers i LEFT JOIN shop_users u ON u.id = i.user_id ORDER BY i.name ASC LIMIT 3" 2>&1
