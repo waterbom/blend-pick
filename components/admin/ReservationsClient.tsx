@@ -218,7 +218,8 @@ export default function ReservationsClient() {
       alert(d.error || "처리에 실패했습니다.");
       setRows(prev); // 롤백
     } else if (status === "cancelled") {
-      alert("취소·환불 완료되었어요.");
+      const d = await res.json().catch(() => ({}));
+      alert(d.smsSent ? "취소·환불 완료 + 취소 문자 발송했어요." : "취소·환불 완료되었어요. (취소 문자는 발송되지 않았어요)");
     }
   }
 

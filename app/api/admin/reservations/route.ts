@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
-import { nextISO } from "@/lib/hotel";
+import { nextISO, nightsBetween } from "@/lib/hotel";
+import { sendCancellationSMS } from "@/lib/hotel-notify";
 
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
@@ -75,6 +76,7 @@ export async function PATCH(req: Request) {
   // 취소 → 결제 환불 + 재고 복원
   const { rows } = await shopPool.query(
     `SELECT o.status, o.payment_key,
+            o.order_number, o.buyer_name, o.buyer_phone, o.total_amount,
             to_char(o.stay_check_in, 'YYYY-MM-DD') AS ci,
             to_char(o.stay_check_out, 'YYYY-MM-DD') AS co,
             (SELECT option_label FROM order_items WHERE order_id = o.id LIMIT 1) AS opt
@@ -131,5 +133,25 @@ export async function PATCH(req: Request) {
     client.release();
   }
 
-  return NextResponse.json({ ok: true, refunded: true });
+  // 3) 예약취소 문자 발송 (실패해도 취소·환불엔 영향 없음)
+  let smsSent = false;
+  if (ord.buyer_phone && ord.ci && ord.co) {
+    try {
+      const r = await sendCancellationSMS(ord.buyer_phone, {
+        buyerName: ord.buyer_name,
+        orderNumber: ord.order_number,
+        room: room || "예약 객실",
+        checkIn: ord.ci,
+        checkOut: ord.co,
+        nights: nightsBetween(ord.ci, ord.co),
+        total: Number(ord.total_amount),
+      });
+      smsSent = r.ok;
+      if (!r.ok) console.error("[reservations cancel] 취소 문자 발송 실패:", r.error);
+    } catch (e) {
+      console.error("[reservations cancel] 취소 문자 예외:", e);
+    }
+  }
+
+  return NextResponse.json({ ok: true, refunded: true, smsSent });
 }
