@@ -18,7 +18,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const [product, images, options, addons] = await Promise.all([
     shopPool.query("SELECT * FROM products_shop WHERE id = $1", [id]),
     shopPool.query("SELECT url, sort_order FROM product_images WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
-    shopPool.query("SELECT id, name, extra_price, stock, sort_order, is_active FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
+    shopPool.query("SELECT id, name, extra_price, stock, sort_order, is_active, supply_price FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
     shopPool.query("SELECT id, name, extra_price, is_active FROM product_addons WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
   ]);
 
@@ -29,6 +29,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     extra_images: images.rows.map(r => r.url),
     options: options.rows.map(r => ({
       id: r.id, name: r.name, price: r.extra_price, stock: r.stock, active: r.is_active,
+      supply_price: r.supply_price,
     })),
     addons: addons.rows.map(r => ({
       name: r.name, price: r.extra_price, active: r.is_active,
@@ -44,6 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const body = await req.json();
   const {
     name, brand, description, price, original_price, instant_discount_price,
+    supply_price,
     stock, category, status, sale_type,
     presale_enabled, presale_start_at, presale_end_at,
     sale_start_at, sale_end_at, tax_type,
@@ -79,8 +81,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         as_notes = $31,
         manufacturer = $32, origin_country = $33,
         product_condition = $34, manufacture_date = $35,
-        main_image = $36, addon_multi = $37, updated_at = NOW()
-      WHERE id = $38
+        main_image = $36, addon_multi = $37, supply_price = $38, updated_at = NOW()
+      WHERE id = $39
     `, [
       name, brand || null, description || null,
       price, original_price || null, instant_discount_price || null,
@@ -100,6 +102,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       product_condition || "new", manufacture_date || null,
       main_image || null,
       addon_multi !== false,
+      supply_price || null,
       id,
     ]);
 
@@ -121,9 +124,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         const opt = options[i];
         if (opt.name) {
           await client.query(
-            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false]
+            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active, supply_price)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null]
           );
         }
       }

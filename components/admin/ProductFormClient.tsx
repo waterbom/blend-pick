@@ -6,7 +6,7 @@ import RichEditor from "@/components/admin/RichEditor";
 
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
-interface OptionRow { name: string; price: string; stock: string; active: boolean; sel: boolean; }
+interface OptionRow { name: string; price: string; stock: string; active: boolean; sel: boolean; supply: string; }
 // 추가옵션(추가상품): 메인 구매 시 함께 살 수 있는 부가상품
 interface AddonRow { name: string; price: string; active: boolean; }
 
@@ -40,6 +40,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     presale_start_at: "", presale_end_at: "",
     original_price: "", discount_rate: "", price: "",
     instant_discount_price: "",
+    supply_price: "",
     sale_start_at: "", sale_end_at: "",
     tax_type: "taxable",
     stock: "0",
@@ -97,6 +98,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           discount_rate: discountRate,
           price,
           instant_discount_price: data.instant_discount_price ? String(data.instant_discount_price) : "",
+          supply_price: data.supply_price ? String(data.supply_price) : "",
           sale_start_at: data.sale_start_at ? String(data.sale_start_at).slice(0, 16) : "",
           sale_end_at: data.sale_end_at ? String(data.sale_end_at).slice(0, 16) : "",
           tax_type: data.tax_type ?? "taxable",
@@ -127,9 +129,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
         const padded = [...allImgs, ...EMPTY_IMAGES].slice(0, 5);
         setImages(padded);
         setOptions(
-          (data.options ?? []).map((o: { name: string; price: number; stock: number; active?: boolean }) => ({
+          (data.options ?? []).map((o: { name: string; price: number; stock: number; active?: boolean; supply_price?: number | null }) => ({
             name: o.name, price: String(o.price), stock: String(o.stock),
             active: o.active !== false, sel: false,
+            supply: o.supply_price != null ? String(o.supply_price) : "",
           }))
         );
         setAddons(
@@ -191,14 +194,14 @@ export default function ProductFormClient({ mode, productId }: Props) {
   }
 
   function addOption() {
-    setOptions(opts => [...opts, { name: "", price: "", stock: "", active: true, sel: false }]);
+    setOptions(opts => [...opts, { name: "", price: "", stock: "", active: true, sel: false, supply: "" }]);
     setStockConfirmed(false);
   }
   function removeOption(i: number) {
     setOptions(opts => opts.filter((_, idx) => idx !== i));
     setStockConfirmed(false);
   }
-  function setOption(i: number, key: "name" | "price" | "stock", val: string) {
+  function setOption(i: number, key: "name" | "price" | "stock" | "supply", val: string) {
     setOptions(opts => opts.map((opt, idx) => idx === i ? { ...opt, [key]: val } : opt));
     if (key === "stock") setStockConfirmed(false);
   }
@@ -267,6 +270,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       price: Number(form.price) || 0,
       original_price: form.original_price ? Number(form.original_price) : null,
       instant_discount_price: form.instant_discount_price ? Number(form.instant_discount_price) : null,
+      supply_price: form.supply_price ? Number(form.supply_price) : null,
       sale_start_at: form.sale_start_at || null,
       sale_end_at: form.sale_end_at || null,
       tax_type: form.tax_type,
@@ -291,6 +295,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       extra_images: images.slice(1).filter(Boolean),
       options: options.filter(o => o.name).map(o => ({
         name: o.name, price: Number(o.price) || 0, stock: Number(o.stock) || 0, active: o.active !== false,
+        supply_price: o.supply ? Number(o.supply) : null,
       })),
       addons: addons.filter(a => a.name).map(a => ({
         name: a.name, price: Number(a.price) || 0, active: a.active !== false,
@@ -520,6 +525,15 @@ export default function ProductFormClient({ mode, productId }: Props) {
           </Grid2>
           <Grid2>
             <div>
+              <label className={lbl}>공급가 (매입원가)</label>
+              <input value={form.supply_price} onChange={e => set("supply_price", e.target.value)}
+                type="number" min="0" className={inp} placeholder="손익관리용 — 고객에게 노출 안 됨" />
+              <p className="text-xs text-gray-400 mt-1">옵션별 공급가가 다르면 아래 옵션 행에서 개별 입력 (옵션값 우선 적용)</p>
+            </div>
+            <div />
+          </Grid2>
+          <Grid2>
+            <div>
               <label className={lbl}>판매 시작일시</label>
               <input value={form.sale_start_at} onChange={e => set("sale_start_at", e.target.value)}
                 type="datetime-local" className={inp} />
@@ -593,19 +607,21 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 </div>
               )}
               <div className="space-y-2">
-                <div className="grid grid-cols-[24px_1fr_90px_70px_92px_28px] gap-2 text-xs text-gray-400 items-center">
+                <div className="grid grid-cols-[24px_1fr_90px_90px_70px_92px_28px] gap-2 text-xs text-gray-400 items-center">
                   <input type="checkbox" checked={allSelected} onChange={toggleSelAll}
                     className="w-4 h-4 accent-orange-500 cursor-pointer" title="전체 선택/해제" />
-                  <span>옵션명</span><span>옵션 가격</span><span>재고</span><span>판매상태</span><span />
+                  <span>옵션명</span><span>옵션 가격</span><span>공급가</span><span>재고</span><span>판매상태</span><span />
                 </div>
                 {options.map((opt, i) => (
-                  <div key={i} className="grid grid-cols-[24px_1fr_90px_70px_92px_28px] gap-2 items-center">
+                  <div key={i} className="grid grid-cols-[24px_1fr_90px_90px_70px_92px_28px] gap-2 items-center">
                     <input type="checkbox" checked={opt.sel} onChange={() => toggleSel(i)}
                       className="w-4 h-4 accent-orange-500 cursor-pointer" />
                     <input value={opt.name} onChange={e => setOption(i, "name", e.target.value)}
                       className={inp} placeholder="예: 빨강/XL" />
                     <input value={opt.price} onChange={e => setOption(i, "price", e.target.value)}
                       type="number" min="0" className={inp} placeholder="판매가" />
+                    <input value={opt.supply} onChange={e => setOption(i, "supply", e.target.value)}
+                      type="number" min="0" className={inp} placeholder="공급가" />
                     <input value={opt.stock} onChange={e => setOption(i, "stock", e.target.value)}
                       type="number" min="0" className={inp} placeholder="0" />
                     <button type="button" onClick={() => setOptionActive(i, !opt.active)}

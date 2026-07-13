@@ -88,13 +88,24 @@ export async function POST(req: NextRequest) {
 
     const newOrderId = rows[0].id;
 
-    // order_items: 장바구니 아이템 수만큼 INSERT
+    // order_items: 장바구니 아이템 수만큼 INSERT (결제시점 공급가 스냅샷 포함)
     for (const item of items) {
       const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
+      let supplyPrice: number | null = null;
+      if (item.product_id) {
+        const spRes = await client.query(
+          `SELECT COALESCE(po.supply_price, ps.supply_price) AS supply_price
+           FROM products_shop ps
+           LEFT JOIN product_options po ON po.id = $2 AND po.product_id = ps.id
+           WHERE ps.id = $1`,
+          [item.product_id, item.option_id ?? null]
+        );
+        supplyPrice = spRes.rows[0]?.supply_price ?? null;
+      }
       await client.query(
-        `INSERT INTO order_items (order_id, product_id, option_id, product_name, unit_price, quantity)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [newOrderId, item.product_id, item.option_id ?? null, item.name, unitPrice, item.quantity]
+        `INSERT INTO order_items (order_id, product_id, option_id, product_name, unit_price, quantity, supply_price)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [newOrderId, item.product_id, item.option_id ?? null, item.name, unitPrice, item.quantity, supplyPrice]
       );
     }
 

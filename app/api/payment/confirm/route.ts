@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import shopPool from "@/lib/db-shop";
+import pool from "@/lib/db";
 import { randomBytes } from "crypto";
 
 function generateOrderNumber() {
@@ -32,7 +33,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 2. 샵 orders에 공동구매 주문 저장 (order_type='campaign')
+  // 2. 인플루언서/공구 스냅샷 — 클라이언트가 넘긴 campaignId를 OS DB에서 재검증
+  //    (요율/공급가/이름은 결제시점 DB 값만 신뢰, 클라이언트 값 신뢰 X)
+  //    조회 실패해도 주문 저장은 진행 (결제는 이미 승인됨)
+  let campaign: {
+    id: string;
+    influencer_id: string;
+    influencer_name: string;
+    commission_rate: number | null;
+    supply_price: number | null;
+  } | null = null;
+  if (checkoutData.campaignId) {
+    try {
+      const { rows } = await pool.query(
+        `SELECT c.id, c.influencer_id, i.name AS influencer_name,
+                c.commission_rate, c.supply_price
+         FROM campaigns c
+         JOIN influencers i ON i.id = c.influencer_id
+         WHERE c.id = $1 AND c.product_id = $2 AND c.is_archived = false`,
+        [checkoutData.campaignId, checkoutData.productId]
+      );
+      campaign = rows[0] || null;
+    } catch (e) {
+      console.error("[payment/confirm] 캠페인 조회 실패:", e);
+    }
+  }
+
+  // 3. 샵 orders에 공동구매 주문 저장 (order_type='campaign')
   //    캠페인 상품은 다른 DB라 product_id=NULL + product_name(텍스트)로 저장.
   //    저장 실패해도 토스 승인은 됐으므로 결제완료로 처리(로그만 남김).
   const orderNumber = generateOrderNumber();
@@ -45,8 +72,10 @@ export async function POST(req: NextRequest) {
         recipient_name, recipient_phone,
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
-        status, payment_key, payment_method, paid_at, order_type
-      ) VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'paid',$13,$14,NOW(),'campaign')
+        status, payment_key, payment_method, paid_at, order_type,
+        influencer_id, campaign_id, influencer_name, commission_rate
+      ) VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'paid',$13,$14,NOW(),'campaign',
+        $15,$16,$17,$18)
       RETURNING id`,
       [
         orderNumber,
@@ -63,12 +92,22 @@ export async function POST(req: NextRequest) {
         checkoutData.shippingCost ?? 0,
         paymentKey,
         tossData.method,
+        campaign?.influencer_id ?? null,
+        campaign?.id ?? null,
+        campaign?.influencer_name ?? null,
+        campaign?.commission_rate ?? null,
       ]
     );
     await client.query(
-      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity)
-       VALUES ($1, NULL, $2, NULL, $3, $4)`,
-      [rows[0].id, checkoutData.productName, checkoutData.unitPrice, checkoutData.quantity ?? 1]
+      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity, supply_price)
+       VALUES ($1, NULL, $2, NULL, $3, $4, $5)`,
+      [
+        rows[0].id,
+        checkoutData.productName,
+        checkoutData.unitPrice,
+        checkoutData.quantity ?? 1,
+        campaign?.supply_price ?? null,
+      ]
     );
     await client.query("COMMIT");
   } catch (e) {

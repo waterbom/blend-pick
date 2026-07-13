@@ -36,18 +36,38 @@ async function getProduct(id: string): Promise<Product | null> {
   }
 }
 
+// 선택된 인플루언서의 공구(캠페인) 검증 — 클라이언트가 넘긴 id를 DB로 재확인
+async function getCampaign(productId: string, influencerId?: string) {
+  if (!influencerId) return null;
+  try {
+    const result = await pool.query(
+      `SELECT c.id AS campaign_id, c.influencer_id, i.name AS influencer_name
+       FROM campaigns c
+       JOIN influencers i ON i.id = c.influencer_id
+       WHERE c.product_id = $1 AND c.influencer_id = $2 AND c.is_archived = false`,
+      [productId, influencerId]
+    );
+    return result.rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function CheckoutPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ opt?: string; qty?: string; influencer_name?: string }>;
+  searchParams: Promise<{ opt?: string; qty?: string; influencer_id?: string; influencer_name?: string }>;
 }) {
   const { id } = await params;
-  const { opt, qty } = await searchParams;
+  const { opt, qty, influencer_id } = await searchParams;
   const product = await getProduct(id);
 
   if (!product) notFound();
+
+  // 인플루언서 연결 검증 (없거나 위조면 null — 주문은 인플루언서 없이 진행)
+  const campaign = await getCampaign(id, influencer_id);
 
   const displayPrice =
     product.groupbuy_price > 0 && product.groupbuy_price < product.consumer_price
@@ -115,6 +135,9 @@ export default async function CheckoutPage({
           quantity={quantity}
           shippingCost={shippingCost}
           clientKey={clientKey}
+          campaignId={campaign?.campaign_id}
+          influencerId={campaign?.influencer_id}
+          influencerName={campaign?.influencer_name}
         />
       </div>
     </main>

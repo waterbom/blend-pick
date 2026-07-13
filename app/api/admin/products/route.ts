@@ -30,6 +30,7 @@ export async function POST(req: Request) {
   const body = await req.json();
   const {
     name, brand, description, price, original_price, instant_discount_price,
+    supply_price,
     stock, category, status, sale_type,
     presale_enabled, presale_start_at, presale_end_at,
     sale_start_at, sale_end_at, tax_type,
@@ -67,12 +68,12 @@ export async function POST(req: Request) {
         exchange_cost_oneway, exchange_cost_roundtrip,
         as_notes,
         manufacturer, origin_country, product_condition, manufacture_date,
-        main_image, addon_multi
+        main_image, addon_multi, supply_price
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
         $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
         $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
-        $31,$32,$33,$34,$35,$36,$37
+        $31,$32,$33,$34,$35,$36,$37,$38
       ) RETURNING id
     `, [
       name, brand || null, description || null,
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
       product_condition || "new", manufacture_date || null,
       main_image || null,
       addon_multi !== false,
+      supply_price || null,
     ]);
 
     const productId = result.rows[0].id;
@@ -120,9 +122,9 @@ export async function POST(req: Request) {
         const opt = options[i];
         if (opt.name) {
           await client.query(
-            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [productId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false]
+            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active, supply_price)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [productId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null]
           );
         }
       }

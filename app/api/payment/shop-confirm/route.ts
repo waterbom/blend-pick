@@ -78,9 +78,19 @@ export async function POST(req: NextRequest) {
 
     const newOrderId = rows[0].id;
 
+    // 결제시점 공급가 스냅샷 (옵션 공급가 우선, 없으면 상품 공급가)
+    const spRes = await client.query(
+      `SELECT COALESCE(po.supply_price, ps.supply_price) AS supply_price
+       FROM products_shop ps
+       LEFT JOIN product_options po ON po.id = $2 AND po.product_id = ps.id
+       WHERE ps.id = $1`,
+      [checkoutData.productId, checkoutData.optionId ?? null]
+    );
+    const supplyPrice = spRes.rows[0]?.supply_price ?? null;
+
     await client.query(
-      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity, supply_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         newOrderId,
         checkoutData.productId,
@@ -88,6 +98,7 @@ export async function POST(req: NextRequest) {
         checkoutData.optionLabel || null,
         checkoutData.unitPrice,
         checkoutData.quantity,
+        supplyPrice,
       ]
     );
 

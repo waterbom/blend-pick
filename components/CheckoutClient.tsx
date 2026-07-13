@@ -11,6 +11,9 @@ interface Props {
   quantity?: number;
   shippingCost: number;
   clientKey: string;
+  campaignId?: string;
+  influencerId?: string;
+  influencerName?: string;
 }
 
 export default function CheckoutClient({
@@ -20,6 +23,9 @@ export default function CheckoutClient({
   quantity = 1,
   shippingCost,
   clientKey,
+  campaignId,
+  influencerId,
+  influencerName,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const itemTotal = unitPrice * quantity;
@@ -70,6 +76,9 @@ export default function CheckoutClient({
       quantity,
       shippingCost,
       totalAmount,
+      campaignId: campaignId || null,
+      influencerId: influencerId || null,
+      influencerName: influencerName || null,
       customerName: form.customerName,
       customerPhone: form.customerPhone,
       customerEmail: form.customerEmail,
