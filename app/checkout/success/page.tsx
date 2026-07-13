@@ -10,6 +10,7 @@ interface OrderResult {
   totalAmount: number;
   shippingAddress: string;
   productId: string;
+  campaignId: string | null;
 }
 
 function SuccessContent() {
@@ -50,6 +51,7 @@ function SuccessContent() {
             totalAmount: data.totalAmount,
             shippingAddress: checkoutData.shippingAddress ?? "",
             productId: checkoutData.productId,
+            campaignId: checkoutData.campaignId ?? null,
           });
           sessionStorage.removeItem("checkoutData");
         } else {
@@ -61,7 +63,10 @@ function SuccessContent() {
 
   async function handleShare() {
     if (!result) return;
-    const url = `${window.location.origin}/campaigns/${result.productId}`;
+    // 인플루언서 공구 주문이면 전용 링크 공유 (공유로 유입된 구매도 같은 인플루언서에게 귀속)
+    const url = result.campaignId
+      ? `${window.location.origin}/c/${result.campaignId}`
+      : `${window.location.origin}/campaigns/${result.productId}`;
     const shareData = {
       title: "블렌드픽 공동구매",
       text: `${result.productName} 공동구매 같이 참여해요!`,

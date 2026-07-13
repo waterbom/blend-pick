@@ -43,7 +43,15 @@ interface User {
   profile_image: string | null;
 }
 
-export default function HeaderClient({ user, isAdmin = false }: { user: User | null; isAdmin?: boolean }) {
+export default function HeaderClient({
+  user,
+  isAdmin = false,
+  isInfluencer = false,
+}: {
+  user: User | null;
+  isAdmin?: boolean;
+  isInfluencer?: boolean;
+}) {
 
   return (
     <header
@@ -125,6 +133,22 @@ export default function HeaderClient({ user, isAdmin = false }: { user: User | n
                   관리자마이페이지
                 </Link>
               </div>
+            ) : isInfluencer ? (
+              /* 인플루언서 — 마이페이지 대신 인플루언서 탭 */
+              <Link
+                href="/influencer"
+                className="flex items-center gap-2 transition-colors duration-200 hover:opacity-80"
+              >
+                <span
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                  style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                >
+                  인플루언서
+                </span>
+                <span className="text-[13px] font-medium">
+                  {user.nickname || user.name}
+                </span>
+              </Link>
             ) : (
               /* 일반 유저 */
               <Link

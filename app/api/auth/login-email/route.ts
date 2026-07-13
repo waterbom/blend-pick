@@ -78,7 +78,12 @@ export async function POST(req: NextRequest) {
     role: user.role,
   });
 
-  const res = NextResponse.json({ ok: true });
+  // 인플루언서 계정은 로그인 후 인플루언서 탭으로
+  const res = NextResponse.json({
+    ok: true,
+    role: user.role,
+    redirect: user.role === "influencer" ? "/influencer" : undefined,
+  });
   res.cookies.set("shop_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

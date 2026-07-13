@@ -128,6 +128,9 @@ export default async function MyPage() {
   const user = result.rows[0];
   if (!user) redirect("/login");
 
+  // 인플루언서는 마이페이지 대신 인플루언서 탭으로
+  if (user.role === "influencer") redirect("/influencer");
+
   const orders = await getOrders(payload.id);
   const hotelReservations = await getHotelReservations(payload.id);
   const roleInfo = ROLE_LABEL[user.role] ?? ROLE_LABEL.customer;

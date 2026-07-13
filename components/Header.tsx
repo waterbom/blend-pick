@@ -6,6 +6,7 @@ import HeaderClient from "@/components/HeaderClient";
 export default async function Header() {
   let user = null;
   let isAdmin = false;
+  let isInfluencer = false;
 
   try {
     const cookieStore = await cookies();
@@ -27,11 +28,12 @@ export default async function Header() {
         const payload = await verifyToken(token);
         if (payload) {
           const result = await pool.query(
-            "SELECT nickname, name, profile_image, email FROM shop_users WHERE id = $1",
+            "SELECT nickname, name, profile_image, email, role FROM shop_users WHERE id = $1",
             [payload.id]
           );
           if (result.rows.length > 0) {
             user = result.rows[0];
+            isInfluencer = result.rows[0].role === "influencer";
           }
         }
       }
@@ -40,5 +42,5 @@ export default async function Header() {
     // 유저 정보 못 가져오면 비로그인 상태로
   }
 
-  return <HeaderClient user={user} isAdmin={isAdmin} />;
+  return <HeaderClient user={user} isAdmin={isAdmin} isInfluencer={isInfluencer} />;
 }
