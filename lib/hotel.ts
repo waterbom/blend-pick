@@ -22,12 +22,12 @@ export const BOOKABLE_FROM = "2026-07-13";
 export const BOOKABLE_TO = "2026-10-31";
 
 // 판매(주문 가능) 기간
-export const SALE_FROM = "2026-07-04";
-export const SALE_TO = "2026-07-07";
+export const SALE_FROM = "2026-07-12";
+export const SALE_TO = "2026-07-15";
 // 판매 오픈 일시(KST) — 이 시각부터 예약/결제 가능
-export const SALE_START = "2026-07-04T11:00:00+09:00";
+export const SALE_START = "2026-07-12T20:00:00+09:00";
 // 공동구매 마감 일시(KST) = 판매 종료일 끝. 카운트다운 기준.
-export const GROUPBUY_DEADLINE = "2026-07-07T23:59:59+09:00";
+export const GROUPBUY_DEADLINE = "2026-07-15T23:59:59+09:00";
 
 // 판매 상태: 오픈 전 / 진행 중 / 마감
 export function saleState(): "before" | "open" | "closed" {
