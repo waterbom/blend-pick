@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import CopyLinkButton from "@/components/CopyLinkButton";
+import InfluencerForkClient from "@/components/InfluencerForkClient";
 import {
   BUSINESS_TYPE_LABEL,
   COUNTABLE_ORDER_STATUSES,
@@ -168,6 +169,9 @@ export default async function InfluencerPage() {
             </p>
           )}
         </section>
+
+        {/* 셀프 공구 등록 (포크) */}
+        <InfluencerForkClient />
 
         {/* 공구 현황 */}
         <section className={card} style={cardStyle}>
