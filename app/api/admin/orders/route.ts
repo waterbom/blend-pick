@@ -48,6 +48,7 @@ export async function GET(req: Request) {
       o.shipping_fee,
       o.tracking_company,
       o.tracking_number,
+      o.influencer_name,
       o.created_at,
       json_agg(
         json_build_object(

@@ -12,6 +12,8 @@ const NAV = [
   { label: "공구 관리", href: "/admin/campaigns",      icon: "🛍️" },
   { label: "예약 관리", href: "/admin/reservations",   icon: "🏨" },
   { label: "배송 관리", href: "/admin/shipments",      icon: "🚚" },
+  { label: "공구 정산", href: "/admin/influencer-settlements", icon: "🧾" },
+  { label: "수익 관리", href: "/admin/profit",         icon: "📈" },
   { label: "정산 관리", href: "/admin/settlements",    icon: "💰" },
   { label: "리뷰 관리", href: "/admin/reviews",        icon: "⭐" },
 ];

@@ -30,6 +30,7 @@ interface Order {
   shipping_fee: number;
   tracking_company: string | null;
   tracking_number: string | null;
+  influencer_name: string | null;
   created_at: string;
   items: OrderItem[];
 }
@@ -371,7 +372,7 @@ export default function OrdersClient() {
 
                 {isExpanded && (
                   <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-sm">
+                  <table className="w-full min-w-[860px] text-sm">
                     <thead className="border-b border-gray-50">
                       <tr>
                         <th className="w-8 px-4 py-2" />
@@ -380,6 +381,7 @@ export default function OrdersClient() {
                         <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">구매자</th>
                         <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">수령인</th>
                         <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">옵션</th>
+                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">인플루언서</th>
                         <th className="text-right px-4 py-2 text-xs font-medium text-gray-400">금액</th>
                         <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">상태</th>
                         <th className="px-4 py-2" />
@@ -408,6 +410,11 @@ export default function OrdersClient() {
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-500">
                             {o.items[0]?.option_label ?? <span className="text-gray-300">없음</span>}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {o.influencer_name
+                              ? <span className="font-medium text-orange-600">@{o.influencer_name}</span>
+                              : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-4 py-3 text-right text-xs font-semibold text-gray-800">
                             {Number(o.total_amount).toLocaleString()}원
