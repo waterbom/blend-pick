@@ -7,6 +7,8 @@ import {
   COUNTABLE_ORDER_STATUSES,
   calcCommission,
   calcPayout,
+  HOTEL_COMMISSION_RATE,
+  HOTEL_PAYOUT_CAMPAIGN_ID,
   type BusinessType,
 } from "@/lib/settlement";
 
@@ -36,12 +38,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "이미 지급완료된 정산입니다. 지급 취소 후 재확정하세요." }, { status: 409 });
   }
 
-  // OS: 요율 + 사업자유형
+  const isHotel = campaign_id === HOTEL_PAYOUT_CAMPAIGN_ID;
+
+  // OS: 요율 + 사업자유형 (호텔은 공통 요율 상수 사용)
   const [campaign, influencer] = await Promise.all([
-    pool.query("SELECT commission_rate FROM campaigns WHERE id = $1 AND influencer_id = $2", [
-      campaign_id,
-      influencer_id,
-    ]),
+    isHotel
+      ? Promise.resolve({ rows: [{ commission_rate: HOTEL_COMMISSION_RATE }] })
+      : pool.query("SELECT commission_rate FROM campaigns WHERE id = $1 AND influencer_id = $2", [
+          campaign_id,
+          influencer_id,
+        ]),
     pool.query("SELECT business_type FROM influencers WHERE id = $1", [influencer_id]),
   ]);
   const rate = campaign.rows[0]?.commission_rate;
@@ -49,13 +55,20 @@ export async function POST(req: Request) {
   if (rate == null) return NextResponse.json({ error: "수수료율이 설정되지 않은 공구입니다" }, { status: 400 });
   if (!businessType) return NextResponse.json({ error: "인플루언서 사업자유형이 미설정입니다" }, { status: 400 });
 
-  // Shop: 매출 재집계
-  const sales = await shopPool.query(
-    `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
-     FROM orders
-     WHERE campaign_id = $1 AND influencer_id = $2 AND status = ANY($3)`,
-    [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES]]
-  );
+  // Shop: 매출 재집계 (호텔은 order_type='hotel' + influencer_id 기준)
+  const sales = isHotel
+    ? await shopPool.query(
+        `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
+         FROM orders
+         WHERE order_type = 'hotel' AND influencer_id = $1 AND status = ANY($2)`,
+        [influencer_id, [...COUNTABLE_ORDER_STATUSES]]
+      )
+    : await shopPool.query(
+        `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
+         FROM orders
+         WHERE campaign_id = $1 AND influencer_id = $2 AND status = ANY($3)`,
+        [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES]]
+      );
   const gross = Number(sales.rows[0].gross);
   const commission = calcCommission(gross, Number(rate));
   const b = calcPayout(commission, businessType);

@@ -53,6 +53,7 @@ const PAY_CARD_OPTS: Record<string, { flowMode: "DEFAULT" | "DIRECT"; cardCompan
 
 export default function HotelCheckoutClient({
   clientKey, isLoggedIn, phoneVerifyEnabled, hotel, reservation, breakdown,
+  influencerId, influencerName,
 }: {
   clientKey: string;
   isLoggedIn: boolean;
@@ -60,6 +61,8 @@ export default function HotelCheckoutClient({
   hotel: Hotel;
   reservation: Reservation;
   breakdown: Breakdown;
+  influencerId?: string;
+  influencerName?: string;
 }) {
   const [form, setForm] = useState({ name: "", phone: "", memo: "" });
   const [method, setMethod] = useState<(typeof PAY_METHODS)[number]["key"]>("card");
@@ -139,6 +142,8 @@ export default function HotelCheckoutClient({
       customerName: form.name,
       customerPhone: form.phone,
       customerMemo: form.memo,
+      influencerId: influencerId || null,
+      influencerName: influencerName || null,
     };
     sessionStorage.setItem("hotelCheckoutData", JSON.stringify(checkoutData));
 

@@ -10,6 +10,9 @@ import {
   COUNTABLE_ORDER_STATUSES,
   calcCommission,
   calcPayout,
+  HOTEL_COMMISSION_RATE,
+  HOTEL_PAYOUT_CAMPAIGN_ID,
+  HOTEL_LABEL,
   type BusinessType,
 } from "@/lib/settlement";
 
@@ -74,6 +77,32 @@ export default async function InfluencerPage() {
     [inf.id]
   );
   const campaigns = campaignsRes.rows;
+
+  // 호텔공구 매출 (공통 요율 — 링크만 공유하면 귀속)
+  const hotelSalesRes = await shopPool.query(
+    `SELECT COUNT(*) AS orders, COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
+     FROM orders
+     WHERE order_type = 'hotel' AND influencer_id = $1 AND status = ANY($2)`,
+    [inf.id, [...COUNTABLE_ORDER_STATUSES]]
+  );
+  const hotelPayoutRes = await shopPool.query(
+    `SELECT status, payout_amount FROM influencer_payouts
+     WHERE campaign_id = $1 AND influencer_id = $2`,
+    [HOTEL_PAYOUT_CAMPAIGN_ID, inf.id]
+  );
+  const hotelGross = Number(hotelSalesRes.rows[0]?.gross ?? 0);
+  const hotelCommission = calcCommission(hotelGross, HOTEL_COMMISSION_RATE);
+  const hotelBreakdown = calcPayout(hotelCommission, businessType);
+  const hotel = {
+    orders: Number(hotelSalesRes.rows[0]?.orders ?? 0),
+    gross: hotelGross,
+    commission: hotelCommission,
+    breakdown: hotelBreakdown,
+    payoutStatus: hotelPayoutRes.rows[0]?.status ?? null,
+    settlementAmount: hotelPayoutRes.rows[0]
+      ? Number(hotelPayoutRes.rows[0].payout_amount)
+      : hotelBreakdown.payout,
+  };
 
   // 공구별 판매 집계 + 정산 상태 (Shop DB)
   const ids = campaigns.map((c) => c.id);
@@ -172,6 +201,40 @@ export default async function InfluencerPage() {
 
         {/* 셀프 공구 등록 (포크) */}
         <InfluencerForkClient />
+
+        {/* 호텔공구 — 포크 없이 링크만 공유하면 귀속 (전 인플루언서 공통 요율) */}
+        <section className={card} style={cardStyle}>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🏨 {HOTEL_LABEL}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                링크를 공유하면 그 링크로 들어온 예약이 내 실적으로 집계돼요
+              </p>
+            </div>
+            <CopyLinkButton path={`/hotel/reserve?inf=${inf.id}`} />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-xs tnum pt-3" style={{ borderTop: "1px solid var(--line)" }}>
+            <div>
+              <p style={{ color: "var(--text-muted)" }}>수수료율</p>
+              <p className="font-bold" style={{ color: "var(--accent)" }}>{HOTEL_COMMISSION_RATE}%</p>
+            </div>
+            <div>
+              <p style={{ color: "var(--text-muted)" }}>예약건수</p>
+              <p className="font-bold" style={{ color: "var(--text-primary)" }}>{hotel.orders}건</p>
+            </div>
+            <div>
+              <p style={{ color: "var(--text-muted)" }}>총매출</p>
+              <p className="font-bold" style={{ color: "var(--text-primary)" }}>{WON(hotel.gross)}</p>
+            </div>
+            <div>
+              <p style={{ color: "var(--text-muted)" }}>{hotel.payoutStatus ? "정산금액" : "예상 정산금액"}</p>
+              <p className="font-bold" style={{ color: "var(--text-primary)" }}>
+                {WON(hotel.settlementAmount)}
+                {hotel.payoutStatus === "paid" && <span className="ml-1 text-[10px] font-bold" style={{ color: "#16a34a" }}>지급완료</span>}
+              </p>
+            </div>
+          </div>
+        </section>
 
         {/* 공구 현황 */}
         <section className={card} style={cardStyle}>

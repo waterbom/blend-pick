@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 
-// 인플루언서 전용 공구 링크 복사 버튼 (/c/<campaignId>)
+// 인플루언서 전용 링크 복사 버튼 — 기본은 /c/<campaignId>, path로 임의 경로 지정 가능
 export default function CopyLinkButton({
   campaignId,
+  path,
   className,
 }: {
-  campaignId: string;
+  campaignId?: string;
+  path?: string;
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    const url = `${window.location.origin}/c/${campaignId}`;
+    const url = `${window.location.origin}${path ?? `/c/${campaignId}`}`;
     try {
       await navigator.clipboard.writeText(url);
     } catch {

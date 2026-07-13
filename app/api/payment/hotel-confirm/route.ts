@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
+import pool from "@/lib/db";
 import { randomBytes } from "crypto";
 import { verifyToken } from "@/lib/auth";
+import { HOTEL_COMMISSION_RATE } from "@/lib/settlement";
 import { quoteReservation, mdLabel } from "@/lib/hotel";
 import { decrementStay, isStayAvailable } from "@/lib/hotel-inventory";
 import { phoneVerifyOn, smsConfigured } from "@/lib/sms";
@@ -68,6 +70,17 @@ export async function POST(req: NextRequest) {
   const token = (await cookies()).get("shop_token")?.value;
   const userId = token ? (await verifyToken(token))?.id ?? null : null;
 
+  // 인플루언서 링크 유입 검증 — 이름은 DB값만 신뢰, 실패해도 주문은 저장(귀속만 NULL)
+  let influencer: { id: string; name: string } | null = null;
+  if (cd.influencerId) {
+    try {
+      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [cd.influencerId]);
+      influencer = r.rows[0] ?? null;
+    } catch (e) {
+      console.error("[hotel-confirm] 인플루언서 조회 실패:", e);
+    }
+  }
+
   const client = await shopPool.connect();
   let saved = false;
   try {
@@ -79,8 +92,10 @@ export async function POST(req: NextRequest) {
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at, order_type,
-        stay_check_in, stay_check_out
-      ) VALUES ($1,$12,$2,$3,NULL,$4,$5,NULL,NULL,NULL,$6,$7,0,'paid',$8,$9,NOW(),'hotel',$10,$11)
+        stay_check_in, stay_check_out,
+        influencer_id, influencer_name, commission_rate
+      ) VALUES ($1,$12,$2,$3,NULL,$4,$5,NULL,NULL,NULL,$6,$7,0,'paid',$8,$9,NOW(),'hotel',$10,$11,
+        $13,$14,$15)
       RETURNING id`,
       [
         orderNumber,
@@ -95,6 +110,9 @@ export async function POST(req: NextRequest) {
         cd.checkIn,
         cd.checkOut,
         userId,
+        influencer?.id ?? null,
+        influencer?.name ?? null,
+        influencer ? HOTEL_COMMISSION_RATE : null,
       ]
     );
     await client.query(

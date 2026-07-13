@@ -86,6 +86,15 @@ export function calcNetProfit(r: {
   );
 }
 
+/**
+ * 호텔공구 (여수 UTOP) — 모든 인플루언서 공통 요율, 수기 상수.
+ * 추후 호텔공구 생성 페이지에서 요율을 입력받는 구조로 대체 예정.
+ */
+export const HOTEL_COMMISSION_RATE = 5;
+/** influencer_payouts용 호텔 버킷 센티널 (campaign_id NOT NULL 제약 대응) */
+export const HOTEL_PAYOUT_CAMPAIGN_ID = "00000000-0000-0000-0000-000000000001";
+export const HOTEL_LABEL = "호텔공구 × 여수 UTOP 마리나 호텔";
+
 export const COST_CATEGORY_LABEL: Record<string, string> = {
   shipping: "배송비",
   ad: "광고비",

@@ -40,7 +40,7 @@ function calcRemain(targetISO: string, now: number) {
   };
 }
 
-export default function HotelReserveClient() {
+export default function HotelReserveClient({ influencerId }: { influencerId?: string | null }) {
   const router = useRouter();
   const [pkg, setPkg] = useState<PkgKey>("p2");
   const [room, setRoom] = useState<RoomType>("디럭스 더블");
@@ -387,7 +387,8 @@ export default function HotelReserveClient() {
             disabled={!complete || sale !== "open"}
             onClick={() => {
               if (!complete || sale !== "open") return;
-              router.push(`/hotel/reserve/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}`);
+              const infParam = influencerId ? `&inf=${influencerId}` : "";
+              router.push(`/hotel/reserve/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}${infParam}`);
             }}
             className="w-full py-4 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40"
             style={{ background: "var(--accent)" }}
