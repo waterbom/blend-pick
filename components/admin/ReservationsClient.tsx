@@ -249,7 +249,7 @@ export default function ReservationsClient() {
       <h1 className="text-2xl font-bold text-gray-800 mb-6">호텔 예약 관리</h1>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         {cards.map((c) => (
           <div key={c.label} className="bg-white rounded-2xl border border-gray-100 p-6">
             <p className="text-sm text-gray-400">{c.label}</p>
@@ -293,8 +293,8 @@ export default function ReservationsClient() {
       </div>
 
       {/* 예약 테이블 */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400">
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
+        <div className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 min-w-[760px]">
           <span>예약번호</span><span>예약자</span><span>호텔 · 객실</span><span>투숙기간</span><span className="text-right">금액</span><span className="text-center">상태</span>
         </div>
         {loading ? (
@@ -305,7 +305,7 @@ export default function ReservationsClient() {
           visible.map((r) => {
             const st = STATUS[r.status] ?? { label: r.status, cls: "bg-gray-100 text-gray-500" };
             return (
-              <div key={r.id} className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-4 border-b border-gray-50 last:border-0 items-center hover:bg-gray-50/60 transition-colors">
+              <div key={r.id} className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-4 border-b border-gray-50 last:border-0 items-center hover:bg-gray-50/60 transition-colors min-w-[760px]">
                 <span className="font-mono text-xs font-semibold" style={{ color: "var(--accent)" }}>{r.order_number}</span>
                 <div className="text-sm text-gray-700">
                   <div className="font-medium text-gray-800">{r.buyer_name}</div>

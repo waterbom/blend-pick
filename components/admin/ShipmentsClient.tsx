@@ -276,8 +276,8 @@ export default function ShipmentsClient() {
               </button>
             ) : (
               <div>
-                <div className="border border-gray-100 rounded-lg overflow-hidden mb-3">
-                  <table className="w-full text-xs">
+                <div className="border border-gray-100 rounded-lg overflow-x-auto mb-3">
+                  <table className="w-full min-w-[480px] text-xs">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="text-left px-4 py-2 font-medium text-gray-500">주문번호</th>
@@ -473,8 +473,8 @@ function OrderTable({
   if (orders.length === 0) return <div className="bg-white rounded-xl border border-gray-100 p-16 text-center text-sm text-gray-400">{emptyText}</div>;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
+      <table className="w-full min-w-[720px] text-sm">
         <thead className="border-b border-gray-100 bg-gray-50">
           <tr>
             <th className="w-10 px-4 py-3">

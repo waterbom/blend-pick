@@ -14,9 +14,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const admin = await verifyAdminToken(adminToken);
     if (admin) {
       return (
-        <div className="flex min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gray-100 md:flex">
           <AdminSidebar  />
-          <main className="flex-1 p-8 overflow-auto">{children}</main>
+          <main className="flex-1 p-4 md:p-8 overflow-auto">{children}</main>
         </div>
       );
     }
@@ -28,9 +28,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const payload = await verifyToken(shopToken);
     if (payload?.email === ADMIN_EMAIL) {
       return (
-        <div className="flex min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gray-100 md:flex">
           <AdminSidebar />
-          <main className="flex-1 p-8 overflow-auto">{children}</main>
+          <main className="flex-1 p-4 md:p-8 overflow-auto">{children}</main>
         </div>
       );
     }

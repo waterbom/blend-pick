@@ -370,7 +370,8 @@ export default function OrdersClient() {
                 </div>
 
                 {isExpanded && (
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-sm">
                     <thead className="border-b border-gray-50">
                       <tr>
                         <th className="w-8 px-4 py-2" />
@@ -425,6 +426,7 @@ export default function OrdersClient() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
             );

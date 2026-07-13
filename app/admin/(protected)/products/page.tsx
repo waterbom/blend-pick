@@ -24,12 +24,12 @@ export default async function AdminProductsPage() {
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-black text-gray-900">상품 관리</h1>
           <p className="text-sm text-gray-400 mt-0.5">총 {products.length}개 상품</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             href="/admin/categories"
             className="border border-gray-200 text-gray-600 text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
@@ -52,13 +52,13 @@ export default async function AdminProductsPage() {
       </div>
 
       {/* 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
         {products.length === 0 ? (
           <div className="text-center py-16 text-gray-400 text-sm">
             등록된 상품이 없어요
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">상품</th>

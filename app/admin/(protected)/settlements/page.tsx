@@ -85,9 +85,9 @@ export default async function SettlementsPage({
           </div>
           <span className="text-sm font-semibold text-gray-800">정산 관리</span>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center overflow-x-auto">
           {dashboardCards.map((card, i) => (
-            <div key={card.key || "total"} className="flex items-center flex-1">
+            <div key={card.key || "total"} className="flex items-center flex-1 min-w-[130px]">
               <Link
                 href={card.key ? `/admin/settlements?period=${card.key}` : "/admin/settlements"}
                 className="flex-1 group"
@@ -134,8 +134,8 @@ export default async function SettlementsPage({
       </div>
 
       {/* 정산 목록 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="text-left px-4 py-3 font-medium text-gray-500">정산일</th>

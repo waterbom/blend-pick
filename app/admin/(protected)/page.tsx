@@ -86,7 +86,7 @@ export default async function AdminDashboard() {
       <h1 className="text-2xl font-black text-gray-900 mb-2">대시보드</h1>
       <p className="text-sm text-gray-400 mb-8">Blend Pick 어드민</p>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {cards.map((card) => (
           <Link key={card.label} href={card.href}
             className="bg-white rounded-xl border border-gray-100 p-6 hover:border-orange-200 hover:shadow-sm transition-all">
