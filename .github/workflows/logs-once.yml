@@ -1,0 +1,23 @@
+name: App Logs (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read error logs and influencers schema
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "===== app error logs (last 60 min, filtered) ====="
+            sudo journalctl -u blend-pick --since "60 minutes ago" --no-pager \
+              | grep -iE "error|failed|violates|column|relation|null value|constraint" \
+              | tail -40 || echo "(no error lines)"
+            echo "===== influencers table schema ====="
+            cd ${{ secrets.EC2_APP_DIR }}
+            PGSSLMODE=require /usr/lib/postgresql/17/bin/psql "$(grep '^DATABASE_URL=' .env.local | cut -d= -f2-)" -c "\d influencers" 2>&1
