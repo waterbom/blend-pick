@@ -46,13 +46,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const r = await pool.query(
     `UPDATE influencers SET
        name = $1, platform = $2, profile_image = $3, phone = $4,
+       updated_at = NOW(),
        followers_count = $5, category = $6, business_type = $7,
        bank_name = $8, bank_account = $9, bank_holder = $10,
        tax_email = $11, memo = $12,
        id_card_file = $13, biz_cert_file = $14, bankbook_file = $15
      WHERE id = $16`,
     [
-      b.name, b.platform || null, b.profile_image || null, b.phone || null,
+      b.name, b.platform || "", b.profile_image || null, b.phone || null,
       b.followers_count ?? null, b.category || null, b.business_type || null,
       b.bank_name || null, b.bank_account || null, b.bank_holder || null,
       b.tax_email || null, b.memo || null,

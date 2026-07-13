@@ -4,6 +4,7 @@ import { verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import { COUNTABLE_ORDER_STATUSES } from "@/lib/settlement";
+import { randomUUID } from "crypto";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -67,15 +68,18 @@ export async function POST(req: Request) {
   const b = await req.json();
   if (!b.name) return NextResponse.json({ error: "이름은 필수입니다" }, { status: 400 });
 
+  // 레거시 테이블 제약: id 기본값 없음(직접 생성), platform/handle NOT NULL
   const { rows } = await pool.query(
     `INSERT INTO influencers (
+       id, handle, created_at, updated_at,
        name, platform, profile_image, phone, followers_count, category,
        business_type, bank_name, bank_account, bank_holder, tax_email, memo,
        id_card_file, biz_cert_file, bankbook_file
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+     ) VALUES ($1, $2, NOW(), NOW(), $3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING id`,
     [
-      b.name, b.platform || null, b.profile_image || null, b.phone || null,
+      randomUUID(), b.handle || b.name,
+      b.name, b.platform || "", b.profile_image || null, b.phone || null,
       b.followers_count ?? null, b.category || null,
       b.business_type || null, b.bank_name || null, b.bank_account || null,
       b.bank_holder || null, b.tax_email || null, b.memo || null,
