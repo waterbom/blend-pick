@@ -40,7 +40,13 @@ function calcRemain(targetISO: string, now: number) {
   };
 }
 
-export default function HotelReserveClient({ influencerId }: { influencerId?: string | null }) {
+export default function HotelReserveClient({
+  influencerId,
+  influencerName,
+}: {
+  influencerId?: string | null;
+  influencerName?: string | null;
+}) {
   const router = useRouter();
   const [pkg, setPkg] = useState<PkgKey>("p2");
   const [room, setRoom] = useState<RoomType>("디럭스 더블");
@@ -171,7 +177,7 @@ export default function HotelReserveClient({ influencerId }: { influencerId?: st
       <div className="mt-4 rounded-2xl p-5" style={{ background: "var(--accent-soft)", border: "1px solid var(--line)" }}>
         <p className="text-sm font-bold leading-relaxed" style={{ color: "var(--accent)" }}>
           룸온리 가격 수준에 조식 + 인피니티풀까지 다 넣은 이 구성..<br />
-          후다닥맘 독점이라 가능한 거예요! 🙅‍♀️ 다른 곳에선 절대 못 찾아요
+          {influencerName ?? "후다닥맘"} 독점이라 가능한 거예요! 🙅‍♀️ 다른 곳에선 절대 못 찾아요
         </p>
         <p className="text-sm mt-2 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           여기에 미친 혜택까지 꽉꽉 채워왔으니, <b style={{ color: "var(--text-primary)" }}>이번 공구는 진심 놓치면 후회합니다!!</b>

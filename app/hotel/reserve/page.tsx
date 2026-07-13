@@ -7,12 +7,12 @@ export const metadata = {
   description: "달력에서 패키지·날짜를 골라 예약하세요",
 };
 
-// 인플루언서 전용 링크(?inf=) 검증 — 존재하는 인플루언서만 통과
-async function validInfluencerId(inf?: string): Promise<string | null> {
+// 인플루언서 전용 링크(?inf=) 검증 — 존재하는 인플루언서만 통과 (이름은 DB에서만 신뢰)
+async function getInfluencer(inf?: string): Promise<{ id: string; name: string } | null> {
   if (!inf) return null;
   try {
-    const r = await pool.query("SELECT id FROM influencers WHERE id = $1", [inf]);
-    return r.rows[0]?.id ?? null;
+    const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [inf]);
+    return r.rows[0] ?? null;
   } catch {
     return null;
   }
@@ -24,12 +24,12 @@ export default async function HotelReservePage({
   searchParams: Promise<{ inf?: string }>;
 }) {
   const { inf } = await searchParams;
-  const influencerId = await validInfluencerId(inf);
+  const influencer = await getInfluencer(inf);
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
-      <HotelReserveClient influencerId={influencerId} />
+      <HotelReserveClient influencerId={influencer?.id} influencerName={influencer?.name} />
     </main>
   );
 }
