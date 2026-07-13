@@ -105,10 +105,10 @@ export default function InfluencerFormClient({
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
 
-  // 계정 발급 폼
-  const [newEmail, setNewEmail] = useState("");
-  const [newPw, setNewPw] = useState("");
+  // 계정 발급 — 자동 생성된 아이디/비밀번호 (발급 직후 1회만 표시)
   const [accBusy, setAccBusy] = useState(false);
+  const [issued, setIssued] = useState<{ login_id: string; password: string } | null>(null);
+  const [credCopied, setCredCopied] = useState(false);
 
   useEffect(() => {
     if (mode !== "edit" || !influencerId) return;
@@ -158,35 +158,41 @@ export default function InfluencerFormClient({
   }
 
   async function issueAccount() {
-    if (!newEmail || newPw.length < 8) {
-      alert("이메일과 8자 이상 비밀번호를 입력해주세요.");
-      return;
-    }
     setAccBusy(true);
-    const res = await fetch(`/api/admin/influencers/${influencerId}/account`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: newEmail, password: newPw }),
-    });
+    const res = await fetch(`/api/admin/influencers/${influencerId}/account`, { method: "POST" });
     const d = await res.json();
     setAccBusy(false);
     if (res.ok) {
-      setAccountEmail(newEmail);
-      alert(`계정 발급 완료!\n이메일: ${newEmail}\n비밀번호는 인플루언서에게 직접 전달해주세요.`);
+      setIssued({ login_id: d.login_id, password: d.password });
+      setAccountEmail(d.login_id);
     } else alert(d.error || "발급 실패");
   }
 
   async function resetPassword() {
-    const pw = prompt("새 비밀번호 (8자 이상):");
-    if (!pw) return;
-    const res = await fetch(`/api/admin/influencers/${influencerId}/account`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pw }),
-    });
+    if (!window.confirm("비밀번호를 새로 발급할까요? 기존 비밀번호는 사용할 수 없게 됩니다.")) return;
+    setAccBusy(true);
+    const res = await fetch(`/api/admin/influencers/${influencerId}/account`, { method: "PUT" });
     const d = await res.json();
-    if (res.ok) alert("비밀번호가 변경되었습니다. 인플루언서에게 전달해주세요.");
+    setAccBusy(false);
+    if (res.ok) setIssued({ login_id: d.login_id, password: d.password });
     else alert(d.error || "변경 실패");
+  }
+
+  async function copyCredentials() {
+    if (!issued) return;
+    const text = `블렌드픽 인플루언서 계정\n아이디: ${issued.login_id}\n비밀번호: ${issued.password}\n로그인: ${window.location.origin}/login`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCredCopied(true);
+    setTimeout(() => setCredCopied(false), 1500);
   }
 
   if (loading) return <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>;
@@ -274,30 +280,39 @@ export default function InfluencerFormClient({
       {mode === "edit" && (
         <>
           <Section title="포털 계정 (공구현황 로그인)">
-            {accountEmail ? (
+            {issued ? (
+              <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                <p className="text-xs font-bold text-green-700 mb-2">
+                  ✅ 발급 완료 — 비밀번호는 지금만 확인할 수 있어요. 복사해서 인플루언서에게 전달하세요.
+                </p>
+                <div className="text-sm font-mono text-gray-800 space-y-1 mb-3">
+                  <p>아이디: <b>{issued.login_id}</b></p>
+                  <p>비밀번호: <b>{issued.password}</b></p>
+                </div>
+                <button type="button" onClick={copyCredentials}
+                  className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors ${
+                    credCopied ? "bg-green-600 border-green-600 text-white" : "bg-white border-green-300 text-green-700 hover:bg-green-100"
+                  }`}>
+                  {credCopied ? "복사됨 ✓" : "아이디+비밀번호 복사"}
+                </button>
+              </div>
+            ) : accountEmail ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-700">
-                  발급됨: <b className="text-green-600">{accountEmail}</b>
+                  발급됨 — 아이디: <b className="text-green-600">{accountEmail}</b>
                 </span>
-                <button type="button" onClick={resetPassword}
-                  className="text-xs border border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-lg hover:bg-gray-50">
-                  비밀번호 재설정
+                <button type="button" onClick={resetPassword} disabled={accBusy}
+                  className="text-xs border border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+                  {accBusy ? "처리 중..." : "비밀번호 재발급"}
                 </button>
               </div>
             ) : (
-              <div className="flex flex-wrap items-end gap-2">
-                <div className="flex-1 min-w-[180px]">
-                  <label className={lbl}>로그인 이메일</label>
-                  <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} type="email" className={inp} />
-                </div>
-                <div className="flex-1 min-w-[140px]">
-                  <label className={lbl}>비밀번호 (8자+)</label>
-                  <input value={newPw} onChange={(e) => setNewPw(e.target.value)} type="text" className={inp} />
-                </div>
+              <div className="flex items-center gap-3">
                 <button type="button" onClick={issueAccount} disabled={accBusy}
                   className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-40">
-                  {accBusy ? "발급 중..." : "계정 발급"}
+                  {accBusy ? "발급 중..." : "아이디/비밀번호 발급"}
                 </button>
+                <span className="text-xs text-gray-400">버튼을 누르면 아이디와 비밀번호가 자동 생성됩니다</span>
               </div>
             )}
           </Section>

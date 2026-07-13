@@ -127,9 +127,18 @@ export default async function InfluencerPage() {
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-4">
-        <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
-          인플루언서
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
+            인플루언서
+          </h1>
+          <a
+            href="/api/auth/logout"
+            className="text-xs transition-colors hover:underline"
+            style={{ color: "var(--text-muted)" }}
+          >
+            로그아웃
+          </a>
+        </div>
 
         {/* 프로필 */}
         <section className={card} style={cardStyle}>
