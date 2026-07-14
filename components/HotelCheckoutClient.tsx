@@ -253,8 +253,24 @@ export default function HotelCheckoutClient({
           )}
 
           <input value={form.memo} onChange={(e) => setForm((p) => ({ ...p, memo: e.target.value }))}
-            placeholder="요청사항 (선택) — 예: 고층 요청" className={inputCls} style={inputStyle}
+            placeholder="요청사항 (선택)" className={inputCls} style={inputStyle}
             onFocus={(e) => (e.target.style.borderColor = "var(--accent)")} onBlur={(e) => (e.target.style.borderColor = "var(--line)")} />
+
+          {/* 요청사항 특이사항 안내 */}
+          <div className="rounded-xl p-3.5 space-y-2 text-xs leading-relaxed"
+            style={{ background: "var(--surface-soft)", color: "var(--text-secondary)" }}>
+            <p>
+              <b style={{ color: "var(--text-primary)" }}>고층 배정 요청</b> — 전 객실 오션뷰이지만, 층수는
+              공평하게 <b style={{ color: "var(--text-primary)" }}>체크인 순서대로 정비가 완료된 객실</b>에
+              한하여 배정되어 고층 지정 요청은 진행이 어려운 점 참고 부탁드려요.
+            </p>
+            <p>
+              <b style={{ color: "var(--text-primary)" }}>침대가드</b> — 한정 수량 선착순입니다. 체크인 날
+              프론트에 요청하시거나, 저녁 늦게 체크인하실 것 같으면{" "}
+              <b style={{ color: "var(--text-primary)" }}>미리 전화로 요청</b>해 주세요. 재고를 더 마련할 수
+              있도록 노력하겠습니다.
+            </p>
+          </div>
         </div>
       </section>
 
