@@ -39,14 +39,14 @@ function mmss(s: number) {
 const KAKAO_CHANNEL_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
 
 const PAY_METHODS = [
-  { key: "card", label: "신한카드" },
+  { key: "card", label: "카드 결제" },
   { key: "kakao", label: "카카오페이" },
   { key: "toss", label: "토스페이" },
 ] as const;
 
-// 결제창 노출 제어: 카드는 신한만, 간편결제는 카카오페이/토스페이만
+// 결제창 노출 제어: 카드는 전 카드사 허용(결제창에서 선택), 간편결제는 카카오페이/토스페이
 const PAY_CARD_OPTS: Record<string, { flowMode: "DEFAULT" | "DIRECT"; cardCompany?: string; easyPay?: string }> = {
-  card:  { flowMode: "DEFAULT", cardCompany: "SHINHAN" },
+  card:  { flowMode: "DEFAULT" },
   kakao: { flowMode: "DIRECT", easyPay: "KAKAOPAY" },
   toss:  { flowMode: "DIRECT", easyPay: "TOSSPAY" },
 };
