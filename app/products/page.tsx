@@ -1,5 +1,4 @@
 import shopPool from "@/lib/db-shop";
-import pool from "@/lib/db";
 import Header from "@/components/Header";
 import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
@@ -45,7 +44,8 @@ interface Product {
 
 async function getProducts(category?: string) {
   const params: string[] = [];
-  let where = `WHERE status = 'active'`;
+  // 판매 시작이 미래로 예약된 상품은 '판매 중'이 아니라 '오픈 예정'에서 노출
+  let where = `WHERE status = 'active' AND (sale_start_at IS NULL OR sale_start_at <= NOW())`;
   if (category) {
     params.push(category);
     where += ` AND category = $1`;
@@ -65,7 +65,7 @@ async function getCategories() {
   return result.rows.map((r) => r.category as string);
 }
 
-interface UpcomingCampaign {
+interface UpcomingProduct {
   id: string;
   name: string;
   brand: string | null;
@@ -73,26 +73,18 @@ interface UpcomingCampaign {
   open_label: string; // "7. 20" 형식
 }
 
-// 곧 오픈하는 공구 — 홈과 동일 기준 (시작일이 오늘 이후 ~ 30일 이내, 상품당 가장 빠른 공구 1건)
-async function getUpcoming(): Promise<UpcomingCampaign[]> {
+// 곧 오픈하는 공구 — 우리 Shop에 등록된 상품 중 판매 시작(sale_start_at)이 미래로 예약된 것만
+async function getUpcoming(): Promise<UpcomingProduct[]> {
   try {
-    const result = await pool.query(`
-      SELECT * FROM (
-        SELECT DISTINCT ON (p.id)
-          c.id, p.name, p.brand,
-          COALESCE(sp.main_image, p.product_image) AS image,
-          to_char(c.start_date, 'FMMM. FMDD') AS open_label,
-          c.start_date
-        FROM campaigns c
-        JOIN products p ON c.product_id = p.id
-        LEFT JOIN sales_pages sp ON sp.campaign_id = c.id
-        WHERE c.is_archived = false
-          AND c.start_date > (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date
-          AND c.start_date <= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date + INTERVAL '30 days'
-        ORDER BY p.id, c.start_date ASC
-      ) t ORDER BY t.start_date ASC LIMIT 8
+    const result = await shopPool.query(`
+      SELECT id, name, brand, main_image AS image,
+             to_char(sale_start_at AT TIME ZONE 'Asia/Seoul', 'FMMM. FMDD') AS open_label
+      FROM products_shop
+      WHERE status = 'active' AND sale_start_at > NOW()
+      ORDER BY sale_start_at ASC
+      LIMIT 8
     `);
-    return result.rows as UpcomingCampaign[];
+    return result.rows as UpcomingProduct[];
   } catch (e) {
     console.error("[products] upcoming 조회 실패:", e);
     return [];
@@ -288,10 +280,20 @@ export default async function ShopPage({
               에서 받아보세요
             </div>
           </div>
+          {upcoming.length === 0 ? (
+            /* 예정 상품이 없을 때 — 준비 중 안내 */
+            <div className="flex flex-col items-center justify-center gap-2 py-14 lg:py-16"
+              style={{ border: `1px solid ${C.hairline}`, background: `repeating-linear-gradient(45deg,#FFFFFF,#FFFFFF 12px,${C.surfaceSoft} 12px,${C.surfaceSoft} 24px)` }}>
+              <span className="text-[10px]" style={{ fontFamily: MONO, color: C.sage, letterSpacing: ".2em" }}>UPCOMING</span>
+              <span className="text-[15px] lg:text-[17px] font-semibold" style={{ fontFamily: SERIF, color: C.muted2 }}>
+                공구이벤트 준비중입니다
+              </span>
+            </div>
+          ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-[1px]" style={{ background: C.hairline, border: `1px solid ${C.hairline}` }}>
-            {/* 실제 오픈 예정 공구 (홈과 동일 기준) */}
+            {/* 실제 오픈 예정 상품 (Shop 등록 기준) */}
             {upcoming.map((u) => (
-              <Link key={u.id} href={`/campaigns/${u.id}`}
+              <Link key={u.id} href={`/products/${u.id}`}
                 className="bg-white p-4 lg:p-5 flex flex-col gap-3 transition-colors duration-150 hover:bg-[#FDFCF9]">
                 <div className="h-[110px] lg:h-[140px] overflow-hidden" style={{ background: C.surfaceSoft }}>
                   <FallbackImg src={u.image} alt={u.name} className="w-full h-full object-cover" />
@@ -324,6 +326,7 @@ export default async function ShopPage({
               </div>
             ))}
           </div>
+          )}
         </div>
 
         {/* ── 진행 중 공구 밴드 ── */}

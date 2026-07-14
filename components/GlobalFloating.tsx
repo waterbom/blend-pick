@@ -1,34 +1,18 @@
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import pool from "@/lib/db";
+import shopPool from "@/lib/db-shop";
 import InquiryButton from "@/components/InquiryButton";
 
+// 오픈 예정 — 우리 Shop에 등록된 상품 중 판매 시작(sale_start_at)이 미래로 예약된 것만.
+// 없으면 빈 배열 → InquiryButton이 UPCOMING 버튼을 표시하지 않음(비활성).
 async function getUpcoming() {
-  const TODAY = `(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date`;
   try {
-    const result = await pool.query(`
-      WITH counts AS (
-        SELECT product_id, COUNT(*)::int AS campaign_count
-        FROM campaigns
-        WHERE is_archived = false
-          AND start_date > ${TODAY}
-          AND start_date <= ${TODAY} + INTERVAL '7 days'
-        GROUP BY product_id
-      )
-      SELECT DISTINCT ON (p.id)
-        c.id, p.id AS product_id, p.name AS title,
-        COALESCE(sp.main_image, p.product_image) AS main_image,
-        c.start_date AS starts_at,
-        CASE WHEN cnt.campaign_count = 1 THEN i.name ELSE NULL END AS influencer_name
-      FROM campaigns c
-      JOIN products p ON c.product_id = p.id
-      LEFT JOIN sales_pages sp ON sp.campaign_id = c.id
-      LEFT JOIN influencers i ON i.id = c.influencer_id
-      JOIN counts cnt ON cnt.product_id = p.id
-      WHERE c.is_archived = false
-        AND start_date > ${TODAY}
-        AND start_date <= ${TODAY} + INTERVAL '7 days'
-      ORDER BY p.id, c.start_date ASC
+    const result = await shopPool.query(`
+      SELECT id, id AS product_id, name AS title, price, main_image,
+             sale_start_at AS starts_at, NULL AS influencer_name
+      FROM products_shop
+      WHERE status = 'active' AND sale_start_at > NOW()
+      ORDER BY sale_start_at ASC
       LIMIT 10
     `);
     return result.rows;
