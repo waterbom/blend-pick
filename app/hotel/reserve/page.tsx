@@ -27,7 +27,14 @@ export default async function HotelReservePage({
   const influencer = await getInfluencer(inf);
 
   return (
-    <main className="min-h-screen" style={{ background: "var(--background)" }}>
+    <main className="min-h-screen" style={{ background: "#FFFFFF" }}>
+      {/* 딥 포레스트 리디자인 전용 폰트 (세리프 헤드라인 · 모노 카운트다운) */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet"
+      />
       <Header />
       <HotelReserveClient influencerId={influencer?.id} influencerName={influencer?.name} />
     </main>
