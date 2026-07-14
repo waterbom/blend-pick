@@ -1,5 +1,6 @@
 "use client";
 
+import { validateBuyerName } from "@/lib/validate-name";
 import { useState, useEffect } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { WON, REFUND_POLICY, PARTNER_BENEFITS, type PkgKey, type RoomType } from "@/lib/hotel";
@@ -123,6 +124,11 @@ export default function HotelCheckoutClient({
     // 비회원도 결제 가능 — 예약자 성함/연락처만 필수 (로그인 시 주문이 계정에 연결됨)
     if (!form.name || !form.phone) {
       alert("예약자 성함과 연락처를 입력해주세요.");
+      return;
+    }
+    const nameError = validateBuyerName(form.name);
+    if (nameError) {
+      alert(nameError);
       return;
     }
     if (phoneVerifyEnabled && !phoneVerified) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { validateBuyerName } from "@/lib/validate-name";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
@@ -86,6 +87,8 @@ export default function CartCheckoutClient({ clientKey }: Props) {
       alert("구매자 이름과 연락처를 입력해주세요.");
       return;
     }
+      const nameError = validateBuyerName(form.customerName);
+      if (nameError) { alert(nameError); return; }
     if (!form.shippingAddress || !form.shippingZipcode) {
       alert("배송지를 입력해주세요.");
       return;
