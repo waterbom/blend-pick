@@ -54,7 +54,7 @@ const PAY_CARD_OPTS: Record<string, { flowMode: "DEFAULT" | "DIRECT"; cardCompan
 
 export default function HotelCheckoutClient({
   clientKey, isLoggedIn, phoneVerifyEnabled, hotel, reservation, breakdown,
-  influencerId, influencerName,
+  influencerId, influencerName, lastRoom = false,
 }: {
   clientKey: string;
   isLoggedIn: boolean;
@@ -64,6 +64,7 @@ export default function HotelCheckoutClient({
   breakdown: Breakdown;
   influencerId?: string;
   influencerName?: string;
+  lastRoom?: boolean;
 }) {
   const [form, setForm] = useState({ name: "", phone: "", memo: "" });
   const [method, setMethod] = useState<(typeof PAY_METHODS)[number]["key"]>("card");
@@ -180,6 +181,18 @@ export default function HotelCheckoutClient({
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <h1 className="text-xl font-extrabold tracking-tight mb-5" style={{ color: "var(--text-primary)" }}>예약 / 결제</h1>
+
+      {/* 마지막 남은 객실 안내 */}
+      {lastRoom && (
+        <div className="rounded-2xl px-4 py-3.5 mb-4 flex items-start gap-2.5"
+          style={{ background: "#FDF3F1", border: "1.5px solid #E8C4BC" }}>
+          <span className="text-lg leading-none pt-0.5">⏰</span>
+          <div className="text-[13px] leading-relaxed" style={{ color: "#8A3D2E" }}>
+            <b>선택하신 날짜의 마지막 남은 객실이에요.</b><br />
+            결제 완료 순으로 배정되며, 결제 중에 다른 분이 먼저 완료하면 마감될 수 있어요.
+          </div>
+        </div>
+      )}
 
       {/* 호텔 요약 */}
       <section className="bg-white rounded-2xl p-4 mb-4" style={{ border: "1px solid var(--line)" }}>

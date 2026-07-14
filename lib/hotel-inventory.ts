@@ -28,6 +28,20 @@ export async function isStayAvailable(room: string, checkIn: string, nights: num
   return r.rows[0].ok === nights;
 }
 
+// 투숙 기간 중 가장 적게 남은 밤의 잔여 객실 수 (마지막 방 안내용)
+export async function minRemainingForStay(room: string, checkIn: string, nights: number): Promise<number> {
+  const dates: string[] = [];
+  let cur = checkIn;
+  for (let i = 0; i < nights; i++) { dates.push(cur); cur = nextISO(cur); }
+  const r = await shopPool.query(
+    `SELECT COALESCE(MIN(allocated - booked), 0)::int AS remaining
+       FROM hotel_room_inventory
+      WHERE room_type = $1 AND stay_date = ANY($2::date[])`,
+    [room, dates]
+  );
+  return r.rows[0].remaining;
+}
+
 // 예약 확정 시 각 밤 재고 차감. 한 밤이라도 재고가 없으면 false(호출측에서 롤백).
 export async function decrementStay(
   client: PoolClient,

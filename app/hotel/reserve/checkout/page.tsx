@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import HotelCheckoutClient from "@/components/HotelCheckoutClient";
 import { verifyToken } from "@/lib/auth";
 import { PACKAGES, HOTEL, quoteReservation, stayBreakdown, saleState } from "@/lib/hotel";
-import { isStayAvailable } from "@/lib/hotel-inventory";
+import { isStayAvailable, minRemainingForStay } from "@/lib/hotel-inventory";
 import { phoneVerifyOn } from "@/lib/sms";
 import pool from "@/lib/db";
 
@@ -38,6 +38,8 @@ export default async function HotelCheckoutPage({
   const breakdown = stayBreakdown(q.pkg, q.checkIn, q.nights);
   const clientKey = process.env.TOSS_CLIENT_KEY!;
   const influencer = await getInfluencer(sp.inf);
+  // 마지막 남은 객실 안내 (기간 중 가장 적게 남은 밤 기준)
+  const lastRoom = (await minRemainingForStay(q.room, q.checkIn, q.nights)) === 1;
 
   const token = (await cookies()).get("shop_token")?.value;
   const isLoggedIn = token ? !!(await verifyToken(token)) : false;
@@ -63,6 +65,7 @@ export default async function HotelCheckoutPage({
         breakdown={breakdown}
         influencerId={influencer?.id}
         influencerName={influencer?.name}
+        lastRoom={lastRoom}
       />
     </main>
   );
