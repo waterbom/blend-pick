@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BOOKABLE_FROM, BOOKABLE_TO } from "@/lib/hotel";
+import { BOOKABLE_FROM, BOOKABLE_TO, refundRateFor } from "@/lib/hotel";
 
 interface Reservation {
   id: string;
@@ -205,13 +205,34 @@ export default function ReservationsClient() {
   );
 
   async function updateStatus(id: string, status: string) {
-    if (status === "cancelled" && !confirm("이 예약을 취소하고 결제를 환불할까요? (되돌릴 수 없어요)")) return;
+    let fullRefund = false;
+    if (status === "cancelled") {
+      // 환불 규정 미리보기 (최종 계산은 서버가 다시 함)
+      const row = rows.find((r) => r.id === id);
+      const total = Number(row?.total_amount ?? 0);
+      const policy = row?.stay_check_in ? refundRateFor(row.stay_check_in) : null;
+      const policyAmount = policy ? Math.round((total * policy.rate) / 100) : total;
+      const policyMsg = policy
+        ? `환불 규정 적용: ${policy.label}\n환불 예정액: ${policyAmount.toLocaleString()}원 (결제 ${total.toLocaleString()}원)`
+        : `환불 예정액: ${total.toLocaleString()}원`;
+
+      if (confirm(`${policyMsg}\n\n규정대로 환불하고 취소할까요? (되돌릴 수 없어요)\n\n[취소]를 누르면 전액 환불 옵션을 물어봅니다.`)) {
+        fullRefund = false;
+      } else if (
+        policy && policy.rate < 100 &&
+        confirm(`규정과 무관하게 전액(${total.toLocaleString()}원) 환불로 취소할까요?\n(호텔 귀책·특별 배려 시에만 사용)`)
+      ) {
+        fullRefund = true;
+      } else {
+        return; // 중단
+      }
+    }
     const prev = rows;
     setRows((p) => p.map((r) => (r.id === id ? { ...r, status } : r)));
     const res = await fetch("/api/admin/reservations", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ id, status, fullRefund }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -219,7 +240,10 @@ export default function ReservationsClient() {
       setRows(prev); // 롤백
     } else if (status === "cancelled") {
       const d = await res.json().catch(() => ({}));
-      alert(d.smsSent ? "취소·환불 완료 + 취소 문자 발송했어요." : "취소·환불 완료되었어요. (취소 문자는 발송되지 않았어요)");
+      const refundMsg = d.refundAmount != null
+        ? `${Number(d.refundAmount).toLocaleString()}원 환불 (${d.refundNote ?? "규정 적용"})`
+        : "환불 처리";
+      alert(`취소 완료 — ${refundMsg}${d.smsSent ? " + 취소 문자 발송" : " (취소 문자는 발송되지 않았어요)"}`);
     }
   }
 

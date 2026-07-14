@@ -100,6 +100,19 @@ export const REFUND_POLICY: { when: string; rate: string }[] = [
   { when: "체크인 당일 · No-show", rate: "환불 불가" },
 ];
 
+// 취소 시점 기준 환불율 계산 (KST 날짜 기준, REFUND_POLICY와 동일 규칙)
+export function refundRateFor(checkInISO: string, nowMs = Date.now()): { rate: number; days: number; label: string } {
+  const todayKST = new Date(nowMs + 9 * 3600e3).toISOString().slice(0, 10);
+  const days = nightsBetween(todayKST, checkInISO); // 체크인까지 남은 일수 (지났으면 음수)
+  const rate = days >= 6 ? 100 : days >= 3 ? 50 : days >= 1 ? 30 : 0;
+  const label =
+    days >= 6 ? `체크인 ${days}일 전 — 100% 환불`
+    : days >= 3 ? `체크인 ${days}일 전 — 50% 환불`
+    : days >= 1 ? `체크인 ${days}일 전 — 30% 환불`
+    : "체크인 당일/경과 — 환불 불가";
+  return { rate, days, label };
+}
+
 // 호텔 정보 (결제 요약 카드용)
 export const HOTEL = {
   name: "여수 UTOP 마리나 호텔",

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
-import { nextISO, nightsBetween } from "@/lib/hotel";
+import { nextISO, nightsBetween, refundRateFor } from "@/lib/hotel";
 import { sendCancellationSMS } from "@/lib/hotel-notify";
 
 async function getAdmin() {
@@ -46,7 +46,7 @@ export async function PATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, status } = await req.json();
+  const { id, status, fullRefund } = await req.json();
   const allowed = ["paid", "checked_in", "cancelled", "no_show"];
   if (!id || !allowed.includes(status)) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
@@ -87,16 +87,25 @@ export async function PATCH(req: Request) {
   if (!ord) return NextResponse.json({ error: "예약을 찾을 수 없습니다." }, { status: 404 });
   if (ord.status === "cancelled") return NextResponse.json({ ok: true, alreadyCancelled: true });
 
-  // 1) 토스 결제 취소 (실결제 건만)
-  if (ord.payment_key && !ord.payment_key.startsWith("SIM_")) {
+  // 환불 규정 적용 (서버가 최종 계산): 6일 전 100% / 5~3일 50% / 2~1일 30% / 당일·경과 0%
+  // fullRefund=true면 규정과 무관하게 전액 환불 (호텔 귀책·선의 배려용)
+  const total = Number(ord.total_amount);
+  const policy = refundRateFor(ord.ci);
+  const refundAmount = fullRefund ? total : Math.round((total * policy.rate) / 100);
+  const refundNote = fullRefund ? "전액 환불" : policy.label;
+
+  // 1) 토스 결제 취소 (실결제 건 + 환불액이 있을 때만)
+  if (ord.payment_key && !ord.payment_key.startsWith("SIM_") && refundAmount > 0) {
     const secretKey = process.env.TOSS_SECRET_KEY;
+    const body: Record<string, unknown> = { cancelReason: `관리자 예약 취소 (${refundNote})` };
+    if (refundAmount < total) body.cancelAmount = refundAmount; // 부분 환불
     const tossRes = await fetch(`https://api.tosspayments.com/v1/payments/${ord.payment_key}/cancel`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ cancelReason: "관리자 예약 취소" }),
+      body: JSON.stringify(body),
     });
     if (!tossRes.ok) {
       const e = await tossRes.json().catch(() => ({}));
@@ -144,7 +153,9 @@ export async function PATCH(req: Request) {
         checkIn: ord.ci,
         checkOut: ord.co,
         nights: nightsBetween(ord.ci, ord.co),
-        total: Number(ord.total_amount),
+        total,
+        refundAmount,
+        refundNote,
       });
       smsSent = r.ok;
       if (!r.ok) console.error("[reservations cancel] 취소 문자 발송 실패:", r.error);
@@ -153,5 +164,5 @@ export async function PATCH(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, refunded: true, smsSent });
+  return NextResponse.json({ ok: true, refunded: refundAmount > 0, refundAmount, refundNote, smsSent });
 }
