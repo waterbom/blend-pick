@@ -1,4 +1,5 @@
 import shopPool from "@/lib/db-shop";
+import pool from "@/lib/db";
 import Header from "@/components/Header";
 import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
@@ -26,7 +27,7 @@ const C = {
 const SERIF = "'Noto Serif KR', serif";
 const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 const KAKAO_CHANNEL_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
-const UPCOMING_SLOTS = 4; // 오픈 예정 자리 — 예정 상품 공개 시 실데이터로 교체
+const UPCOMING_MIN_CELLS = 4; // 그리드가 비어 보이지 않게 최소 4칸 유지 (모자란 칸은 COMING SOON)
 
 interface Product {
   id: string;
@@ -64,6 +65,40 @@ async function getCategories() {
   return result.rows.map((r) => r.category as string);
 }
 
+interface UpcomingCampaign {
+  id: string;
+  name: string;
+  brand: string | null;
+  image: string | null;
+  open_label: string; // "7. 20" 형식
+}
+
+// 곧 오픈하는 공구 — 홈과 동일 기준 (시작일이 오늘 이후 ~ 30일 이내, 상품당 가장 빠른 공구 1건)
+async function getUpcoming(): Promise<UpcomingCampaign[]> {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM (
+        SELECT DISTINCT ON (p.id)
+          c.id, p.name, p.brand,
+          COALESCE(sp.main_image, p.product_image) AS image,
+          to_char(c.start_date, 'FMMM. FMDD') AS open_label,
+          c.start_date
+        FROM campaigns c
+        JOIN products p ON c.product_id = p.id
+        LEFT JOIN sales_pages sp ON sp.campaign_id = c.id
+        WHERE c.is_archived = false
+          AND c.start_date > (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date
+          AND c.start_date <= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date + INTERVAL '30 days'
+        ORDER BY p.id, c.start_date ASC
+      ) t ORDER BY t.start_date ASC LIMIT 8
+    `);
+    return result.rows as UpcomingCampaign[];
+  } catch (e) {
+    console.error("[products] upcoming 조회 실패:", e);
+    return [];
+  }
+}
+
 // 카테고리 세그먼트 (직각, 보더 겹침)
 function CategoryTab({ href, label, active }: { href: string; label: string; active: boolean }) {
   return (
@@ -86,10 +121,12 @@ export default async function ShopPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const { category } = await searchParams;
-  const [products, categories] = await Promise.all([
+  const [products, categories, upcoming] = await Promise.all([
     getProducts(category),
     getCategories(),
+    getUpcoming(),
   ]);
+  const placeholderCount = Math.max(0, UPCOMING_MIN_CELLS - upcoming.length);
 
   // 상품 4개 이상이면 컴팩트 4열, 적으면 대형 에디토리얼 2열 (핸드오프 권장)
   const compact = products.length >= 4;
@@ -133,7 +170,7 @@ export default async function ShopPage({
             ))}
           </div>
           <div className="text-[11px] lg:text-[12px]" style={{ fontFamily: MONO, fontWeight: 500, color: C.sage }}>
-            판매 중 {products.length} · 오픈 예정 {UPCOMING_SLOTS}
+            판매 중 {products.length} · 오픈 예정 {upcoming.length}
           </div>
         </div>
       </div>
@@ -203,9 +240,10 @@ export default async function ShopPage({
                     </div>
                     <div className={compact ? "mt-auto pt-2.5" : "mt-auto pt-3 lg:pt-4"}>
                       {soldOut ? (
+                        // 재입고 알림 기능 준비 전 — 비활성 표시만
                         <span className={`inline-block font-semibold ${compact ? "px-4 py-2 text-[12px]" : "px-6 lg:px-7 py-2.5 lg:py-3 text-[13px]"}`}
-                          style={{ border: `1px solid ${C.green800}`, color: C.green800 }}>
-                          재입고 알림 받기
+                          style={{ border: `1px solid ${C.hairline}`, color: C.muted3, cursor: "default" }}>
+                          재입고 알림 (준비 중)
                         </span>
                       ) : (
                         <span className={`inline-block font-bold text-white ${compact ? "px-4 py-2 text-[12px]" : "px-6 lg:px-7 py-2.5 lg:py-3 text-[13px]"}`}
@@ -218,13 +256,8 @@ export default async function ShopPage({
                 </>
               );
 
-              // 품절 상품은 재입고 알림(카카오)으로, 판매 중은 상세로 — 카드 전체가 링크
-              return soldOut ? (
-                <a key={p.id} href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
-                  className="flex flex-col bg-white transition-colors duration-150 hover:bg-[#FDFCF9]">
-                  {cardInner}
-                </a>
-              ) : (
+              // 카드 전체가 상세 페이지 링크 (품절 상품도 상세에서 확인 가능)
+              return (
                 <Link key={p.id} href={`/products/${p.id}`}
                   className="flex flex-col bg-white transition-colors duration-150 hover:bg-[#FDFCF9]">
                   {cardInner}
@@ -240,7 +273,7 @@ export default async function ShopPage({
             <div>
               <div className="text-[10px] lg:text-[11px] mb-2 lg:mb-2.5"
                 style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".28em", color: C.sage }}>
-                UPCOMING — {UPCOMING_SLOTS}
+                UPCOMING — {upcoming.length}
               </div>
               <h2 className="m-0 text-[19px] lg:text-[24px]" style={{ fontFamily: SERIF, fontWeight: 600 }}>
                 곧 오픈하는 공구
@@ -256,8 +289,26 @@ export default async function ShopPage({
             </div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-[1px]" style={{ background: C.hairline, border: `1px solid ${C.hairline}` }}>
-            {Array.from({ length: UPCOMING_SLOTS }, (_, i) => (
-              <div key={i} className="bg-white p-4 lg:p-5 flex flex-col gap-3">
+            {/* 실제 오픈 예정 공구 (홈과 동일 기준) */}
+            {upcoming.map((u) => (
+              <Link key={u.id} href={`/campaigns/${u.id}`}
+                className="bg-white p-4 lg:p-5 flex flex-col gap-3 transition-colors duration-150 hover:bg-[#FDFCF9]">
+                <div className="h-[110px] lg:h-[140px] overflow-hidden" style={{ background: C.surfaceSoft }}>
+                  <FallbackImg src={u.image} alt={u.name} className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <div className="text-[10px] lg:text-[11px] mb-1" style={{ fontFamily: MONO, letterSpacing: ".14em", color: C.green700, fontWeight: 600 }}>
+                    {u.open_label} 오픈
+                  </div>
+                  <div className="text-[12.5px] lg:text-[13px] font-semibold line-clamp-2" style={{ color: C.green900 }}>
+                    {u.name}
+                  </div>
+                </div>
+              </Link>
+            ))}
+            {/* 남는 칸은 COMING SOON 플레이스홀더로 채워 그리드 유지 */}
+            {Array.from({ length: placeholderCount }, (_, i) => (
+              <div key={`ph${i}`} className="bg-white p-4 lg:p-5 flex flex-col gap-3">
                 <div className="h-[110px] lg:h-[140px] flex items-center justify-center"
                   style={{ background: `repeating-linear-gradient(45deg,${C.surfaceSoft},${C.surfaceSoft} 10px,#EDEAE0 10px,#EDEAE0 20px)` }}>
                   <span className="text-[10px]" style={{ fontFamily: MONO, color: C.sage, letterSpacing: ".14em" }}>
@@ -266,7 +317,7 @@ export default async function ShopPage({
                 </div>
                 <div>
                   <div className="text-[10px] lg:text-[11px] mb-1" style={{ letterSpacing: ".14em", color: C.sage }}>
-                    오픈 예정 {String(i + 1).padStart(2, "0")}
+                    오픈 예정 {String(upcoming.length + i + 1).padStart(2, "0")}
                   </div>
                   <div className="text-[12.5px] lg:text-[13px] font-semibold" style={{ color: C.muted2 }}>공개 전 상품</div>
                 </div>
