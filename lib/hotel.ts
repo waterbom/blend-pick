@@ -106,7 +106,7 @@ export const HOTEL = {
   tagline: "여수 엑스포 · 오션뷰 리조트",
   image: "/hotel/4.png",
   checkInTime: "15:00",
-  checkOutTime: "11:00",
+  checkOutTime: "13:00",
 };
 
 // 시즌 구간(범위) — 요금 달력(색상표) 그대로. 여기 없는 날은 전부 주중가(흰색).
