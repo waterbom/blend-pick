@@ -29,6 +29,8 @@ const C = {
   muted2: "#4A5442",
   muted3: "#8B927F",
   sunday: "#A65B4B",
+  gold: "#E9C46A",       // 카운트다운 — 다크 그린 보색 계열 골드
+  terracotta: "#A65B4B", // 주의 문구 강조
   disabledBg: "#FBFAF6",
   disabledText: "#CFCABB",
   ctaOff: "#DDD9CC",
@@ -192,7 +194,7 @@ export default function HotelReserveClient({
             <div>
               <div className="text-[10px] lg:text-[11px] mb-3 lg:mb-[18px]"
                 style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".28em", color: C.sageLight }}>
-                HOTEL 공동구매 — {influencerName ?? "후다닥맘"} 단독 오픈
+                HOTEL 공동구매 — {influencerName ? `${influencerName} ` : ""}단독 오픈
               </div>
               <h1 className="m-0 text-[27px] lg:text-[48px] leading-[1.3] lg:leading-[1.2]"
                 style={{ fontFamily: SERIF, fontWeight: 600, color: "#fff" }}>
@@ -209,11 +211,24 @@ export default function HotelReserveClient({
                 {sale === "before" ? "판매 시작까지" : "판매 종료까지"}
               </div>
               <div className="text-[24px] lg:text-[40px]" suppressHydrationWarning
-                style={{ fontFamily: MONO, fontWeight: 600, color: "#fff" }}>
+                style={{ fontFamily: MONO, fontWeight: 600, color: C.gold }}>
                 {countdownText}
               </div>
+              {/* 예약 조회 — 귀속 링크로 들어와도 항상 접근 가능 */}
+              <a href="/hotel/lookup"
+                className="hidden lg:inline-block mt-3 px-4 py-2 text-[11px] transition-colors duration-150"
+                style={{ border: "1px solid rgba(234,240,230,.35)", color: C.mintOnDark, letterSpacing: ".12em" }}>
+                예약 조회 →
+              </a>
             </div>
           </div>
+
+          {/* 예약 조회 (모바일) */}
+          <a href="/hotel/lookup"
+            className="lg:hidden mt-4 flex items-center justify-center py-2.5 text-[11px]"
+            style={{ border: "1px solid rgba(234,240,230,.35)", color: C.mintOnDark, letterSpacing: ".12em" }}>
+            예약 조회 →
+          </a>
 
           {/* 인포 스트립 */}
           <div className="mt-6 lg:mt-10 pt-4 lg:pt-9 pb-6 lg:pb-8 grid grid-cols-2 gap-3 lg:flex lg:gap-12 text-[12px] lg:text-[13px]"
@@ -284,8 +299,9 @@ export default function HotelReserveClient({
               ))}
             </div>
             <div className="mt-3 pt-3 text-[11.5px] lg:text-[12px] leading-[1.7]"
-              style={{ borderTop: "1px solid #E0DCD0", color: C.muted }}>
-              인원 추가비는 3·4인 패키지 무료, 2인 패키지 1인당 10,000원입니다. 침구 추가는 어렵습니다. 연박 시 조식·인피니티풀은 매일 제공됩니다.
+              style={{ borderTop: "1px solid #E0DCD0", color: C.terracotta }}>
+              인원 추가비는 <b>3·4인 패키지 무료</b>, 2인 패키지 <b>1인당 10,000원</b>입니다. 침구 추가는 어렵습니다.
+              <span style={{ color: C.muted }}> 연박 시 조식·인피니티풀은 매일 제공됩니다.</span>
             </div>
           </div>
 
