@@ -1,0 +1,24 @@
+name: Auto Track Shipments
+
+on:
+  schedule:
+    # KST 07:30 / 19:30 (UTC 22:30 / 10:30) — 배송중 주문 자동 배송완료 전환
+    - cron: "30 22 * * *"
+    - cron: "30 10 * * *"
+  workflow_dispatch:
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run auto tracking on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node scripts/auto-track-shipments.cjs

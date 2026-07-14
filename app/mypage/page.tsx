@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import WithdrawButton from "@/components/WithdrawButton";
 import CancelOrderButton from "@/components/CancelOrderButton";
 import Link from "next/link";
+import { carrierName, trackingUrl } from "@/lib/carriers";
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   customer: { label: "일반 고객", color: "bg-gray-100 text-gray-600" },
@@ -34,23 +35,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   return_completed:   { label: "반품완료",   color: "text-orange-300" },
 };
 
-// 택배사별 조회 URL
-const TRACKING_URL: Record<string, (n: string) => string> = {
-  cj:     (n) => `https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${n}`,
-  hanjin: (n) => `https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KOR&wblnumText2=${n}`,
-  lotte:  (n) => `https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo=${n}`,
-  post:   (n) => `https://service.epost.go.kr/trace.RetrieveDomRqst.comm?sid1=${n}`,
-  logen:  (n) => `https://www.ilogen.com/m/personal/trace/${n}`,
-  ems:    (n) => `https://service.epost.go.kr/trace.RetrieveEmsRqst.comm?POST_CODE=${n}`,
-  dhl:    (n) => `https://www.dhl.com/kr-ko/home/tracking.html?tracking-id=${n}`,
-  fedex:  (n) => `https://www.fedex.com/fedextrack/?trknbr=${n}`,
-};
-
-const CARRIER_NAME: Record<string, string> = {
-  cj: "CJ대한통운", hanjin: "한진택배", lotte: "롯데택배",
-  post: "우체국택배", logen: "로젠택배", ems: "EMS",
-  dhl: "DHL", fedex: "FedEx", etc: "기타",
-};
+// 택배사 이름/조회 URL — 숫자 코드·레거시 텍스트 코드 모두 lib/carriers에서 해석
 
 async function getOrders(userId: string) {
   try {
@@ -275,15 +260,16 @@ export default async function MyPage() {
                         총 {Number(order.total_amount).toLocaleString()}원
                       </span>
                       <div className="flex items-center gap-2">
-                        {order.status === "shipped" && order.tracking_company && order.tracking_number && (
+                        {(order.status === "shipped" || order.status === "delivered") &&
+                          order.tracking_company && order.tracking_number && (
                           <a
-                            href={TRACKING_URL[order.tracking_company]?.(order.tracking_number) ?? "#"}
+                            href={trackingUrl(order.tracking_company, order.tracking_number)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
                             style={{ background: "var(--surface-soft)", color: "var(--text-secondary)" }}
                           >
-                            {CARRIER_NAME[order.tracking_company] ?? order.tracking_company} 조회
+                            {carrierName(order.tracking_company)} 조회
                           </a>
                         )}
                         {(order.status === "paid" || order.status === "confirmed") && (

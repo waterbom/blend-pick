@@ -38,31 +38,35 @@ export async function POST(req: Request) {
         continue;
       }
 
+      // 결제완료~상품준비중 어느 단계든 운송장이 등록되면 배송중으로 전환
       const { rowCount } = await client.query(
         `UPDATE orders
          SET status = 'shipped',
              tracking_company = $2,
              tracking_number  = $3
          WHERE order_number = $1
-           AND status = 'preparing'`,
+           AND status IN ('paid', 'confirmed', 'preparing')`,
         [order_number, carrier || null, tracking_number]
       );
 
       if ((rowCount ?? 0) === 0) {
-        // 이미 shipped이거나 없는 주문
         const existing = await client.query(
           `SELECT status FROM orders WHERE order_number = $1`,
           [order_number]
         );
-        if (existing.rows.length === 0) {
+        const st = existing.rows[0]?.status;
+        if (!st) {
           results.push({ order_number, success: false, reason: "주문 없음" });
-        } else {
-          // 이미 처리된 주문은 운송장 정보만 업데이트
+        } else if (st === "shipped" || st === "delivered") {
+          // 이미 배송 단계인 주문은 운송장 정보만 갱신
           await client.query(
             `UPDATE orders SET tracking_company = $2, tracking_number = $3 WHERE order_number = $1`,
             [order_number, carrier || null, tracking_number]
           );
           results.push({ order_number, success: true });
+        } else {
+          // 취소/반품/교환 등 배송 불가 상태 — 조용히 넘기지 않고 실패로 보고
+          results.push({ order_number, success: false, reason: `배송 불가 상태(${st})` });
         }
       } else {
         results.push({ order_number, success: true });

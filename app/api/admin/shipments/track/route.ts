@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
+import { toCarrierCode } from "@/lib/carriers";
 
 const FEE_RATE: Record<string, number> = {
   card: 0.0363,
@@ -17,15 +18,10 @@ async function getAdmin() {
 
 // 스위트트래커 배송 상태 조회
 async function fetchTrackingStatus(
+  apiKey: string,
   trackingNumber: string,
-  carrier: string
+  carrierCode: string
 ): Promise<{ delivered: boolean; statusText: string } | null> {
-  const apiKey = process.env.SWEETTRACKER_API_KEY;
-  if (!apiKey) return null;
-
-  // 스위트트래커는 택배사 코드가 필요 — 이름 → 코드 매핑
-  const carrierCode = resolveCarrierCode(carrier);
-
   try {
     const url = new URL("https://info.sweettracker.co.kr/api/v1/trackingInfo");
     url.searchParams.set("t_key", apiKey);
@@ -49,25 +45,19 @@ async function fetchTrackingStatus(
   }
 }
 
-// 택배사 코드 반환 — DB에 2자리 코드로 저장됨. 레거시 텍스트 대비 폴백 유지
-function resolveCarrierCode(carrier: string): string {
-  if (/^\d{2}$/.test(carrier)) return carrier; // 이미 코드면 그대로
-  const c = (carrier ?? "").toLowerCase().replace(/\s/g, "");
-  if (c.includes("cj") || c.includes("대한통운")) return "04";
-  if (c.includes("롯데") || c.includes("lotte")) return "08";
-  if (c.includes("한진") || c.includes("hanjin")) return "05";
-  if (c.includes("우체국") || c.includes("epost") || c.includes("post")) return "01";
-  if (c.includes("로젠") || c.includes("logen")) return "06";
-  if (c.includes("gs") || c.includes("편의점")) return "26";
-  if (c.includes("cu")) return "46";
-  return "04";
-}
-
 // POST /api/admin/shipments/track
 // 배송중(shipped) 주문 전체를 스위트트래커로 조회 → 배송완료된 건 자동 처리
 export async function POST() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const apiKey = process.env.SWEETTRACKER_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "SWEETTRACKER_API_KEY가 서버에 설정되지 않았습니다. 스마트택배 API 키를 발급받아 .env.local에 등록하세요." },
+      { status: 400 }
+    );
+  }
 
   // shipped 상태인 주문 중 운송장번호 있는 것만 조회
   const { rows: shippedOrders } = await shopPool.query(`
@@ -86,7 +76,12 @@ export async function POST() {
   const results: { order_number: string; status: string }[] = [];
 
   for (const order of shippedOrders) {
-    const info = await fetchTrackingStatus(order.tracking_number, order.tracking_company ?? "");
+    const code = toCarrierCode(order.tracking_company);
+    if (!code) {
+      results.push({ order_number: order.order_number, status: `택배사 미인식 (${order.tracking_company ?? "없음"}) — 운송장 다시 등록 필요` });
+      continue;
+    }
+    const info = await fetchTrackingStatus(apiKey, order.tracking_number, code);
     if (!info) {
       results.push({ order_number: order.order_number, status: "조회 실패" });
       continue;

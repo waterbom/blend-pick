@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { CORE_CARRIERS, carrierName as libCarrierName } from "@/lib/carriers";
 
 interface OrderItem {
   product_name: string;
@@ -25,21 +26,8 @@ interface Order {
   items: OrderItem[];
 }
 
-const CARRIERS = [
-  { code: "04", name: "CJ대한통운" },
-  { code: "05", name: "한진택배" },
-  { code: "08", name: "롯데택배" },
-  { code: "01", name: "우체국택배" },
-  { code: "06", name: "로젠택배" },
-  { code: "23", name: "경동택배" },
-  { code: "26", name: "대신택배" },
-  { code: "40", name: "GS편의점택배" },
-  { code: "41", name: "드림택배" },
-  { code: "46", name: "일양로지스" },
-  { code: "53", name: "CU편의점택배" },
-  { code: "68", name: "우리택배" },
-  { code: "77", name: "합동택배" },
-];
+// 택배사 목록은 서버(/api/admin/shipments/carriers)에서 스위트트래커 공식 코드표를
+// 받아온다 (키 미설정 시 주요 6사 폴백). 코드표 하드코딩으로 인한 오배송 조회 방지.
 
 function parseTrackingCSV(text: string): { order_number: string; tracking_number: string }[] {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -104,6 +92,8 @@ export default function ShipmentsClient() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [carrierCode, setCarrierCode] = useState("04");
+  const [carriers, setCarriers] = useState(CORE_CARRIERS);
+  const [trackerKeyMissing, setTrackerKeyMissing] = useState(false);
   const [csvRows, setCsvRows] = useState<{ order_number: string; tracking_number: string }[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ succeeded: number; failed: { order_number: string; reason?: string }[] } | null>(null);
@@ -130,6 +120,17 @@ export default function ShipmentsClient() {
   }
 
   useEffect(() => { load(tab); }, [tab]);
+
+  // 택배사 코드표 로드 (스위트트래커 공식 목록, 키 없으면 주요 6사)
+  useEffect(() => {
+    fetch("/api/admin/shipments/carriers")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.carriers) && d.carriers.length > 0) setCarriers(d.carriers);
+        setTrackerKeyMissing(!!d.keyMissing);
+      })
+      .catch(() => {});
+  }, []);
 
   function toggleAll() {
     if (selected.size === orders.length) setSelected(new Set());
@@ -198,6 +199,11 @@ export default function ShipmentsClient() {
     setTrackResult(null);
     const res = await fetch("/api/admin/shipments/track", { method: "POST" });
     const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "배송추적에 실패했습니다.");
+      setTracking(false);
+      return;
+    }
     setTrackResult({ checked: data.checked, delivered: data.delivered });
     if (data.delivered > 0) await load("shipped");
     setTracking(false);
@@ -229,7 +235,7 @@ export default function ShipmentsClient() {
     setActing(false);
   }
 
-  const carrierName = CARRIERS.find((c) => c.code === carrierCode)?.name ?? "";
+  const carrierName = carriers.find((c) => c.code === carrierCode)?.name ?? "";
   const tabAction = TAB_ACTION[tab];
 
   return (
@@ -265,7 +271,7 @@ export default function ShipmentsClient() {
               <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 선택</label>
               <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-orange-400 bg-white">
-                {CARRIERS.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                {carriers.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
             </div>
 
@@ -357,6 +363,11 @@ export default function ShipmentsClient() {
               </svg>
               {tracking ? "조회 중..." : "배송추적 실행"}
             </button>
+            {trackerKeyMissing && (
+              <span className="text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
+                ⚠ 스마트택배 API 키 미설정 — 배송추적이 동작하지 않아요 (.env.local의 SWEETTRACKER_API_KEY)
+              </span>
+            )}
             {trackResult && (
               <span className="text-xs text-gray-500">
                 {trackResult.checked}건 조회 →{" "}
@@ -421,7 +432,7 @@ export default function ShipmentsClient() {
               <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 (전체 공통)</label>
               <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-orange-400 bg-white">
-                {CARRIERS.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                {carriers.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
             </div>
             <div className="overflow-auto p-5 space-y-2 flex-1">
@@ -467,7 +478,7 @@ function OrderTable({
   emptyText: string;
 }) {
   const carrierName = (code: string | null) =>
-    CARRIERS.find((c) => c.code === code)?.name ?? code ?? "—";
+    code ? libCarrierName(code) : "—";
 
   if (loading) return <div className="bg-white rounded-xl border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>;
   if (orders.length === 0) return <div className="bg-white rounded-xl border border-gray-100 p-16 text-center text-sm text-gray-400">{emptyText}</div>;

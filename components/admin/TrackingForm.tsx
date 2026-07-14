@@ -1,20 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-// 국내 주요 택배사
-const CARRIERS = [
-  { code: "cj",     name: "CJ대한통운" },
-  { code: "hanjin", name: "한진택배" },
-  { code: "lotte",  name: "롯데택배" },
-  { code: "post",   name: "우체국택배" },
-  { code: "logen",  name: "로젠택배" },
-  { code: "ems",    name: "EMS" },
-  { code: "dhl",    name: "DHL" },
-  { code: "fedex",  name: "FedEx" },
-  { code: "etc",    name: "기타" },
-];
+import { CORE_CARRIERS, carrierName } from "@/lib/carriers";
 
 export default function TrackingForm({
   orderId,
@@ -30,6 +18,15 @@ export default function TrackingForm({
   const router = useRouter();
   const [company, setCompany] = useState(trackingCompany ?? "");
   const [number, setNumber] = useState(trackingNumber ?? "");
+  const [carriers, setCarriers] = useState(CORE_CARRIERS);
+
+  // 스위트트래커 공식 코드표 (숫자 코드) — ShipmentsClient와 동일 소스
+  useEffect(() => {
+    fetch("/api/admin/shipments/carriers")
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d.carriers) && d.carriers.length > 0) setCarriers(d.carriers); })
+      .catch(() => {});
+  }, []);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -93,7 +90,7 @@ export default function TrackingForm({
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-orange-300 disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="">택배사 선택</option>
-            {CARRIERS.map((c) => (
+            {carriers.map((c) => (
               <option key={c.code} value={c.code}>{c.name}</option>
             ))}
           </select>
@@ -123,7 +120,7 @@ export default function TrackingForm({
 
         {alreadyShipped && trackingCompany && trackingNumber && (
           <div className="text-xs text-gray-400 text-center py-1">
-            {CARRIERS.find((c) => c.code === trackingCompany)?.name ?? trackingCompany} · {trackingNumber}
+            {carrierName(trackingCompany)} · {trackingNumber}
           </div>
         )}
       </div>
