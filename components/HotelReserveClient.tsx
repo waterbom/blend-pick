@@ -216,8 +216,8 @@ export default function HotelReserveClient({
               </div>
               {/* 예약 조회 — 귀속 링크로 들어와도 항상 접근 가능 */}
               <a href="/hotel/lookup"
-                className="hidden lg:inline-block mt-3 px-4 py-2 text-[11px] transition-colors duration-150"
-                style={{ border: "1px solid rgba(234,240,230,.35)", color: C.mintOnDark, letterSpacing: ".12em" }}>
+                className="hidden lg:inline-block mt-3 px-5 py-2.5 text-[11px] font-bold transition-colors duration-150"
+                style={{ background: C.gold, color: C.green900, letterSpacing: ".12em" }}>
                 예약 조회 →
               </a>
             </div>
@@ -225,8 +225,8 @@ export default function HotelReserveClient({
 
           {/* 예약 조회 (모바일) */}
           <a href="/hotel/lookup"
-            className="lg:hidden mt-4 flex items-center justify-center py-2.5 text-[11px]"
-            style={{ border: "1px solid rgba(234,240,230,.35)", color: C.mintOnDark, letterSpacing: ".12em" }}>
+            className="lg:hidden mt-4 flex items-center justify-center py-3 text-[12px] font-bold"
+            style={{ background: C.gold, color: C.green900, letterSpacing: ".12em" }}>
             예약 조회 →
           </a>
 
