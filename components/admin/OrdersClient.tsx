@@ -239,6 +239,14 @@ export default function OrdersClient() {
     ...dashTabs,
   ];
 
+  // 상태 변경 없이 선택 주문의 발주 엑셀만 다시 다운로드 (분실/재출력용)
+  function handleDownloadOnly() {
+    const selectedOrders = orders.filter((o) => selected.has(o.id));
+    if (selectedOrders.length === 0) return;
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    downloadCSV(toCSV(selectedOrders), `발주_${date}.csv`);
+  }
+
   const actionButton = () => {
     if (selected.size === 0) return null;
     if (statusFilter === "paid" || statusFilter === "") {
@@ -319,6 +327,15 @@ export default function OrdersClient() {
           ))}
         </div>
         {actionButton()}
+        {selected.size > 0 && (
+          <button onClick={handleDownloadOnly}
+            className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-bold px-4 py-2 rounded-lg transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            엑셀만 다운로드 ({selected.size}건)
+          </button>
+        )}
       </div>
 
       {/* 주문 테이블 */}
