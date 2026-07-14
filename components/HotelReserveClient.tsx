@@ -476,11 +476,6 @@ export default function HotelReserveClient({
                 </div>
               )}
             </div>
-            <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
-              className="flex-none w-11 h-11 lg:w-[52px] lg:h-[52px] flex items-center justify-center font-bold text-[10px] lg:text-[11px]"
-              style={{ background: "#FAE100", color: "#3C1E1E", boxShadow: "0 2px 8px rgba(0,0,0,.18)" }}>
-              문의
-            </a>
           </div>
           <button
             disabled={!ctaOn}
