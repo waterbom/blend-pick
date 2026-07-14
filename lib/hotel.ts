@@ -37,15 +37,6 @@ export function saleState(): "before" | "open" | "closed" {
   return "open";
 }
 
-export function ymdKor(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return `${y}년 ${String(m).padStart(2, "0")}월 ${String(d).padStart(2, "0")}일`;
-}
-export function mdKor(iso: string): string {
-  const [, m, d] = iso.split("-").map(Number);
-  return `${String(m).padStart(2, "0")}월 ${String(d).padStart(2, "0")}일`;
-}
-
 // 업체정보 — 투숙객 제휴 혜택(그 외 즐길거리)
 export const PARTNER_BENEFITS: { title: string; lines: string[] }[] = [
   {
@@ -277,7 +268,7 @@ const SOLD_OUT: Record<RoomType, string[]> = {
   "디럭스 더블": ["2026-07-14", "2026-07-15", "2026-07-17", "2026-08-19"],
   "패밀리 트윈": ["2026-07-17", "2026-07-22", "2026-07-23", "2026-08-19", "2026-09-09"],
 };
-export function isSoldOut(room: RoomType, iso: string): boolean {
+function isSoldOut(room: RoomType, iso: string): boolean {
   return SOLD_OUT[room].includes(iso);
 }
 
