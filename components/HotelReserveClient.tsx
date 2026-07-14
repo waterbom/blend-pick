@@ -443,17 +443,14 @@ export default function HotelReserveClient({
           </div>
 
           {/* 정책 라인 */}
-          <div className="flex flex-col lg:flex-row gap-1.5 lg:gap-6 mt-3.5 lg:mt-[18px] text-[11.5px] lg:text-[12.5px]" style={{ color: C.muted2 }}>
+          <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-6 mt-3.5 lg:mt-[18px] text-[11.5px] lg:text-[12.5px]" style={{ color: C.muted2 }}>
             <div><span className="font-bold" style={{ color: C.green800 }}>36개월 미만</span> 무료 투숙</div>
             <div><span className="font-bold" style={{ color: C.green800 }}>체크인 6일 전</span>까지 100% 환불</div>
-            <div>
-              취소·환불은{" "}
-              <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
-                style={{ color: C.green700, textDecoration: "underline", textUnderlineOffset: 2 }}>
-                카카오톡 채널
-              </a>
-              에서 도와드립니다
-            </div>
+            <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 font-bold transition-transform active:scale-[0.98]"
+              style={{ background: "#FAE100", color: "#3C1E1E" }}>
+              💬 취소·환불 문의 — 카카오톡 채널 →
+            </a>
           </div>
         </div>
       </div>

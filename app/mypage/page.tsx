@@ -183,7 +183,11 @@ export default async function MyPage() {
                         총 {Number(rv.total_amount).toLocaleString()}원
                       </span>
                       {rv.status === "paid" && (
-                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>변경·취소는 고객센터로 문의</span>
+                        <a href="http://pf.kakao.com/_VyING/chat" target="_blank" rel="noopener noreferrer"
+                          className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                          style={{ background: "#FEE500", color: "#191600" }}>
+                          💬 변경·취소 문의
+                        </a>
                       )}
                     </div>
                   </div>

@@ -16,6 +16,7 @@ interface Reservation {
   product_name: string | null;
 }
 
+const KAKAO_CHANNEL_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 function fmt(iso: string | null) {
   if (!iso) return "-";
@@ -117,10 +118,23 @@ export default function ReservationLookupClient() {
             </div>
 
             {rv.status !== "cancelled" && (
-              <div className="rounded-xl px-4 py-3 mt-4 text-center" style={{ background: "var(--accent-soft)" }}>
-                <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>🏨 체크인 시 이 화면(또는 예약 확인 문자)을</p>
-                <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>호텔 프런트에 보여주시면 입장 가능합니다</p>
-              </div>
+              <>
+                <div className="rounded-xl px-4 py-3 mt-4 text-center" style={{ background: "var(--accent-soft)" }}>
+                  <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>🏨 체크인 시 이 화면(또는 예약 확인 문자)을</p>
+                  <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>호텔 프런트에 보여주시면 입장 가능합니다</p>
+                </div>
+
+                {/* 예약 취소 방법 — 잘 보이게 */}
+                <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 mt-3 transition-transform active:scale-[0.99]"
+                  style={{ background: "#FEE500", color: "#191600" }}>
+                  <span className="text-base">💬</span>
+                  <span className="text-sm font-bold">예약 취소·변경 문의하기 (카카오톡)</span>
+                </a>
+                <p className="text-[11px] text-center mt-2" style={{ color: "var(--text-muted)" }}>
+                  체크인 6일 전까지 100% 환불 · 5~3일 전 50% · 2~1일 전 30% · 당일/노쇼 환불 불가
+                </p>
+              </>
             )}
           </div>
         </div>
