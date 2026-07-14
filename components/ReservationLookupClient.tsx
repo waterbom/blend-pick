@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { HOTEL } from "@/lib/hotel";
+import { HOTEL, refundRateFor } from "@/lib/hotel";
 
 interface Reservation {
   order_number: string;
@@ -37,6 +37,52 @@ export default function ReservationLookupClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rv, setRv] = useState<Reservation | null>(null);
+
+  // 셀프 취소 (문자 인증)
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [cancelBusy, setCancelBusy] = useState(false);
+
+  async function sendCancelCode() {
+    setCancelBusy(true);
+    try {
+      const res = await fetch("/api/verify/phone", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.ok) { alert(d.error || "인증번호 발송에 실패했어요."); return; }
+      setCodeSent(true); setCode("");
+    } finally { setCancelBusy(false); }
+  }
+
+  async function confirmSelfCancel() {
+    if (!rv) return;
+    if (code.trim().length < 4) { alert("인증번호를 입력해주세요."); return; }
+    const policy = refundRateFor(rv.check_in);
+    const refund = Math.round((Number(rv.total_amount) * policy.rate) / 100);
+    if (!confirm(`예약을 취소할까요? (되돌릴 수 없어요)\n\n${policy.label}\n환불 예정액: ${refund.toLocaleString()}원`)) return;
+    setCancelBusy(true);
+    try {
+      const v = await fetch("/api/verify/phone/confirm", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code: code.trim() }),
+      });
+      const vd = await v.json().catch(() => ({}));
+      if (!v.ok || !vd.ok) { alert(vd.error || "인증에 실패했어요."); return; }
+
+      const res = await fetch("/api/hotel/cancel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_number: rv.order_number, phone }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(d.error || "취소에 실패했어요. 카카오톡 채널로 문의해주세요."); return; }
+      setRv({ ...rv, status: "cancelled" });
+      setCancelOpen(false);
+      alert(`예약이 취소되었습니다.\n환불 금액: ${Number(d.refundAmount).toLocaleString()}원 (${d.refundNote})\n카드사에 따라 3~5 영업일 소요될 수 있어요.`);
+    } finally { setCancelBusy(false); }
+  }
 
   // 예약완료 화면에서 넘어오면 예약번호 자동 입력
   useEffect(() => {
@@ -124,12 +170,60 @@ export default function ReservationLookupClient() {
                   <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>호텔 프런트에 보여주시면 입장 가능합니다</p>
                 </div>
 
-                {/* 예약 취소 방법 — 잘 보이게 */}
+                {/* 셀프 예약 취소 (paid + 환불 가능 기간만) */}
+                {rv.status === "paid" && refundRateFor(rv.check_in).rate > 0 && (
+                  !cancelOpen ? (
+                    <button onClick={() => setCancelOpen(true)}
+                      className="w-full rounded-xl px-4 py-3.5 mt-3 text-sm font-bold"
+                      style={{ border: "1.5px solid #E8C4BC", color: "#8A3D2E", background: "#FDF3F1" }}>
+                      예약 취소하기
+                    </button>
+                  ) : (
+                    <div className="rounded-xl p-4 mt-3 space-y-3" style={{ border: "1.5px solid #E8C4BC", background: "#FDF3F1" }}>
+                      <p className="text-sm font-bold" style={{ color: "#8A3D2E" }}>
+                        {refundRateFor(rv.check_in).label} · 환불 예정액{" "}
+                        {Math.round((Number(rv.total_amount) * refundRateFor(rv.check_in).rate) / 100).toLocaleString()}원
+                      </p>
+                      <p className="text-xs" style={{ color: "#8A3D2E" }}>
+                        본인 확인을 위해 예약자 휴대폰으로 인증번호를 보내드려요.
+                      </p>
+                      {!codeSent ? (
+                        <button onClick={sendCancelCode} disabled={cancelBusy}
+                          className="w-full py-3 rounded-lg text-sm font-bold text-white disabled:opacity-50"
+                          style={{ background: "#8A3D2E" }}>
+                          {cancelBusy ? "발송 중..." : "인증번호 받기"}
+                        </button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="인증번호 6자리"
+                            inputMode="numeric" className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none"
+                            style={{ border: "1px solid #E8C4BC", background: "#fff" }} />
+                          <button onClick={confirmSelfCancel} disabled={cancelBusy}
+                            className="shrink-0 px-4 py-2.5 rounded-lg text-sm font-bold text-white disabled:opacity-50"
+                            style={{ background: "#8A3D2E" }}>
+                            {cancelBusy ? "처리 중..." : "인증 후 취소"}
+                          </button>
+                        </div>
+                      )}
+                      <button onClick={() => { setCancelOpen(false); setCodeSent(false); setCode(""); }}
+                        className="w-full text-xs underline" style={{ color: "var(--text-muted)" }}>
+                        취소하지 않기
+                      </button>
+                    </div>
+                  )
+                )}
+                {rv.status === "paid" && refundRateFor(rv.check_in).rate === 0 && (
+                  <p className="text-xs text-center mt-3 rounded-xl px-4 py-3" style={{ background: "var(--surface-soft)", color: "var(--text-secondary)" }}>
+                    체크인 당일/경과 예약은 온라인 취소가 불가해요 — 아래 카카오톡 채널로 문의해주세요.
+                  </p>
+                )}
+
+                {/* 변경·기타 문의 */}
                 <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 mt-3 transition-transform active:scale-[0.99]"
                   style={{ background: "#FEE500", color: "#191600" }}>
                   <span className="text-base">💬</span>
-                  <span className="text-sm font-bold">예약 취소·변경 문의하기 (카카오톡)</span>
+                  <span className="text-sm font-bold">예약 변경·기타 문의하기 (카카오톡)</span>
                 </a>
                 <p className="text-[11px] text-center mt-2" style={{ color: "var(--text-muted)" }}>
                   체크인 6일 전까지 100% 환불 · 5~3일 전 50% · 2~1일 전 30% · 당일/노쇼 환불 불가
