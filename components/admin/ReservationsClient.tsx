@@ -152,8 +152,11 @@ export default function ReservationsClient() {
   const [newIn, setNewIn] = useState("");
   const [newOut, setNewOut] = useState("");
   const [changing, setChanging] = useState(false);
-  const [datePreview, setDatePreview] = useState<{ diff: number; oldTotal: number; newTotal: number; nights: number; available: boolean; minRemaining: number; soldOutDates: string[] } | null>(null);
-  const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; needRepay: boolean } | null>(null);
+  const [newPkg, setNewPkg] = useState<PkgKey>("p2");
+  const [newRoom, setNewRoom] = useState<RoomType>("패밀리 트윈");
+  const [datePreview, setDatePreview] = useState<{ diff: number; oldTotal: number; newTotal: number; nights: number; pkgLabel: string; room: string; available: boolean; minRemaining: number; soldOutDates: string[] } | null>(null);
+  const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; needRepay: boolean; payLink: string | null } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   // 날짜 고르는 동안 대상 기간 잔여 객실 자동 확인 (본인 예약 반납분 포함해서 계산)
   const [avail, setAvail] = useState<{ checking: boolean; available?: boolean; minRemaining?: number; soldOutDates?: string[] } | null>(null);
 
@@ -164,7 +167,7 @@ export default function ReservationsClient() {
       try {
         const res = await fetch("/api/admin/reservations/change-date", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, preview: true }),
+          body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, pkg: newPkg, room: newRoom, preview: true }),
         });
         const d = await res.json().catch(() => ({}));
         if (res.ok && d.ok) setAvail({ checking: false, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates });
@@ -172,15 +175,30 @@ export default function ReservationsClient() {
       } catch { setAvail(null); }
     }, 400);
     return () => clearTimeout(t);
-  }, [dateEdit, newIn, newOut]);
+  }, [dateEdit, newIn, newOut, newPkg, newRoom]);
 
   function openDateModal(r: Reservation) {
     setDateEdit(r);
     setNewIn(r.stay_check_in || "");
     setNewOut(r.stay_check_out || "");
+    const m = stayMeta(r.product_name);
+    setNewPkg(r.product_name?.includes("3인") ? "p3" : r.product_name?.includes("4인") ? "p4" : "p2");
+    setNewRoom((m?.room as RoomType) || "패밀리 트윈");
     setDatePreview(null);
     setDateResult(null);
     setAvail(null);
+    setLinkCopied(false);
+  }
+
+  // 패키지 변경 시 객실 자동 보정 — 3·4인은 패밀리 트윈만 가능
+  function pickPkg(p: PkgKey) {
+    setNewPkg(p);
+    if (p !== "p2") setNewRoom("패밀리 트윈");
+  }
+
+  async function copyPayLink(link: string) {
+    try { await navigator.clipboard.writeText(link); setLinkCopied(true); }
+    catch { prompt("아래 링크를 복사하세요:", link); }
   }
 
   // 1단계: 차액 미리보기 (DB 변경 없음)
@@ -191,11 +209,11 @@ export default function ReservationsClient() {
     try {
       const res = await fetch("/api/admin/reservations/change-date", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, preview: true }),
+        body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, pkg: newPkg, room: newRoom, preview: true }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d.ok) { alert(d.error || "요금 계산에 실패했습니다."); return; }
-      setDatePreview({ diff: d.diff, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [] });
+      setDatePreview({ diff: d.diff, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, pkgLabel: d.pkgLabel, room: d.room, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [] });
     } finally {
       setChanging(false);
     }
@@ -208,11 +226,11 @@ export default function ReservationsClient() {
     try {
       const res = await fetch("/api/admin/reservations/change-date", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut }),
+        body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, pkg: newPkg, room: newRoom }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.ok) { alert(d.error || "날짜 변경에 실패했습니다."); return; }
-      setDateResult({ diff: d.diff, refunded: d.refunded, needRepay: d.needRepay });
+      if (!res.ok || !d.ok) { alert(d.error || "예약 변경에 실패했습니다."); return; }
+      setDateResult({ diff: d.diff, refunded: d.refunded, needRepay: d.needRepay, payLink: d.payLink ?? null });
       const rr = await fetch("/api/admin/reservations").then((r) => r.json());
       setRows(Array.isArray(rr) ? rr : []);
     } finally {
@@ -442,7 +460,7 @@ export default function ReservationsClient() {
                 <div className="text-xs text-gray-500 tnum">
                   <div>{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</div>
                   {r.status === "paid" && (
-                    <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 날짜변경</button>
+                    <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 예약변경</button>
                   )}
                 </div>
                 <div className="text-right tnum">
@@ -589,7 +607,7 @@ export default function ReservationsClient() {
           onClick={() => !changing && setDateEdit(null)}>
           <div className="bg-white rounded-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100">
-              <p className="text-sm font-bold text-gray-800">📅 예약 날짜 변경</p>
+              <p className="text-sm font-bold text-gray-800">📅 예약 변경 — 날짜 · 인원 · 객실</p>
               <p className="text-xs text-gray-400 mt-0.5 font-mono">{dateEdit.order_number} · {dateEdit.buyer_name} · {hotelRoom(dateEdit.product_name)}</p>
               {(() => {
                 const m = stayMeta(dateEdit.product_name);
@@ -603,6 +621,36 @@ export default function ReservationsClient() {
 
             {!dateResult && !datePreview ? (
               <div className="p-5 space-y-3">
+                {/* 인원(패키지) 선택 */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">인원 (패키지)</label>
+                  <div className="flex gap-1.5">
+                    {(["p2", "p3", "p4"] as PkgKey[]).map((p) => (
+                      <button key={p} onClick={() => pickPkg(p)}
+                        className={`flex-1 py-2 text-xs font-bold rounded-lg border ${newPkg === p ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                        {PACKAGES[p].label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* 객실(침대) 선택 — 2인 패키지만 더블 선택 가능 */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">객실 (침대)</label>
+                  <div className="flex gap-1.5">
+                    {(["디럭스 더블", "패밀리 트윈"] as RoomType[]).map((rm) => {
+                      const disabled = newPkg !== "p2" && rm === "디럭스 더블";
+                      return (
+                        <button key={rm} onClick={() => !disabled && setNewRoom(rm)} disabled={disabled}
+                          className={`flex-1 py-2 text-xs font-bold rounded-lg border ${newRoom === rm ? "bg-blue-600 text-white border-blue-600" : disabled ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                          {rm} <span className="font-normal">· {ROOM_META[rm].bed}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {newPkg !== "p2" && (
+                    <p className="text-[11px] text-gray-400 mt-1">3·4인 패키지는 패밀리 트윈만 가능해요.</p>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-400 block mb-1">체크인</label>
@@ -644,13 +692,13 @@ export default function ReservationsClient() {
             ) : datePreview ? (
               <div className="p-5 space-y-3">
                 <div className="rounded-lg bg-gray-50 px-4 py-3 space-y-1.5 text-sm">
-                  <div className="flex justify-between text-gray-500">
-                    <span>변경 전</span>
-                    <span>{md(dateEdit.stay_check_in)} ~ {md(dateEdit.stay_check_out)} · {datePreview.oldTotal.toLocaleString()}원</span>
+                  <div className="flex justify-between gap-3 text-gray-500">
+                    <span className="shrink-0">변경 전</span>
+                    <span className="text-right">{(() => { const m = stayMeta(dateEdit.product_name); return m ? `${m.pkgLabel} · ${m.room}` : hotelRoom(dateEdit.product_name); })()}<br />{md(dateEdit.stay_check_in)} ~ {md(dateEdit.stay_check_out)} · {datePreview.oldTotal.toLocaleString()}원</span>
                   </div>
-                  <div className="flex justify-between font-medium text-gray-800">
-                    <span>변경 후</span>
-                    <span>{md(newIn)} ~ {md(newOut)} ({datePreview.nights}박) · {datePreview.newTotal.toLocaleString()}원</span>
+                  <div className="flex justify-between gap-3 font-medium text-gray-800">
+                    <span className="shrink-0">변경 후</span>
+                    <span className="text-right">{datePreview.pkgLabel} · {datePreview.room}<br />{md(newIn)} ~ {md(newOut)} ({datePreview.nights}박) · {datePreview.newTotal.toLocaleString()}원</span>
                   </div>
                 </div>
                 {datePreview.available ? (
@@ -685,7 +733,7 @@ export default function ReservationsClient() {
               </div>
             ) : dateResult ? (
               <div className="p-5 space-y-3">
-                <p className="text-sm font-bold text-gray-800">✅ 날짜 변경 완료</p>
+                <p className="text-sm font-bold text-gray-800">✅ 예약 변경 완료</p>
                 {dateResult.refunded > 0 && (
                   <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
                     차액 <b>{dateResult.refunded.toLocaleString()}원</b> 자동 환불 완료
@@ -695,8 +743,19 @@ export default function ReservationsClient() {
                   <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음</div>
                 )}
                 {dateResult.needRepay && (
-                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700">
-                    <b>⚠️ 재결제요망</b> — 추가 차액 <b>{dateResult.diff.toLocaleString()}원</b> 발생. 고객에게 차액 재결제를 별도로 안내해주세요.
+                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700 space-y-2">
+                    <p><b>⚠️ 추가 차액 {dateResult.diff.toLocaleString()}원</b> — 아래 결제링크를 고객에게 보내주세요. 카드로 바로 결제할 수 있어요.</p>
+                    {dateResult.payLink && (
+                      <div className="flex gap-1.5">
+                        <input readOnly value={dateResult.payLink}
+                          className="flex-1 min-w-0 text-[11px] font-mono bg-white border border-orange-200 rounded-lg px-2 py-2 text-gray-600"
+                          onFocus={(e) => e.target.select()} />
+                        <button onClick={() => copyPayLink(dateResult.payLink!)}
+                          className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${linkCopied ? "bg-green-600 text-white" : "bg-orange-600 hover:bg-orange-700 text-white"}`}>
+                          {linkCopied ? "✓ 복사됨" : "🔗 링크 복사"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
                 <button onClick={() => setDateEdit(null)} className="w-full py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg">완료</button>

@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
-import { quoteReservation, nextISO, mdLabel, type PkgKey, type RoomType } from "@/lib/hotel";
+import { quoteReservation, nextISO, mdLabel, PACKAGES, type PkgKey, type RoomType } from "@/lib/hotel";
 import { decrementStay } from "@/lib/hotel-inventory";
+import { signPayLink } from "@/lib/pay-link";
 
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
@@ -17,12 +18,12 @@ function pkgOf(name: string): PkgKey {
   return "p2";
 }
 
-// 관리자 예약 날짜 변경 — 재고 스왑 + 자동 차액환불 / 추가 차액 링크
+// 관리자 예약 변경 (날짜·인원·객실) — 재고 스왑 + 자동 차액환불 / 추가 차액 결제링크
 export async function POST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, checkIn, checkOut, preview } = await req.json();
+  const { id, checkIn, checkOut, pkg: reqPkg, room: reqRoom, preview } = await req.json();
   if (!id || !checkIn || !checkOut) {
     return NextResponse.json({ error: "날짜를 입력해주세요." }, { status: 400 });
   }
@@ -44,12 +45,23 @@ export async function POST(req: Request) {
   }
 
   const parts = String(ord.product_name || "").split(" · ");
-  const pkg = pkgOf(ord.product_name || "");
-  const room = (parts[2] || "") as RoomType;
+  const hotelName = parts[0] || "여수 UTOP 마리나";
+  const oldPkg = pkgOf(ord.product_name || "");
+  const oldRoom = (parts[2] || "") as RoomType;
 
-  // 새 날짜 유효성 + 요금 재계산
+  // 변경 대상 패키지·객실 — 요청에 없으면 기존 값 유지 (날짜만 변경)
+  const pkg = (reqPkg || oldPkg) as PkgKey;
+  const room = (reqRoom || oldRoom) as RoomType;
+
+  // 새 조건 유효성 + 요금 재계산 (패키지-객실 조합도 여기서 검증: 3·4인은 트윈만)
   const q = quoteReservation(pkg, room, checkIn, checkOut);
-  if (!q) return NextResponse.json({ error: "선택한 날짜가 예약 가능 범위를 벗어났습니다." }, { status: 400 });
+  if (!q) {
+    const badCombo = pkg in PACKAGES && !PACKAGES[pkg].rooms.includes(room);
+    return NextResponse.json(
+      { error: badCombo ? `${PACKAGES[pkg].label}는 ${room} 선택이 불가합니다.` : "선택한 날짜가 예약 가능 범위를 벗어났습니다." },
+      { status: 400 }
+    );
+  }
 
   const oldTotal = Number(ord.total_amount);
   const newTotal = q.total;
@@ -69,10 +81,10 @@ export async function POST(req: Request) {
     const remainMap = new Map<string, number>(
       invRes.rows.map((r: { d: string; remaining: number }) => [r.d, Number(r.remaining)])
     );
-    // 본인 예약이 점유 중인 밤은 변경 시 반납되므로 +1 — 기존 기간과 겹치게 변경해도 막히지 않게
+    // 본인 예약이 점유 중인 밤은 변경 시 반납되므로 +1 — 단, 같은 객실 타입일 때만 (객실 변경 시엔 해당 없음)
     const nightRemains = dates.map((date) => {
       let remaining = remainMap.get(date) ?? 0; // 재고 행 없음 = 배정 없음
-      if (date >= ord.old_in && date < ord.old_out) remaining += 1;
+      if (room === oldRoom && date >= ord.old_in && date < ord.old_out) remaining += 1;
       return { date, remaining };
     });
     const soldOutDates = nightRemains.filter((n) => n.remaining <= 0).map((n) => n.date);
@@ -85,6 +97,8 @@ export async function POST(req: Request) {
       checkIn: q.checkIn,
       checkOut: q.checkOut,
       nights: q.nights,
+      pkgLabel: PACKAGES[pkg].label,
+      room,
       available: soldOutDates.length === 0,
       minRemaining: Math.min(...nightRemains.map((n) => n.remaining)),
       soldOutDates,
@@ -95,17 +109,17 @@ export async function POST(req: Request) {
   try {
     await client.query("BEGIN");
 
-    // 1) 기존 밤 재고 반납
+    // 1) 기존 밤 재고 반납 — 기존 객실 타입 기준
     let cur = ord.old_in as string;
     while (cur < ord.old_out) {
       await client.query(
         `UPDATE hotel_room_inventory SET booked = GREATEST(booked - 1, 0) WHERE stay_date = $1 AND room_type = $2`,
-        [cur, room]
+        [cur, oldRoom]
       );
       cur = nextISO(cur);
     }
 
-    // 2) 새 밤 재고 차감(반납 후라 겹치는 밤도 정상 처리) — 실패 시 롤백
+    // 2) 새 밤 재고 차감 — 새 객실 타입 기준 (반납 후라 겹치는 밤도 정상 처리) — 실패 시 롤백
     const ok = await decrementStay(client, room, q.checkIn, q.nights);
     if (!ok) {
       await client.query("ROLLBACK");
@@ -120,8 +134,8 @@ export async function POST(req: Request) {
     );
     if (ord.item_id) {
       await client.query(
-        `UPDATE order_items SET option_label = $1 WHERE id = $2`,
-        [`${room} · ${stayLabel}`, ord.item_id]
+        `UPDATE order_items SET product_name = $1, option_label = $2 WHERE id = $3`,
+        [`${hotelName} · ${PACKAGES[pkg].label} · ${room}`, `${room} · ${stayLabel}`, ord.item_id]
       );
     }
 
@@ -148,11 +162,21 @@ export async function POST(req: Request) {
       refunded = refundAmount;
       await client.query(`UPDATE orders SET total_amount = $1 WHERE id = $2`, [newTotal, id]);
     } else if (diff > 0) {
-      // 더 비쌈 → 자동 결제 불가(기존 결제 증액 불가). 재결제요망 플래그만 반환.
+      // 더 비쌈 → 자동 결제 불가(기존 결제 증액 불가). 차액 결제링크 생성해서 반환.
       needRepay = true;
     }
 
     await client.query("COMMIT");
+
+    // 4) 추가 차액 결제링크 — 관리자가 복사해서 고객에게 전달 (금액 서명 포함, URL 조작 불가)
+    // 고객에게 가는 링크라 프록시 뒤 origin 대신 공개 도메인을 사용
+    let payLink: string | null = null;
+    if (needRepay) {
+      const base = process.env.NODE_ENV === "production" ? "https://shop.blendpunch.com" : "http://localhost:3000";
+      const token = await signPayLink(diff, `${ord.order_number} 예약 변경 차액`);
+      payLink = `${base}/pay/extra?t=${token}`;
+    }
+
     return NextResponse.json({
       ok: true,
       diff,
@@ -160,8 +184,11 @@ export async function POST(req: Request) {
       checkIn: q.checkIn,
       checkOut: q.checkOut,
       nights: q.nights,
+      pkgLabel: PACKAGES[pkg].label,
+      room,
       refunded,
       needRepay,
+      payLink,
     });
   } catch (e) {
     await client.query("ROLLBACK");
