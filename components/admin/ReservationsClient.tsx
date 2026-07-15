@@ -214,6 +214,22 @@ export default function ReservationsClient() {
     return list;
   }, [rows, tab, query]);
 
+  // 페이지네이션 — 탭/검색이 바뀌면 1페이지로 (명단 다운로드는 전체 visible 기준 유지)
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [tab, query]);
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = useMemo(
+    () => visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [visible, safePage]
+  );
+  // 페이지 번호 버튼 (현재 페이지 주변 5개)
+  const pageNums = useMemo(() => {
+    const start = Math.max(1, Math.min(safePage - 2, totalPages - 4));
+    return Array.from({ length: Math.min(5, totalPages) }, (_, i) => start + i);
+  }, [safePage, totalPages]);
+
   async function updateStatus(id: string, status: string) {
     let fullRefund = false;
     if (status === "cancelled") {
@@ -375,7 +391,7 @@ export default function ReservationsClient() {
         ) : visible.length === 0 ? (
           <div className="p-16 text-center text-sm text-gray-400">예약이 없습니다</div>
         ) : (
-          visible.map((r) => {
+          paged.map((r) => {
             const st = STATUS[r.status] ?? { label: r.status, cls: "bg-gray-100 text-gray-500" };
             return (
               <div key={r.id} className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-4 border-b border-gray-50 last:border-0 items-center hover:bg-gray-50/60 transition-colors min-w-[760px]">
@@ -423,6 +439,30 @@ export default function ReservationsClient() {
           })
         )}
       </div>
+
+      {/* 페이지네이션 */}
+      {visible.length > PAGE_SIZE && (
+        <div className="flex items-center justify-center gap-1.5 mt-4">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}
+            className="w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-500 text-sm disabled:opacity-30 hover:bg-gray-50">
+            ‹
+          </button>
+          {pageNums.map((n) => (
+            <button key={n} onClick={() => setPage(n)}
+              className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
+                n === safePage ? "bg-gray-900 text-white" : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+              {n}
+            </button>
+          ))}
+          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+            className="w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-500 text-sm disabled:opacity-30 hover:bg-gray-50">
+            ›
+          </button>
+          <span className="text-xs text-gray-400 ml-2 tnum">
+            {safePage} / {totalPages} 페이지 · 총 {visible.length}건
+          </span>
+        </div>
+      )}
 
       {/* 객실 재고 현황 — 월별 탭 + 필터 + 요약 */}
       <div className="mt-8">
