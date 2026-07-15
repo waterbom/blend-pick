@@ -2,7 +2,28 @@ import Link from "next/link";
 import ExtraPayClient from "@/components/ExtraPayClient";
 import { verifyPayLink } from "@/lib/pay-link";
 
-export const metadata = { title: "추가 결제 · BLEND PICK" };
+// 카카오톡 공유 미리보기 — 링크가 사기처럼 보이지 않게 금액·용도까지 표시
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ t?: string }> }) {
+  const { t } = await searchParams;
+  const info = t ? await verifyPayLink(t) : null;
+  const title = "추가 결제 · BLEND PICK";
+  const description = info
+    ? `${info.label} · ${info.amount.toLocaleString()}원 — 블렌드픽 공식 결제 페이지에서 카드로 안전하게 결제하실 수 있어요.`
+    : "블렌드픽 공식 결제 페이지 — 금액 확인 후 카드로 안전하게 결제하실 수 있어요.";
+  return {
+    title,
+    description,
+    openGraph: {
+      title: info ? `추가 결제 ${info.amount.toLocaleString()}원 · BLEND PICK` : title,
+      description,
+      url: "https://shop.blendpunch.com/pay/extra",
+      siteName: "BLEND PICK",
+      type: "website",
+      locale: "ko_KR",
+      images: [{ url: "https://shop.blendpunch.com/og-pay.png", width: 1200, height: 630, alt: "블렌드픽 안전한 추가 결제 페이지" }],
+    },
+  };
+}
 
 // 숨은 결제 경로 — 링크(서명 토큰)로만 접근. 내비게이션에 노출 안 함.
 export default async function ExtraPayPage({
