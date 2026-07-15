@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import Header from "@/components/Header";
 import HotelCheckoutClient from "@/components/HotelCheckoutClient";
 import { verifyToken } from "@/lib/auth";
-import { PACKAGES, HOTEL, quoteReservation, stayBreakdown, saleState } from "@/lib/hotel";
+import { PACKAGES, HOTEL, quoteReservation, stayBreakdown, saleStateFor } from "@/lib/hotel";
 import { isStayAvailable, minRemainingForStay } from "@/lib/hotel-inventory";
 import { phoneVerifyOn } from "@/lib/sms";
 import pool from "@/lib/db";
@@ -26,18 +26,21 @@ export default async function HotelCheckoutPage({
 }: {
   searchParams: Promise<{ pkg?: string; room?: string; in?: string; out?: string; inf?: string }>;
 }) {
-  // 판매 오픈 전/마감이면 결제 진입 차단
-  if (saleState() !== "open") redirect("/hotel/reserve");
-
   const sp = await searchParams;
+  const influencer = await getInfluencer(sp.inf);
+  // 인플루언서 링크로 돌아갈 때 귀속(?inf=) 유지
+  const backTo = `/hotel/reserve${sp.inf ? `?inf=${encodeURIComponent(sp.inf)}` : ""}`;
+
+  // 판매 오픈 전/마감이면 결제 진입 차단 — 인플루언서별 오픈 일정 반영
+  if (saleStateFor(influencer) !== "open") redirect(backTo);
+
   const q = quoteReservation(sp.pkg ?? "", sp.room ?? "", sp.in ?? "", sp.out ?? "");
-  if (!q) redirect("/hotel/reserve");
+  if (!q) redirect(backTo);
   // 실제 재고(마감) 확인 — 마감된 날짜면 결제 진입 차단
-  if (!(await isStayAvailable(q.room, q.checkIn, q.nights))) redirect("/hotel/reserve");
+  if (!(await isStayAvailable(q.room, q.checkIn, q.nights))) redirect(backTo);
 
   const breakdown = stayBreakdown(q.pkg, q.checkIn, q.nights);
   const clientKey = process.env.TOSS_CLIENT_KEY!;
-  const influencer = await getInfluencer(sp.inf);
   // 마지막 남은 객실 안내 (기간 중 가장 적게 남은 밤 기준)
   const lastRoom = (await minRemainingForStay(q.room, q.checkIn, q.nights)) === 1;
 

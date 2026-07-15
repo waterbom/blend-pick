@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   PACKAGES, ROOM_META, TIERS, getTier, nightlyWon, stayPriceWon, listWon, manLabel, nextISO,
-  BOOKABLE_FROM, BOOKABLE_TO, GROUPBUY_DEADLINE, SALE_START, SALE_FROM, SALE_TO, WON,
+  BOOKABLE_FROM, BOOKABLE_TO, saleScheduleFor, WON,
   type PkgKey, type RoomType, type Tier,
 } from "@/lib/hotel";
 
@@ -120,10 +120,14 @@ export default function HotelReserveClient({
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+  // 인플루언서 링크(?inf=)별 판매 일정 — 없으면 기본 일정
+  const schedule = saleScheduleFor({ id: influencerId ?? undefined, name: influencerName ?? undefined });
+  const saleFromISO = schedule.start.slice(0, 10);
+  const saleToISO = schedule.deadline.slice(0, 10);
   const sale: "before" | "open" | "closed" =
-    now < new Date(SALE_START).getTime() ? "before"
-    : now > new Date(GROUPBUY_DEADLINE).getTime() ? "closed" : "open";
-  const remain = calcRemain(sale === "before" ? SALE_START : GROUPBUY_DEADLINE, now);
+    now < new Date(schedule.start).getTime() ? "before"
+    : now > new Date(schedule.deadline).getTime() ? "closed" : "open";
+  const remain = calcRemain(sale === "before" ? schedule.start : schedule.deadline, now);
 
   function resetDates() { setCheckIn(null); setCheckOut(null); }
 
@@ -236,8 +240,8 @@ export default function HotelReserveClient({
             style={{ borderTop: "1px solid rgba(234,240,230,.18)", color: C.mintOnDark }}>
             <div>
               <span className="block mb-1 text-[10px] lg:text-[11px]" style={{ letterSpacing: ".1em", color: C.sageLight }}>판매기간</span>
-              <span className="hidden lg:inline">{fmtDot(SALE_FROM)} — {fmtDot(SALE_TO, false)}</span>
-              <span className="lg:hidden">{fmtDot(SALE_FROM, false)} — {fmtDot(SALE_TO, false)}</span>
+              <span className="hidden lg:inline">{fmtDot(saleFromISO)} — {fmtDot(saleToISO, false)}</span>
+              <span className="lg:hidden">{fmtDot(saleFromISO, false)} — {fmtDot(saleToISO, false)}</span>
             </div>
             <div>
               <span className="block mb-1 text-[10px] lg:text-[11px]" style={{ letterSpacing: ".1em", color: C.sageLight }}>투숙기간</span>

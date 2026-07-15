@@ -29,12 +29,31 @@ export const SALE_START = "2026-07-14T20:00:00+09:00";
 // 공동구매 마감 일시(KST) = 판매 종료일 끝. 카운트다운 기준.
 export const GROUPBUY_DEADLINE = "2026-07-17T23:59:59+09:00";
 
-// 판매 상태: 오픈 전 / 진행 중 / 마감
-export function saleState(): "before" | "open" | "closed" {
+// 인플루언서별 공구 일정 오버라이드 — 키는 인플루언서 이름(관리자 등록명 정확히) 또는 ID.
+// 재고·요금 DB는 전부 공유하고, "판매 시작/마감 시각"만 해당 인플루언서 링크(?inf=)에서 다르게 적용된다.
+export const INFLUENCER_SALES: Record<string, { start: string; deadline: string }> = {
+  하블리네: { start: "2026-07-16T10:00:00+09:00", deadline: "2026-07-21T23:59:59+09:00" },
+};
+
+// 링크의 인플루언서에게 적용되는 판매 일정 (오버라이드 없으면 기본 일정)
+export function saleScheduleFor(inf?: { id?: string; name?: string } | null): { start: string; deadline: string } {
+  const byName = inf?.name ? INFLUENCER_SALES[inf.name] : undefined;
+  const byId = inf?.id ? INFLUENCER_SALES[inf.id] : undefined;
+  return byName ?? byId ?? { start: SALE_START, deadline: GROUPBUY_DEADLINE };
+}
+
+// 판매 상태: 오픈 전 / 진행 중 / 마감 (인플루언서별 일정 반영)
+export function saleStateFor(inf?: { id?: string; name?: string } | null): "before" | "open" | "closed" {
+  const { start, deadline } = saleScheduleFor(inf);
   const now = Date.now();
-  if (now < new Date(SALE_START).getTime()) return "before";
-  if (now > new Date(GROUPBUY_DEADLINE).getTime()) return "closed";
+  if (now < new Date(start).getTime()) return "before";
+  if (now > new Date(deadline).getTime()) return "closed";
   return "open";
+}
+
+// 기본 일정 판매 상태 (메인 배너 등 인플루언서 없는 화면용)
+export function saleState(): "before" | "open" | "closed" {
+  return saleStateFor(null);
 }
 
 // 업체정보 — 투숙객 제휴 혜택(그 외 즐길거리)
