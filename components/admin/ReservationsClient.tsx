@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BOOKABLE_FROM, BOOKABLE_TO, refundRateFor } from "@/lib/hotel";
+import { BOOKABLE_FROM, BOOKABLE_TO, refundRateFor, PACKAGES, ROOM_META, type PkgKey, type RoomType } from "@/lib/hotel";
 
 interface Reservation {
   id: string;
@@ -45,6 +45,17 @@ function md(iso: string | null) {
   if (!iso) return "-";
   const [y, m, d] = iso.split("-").map(Number);
   return `${m}/${d}(${WEEK[new Date(y, m - 1, d).getDay()]})`;
+}
+// product_name "여수 UTOP 마리나 · 3인 패키지 · 패밀리 트윈" → 인원·침대 정보
+function stayMeta(name: string | null) {
+  if (!name) return null;
+  const parts = name.split(" · ");
+  if (parts.length < 3) return null;
+  const pkg: PkgKey = name.includes("3인") ? "p3" : name.includes("4인") ? "p4" : "p2";
+  const room = parts[parts.length - 1] as RoomType;
+  const meta = ROOM_META[room];
+  if (!meta) return null;
+  return { pkgLabel: PACKAGES[pkg].label, people: PACKAGES[pkg].people, room, bed: meta.bed, capacity: meta.capacity };
 }
 function hotelRoom(name: string | null) {
   if (!name) return "-";
@@ -141,8 +152,27 @@ export default function ReservationsClient() {
   const [newIn, setNewIn] = useState("");
   const [newOut, setNewOut] = useState("");
   const [changing, setChanging] = useState(false);
-  const [datePreview, setDatePreview] = useState<{ diff: number; oldTotal: number; newTotal: number; nights: number } | null>(null);
+  const [datePreview, setDatePreview] = useState<{ diff: number; oldTotal: number; newTotal: number; nights: number; available: boolean; minRemaining: number; soldOutDates: string[] } | null>(null);
   const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; needRepay: boolean } | null>(null);
+  // 날짜 고르는 동안 대상 기간 잔여 객실 자동 확인 (본인 예약 반납분 포함해서 계산)
+  const [avail, setAvail] = useState<{ checking: boolean; available?: boolean; minRemaining?: number; soldOutDates?: string[] } | null>(null);
+
+  useEffect(() => {
+    if (!dateEdit || !newIn || !newOut || newOut <= newIn) { setAvail(null); return; }
+    setAvail({ checking: true });
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/admin/reservations/change-date", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, preview: true }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.ok && d.ok) setAvail({ checking: false, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates });
+        else setAvail(null);
+      } catch { setAvail(null); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [dateEdit, newIn, newOut]);
 
   function openDateModal(r: Reservation) {
     setDateEdit(r);
@@ -150,6 +180,7 @@ export default function ReservationsClient() {
     setNewOut(r.stay_check_out || "");
     setDatePreview(null);
     setDateResult(null);
+    setAvail(null);
   }
 
   // 1단계: 차액 미리보기 (DB 변경 없음)
@@ -164,7 +195,7 @@ export default function ReservationsClient() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d.ok) { alert(d.error || "요금 계산에 실패했습니다."); return; }
-      setDatePreview({ diff: d.diff, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights });
+      setDatePreview({ diff: d.diff, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [] });
     } finally {
       setChanging(false);
     }
@@ -560,6 +591,14 @@ export default function ReservationsClient() {
             <div className="p-5 border-b border-gray-100">
               <p className="text-sm font-bold text-gray-800">📅 예약 날짜 변경</p>
               <p className="text-xs text-gray-400 mt-0.5 font-mono">{dateEdit.order_number} · {dateEdit.buyer_name} · {hotelRoom(dateEdit.product_name)}</p>
+              {(() => {
+                const m = stayMeta(dateEdit.product_name);
+                return m ? (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    🛏 <b>{m.room}</b> — {m.bed} · {m.capacity} · <b>{m.pkgLabel}</b> ({m.people})
+                  </p>
+                ) : null;
+              })()}
             </div>
 
             {!dateResult && !datePreview ? (
@@ -578,9 +617,23 @@ export default function ReservationsClient() {
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
                 </div>
+                {/* 대상 기간 잔여 객실 즉시 확인 */}
+                {avail && (
+                  avail.checking ? (
+                    <p className="text-xs text-gray-400">잔여 객실 확인 중…</p>
+                  ) : avail.available ? (
+                    <div className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+                      ✅ 변경 가능 — 해당 기간 잔여 <b>최소 {avail.minRemaining}실</b>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                      ⛔ 변경 불가 — 마감된 날짜: <b>{(avail.soldOutDates ?? []).map((d) => md(d)).join(", ")}</b>
+                    </div>
+                  )
+                )}
                 <p className="text-xs text-gray-400">현재: {md(dateEdit.stay_check_in)} ~ {md(dateEdit.stay_check_out)} · 요금 차이는 자동 환불(저렴)/차액 링크(비쌈)로 처리돼요.</p>
                 <div className="flex gap-2 pt-1">
-                  <button onClick={previewDateChange} disabled={changing}
+                  <button onClick={previewDateChange} disabled={changing || avail?.available === false}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg">
                     {changing ? "계산 중…" : "차액 확인"}
                   </button>
@@ -600,6 +653,15 @@ export default function ReservationsClient() {
                     <span>{md(newIn)} ~ {md(newOut)} ({datePreview.nights}박) · {datePreview.newTotal.toLocaleString()}원</span>
                   </div>
                 </div>
+                {datePreview.available ? (
+                  <div className="rounded-lg bg-green-50 px-4 py-2.5 text-xs text-green-700">
+                    ✅ 해당 기간 예약 가능 — 잔여 최소 <b>{datePreview.minRemaining}실</b>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-red-50 px-4 py-2.5 text-xs text-red-600">
+                    ⛔ 변경 불가 — 마감된 날짜: <b>{datePreview.soldOutDates.map((d) => md(d)).join(", ")}</b>
+                  </div>
+                )}
                 {datePreview.diff > 0 ? (
                   <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700">
                     추가 차액 <b>{datePreview.diff.toLocaleString()}원</b> 발생 → <b>재결제요망</b>. 고객에게 차액 재결제를 별도로 안내해주세요.
@@ -613,9 +675,9 @@ export default function ReservationsClient() {
                 )}
                 <p className="text-xs text-gray-400">정말 이대로 변경할까요? 확정하면 재고와 결제가 즉시 처리됩니다.</p>
                 <div className="flex gap-2 pt-1">
-                  <button onClick={confirmDateChange} disabled={changing}
+                  <button onClick={confirmDateChange} disabled={changing || !datePreview.available}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg">
-                    {changing ? "변경 중…" : "변경 확정"}
+                    {changing ? "변경 중…" : datePreview.available ? "변경 확정" : "잔여 객실 없음"}
                   </button>
                   <button onClick={() => setDatePreview(null)} disabled={changing}
                     className="px-4 py-2.5 text-sm text-gray-400 border border-gray-200 rounded-lg hover:text-gray-600">뒤로</button>

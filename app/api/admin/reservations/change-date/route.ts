@@ -55,8 +55,27 @@ export async function POST(req: Request) {
   const newTotal = q.total;
   const diff = newTotal - oldTotal; // >0 추가결제 필요, <0 환불
 
-  // 미리보기 — 실제 변경 없이 차액만 계산해서 반환 (확인창용)
+  // 미리보기 — 실제 변경 없이 차액 + 대상 날짜 잔여 객실을 계산해서 반환 (확인창용)
   if (preview) {
+    const dates: string[] = [];
+    let d = q.checkIn;
+    for (let i = 0; i < q.nights; i++) { dates.push(d); d = nextISO(d); }
+    const invRes = await shopPool.query(
+      `SELECT to_char(stay_date, 'YYYY-MM-DD') AS d, allocated - booked AS remaining
+         FROM hotel_room_inventory
+        WHERE room_type = $1 AND stay_date = ANY($2::date[])`,
+      [room, dates]
+    );
+    const remainMap = new Map<string, number>(
+      invRes.rows.map((r: { d: string; remaining: number }) => [r.d, Number(r.remaining)])
+    );
+    // 본인 예약이 점유 중인 밤은 변경 시 반납되므로 +1 — 기존 기간과 겹치게 변경해도 막히지 않게
+    const nightRemains = dates.map((date) => {
+      let remaining = remainMap.get(date) ?? 0; // 재고 행 없음 = 배정 없음
+      if (date >= ord.old_in && date < ord.old_out) remaining += 1;
+      return { date, remaining };
+    });
+    const soldOutDates = nightRemains.filter((n) => n.remaining <= 0).map((n) => n.date);
     return NextResponse.json({
       ok: true,
       preview: true,
@@ -66,6 +85,9 @@ export async function POST(req: Request) {
       checkIn: q.checkIn,
       checkOut: q.checkOut,
       nights: q.nights,
+      available: soldOutDates.length === 0,
+      minRemaining: Math.min(...nightRemains.map((n) => n.remaining)),
+      soldOutDates,
     });
   }
 
