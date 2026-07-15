@@ -2,9 +2,19 @@ import Header from "@/components/Header";
 import HotelReserveClient from "@/components/HotelReserveClient";
 import pool from "@/lib/db";
 
+// 카카오톡 등 공유 시 미리보기 (오픈그래프) — 인플루언서 공유 링크에도 적용
 export const metadata = {
   title: "여수 UTOP 마리나 호텔 공동구매 · BLEND PICK",
-  description: "달력에서 패키지·날짜를 골라 예약하세요",
+  description: "오션뷰 객실 · 조식 · 인피니티풀 · 레이트 체크아웃까지, 룸온리 요금으로 한 번에.",
+  openGraph: {
+    title: "여수 UTOP 마리나 호텔 공동구매 · BLEND PICK",
+    description: "오션뷰 객실 · 조식 · 인피니티풀 · 레이트 체크아웃까지, 룸온리 요금으로 한 번에.",
+    url: "https://shop.blendpunch.com/hotel/reserve",
+    siteName: "BLEND PICK",
+    type: "website",
+    locale: "ko_KR",
+    images: [{ url: "https://shop.blendpunch.com/og-hotel.png", width: 1200, height: 630, alt: "여수 UTOP 마리나 호텔 오션뷰 객실" }],
+  },
 };
 
 // 인플루언서 전용 링크(?inf=) 검증 — 존재하는 인플루언서만 통과 (이름은 DB에서만 신뢰)
