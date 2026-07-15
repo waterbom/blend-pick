@@ -34,9 +34,11 @@ export async function GET(req: Request) {
   const to = searchParams.get("to");
   const channel = searchParams.get("channel"); // 'shop' | 'campaign' | 'hotel' | null
 
-  // ── 호텔 공구 — 대행 모델: 블렌드픽 수수료 = 매출 7%, 토스 수수료 1.7% → 순수익 5.3% ──
-  // 매출에는 예약(hotel)과 예약 변경 차액(extra)을 포함. 인플루언서 수수료는 공구 정산에서 별도 관리.
-  const HOTEL_FEE_RATE = 0.07;
+  // ── 호텔 공구 — 대행 모델 배분: 호텔(공급가) 88% · 인플루언서 5%(귀속 주문만) · 블렌드픽 7% ──
+  // 블렌드픽 순수익 = 7% − 토스 수수료 1.7% = 매출의 5.3% (직접 유입 주문은 인플 몫 5%가 우리에게 남음)
+  // 매출에는 예약(hotel)과 예약 변경 차액(extra)을 포함.
+  const HOTEL_SUPPLY_RATE = 0.88;
+  const HOTEL_INF_RATE = 0.05;
   const HOTEL_PG_RATE = 0.017;
   async function hotelRow() {
     const hConds = ["o.status = ANY($1)", "o.order_type IN ('hotel', 'extra')"];
@@ -44,15 +46,18 @@ export async function GET(req: Request) {
     if (from) { hParams.push(from); hConds.push(`o.paid_at >= $${hParams.length}::date`); }
     if (to) { hParams.push(to); hConds.push(`o.paid_at < ($${hParams.length}::date + INTERVAL '1 day')`); }
     const h = await shopPool.query(
-      `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
+      `SELECT COUNT(*) AS orders,
+              COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross,
+              COALESCE(SUM(o.total_amount - o.shipping_fee) FILTER (WHERE o.influencer_id IS NOT NULL), 0) AS inf_gross
        FROM orders o WHERE ${hConds.join(" AND ")}`,
       hParams
     );
     const gross = Number(h.rows[0].gross);
     const orderCount = Number(h.rows[0].orders);
     if (orderCount === 0) return null;
-    const fee = Math.round(gross * HOTEL_FEE_RATE);   // 블렌드픽 수수료 7%
-    const pgFee = Math.round(gross * HOTEL_PG_RATE);  // 토스 수수료 1.7%
+    const supplyCost = Math.round(gross * HOTEL_SUPPLY_RATE);                 // 호텔 정산분 88%
+    const commission = Math.round(Number(h.rows[0].inf_gross) * HOTEL_INF_RATE); // 인플 5% (귀속 주문만)
+    const pgFee = Math.round(gross * HOTEL_PG_RATE);                          // 토스 1.7%
     return {
       campaign_id: null,
       label: "호텔 공구 · 여수 UTOP 마리나",
@@ -64,16 +69,16 @@ export async function GET(req: Request) {
       orders: orderCount,
       qty: orderCount,
       gross,
-      sales_vat: 0,                 // 대행 매출 — 부가세는 수수료분 기준이라 별도 처리
-      supply_cost: gross - fee,     // 호텔 정산분 (매출의 93%)
+      sales_vat: 0, // 대행 매출 — 부가세는 수수료분 기준이라 별도 처리
+      supply_cost: supplyCost,
       missing_supply: 0,
       shipping_cost: 0,
       pg_fee: pgFee,
       fee_estimated: false,
       other_costs: 0,
-      commission: 0,                // 인플루언서 수수료는 공구 정산 페이지에서 별도 관리
-      rate: null,
-      net_profit: fee - pgFee,      // 7% − 1.7% = 5.3%
+      commission,
+      rate: 5,
+      net_profit: gross - supplyCost - commission - pgFee, // 전량 귀속 시 매출의 5.3%
     };
   }
 
