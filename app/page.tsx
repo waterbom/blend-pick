@@ -1,122 +1,69 @@
-import pool from "@/lib/db";
+import shopPool from "@/lib/db-shop";
 import Header from "@/components/Header";
 import ShopHeroBanner from "@/components/ShopHeroBanner";
-import HomeDealSection from "@/components/HomeDealSection";
-import CollabSection from "@/components/CollabSection";
 import TrendByAI from "@/components/TrendByAI";
+import HotelPromoBand from "@/components/HotelPromoBand";
+import FallbackImg from "@/components/FallbackImg";
+import Link from "next/link";
 
-export interface CampaignPage {
+interface ShopProduct {
   id: string;
-  product_id: string;
-  title: string;
+  name: string;
+  brand: string;
   price: number;
   original_price: number | null;
+  stock: number;
+  status: string;
   main_image: string | null;
-  starts_at: string | null;
-  ends_at: string | null;
-  stock_quantity: number | null;
-  campaign_count: number;
-  influencer_name: string | null;
+  shipping_type: string;
+  shipping_cost: number;
 }
 
-const TODAY = `(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date`;
+interface UpcomingProduct {
+  id: string;
+  name: string;
+  brand: string;
+  main_image: string | null;
+  open_label: string;
+}
 
-async function getCampaignsByCondition(
-  dateWhere: string
-): Promise<CampaignPage[]> {
+// 판매 중 상품 — Shop 등록 기준 (판매 시작 예약이 미래인 상품은 제외)
+async function getSellingProducts(): Promise<ShopProduct[]> {
   try {
-    const result = await pool.query(`
-      WITH counts AS (
-        SELECT product_id, COUNT(*)::int AS campaign_count
-        FROM campaigns
-        WHERE is_archived = false AND ${dateWhere}
-        GROUP BY product_id
-      )
-      SELECT DISTINCT ON (p.id)
-        c.id,
-        p.name AS title,
-        c.start_date AS starts_at,
-        c.end_date AS ends_at,
-        COALESCE(sp.main_image, p.product_image) AS main_image,
-        COALESCE(NULLIF(sp.price, 0), NULLIF(c.unit_price, 0), NULLIF(p.groupbuy_price, 0), p.consumer_price, 0) AS price,
-        COALESCE(sp.original_price, p.consumer_price) AS original_price,
-        sp.stock_quantity,
-        p.id AS product_id,
-        cnt.campaign_count,
-        CASE WHEN cnt.campaign_count = 1 THEN i.name ELSE NULL END AS influencer_name
-      FROM campaigns c
-      JOIN products p ON c.product_id = p.id
-      LEFT JOIN sales_pages sp ON sp.campaign_id = c.id
-      LEFT JOIN influencers i ON i.id = c.influencer_id
-      JOIN counts cnt ON cnt.product_id = p.id
-      WHERE c.is_archived = false AND ${dateWhere}
-        AND COALESCE(NULLIF(sp.price, 0), NULLIF(c.unit_price, 0), NULLIF(p.groupbuy_price, 0), p.consumer_price, 0) > 0
-      ORDER BY p.id, c.start_date ASC
-    `);
-    return result.rows.filter((r) => r.price > 0);
+    const result = await shopPool.query(
+      `SELECT id, name, brand, price, original_price, stock, status, main_image, shipping_type, shipping_cost
+       FROM products_shop
+       WHERE status = 'active' AND (sale_start_at IS NULL OR sale_start_at <= NOW())
+       ORDER BY created_at DESC
+       LIMIT 8`
+    );
+    return result.rows;
   } catch (e) {
-    console.error(e);
+    console.error("[home] 판매 상품 조회 실패:", e);
     return [];
   }
 }
 
-async function getActiveCampaigns() {
-  return getCampaignsByCondition(
-    `start_date <= ${TODAY} AND end_date >= ${TODAY}`
-  );
-}
-
-async function getUpcomingCampaigns() {
-  return getCampaignsByCondition(
-    `start_date > ${TODAY} AND start_date <= ${TODAY} + INTERVAL '30 days'`
-  );
-}
-
-async function getEndedCampaigns() {
-  return getCampaignsByCondition(
-    `end_date < ${TODAY} AND end_date >= ${TODAY} - INTERVAL '7 days'`
-  );
-}
-
-
-async function getCollabProducts() {
+// 곧 오픈 — 판매 시작이 미래로 예약된 상품 (Products 페이지와 동일 기준)
+async function getUpcomingProducts(): Promise<UpcomingProduct[]> {
   try {
-    const result = await pool.query(`
-      SELECT id, name, brand, product_image
-      FROM products
-      WHERE is_archived = false
-        AND product_image IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM campaigns c
-          WHERE c.product_id = products.id AND c.is_archived = false
-        )
-      ORDER BY RANDOM()
-      LIMIT 20
-    `);
-    const countResult = await pool.query(`
-      SELECT COUNT(*)::int AS total
-      FROM products
-      WHERE is_archived = false
-        AND NOT EXISTS (
-          SELECT 1 FROM campaigns c
-          WHERE c.product_id = products.id AND c.is_archived = false
-        )
-    `);
-    return { products: result.rows, totalCount: countResult.rows[0].total };
+    const result = await shopPool.query(
+      `SELECT id, name, brand, main_image,
+              to_char(sale_start_at AT TIME ZONE 'Asia/Seoul', 'FMMM. FMDD') AS open_label
+       FROM products_shop
+       WHERE status = 'active' AND sale_start_at > NOW()
+       ORDER BY sale_start_at ASC
+       LIMIT 4`
+    );
+    return result.rows;
   } catch (e) {
-    console.error(e);
-    return { products: [], totalCount: 0 };
+    console.error("[home] 오픈 예정 조회 실패:", e);
+    return [];
   }
 }
 
 export default async function Home() {
-  const [active, upcoming, ended, collab] =
-    await Promise.all([
-      getActiveCampaigns(),
-      getUpcomingCampaigns(),
-      getEndedCampaigns(),
-      getCollabProducts(),
-    ]);
+  const [selling, upcoming] = await Promise.all([getSellingProducts(), getUpcomingProducts()]);
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -125,17 +72,102 @@ export default async function Home() {
       {/* 히어로 배너 슬라이더 */}
       <ShopHeroBanner />
 
-      {/* HOT DEAL 섹션 */}
-      <HomeDealSection active={active} upcoming={upcoming} ended={ended} />
+      {/* 지금 판매 중 — Shop 상품 */}
+      <section className="container-blend pt-10 pb-4">
+        <div className="flex items-baseline justify-between mb-5">
+          <div>
+            <p className="text-[11px] font-bold tracking-[0.22em] uppercase mb-1.5" style={{ color: "var(--accent)" }}>
+              NOW ON SALE
+            </p>
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
+              지금 판매 중
+            </h2>
+          </div>
+          <Link href="/products" className="text-sm font-semibold" style={{ color: "var(--accent)" }}>
+            전체 보기 →
+          </Link>
+        </div>
 
+        {selling.length === 0 ? (
+          <div className="text-center py-20 text-sm rounded-2xl" style={{ color: "var(--text-muted)", background: "var(--surface-soft)" }}>
+            판매 중인 상품이 없습니다.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
+            {selling.map((p) => {
+              const discount = p.original_price && p.original_price > p.price
+                ? Math.round((1 - p.price / p.original_price) * 100)
+                : null;
+              const soldOut = p.stock === 0 || p.status === "soldout";
+              return (
+                <Link key={p.id} href={`/products/${p.id}`} className="group block">
+                  <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-3" style={{ background: "var(--surface-soft)" }}>
+                    <FallbackImg src={p.main_image} alt={p.name}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    {discount != null && !soldOut && (
+                      <span className="absolute top-2 left-2 text-white text-xs font-extrabold px-2 py-0.5 rounded-full" style={{ background: "var(--sale)" }}>
+                        -{discount}%
+                      </span>
+                    )}
+                    {soldOut && (
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)" }}>
+                        <span className="text-white text-sm font-bold">품절</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] font-medium mb-1" style={{ color: "var(--text-muted)" }}>{p.brand}</p>
+                  <p className="text-sm font-medium line-clamp-2 leading-snug mb-1.5" style={{ color: "var(--text-primary)" }}>{p.name}</p>
+                  <div className="flex items-center gap-1.5 tnum">
+                    <span className="text-base font-bold" style={{ color: "var(--text-primary)" }}>{p.price.toLocaleString()}원</span>
+                    {p.original_price && p.original_price > p.price && (
+                      <span className="text-xs line-through" style={{ color: "var(--text-muted)" }}>{p.original_price.toLocaleString()}원</span>
+                    )}
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: p.shipping_type === "free" ? "var(--accent)" : "var(--text-muted)" }}>
+                    {p.shipping_type === "free" ? "무료배송" : `배송비 ${p.shipping_cost.toLocaleString()}원`}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
+      {/* 곧 오픈 — 판매 예약 상품 (있을 때만) */}
+      {upcoming.length > 0 && (
+        <section className="container-blend pt-8 pb-4">
+          <p className="text-[11px] font-bold tracking-[0.22em] uppercase mb-1.5" style={{ color: "var(--accent)" }}>
+            UPCOMING
+          </p>
+          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight mb-5" style={{ color: "var(--text-primary)" }}>
+            곧 오픈해요
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {upcoming.map((u) => (
+              <Link key={u.id} href={`/products/${u.id}`} className="group block rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid var(--line)" }}>
+                <div className="relative w-full aspect-[4/3] overflow-hidden" style={{ background: "var(--surface-soft)" }}>
+                  <FallbackImg src={u.main_image} alt={u.name} className="w-full h-full object-cover" />
+                  <span className="absolute top-2 left-2 text-xs font-extrabold px-2.5 py-1 rounded-full text-white" style={{ background: "var(--accent)" }}>
+                    {u.open_label} 오픈
+                  </span>
+                </div>
+                <div className="p-3">
+                  <p className="text-[11px] font-medium mb-0.5" style={{ color: "var(--text-muted)" }}>{u.brand}</p>
+                  <p className="text-sm font-semibold line-clamp-2 leading-snug" style={{ color: "var(--text-primary)" }}>{u.name}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* 협업 가능 제품 섹션 */}
-      <CollabSection products={collab.products} totalCount={collab.totalCount} />
+      {/* 진행 중 호텔 공구 밴드 */}
+      <section className="container-blend pt-8 pb-4">
+        <HotelPromoBand />
+      </section>
 
       {/* BLEND PICK TREND BY AI */}
       <TrendByAI />
-
     </main>
   );
 }

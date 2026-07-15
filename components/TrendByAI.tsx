@@ -176,7 +176,7 @@ export default function TrendByAI() {
           Trend by AI
         </h2>
         <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-          OS 시스템이 분석한 이번 주 공구 트렌드
+          AI가 분석한 이번 주 쇼핑 트렌드
         </p>
         <div className="mt-3 h-0.5 w-12 rounded-full" style={{ background: "var(--accent)" }} />
       </div>
