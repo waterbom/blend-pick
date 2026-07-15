@@ -1,0 +1,39 @@
+name: Export Hotel Inventory
+
+on:
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query remaining rooms on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const pool = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            (async () => {
+              const { rows } = await pool.query(`
+                SELECT to_char(stay_date, \x27YYYY-MM-DD\x27) AS d, room_type, allocated, booked, allocated - booked AS remaining
+                FROM hotel_room_inventory
+                WHERE stay_date >= (CURRENT_TIMESTAMP AT TIME ZONE \x27Asia/Seoul\x27)::date
+                ORDER BY stay_date, room_type`);
+              console.log("===CSV_START===");
+              console.log("date,room_type,allocated,booked,remaining");
+              for (const r of rows) console.log([r.d, r.room_type, r.allocated, r.booked, r.remaining].join(","));
+              console.log("===CSV_END===");
+              await pool.end();
+            })();'
