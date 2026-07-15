@@ -1,0 +1,71 @@
+name: Fix Longstay Amounts
+
+# 연박 요금 로직 수정 전 결제된 3박+ 4건의 금액을 정상가로 보정 (일회성)
+# 안전장치: 현재 금액이 옛 공식 값과 정확히 일치할 때만 변경 (이중 실행 방지)
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update amounts on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            // 예약번호 → [현재(옛 공식) 금액, 정상가] — 일치할 때만 변경
+            const FIX = {
+              "BP-H-20260714-6DE8D8": [429000, 468000],
+              "BP-H-20260714-A787CE": [459000, 528000],
+              "BP-H-20260714-279BC7": [949000, 958000],
+              "BP-H-20260715-92044E": [519000, 558000],
+            };
+            const { Pool } = require("pg");
+            const pool = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            (async () => {
+              const client = await pool.connect();
+              try {
+                await client.query("BEGIN");
+                for (const [no, [oldAmt, newAmt]] of Object.entries(FIX)) {
+                  const r = await client.query(
+                    `UPDATE orders SET total_amount = $1
+                      WHERE order_number = $2 AND order_type = \x27hotel\x27
+                        AND status = \x27paid\x27 AND total_amount = $3`,
+                    [newAmt, no, oldAmt]);
+                  // order_items 단가도 함께 보정 (품목 금액 = 주문 금액인 구조)
+                  if (r.rowCount === 1) {
+                    await client.query(
+                      `UPDATE order_items SET unit_price = $1
+                        WHERE order_id = (SELECT id FROM orders WHERE order_number = $2) AND unit_price = $3`,
+                      [newAmt, no, oldAmt]);
+                  }
+                  console.log(`${no}: ${r.rowCount === 1 ? `OK ${oldAmt} -> ${newAmt}` : "SKIP (금액 불일치 또는 상태 변경됨)"}`);
+                }
+                await client.query("COMMIT");
+                const chk = await client.query(
+                  `SELECT order_number, total_amount, status FROM orders
+                    WHERE order_number = ANY($1::text[]) ORDER BY order_number`,
+                  [Object.keys(FIX)]);
+                console.log("===AFTER===");
+                for (const r of chk.rows) console.log(`${r.order_number} ${r.status} ${r.total_amount}`);
+              } catch (e) {
+                await client.query("ROLLBACK");
+                console.error("FAILED, rolled back:", e.message);
+                process.exit(1);
+              } finally {
+                client.release();
+                await pool.end();
+              }
+            })();'
