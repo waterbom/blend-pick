@@ -101,6 +101,7 @@ export default function HotelReserveClient({
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [checkOut, setCheckOut] = useState<string | null>(null);
   const [soldOut, setSoldOut] = useState<Set<string>>(new Set());
+  const [benefitsOpen, setBenefitsOpen] = useState(false); // 투숙객 혜택 이미지 모달
 
   // 선택 객실의 실시간 재고 마감일 (DB)
   useEffect(() => {
@@ -304,6 +305,43 @@ export default function HotelReserveClient({
               <span style={{ color: C.muted }}> 연박 시 조식·인피니티풀은 매일 제공됩니다.</span>
             </div>
           </div>
+
+          {/* 투숙객 전용 제휴 혜택 — 버튼 클릭 시 안내 이미지 모달 */}
+          <button onClick={() => setBenefitsOpen(true)}
+            className="mt-[1px] w-full flex items-center justify-between px-4 lg:px-5 py-3.5 text-left transition-colors duration-150 hover:brightness-[1.03]"
+            style={{ background: C.green800 }}>
+            <span className="text-[13px] font-semibold text-white">
+              🎁 투숙객 전용 혜택 · 그 외 즐길거리
+              <span className="hidden lg:inline ml-2 font-normal text-[11.5px]" style={{ color: C.mintOnDark }}>요트투어 · 아쿠아플라넷 · 포차 할인</span>
+            </span>
+            <span className="text-[12px] shrink-0" style={{ fontFamily: MONO, color: C.gold }}>보기 →</span>
+          </button>
+
+          {/* 혜택 안내 이미지 모달 */}
+          {benefitsOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 lg:p-8"
+              style={{ background: "rgba(28,36,24,0.72)" }}
+              onClick={() => setBenefitsOpen(false)}>
+              <div className="w-full max-w-2xl max-h-full flex flex-col" style={{ background: "#fff" }}
+                onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-4 lg:px-5 py-3 shrink-0"
+                  style={{ background: C.green800 }}>
+                  <p className="text-[13px] font-semibold text-white" style={{ fontFamily: SERIF }}>
+                    투숙객 전용 혜택 · 그 외 즐길거리
+                  </p>
+                  <button onClick={() => setBenefitsOpen(false)}
+                    className="text-white text-lg leading-none px-1" aria-label="닫기">✕</button>
+                </div>
+                <div className="overflow-y-auto">
+                  <img src="/hotel-benefits.jpeg" alt="투숙객 전용 제휴 혜택 안내 — 낭만포차·딸기모찌 할인, 야간 요트 투어, 아쿠아플라넷 20% 할인, 블루 요트 1인 무료"
+                    className="w-full h-auto" draggable={false} />
+                  <p className="px-4 py-3 text-[11px]" style={{ color: C.muted3, borderTop: `1px solid ${C.hairline}` }}>
+                    이용 시 유탑 마리나 호텔 예약 내역(예약확정 문자)을 각 데스크에 보여주시면 돼요.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 객실 토글 + 사진 */}
           <div className="mt-6 lg:mt-4">
