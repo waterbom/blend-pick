@@ -231,6 +231,9 @@ export default function ReservationsClient() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d.ok) { alert(d.error || "예약 변경에 실패했습니다."); return; }
+      // 미리보기 상태를 지워야 완료 화면으로 전환됨 (화면 분기가 미리보기 우선이라 안 지우면 그대로 떠있음)
+      setDatePreview(null);
+      setLinkCopied(false);
       setDateResult({ diff: d.diff, refunded: d.refunded, needRepay: d.needRepay, payLink: d.payLink ?? null });
       const rr = await fetch("/api/admin/reservations").then((r) => r.json());
       setRows(Array.isArray(rr) ? rr : []);
@@ -620,7 +623,37 @@ export default function ReservationsClient() {
               })()}
             </div>
 
-            {!dateResult && !datePreview ? (
+            {/* 화면 분기: 완료 > 미리보기 > 입력 순으로 우선 (완료되면 무조건 완료 화면) */}
+            {dateResult ? (
+              <div className="p-5 space-y-3">
+                <p className="text-sm font-bold text-gray-800">✅ 예약 변경 완료</p>
+                {dateResult.refunded > 0 && (
+                  <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+                    차액 <b>{dateResult.refunded.toLocaleString()}원</b> 자동 환불 완료
+                  </div>
+                )}
+                {dateResult.diff === 0 && (
+                  <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음</div>
+                )}
+                {dateResult.needRepay && (
+                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700 space-y-2">
+                    <p><b>⚠️ 추가 차액 {dateResult.diff.toLocaleString()}원</b> — 아래 결제링크를 고객에게 보내주세요. 카드로 바로 결제할 수 있어요.</p>
+                    {dateResult.payLink && (
+                      <div className="flex gap-1.5">
+                        <input readOnly value={dateResult.payLink}
+                          className="flex-1 min-w-0 text-[11px] font-mono bg-white border border-orange-200 rounded-lg px-2 py-2 text-gray-600"
+                          onFocus={(e) => e.target.select()} />
+                        <button onClick={() => copyPayLink(dateResult.payLink!)}
+                          className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${linkCopied ? "bg-green-600 text-white" : "bg-orange-600 hover:bg-orange-700 text-white"}`}>
+                          {linkCopied ? "✓ 복사됨" : "🔗 링크 복사"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button onClick={() => setDateEdit(null)} className="w-full py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg">완료</button>
+              </div>
+            ) : !datePreview ? (
               <div className="p-5 space-y-3">
                 {/* 인원(패키지) 선택 */}
                 <div>
@@ -743,35 +776,6 @@ export default function ReservationsClient() {
                   <button onClick={() => setDatePreview(null)} disabled={changing}
                     className="px-4 py-2.5 text-sm text-gray-400 border border-gray-200 rounded-lg hover:text-gray-600">뒤로</button>
                 </div>
-              </div>
-            ) : dateResult ? (
-              <div className="p-5 space-y-3">
-                <p className="text-sm font-bold text-gray-800">✅ 예약 변경 완료</p>
-                {dateResult.refunded > 0 && (
-                  <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-                    차액 <b>{dateResult.refunded.toLocaleString()}원</b> 자동 환불 완료
-                  </div>
-                )}
-                {dateResult.diff === 0 && (
-                  <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음</div>
-                )}
-                {dateResult.needRepay && (
-                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700 space-y-2">
-                    <p><b>⚠️ 추가 차액 {dateResult.diff.toLocaleString()}원</b> — 아래 결제링크를 고객에게 보내주세요. 카드로 바로 결제할 수 있어요.</p>
-                    {dateResult.payLink && (
-                      <div className="flex gap-1.5">
-                        <input readOnly value={dateResult.payLink}
-                          className="flex-1 min-w-0 text-[11px] font-mono bg-white border border-orange-200 rounded-lg px-2 py-2 text-gray-600"
-                          onFocus={(e) => e.target.select()} />
-                        <button onClick={() => copyPayLink(dateResult.payLink!)}
-                          className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${linkCopied ? "bg-green-600 text-white" : "bg-orange-600 hover:bg-orange-700 text-white"}`}>
-                          {linkCopied ? "✓ 복사됨" : "🔗 링크 복사"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button onClick={() => setDateEdit(null)} className="w-full py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg">완료</button>
               </div>
             ) : null}
           </div>
