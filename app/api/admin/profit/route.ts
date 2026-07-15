@@ -40,8 +40,11 @@ export async function GET(req: Request) {
   const HOTEL_SUPPLY_RATE = 0.88;
   const HOTEL_INF_RATE = 0.05;
   const HOTEL_PG_RATE = 0.017;
-  async function hotelRow() {
-    const hConds = ["o.status = ANY($1)", "o.order_type IN ('hotel', 'extra')"];
+  // 공구 차수 경계 — 7/14(KST) 이전 결제 = 1차(후다닥맘), 이후 = 2차(현재).
+  // 상태(status) 기준 집계라 취소되면 실시간으로 매출에서 빠진다.
+  const HOTEL_ROUND2_FROM = "2026-07-14";
+  async function hotelRow(label: string, dateCond: string) {
+    const hConds = ["o.status = ANY($1)", "o.order_type IN ('hotel', 'extra')", dateCond];
     const hParams: unknown[] = [[...COUNTABLE_ORDER_STATUSES]];
     if (from) { hParams.push(from); hConds.push(`o.paid_at >= $${hParams.length}::date`); }
     if (to) { hParams.push(to); hConds.push(`o.paid_at < ($${hParams.length}::date + INTERVAL '1 day')`); }
@@ -60,7 +63,7 @@ export async function GET(req: Request) {
     const pgFee = Math.round(gross * HOTEL_PG_RATE);                          // 토스 1.7%
     return {
       campaign_id: null,
-      label: "호텔 공구 · 여수 UTOP 마리나",
+      label,
       influencer_id: null,
       influencer_name: null,
       business_type: null,
@@ -80,6 +83,13 @@ export async function GET(req: Request) {
       rate: 5,
       net_profit: gross - supplyCost - commission - pgFee, // 전량 귀속 시 매출의 5.3%
     };
+  }
+  async function hotelRows() {
+    const [r1, r2] = await Promise.all([
+      hotelRow("호텔 공구 · 1차 후다닥맘 (~7/13 결제)", `(o.paid_at AT TIME ZONE 'Asia/Seoul')::date < '${HOTEL_ROUND2_FROM}'`),
+      hotelRow("호텔 공구 · 2차 (7/14~ 결제)", `(o.paid_at AT TIME ZONE 'Asia/Seoul')::date >= '${HOTEL_ROUND2_FROM}'`),
+    ]);
+    return [r1, r2].filter((r): r is NonNullable<typeof r> => r != null);
   }
 
   const statuses = [...COUNTABLE_ORDER_STATUSES];
@@ -134,12 +144,11 @@ export async function GET(req: Request) {
 
   // 호텔만 조회하는 경우 상품공구 집계 생략
   if (channel === "hotel") {
-    const h = await hotelRow();
-    return NextResponse.json(h ? [h] : []);
+    return NextResponse.json(await hotelRows());
   }
 
-  const [orders, items, costs, hotel] = await Promise.all([ordersQ, itemsQ, costsQ, channel ? Promise.resolve(null) : hotelRow()]);
-  if (orders.rows.length === 0) return NextResponse.json(hotel ? [hotel] : []);
+  const [orders, items, costs, hotel] = await Promise.all([ordersQ, itemsQ, costsQ, channel ? Promise.resolve([]) : hotelRows()]);
+  if (orders.rows.length === 0) return NextResponse.json(hotel);
 
   const itemMap = new Map(items.rows.map((r) => [r.campaign_id, r]));
   const costMap = new Map(costs.rows.map((r) => [r.campaign_id, r]));
@@ -202,7 +211,7 @@ export async function GET(req: Request) {
     };
   });
 
-  const all = hotel ? [...rows, hotel] : rows;
+  const all = [...rows, ...hotel];
   all.sort((a, b) => b.gross - a.gross);
   return NextResponse.json(all);
 }

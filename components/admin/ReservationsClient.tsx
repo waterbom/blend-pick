@@ -14,6 +14,7 @@ interface Reservation {
   stay_check_out: string | null;
   total_amount: number;
   extra_paid: number; // 예약 변경 차액 등 이 예약번호로 들어온 추가 결제 합계
+  influencer_name: string | null; // 어느 인플루언서 링크로 들어온 예약인지 (null = 직접 유입)
   created_at: string;
   paid_at_kst: string | null;
   product_name: string | null;
@@ -82,7 +83,7 @@ function requestMemo(memo: string | null) {
 // 호텔 전달용 예약자 명단 CSV
 function toCSV(list: Reservation[]) {
   const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "추가결제", "결제시간", "예약일"];
+  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "추가결제", "인플루언서", "결제시간", "예약일"];
   const rows = list.map((r) => {
     const parts = (r.product_name || "").split(" · ");
     const pkg = parts[1] || "";
@@ -91,7 +92,7 @@ function toCSV(list: Reservation[]) {
     return [
       r.order_number, r.buyer_name, r.buyer_phone, pkg, room, requestMemo(r.addr_memo),
       r.stay_check_in || "", r.stay_check_out || "", nightsOf(r.stay_check_in, r.stay_check_out),
-      st, Number(r.total_amount).toLocaleString(), Number(r.extra_paid || 0) > 0 ? Number(r.extra_paid).toLocaleString() : "", r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
+      st, Number(r.total_amount).toLocaleString(), Number(r.extra_paid || 0) > 0 ? Number(r.extra_paid).toLocaleString() : "", r.influencer_name || "직접 유입", r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
     ].map(esc).join(",");
   });
   return "﻿" + [header.map(esc).join(","), ...rows].join("\n");
@@ -253,9 +254,19 @@ export default function ReservationsClient() {
   }, [rows]);
 
   const [query, setQuery] = useState("");
+  const [infSel, setInfSel] = useState(""); // "" 전체 / "__direct" 직접 유입 / 인플루언서 이름
+
+  // 필터 옵션 — 예약 데이터에 등장하는 인플루언서 목록
+  const influencerOptions = useMemo(() => {
+    const s = new Set<string>();
+    rows.forEach((r) => { if (r.influencer_name) s.add(r.influencer_name); });
+    return [...s].sort();
+  }, [rows]);
 
   const visible = useMemo(() => {
     let list = tab ? rows.filter((r) => r.status === tab) : rows;
+    if (infSel === "__direct") list = list.filter((r) => !r.influencer_name);
+    else if (infSel) list = list.filter((r) => r.influencer_name === infSel);
     const q = query.trim().toLowerCase();
     if (q) {
       const qDigits = q.replace(/[^0-9]/g, "");
@@ -266,12 +277,12 @@ export default function ReservationsClient() {
       );
     }
     return list;
-  }, [rows, tab, query]);
+  }, [rows, tab, query, infSel]);
 
   // 페이지네이션 — 탭/검색이 바뀌면 1페이지로 (명단 다운로드는 전체 visible 기준 유지)
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [tab, query]);
+  useEffect(() => { setPage(1); }, [tab, query, infSel]);
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paged = useMemo(
@@ -393,6 +404,15 @@ export default function ReservationsClient() {
               </button>
             ))}
           </div>
+          {/* 인플루언서(유입 경로) 필터 — 선택 후 명단 다운로드하면 해당 인플루언서 구매자 명단이 됨 */}
+          <select value={infSel} onChange={(e) => setInfSel(e.target.value)}
+            className="border border-gray-200 rounded-full px-3 py-2 text-sm focus:outline-none focus:border-gray-400 bg-white text-gray-600">
+            <option value="">유입 전체</option>
+            <option value="__direct">직접 유입</option>
+            {influencerOptions.map((n) => (
+              <option key={n} value={n}>@{n}</option>
+            ))}
+          </select>
           {/* 예약 검색 */}
           <div className="relative">
             <input
