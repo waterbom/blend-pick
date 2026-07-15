@@ -191,7 +191,9 @@ export default function HotelReserveClient({
   const listTotal = complete ? listWon(pkg, room, nights) : 0;
   const discountPct = listTotal > total && listTotal > 0 ? Math.round((1 - total / listTotal) * 100) : 0;
 
-  const ctaOn = complete && sale === "open";
+  // 인플루언서 전용 링크로만 구매 가능 — 직접 유입(링크 없음)은 결제 진입 차단
+  const linkOnly = !influencerId;
+  const ctaOn = complete && sale === "open" && !linkOnly;
   const countdownText = remain
     ? `${remain.d}일 ${pad(remain.h)}:${pad(remain.m)}:${pad(remain.s)}`
     : sale === "before" ? "잠시 후 오픈" : "마감되었습니다";
@@ -264,6 +266,16 @@ export default function HotelReserveClient({
           </div>
         </div>
       </section>
+
+      {/* 직접 유입 안내 — 전용 링크로만 구매 가능 */}
+      {linkOnly && (
+        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-5">
+          <div className="px-4 py-3.5 text-[13px] leading-relaxed" style={{ background: C.surfaceSoft, border: `1px solid ${C.hairline}`, color: C.muted2 }}>
+            🔒 이 공동구매는 <b style={{ color: C.green800 }}>인플루언서 전용 링크를 통해서만</b> 예약할 수 있어요.
+            공유받은 링크로 다시 접속해주세요. 이미 예약하신 분은 상단 <b>예약 조회</b>를 이용하시면 돼요.
+          </div>
+        </div>
+      )}
 
       {/* ── 본문 2단 그리드 ── */}
       <div className="max-w-[1240px] mx-auto px-5 lg:px-12 py-6 lg:py-12 grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 lg:gap-12">
@@ -541,7 +553,9 @@ export default function HotelReserveClient({
             }}
             suppressHydrationWarning
           >
-            {sale === "before"
+            {linkOnly
+              ? "인플루언서 전용 링크로만 예약 가능"
+              : sale === "before"
               ? remain
                 ? `오픈까지 ${remain.d > 0 ? `${remain.d}일 ` : ""}${pad(remain.h)}:${pad(remain.m)}:${pad(remain.s)}`
                 : "잠시 후 오픈"

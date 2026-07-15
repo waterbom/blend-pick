@@ -39,6 +39,9 @@ export default async function HotelCheckoutPage({
   // 인플루언서 링크로 돌아갈 때 귀속(?inf=) 유지
   const backTo = `/hotel/reserve${sp.inf ? `?inf=${encodeURIComponent(sp.inf)}` : ""}`;
 
+  // 인플루언서 전용 링크로만 구매 가능 — 직접 유입(유효한 인플루언서 없음)은 결제 진입 차단
+  if (!influencer) redirect("/hotel/reserve");
+
   // 판매 오픈 전/마감이면 결제 진입 차단 — 인플루언서별 오픈 일정 반영
   if (saleStateFor(influencer) !== "open") redirect(backTo);
 
