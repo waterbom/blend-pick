@@ -76,8 +76,9 @@ export async function POST(req: Request) {
        id, handle, created_at, updated_at,
        name, platform, profile_image, phone, followers_count, category,
        business_type, bank_name, bank_account, bank_holder, tax_email, memo,
-       id_card_file, biz_cert_file, bankbook_file
-     ) VALUES ($1, $2, NOW(), NOW(), $3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       id_card_file, biz_cert_file, bankbook_file,
+       hotel_sale_start, hotel_sale_deadline
+     ) VALUES ($1, $2, NOW(), NOW(), $3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING id`,
     [
       randomUUID(), b.handle || b.name,
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
       b.business_type || null, b.bank_name || null, b.bank_account || null,
       b.bank_holder || null, b.tax_email || null, b.memo || null,
       b.id_card_file || null, b.biz_cert_file || null, b.bankbook_file || null,
+      b.hotel_sale_start || null, b.hotel_sale_deadline || null,
     ]
   );
   return NextResponse.json({ id: rows[0].id }, { status: 201 });

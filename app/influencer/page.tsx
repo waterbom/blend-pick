@@ -40,7 +40,9 @@ export default async function InfluencerPage() {
 
   const infRes = await pool.query(
     `SELECT id, name, platform, profile_image, category, followers_count,
-            business_type, bank_name, bank_account, bank_holder
+            business_type, bank_name, bank_account, bank_holder,
+            to_char(hotel_sale_start AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS hotel_open,
+            to_char(hotel_sale_deadline AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS hotel_close
      FROM influencers WHERE user_id = $1`,
     [user.id]
   );
@@ -208,10 +210,18 @@ export default async function InfluencerPage() {
             <div className="min-w-0">
               <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>🏨 {HOTEL_LABEL}</p>
               <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                링크를 공유하면 그 링크로 들어온 예약이 내 실적으로 집계돼요
+                {inf.hotel_open && inf.hotel_close
+                  ? `내 공구 일정: ${inf.hotel_open} ~ ${inf.hotel_close} · 링크로 들어온 예약이 내 실적으로 집계돼요`
+                  : "링크를 공유하면 그 링크로 들어온 예약이 내 실적으로 집계돼요"}
               </p>
             </div>
-            <CopyLinkButton path={`/hotel/reserve?inf=${inf.id}`} />
+            {inf.hotel_open && inf.hotel_close ? (
+              <CopyLinkButton path={`/hotel/reserve?inf=${inf.id}`} />
+            ) : (
+              <span className="text-xs shrink-0 px-3 py-2 rounded-lg" style={{ background: "var(--surface-soft)", color: "var(--text-muted)" }}>
+                공구 일정 설정 후 링크가 발급돼요
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-xs tnum pt-3" style={{ borderTop: "1px solid var(--line)" }}>
             <div>

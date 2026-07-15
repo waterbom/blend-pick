@@ -22,6 +22,18 @@ interface CampaignRow {
 const inp = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400";
 const lbl = "text-xs font-bold text-gray-500 block mb-1.5";
 
+// DB의 timestamptz(UTC ISO) → 화면 입력용 KST "YYYY-MM-DDTHH:mm"
+function isoToLocalKST(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 16);
+}
+// 화면 입력(KST) → 서버 저장용 ISO(+09:00 명시)
+function localKSTToISO(v: string): string | null {
+  return v ? `${v}:00+09:00` : null;
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
@@ -101,7 +113,9 @@ export default function InfluencerFormClient({
     followers_count: "", category: "", memo: "",
     business_type: "", bank_name: "", bank_account: "", bank_holder: "", tax_email: "",
     id_card_file: "", biz_cert_file: "", bankbook_file: "",
+    hotel_sale_start: "", hotel_sale_deadline: "", // datetime-local (KST) 형식
   });
+  const [linkCopied, setLinkCopied] = useState(false);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [portalPassword, setPortalPassword] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
@@ -125,6 +139,8 @@ export default function InfluencerFormClient({
           tax_email: d.tax_email ?? "",
           id_card_file: d.id_card_file ?? "", biz_cert_file: d.biz_cert_file ?? "",
           bankbook_file: d.bankbook_file ?? "",
+          hotel_sale_start: isoToLocalKST(d.hotel_sale_start ?? null),
+          hotel_sale_deadline: isoToLocalKST(d.hotel_sale_deadline ?? null),
         });
         setAccountEmail(d.account_email ?? null);
         setPortalPassword(d.portal_password ?? null);
@@ -139,9 +155,22 @@ export default function InfluencerFormClient({
     e.preventDefault();
     setSaving(true);
     setError("");
+    // 일정은 둘 다 있거나 둘 다 없어야 함 (한쪽만 있으면 링크 게이트가 애매해짐)
+    if (!!form.hotel_sale_start !== !!form.hotel_sale_deadline) {
+      setSaving(false);
+      setError("호텔 공구 일정은 오픈·마감 시각을 모두 입력하거나 모두 비워주세요.");
+      return;
+    }
+    if (form.hotel_sale_start && form.hotel_sale_deadline && form.hotel_sale_deadline <= form.hotel_sale_start) {
+      setSaving(false);
+      setError("호텔 공구 마감은 오픈 이후 시각이어야 해요.");
+      return;
+    }
     const payload = {
       ...form,
       followers_count: form.followers_count ? Number(form.followers_count) : null,
+      hotel_sale_start: localKSTToISO(form.hotel_sale_start),
+      hotel_sale_deadline: localKSTToISO(form.hotel_sale_deadline),
     };
     const url = mode === "new" ? "/api/admin/influencers" : `/api/admin/influencers/${influencerId}`;
     const res = await fetch(url, {
@@ -252,6 +281,52 @@ export default function InfluencerFormClient({
           <label className={lbl}>메모</label>
           <textarea value={form.memo} onChange={(e) => set("memo", e.target.value)} className={`${inp} h-20 resize-none`} />
         </div>
+      </Section>
+
+      <Section title="호텔 공구 일정 · 전용 링크">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={lbl}>공구 오픈 시각 (한국시간)</label>
+            <input type="datetime-local" value={form.hotel_sale_start}
+              onChange={(e) => set("hotel_sale_start", e.target.value)} className={inp} />
+          </div>
+          <div>
+            <label className={lbl}>공구 마감 시각 (한국시간)</label>
+            <input type="datetime-local" value={form.hotel_sale_deadline}
+              onChange={(e) => set("hotel_sale_deadline", e.target.value)} className={inp} />
+          </div>
+        </div>
+        {mode === "edit" ? (
+          form.hotel_sale_start && form.hotel_sale_deadline ? (
+            <div className="rounded-xl border border-orange-100 bg-orange-50 p-4 space-y-2">
+              <p className="text-xs font-bold text-orange-700">
+                🔗 전용 링크 — 이 인플루언서 링크로 들어온 예약은 위 일정으로만 열려요 (저장 후 적용)
+              </p>
+              <div className="flex gap-1.5">
+                <input readOnly value={`/hotel/reserve?inf=${influencerId}`}
+                  className="flex-1 min-w-0 text-xs font-mono bg-white border border-orange-200 rounded-lg px-2 py-2 text-gray-600"
+                  onFocus={(e) => e.target.select()} />
+                <button type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(`${window.location.origin}/hotel/reserve?inf=${influencerId}`);
+                      setLinkCopied(true);
+                      setTimeout(() => setLinkCopied(false), 1500);
+                    } catch { alert("복사에 실패했어요. 링크를 직접 선택해 복사해주세요."); }
+                  }}
+                  className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${linkCopied ? "bg-green-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"}`}>
+                  {linkCopied ? "✓ 복사됨" : "링크 복사"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">
+              오픈·마감 시각을 입력하고 저장하면 전용 링크가 여기에 표시돼요. 일정 없이 링크를 쓰면 기본 공구 일정이 적용됩니다.
+            </p>
+          )
+        ) : (
+          <p className="text-xs text-gray-400">등록 후 수정 화면에서 전용 링크를 복사할 수 있어요.</p>
+        )}
       </Section>
 
       <Section title="정산 정보">

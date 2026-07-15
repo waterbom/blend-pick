@@ -90,9 +90,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function HotelReserveClient({
   influencerId,
   influencerName,
+  saleStart,
+  saleDeadline,
 }: {
   influencerId?: string | null;
   influencerName?: string | null;
+  saleStart?: string; // 서버에서 계산된 인플루언서별 판매 시작 (없으면 클라이언트 폴백)
+  saleDeadline?: string;
 }) {
   const router = useRouter();
   const [pkg, setPkg] = useState<PkgKey>("p2");
@@ -120,8 +124,10 @@ export default function HotelReserveClient({
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  // 인플루언서 링크(?inf=)별 판매 일정 — 없으면 기본 일정
-  const schedule = saleScheduleFor({ id: influencerId ?? undefined, name: influencerName ?? undefined });
+  // 인플루언서 링크(?inf=)별 판매 일정 — 서버가 내려준 값 우선(DB 일정 포함), 없으면 클라이언트 폴백
+  const schedule = saleStart && saleDeadline
+    ? { start: saleStart, deadline: saleDeadline }
+    : saleScheduleFor({ id: influencerId ?? undefined, name: influencerName ?? undefined });
   const saleFromISO = schedule.start.slice(0, 10);
   const saleToISO = schedule.deadline.slice(0, 10);
   const sale: "before" | "open" | "closed" =

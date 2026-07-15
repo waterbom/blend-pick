@@ -35,15 +35,21 @@ export const INFLUENCER_SALES: Record<string, { start: string; deadline: string 
   하블리네: { start: "2026-07-16T10:00:00+09:00", deadline: "2026-07-21T23:59:59+09:00" },
 };
 
-// 링크의 인플루언서에게 적용되는 판매 일정 (오버라이드 없으면 기본 일정)
-export function saleScheduleFor(inf?: { id?: string; name?: string } | null): { start: string; deadline: string } {
+// 링크의 인플루언서에게 적용되는 판매 일정.
+// 우선순위: ① DB 저장 일정(start/deadline — 관리자 인플루언서 화면에서 입력) ② 코드 맵 ③ 기본 일정
+export function saleScheduleFor(
+  inf?: { id?: string; name?: string; start?: string | null; deadline?: string | null } | null
+): { start: string; deadline: string } {
+  if (inf?.start && inf?.deadline) return { start: inf.start, deadline: inf.deadline };
   const byName = inf?.name ? INFLUENCER_SALES[inf.name] : undefined;
   const byId = inf?.id ? INFLUENCER_SALES[inf.id] : undefined;
   return byName ?? byId ?? { start: SALE_START, deadline: GROUPBUY_DEADLINE };
 }
 
 // 판매 상태: 오픈 전 / 진행 중 / 마감 (인플루언서별 일정 반영)
-export function saleStateFor(inf?: { id?: string; name?: string } | null): "before" | "open" | "closed" {
+export function saleStateFor(
+  inf?: { id?: string; name?: string; start?: string | null; deadline?: string | null } | null
+): "before" | "open" | "closed" {
   const { start, deadline } = saleScheduleFor(inf);
   const now = Date.now();
   if (now < new Date(start).getTime()) return "before";

@@ -10,11 +10,19 @@ import pool from "@/lib/db";
 
 export const metadata = { title: "예약 / 결제 · BLEND PICK" };
 
-// 인플루언서 링크(?inf=) 검증 — 이름은 DB에서만 신뢰
-async function getInfluencer(inf?: string): Promise<{ id: string; name: string } | null> {
+// 인플루언서 링크(?inf=) 검증 — 이름·일정은 DB에서만 신뢰
+async function getInfluencer(
+  inf?: string
+): Promise<{ id: string; name: string; start: string | null; deadline: string | null } | null> {
   if (!inf) return null;
   try {
-    const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [inf]);
+    const r = await pool.query(
+      `SELECT id, name,
+              to_char(hotel_sale_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD"T"HH24:MI:SS"+09:00"') AS start,
+              to_char(hotel_sale_deadline AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD"T"HH24:MI:SS"+09:00"') AS deadline
+         FROM influencers WHERE id = $1`,
+      [inf]
+    );
     return r.rows[0] ?? null;
   } catch {
     return null;
