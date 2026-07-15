@@ -13,6 +13,7 @@ interface Reservation {
   stay_check_in: string | null;
   stay_check_out: string | null;
   total_amount: number;
+  extra_paid: number; // 예약 변경 차액 등 이 예약번호로 들어온 추가 결제 합계
   created_at: string;
   paid_at_kst: string | null;
   product_name: string | null;
@@ -81,7 +82,7 @@ function requestMemo(memo: string | null) {
 // 호텔 전달용 예약자 명단 CSV
 function toCSV(list: Reservation[]) {
   const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "결제시간", "예약일"];
+  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "추가결제", "결제시간", "예약일"];
   const rows = list.map((r) => {
     const parts = (r.product_name || "").split(" · ");
     const pkg = parts[1] || "";
@@ -90,7 +91,7 @@ function toCSV(list: Reservation[]) {
     return [
       r.order_number, r.buyer_name, r.buyer_phone, pkg, room, requestMemo(r.addr_memo),
       r.stay_check_in || "", r.stay_check_out || "", nightsOf(r.stay_check_in, r.stay_check_out),
-      st, Number(r.total_amount).toLocaleString(), r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
+      st, Number(r.total_amount).toLocaleString(), Number(r.extra_paid || 0) > 0 ? Number(r.extra_paid).toLocaleString() : "", r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
     ].map(esc).join(",");
   });
   return "﻿" + [header.map(esc).join(","), ...rows].join("\n");
@@ -245,7 +246,7 @@ export default function ReservationsClient() {
   const stats = useMemo(() => {
     let confirmed = 0, cancelled = 0, revenue = 0;
     for (const r of rows) {
-      if (r.status === "paid") { confirmed++; revenue += Number(r.total_amount) || 0; }
+      if (r.status === "paid") { confirmed++; revenue += (Number(r.total_amount) || 0) + (Number(r.extra_paid) || 0); }
       if (r.status === "cancelled") cancelled++;
     }
     return { confirmed, cancelled, revenue };
@@ -468,7 +469,12 @@ export default function ReservationsClient() {
                   )}
                 </div>
                 <div className="text-right tnum">
-                  <div className="text-sm font-semibold text-gray-800">{Number(r.total_amount).toLocaleString()}원</div>
+                  <div className="text-sm font-semibold text-gray-800">
+                    {(Number(r.total_amount) + Number(r.extra_paid || 0)).toLocaleString()}원
+                  </div>
+                  {Number(r.extra_paid) > 0 && (
+                    <div className="text-[11px] text-orange-500 mt-0.5">차액 +{Number(r.extra_paid).toLocaleString()} 포함</div>
+                  )}
                   {r.paid_at_kst && <div className="text-[11px] text-gray-400 mt-0.5">💳 {r.paid_at_kst}</div>}
                 </div>
                 {r.status === "cancelled" ? (

@@ -29,7 +29,15 @@ export async function GET(req: Request) {
        to_char(o.stay_check_out, 'YYYY-MM-DD') AS stay_check_out,
        o.total_amount, o.created_at,
        to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS paid_at_kst,
-       (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name
+       (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name,
+       -- 예약 변경 차액 등 이 예약번호로 결제된 추가 결제 합계 (extra 주문의 품명이 "예약번호 …" 형식)
+       COALESCE((
+         SELECT SUM(e.total_amount)::bigint
+           FROM orders e
+           JOIN order_items ei ON ei.order_id = e.id
+          WHERE e.order_type = 'extra' AND e.status = 'paid'
+            AND ei.product_name LIKE o.order_number || ' %'
+       ), 0) AS extra_paid
      FROM orders o
      ${where}
      ORDER BY o.created_at DESC
