@@ -205,7 +205,7 @@ export default function HotelReserveClient({
             <div>
               <div className="text-[10px] lg:text-[11px] mb-3 lg:mb-[18px]"
                 style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".28em", color: C.sageLight }}>
-                HOTEL 공동구매 — {influencerName ? `${influencerName} ` : ""}단독 오픈
+                HOTEL 공동구매 — 오직 블렌드픽에서만
               </div>
               <h1 className="m-0 text-[27px] lg:text-[48px] leading-[1.3] lg:leading-[1.2]"
                 style={{ fontFamily: SERIF, fontWeight: 600, color: "#fff" }}>
