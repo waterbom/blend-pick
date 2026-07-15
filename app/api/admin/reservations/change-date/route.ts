@@ -88,9 +88,18 @@ export async function POST(req: Request) {
       return { date, remaining };
     });
     const soldOutDates = nightRemains.filter((n) => n.remaining <= 0).map((n) => n.date);
+    // 추가 차액이면 결제링크를 미리 발급 — 확정 전에 고객에게 먼저 보내 결제받는 흐름 지원
+    // (토큰은 금액·용도 서명일 뿐 예약 상태와 무관해서 확정 전에 만들어도 동일하게 유효)
+    let previewPayLink: string | null = null;
+    if (diff > 0) {
+      const base = process.env.NODE_ENV === "production" ? "https://shop.blendpunch.com" : "http://localhost:3000";
+      const token = await signPayLink(diff, `${ord.order_number} 예약 변경 차액`);
+      previewPayLink = `${base}/pay/extra?t=${token}`;
+    }
     return NextResponse.json({
       ok: true,
       preview: true,
+      payLink: previewPayLink,
       diff,
       oldTotal,
       newTotal,

@@ -154,7 +154,7 @@ export default function ReservationsClient() {
   const [changing, setChanging] = useState(false);
   const [newPkg, setNewPkg] = useState<PkgKey>("p2");
   const [newRoom, setNewRoom] = useState<RoomType>("패밀리 트윈");
-  const [datePreview, setDatePreview] = useState<{ diff: number; oldTotal: number; newTotal: number; nights: number; pkgLabel: string; room: string; available: boolean; minRemaining: number; soldOutDates: string[] } | null>(null);
+  const [datePreview, setDatePreview] = useState<{ diff: number; oldTotal: number; newTotal: number; nights: number; pkgLabel: string; room: string; available: boolean; minRemaining: number; soldOutDates: string[]; payLink: string | null } | null>(null);
   const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; needRepay: boolean; payLink: string | null } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   // 날짜 고르는 동안 대상 기간 잔여 객실 자동 확인 (본인 예약 반납분 포함해서 계산)
@@ -213,7 +213,8 @@ export default function ReservationsClient() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d.ok) { alert(d.error || "요금 계산에 실패했습니다."); return; }
-      setDatePreview({ diff: d.diff, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, pkgLabel: d.pkgLabel, room: d.room, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [] });
+      setLinkCopied(false);
+      setDatePreview({ diff: d.diff, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, pkgLabel: d.pkgLabel, room: d.room, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [], payLink: d.payLink ?? null });
     } finally {
       setChanging(false);
     }
@@ -711,8 +712,20 @@ export default function ReservationsClient() {
                   </div>
                 )}
                 {datePreview.diff > 0 ? (
-                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700">
-                    추가 차액 <b>{datePreview.diff.toLocaleString()}원</b> 발생 → <b>재결제요망</b>. 고객에게 차액 재결제를 별도로 안내해주세요.
+                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700 space-y-2">
+                    <p>추가 차액 <b>{datePreview.diff.toLocaleString()}원</b> 발생 — 아래 결제링크를 <b>확정 전에 미리</b> 고객에게 보내 결제받아도 돼요.</p>
+                    {datePreview.payLink && (
+                      <div className="flex gap-1.5">
+                        <input readOnly value={datePreview.payLink}
+                          className="flex-1 min-w-0 text-[11px] font-mono bg-white border border-orange-200 rounded-lg px-2 py-2 text-gray-600"
+                          onFocus={(e) => e.target.select()} />
+                        <button onClick={() => copyPayLink(datePreview.payLink!)}
+                          className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${linkCopied ? "bg-green-600 text-white" : "bg-orange-600 hover:bg-orange-700 text-white"}`}>
+                          {linkCopied ? "✓ 복사됨" : "🔗 링크 복사"}
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-orange-500">💡 결제 확인(주문 목록에 차액 주문 생성) 후 아래 [변경 확정]을 눌러야 예약이 실제로 바뀌어요. 먼저 확정해도 링크는 동일하게 유효해요.</p>
                   </div>
                 ) : datePreview.diff < 0 ? (
                   <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
