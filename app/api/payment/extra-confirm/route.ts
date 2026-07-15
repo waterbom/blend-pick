@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
 import { randomBytes } from "crypto";
 import { verifyPayLink } from "@/lib/pay-link";
+import { isPhoneVerified } from "@/lib/phone-verify";
 
 function genOrderNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -9,7 +11,7 @@ function genOrderNumber() {
 }
 
 export async function POST(req: NextRequest) {
-  const { paymentKey, orderId, amount, token, name, phone, memo } = await req.json();
+  const { paymentKey, orderId, amount, token, name, phone } = await req.json();
   const secretKey = process.env.TOSS_SECRET_KEY!;
 
   // 1. 링크 토큰 검증 + 금액 변조 확인 (승인 전)
@@ -19,7 +21,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "결제 금액이 일치하지 않습니다." }, { status: 400 });
   }
 
-  // 2. 토스 승인
+  // 2. 휴대폰 인증 확인 — 결제자 본인 번호로 SMS 인증을 마친 상태여야 승인 진행
+  const verifiedTok = (await cookies()).get("phone_verified")?.value;
+  if (!(await isPhoneVerified(verifiedTok, phone || ""))) {
+    return NextResponse.json({ ok: false, error: "휴대폰 인증이 필요합니다. 인증 후 다시 시도해주세요." }, { status: 401 });
+  }
+
+  // 3. 토스 승인
   const tossRes = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
     method: "POST",
     headers: {
@@ -33,9 +41,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: tossData.message || "결제 승인 실패" }, { status: 400 });
   }
 
-  // 3. 주문 저장 (order_type='extra')
+  // 4. 주문 저장 (order_type='extra')
   const orderNumber = genOrderNumber();
-  const memoText = [info.label, memo].filter(Boolean).join(" · ");
+  const memoText = info.label;
   const client = await shopPool.connect();
   let saved = false;
   try {
@@ -51,7 +59,7 @@ export async function POST(req: NextRequest) {
     await client.query(
       `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity)
        VALUES ($1, NULL, $2, $3, $4, 1)`,
-      [rows[0].id, info.label, memo || "", info.amount]
+      [rows[0].id, info.label, "", info.amount]
     );
     await client.query("COMMIT");
     saved = true;
