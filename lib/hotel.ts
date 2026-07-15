@@ -159,7 +159,8 @@ const RATE: Record<PkgKey, Record<Tier, number>> = {
   p4: { weekday: 199000, saturday: 289000, shoulder: 259000, peak: 349000, highpeak: 419000 },
 };
 
-// 2박 = (밤1 1박가 + 밤2 1박가) − 연박 할인(원)
+// 2박 묶음 할인(원): 2박요금 = (밤1 1박가 + 밤2 1박가) − 이 값.
+// 3박 = 2박요금 + 1박가 (할인 1번), 4박 = 2박요금 × 2 (할인 2번) — 2박 묶음당 1번만 적용.
 const TWO_NIGHT_DISCOUNT: Record<PkgKey, number> = { p2: 9000, p3: 39000, p4: 69000 };
 
 // 객실 정가(원, 1박) — 정가 대비 할인 표시용
@@ -219,7 +220,7 @@ export function stayPriceWon(pkg: PkgKey, checkin: string, nights: number): numb
   let sum = 0;
   let cur = checkin;
   for (let i = 0; i < nights; i++) { sum += RATE[pkg][getTier(cur)]; cur = nextISO(cur); }
-  return sum - Math.max(0, nights - 1) * TWO_NIGHT_DISCOUNT[pkg];
+  return sum - Math.floor(nights / 2) * TWO_NIGHT_DISCOUNT[pkg];
 }
 
 // 정가(원) — 선택 박수만큼
@@ -265,7 +266,7 @@ export function stayBreakdown(pkg: PkgKey, checkIn: string, nights: number) {
   const items: { iso: string; won: number }[] = [];
   let cur = checkIn;
   for (let i = 0; i < nights; i++) { items.push({ iso: cur, won: RATE[pkg][getTier(cur)] }); cur = nextISO(cur); }
-  const discount = Math.max(0, nights - 1) * TWO_NIGHT_DISCOUNT[pkg];
+  const discount = Math.floor(nights / 2) * TWO_NIGHT_DISCOUNT[pkg];
   const total = items.reduce((s, x) => s + x.won, 0) - discount;
   return { items, discount, total };
 }
