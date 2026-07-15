@@ -32,7 +32,50 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from"); // YYYY-MM-DD
   const to = searchParams.get("to");
-  const channel = searchParams.get("channel"); // 'shop' | 'campaign' | null
+  const channel = searchParams.get("channel"); // 'shop' | 'campaign' | 'hotel' | null
+
+  // ── 호텔 공구 — 대행 모델: 블렌드픽 수수료 = 매출 7%, 토스 수수료 1.7% → 순수익 5.3% ──
+  // 매출에는 예약(hotel)과 예약 변경 차액(extra)을 포함. 인플루언서 수수료는 공구 정산에서 별도 관리.
+  const HOTEL_FEE_RATE = 0.07;
+  const HOTEL_PG_RATE = 0.017;
+  async function hotelRow() {
+    const hConds = ["o.status = ANY($1)", "o.order_type IN ('hotel', 'extra')"];
+    const hParams: unknown[] = [[...COUNTABLE_ORDER_STATUSES]];
+    if (from) { hParams.push(from); hConds.push(`o.paid_at >= $${hParams.length}::date`); }
+    if (to) { hParams.push(to); hConds.push(`o.paid_at < ($${hParams.length}::date + INTERVAL '1 day')`); }
+    const h = await shopPool.query(
+      `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
+       FROM orders o WHERE ${hConds.join(" AND ")}`,
+      hParams
+    );
+    const gross = Number(h.rows[0].gross);
+    const orderCount = Number(h.rows[0].orders);
+    if (orderCount === 0) return null;
+    const fee = Math.round(gross * HOTEL_FEE_RATE);   // 블렌드픽 수수료 7%
+    const pgFee = Math.round(gross * HOTEL_PG_RATE);  // 토스 수수료 1.7%
+    return {
+      campaign_id: null,
+      label: "호텔 공구 · 여수 UTOP 마리나",
+      influencer_id: null,
+      influencer_name: null,
+      business_type: null,
+      period: null,
+      channel: "hotel",
+      orders: orderCount,
+      qty: orderCount,
+      gross,
+      sales_vat: 0,                 // 대행 매출 — 부가세는 수수료분 기준이라 별도 처리
+      supply_cost: gross - fee,     // 호텔 정산분 (매출의 93%)
+      missing_supply: 0,
+      shipping_cost: 0,
+      pg_fee: pgFee,
+      fee_estimated: false,
+      other_costs: 0,
+      commission: 0,                // 인플루언서 수수료는 공구 정산 페이지에서 별도 관리
+      rate: null,
+      net_profit: fee - pgFee,      // 7% − 1.7% = 5.3%
+    };
+  }
 
   const statuses = [...COUNTABLE_ORDER_STATUSES];
   const conds = ["o.status = ANY($1)", "o.order_type IN ('shop', 'campaign')"];
@@ -84,8 +127,14 @@ export async function GET(req: Request) {
      FROM campaign_costs GROUP BY campaign_id`
   );
 
-  const [orders, items, costs] = await Promise.all([ordersQ, itemsQ, costsQ]);
-  if (orders.rows.length === 0) return NextResponse.json([]);
+  // 호텔만 조회하는 경우 상품공구 집계 생략
+  if (channel === "hotel") {
+    const h = await hotelRow();
+    return NextResponse.json(h ? [h] : []);
+  }
+
+  const [orders, items, costs, hotel] = await Promise.all([ordersQ, itemsQ, costsQ, channel ? Promise.resolve(null) : hotelRow()]);
+  if (orders.rows.length === 0) return NextResponse.json(hotel ? [hotel] : []);
 
   const itemMap = new Map(items.rows.map((r) => [r.campaign_id, r]));
   const costMap = new Map(costs.rows.map((r) => [r.campaign_id, r]));
@@ -148,6 +197,7 @@ export async function GET(req: Request) {
     };
   });
 
-  rows.sort((a, b) => b.gross - a.gross);
-  return NextResponse.json(rows);
+  const all = hotel ? [...rows, hotel] : rows;
+  all.sort((a, b) => b.gross - a.gross);
+  return NextResponse.json(all);
 }

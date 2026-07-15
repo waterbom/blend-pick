@@ -10,7 +10,7 @@ interface Row {
   influencer_name: string | null;
   business_type: BusinessType | null;
   period: string | null;
-  channel: "shop" | "campaign";
+  channel: "shop" | "campaign" | "hotel";
   orders: number;
   qty: number;
   gross: number;
@@ -114,6 +114,7 @@ export default function ProfitClient() {
             <option value="">전체</option>
             <option value="campaign">공동구매</option>
             <option value="shop">자사몰</option>
+            <option value="hotel">호텔 공구</option>
           </select>
         </div>
         <button onClick={load} className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-700">
@@ -160,11 +161,11 @@ export default function ProfitClient() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {visible.map((r) => (
-                <tr key={r.campaign_id ?? "shop"} className="hover:bg-gray-50 transition-colors">
+                <tr key={r.campaign_id ?? r.channel} className="hover:bg-gray-50 transition-colors">
                   <td className={`${td} max-w-[260px]`}>
                     <p className="font-medium text-gray-900 truncate">{r.label}</p>
                     <p className="text-xs text-gray-400">
-                      {r.channel === "campaign" ? "공동구매" : "자사몰"}
+                      {r.channel === "campaign" ? "공동구매" : r.channel === "hotel" ? "호텔 공구 · 수수료 7%" : "자사몰"}
                       {r.period && ` · ${r.period}`}
                     </p>
                   </td>
@@ -231,6 +232,7 @@ export default function ProfitClient() {
         · PG수수료 "예상" = 아직 배송완료(정산 생성) 전 주문이 포함되어 요율(카드 3.63% / 이체 1.65%)로 추정한 금액입니다.
         <br />· ⚠ = 공급가 미입력 주문 포함 또는 수수료율 미설정 — 상품/공구 관리에서 입력하면 정확해집니다.
         <br />· 기간 필터는 주문(결제일) 기준이며, 공구별 배송비/기타비용은 공구 단위 입력값이 그대로 반영됩니다.
+        <br />· 호텔 공구: 대행 모델 — 공급가(93%)는 호텔 정산분, 순이익 = 블렌드픽 수수료 7% − 토스 수수료 1.7% = 매출의 5.3%. 인플루언서 수수료는 [공구 정산]에서 별도 관리됩니다.
       </p>
     </div>
   );
