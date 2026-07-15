@@ -2,7 +2,7 @@
  * 호텔공구(여수 UTOP 마리나) 달력 예약 — 시즌 티어 기반 요금/재고 설정.
  *
  * ⚠️ 표시 가격은 사진 요금표 기준의 "대략적 금액대"입니다. 실제 판매가가 확정되면
- * 아래 PRICE 표(만원 단위)와 SEASON_RANGES / SOLD_OUT 만 고치면 전 화면에 반영됩니다.
+ * 아래 PRICE 표(만원 단위)와 SEASON_RANGES 만 고치면 전 화면에 반영됩니다. (재고 마감은 DB 기준)
  */
 
 export type Tier = "weekday" | "saturday" | "shoulder" | "peak" | "highpeak";
@@ -227,12 +227,12 @@ export function listWon(pkg: PkgKey, room: RoomType, nights: number): number {
   return (LIST_PRICE[pkg][room] ?? 0) * nights;
 }
 
-// 체크인일부터 연속 예약 가능한 최대 박수(예약기간 내 + 재고 있는 날까지)
-export function maxNightsFrom(room: RoomType, checkin: string): number {
-  let n = 0;
-  let cur = checkin;
-  while (cur <= BOOKABLE_TO && !isSoldOut(room, cur)) { n++; cur = nextISO(cur); }
-  return Math.max(1, n);
+// 체크인일부터 연속 예약 가능한 최대 박수 — 예약기간(BOOKABLE_TO) 기준만 제한
+// ※ 일자별 재고 마감은 DB(hotel_room_inventory)가 유일한 기준: checkout 진입 시 isStayAvailable,
+//    결제 승인 시 decrementStay 에서 밤 단위로 검증된다. (과거 정적 SOLD_OUT 목록은
+//    DB 재고와 어긋나 정상 재고 날짜의 결제를 차단하는 버그가 있어 폐기)
+export function maxNightsFrom(_room: RoomType, checkin: string): number {
+  return Math.max(1, nightsBetween(checkin, BOOKABLE_TO) + 1);
 }
 
 // 입실~퇴실 사이 박수
@@ -274,15 +274,6 @@ export function stayBreakdown(pkg: PkgKey, checkIn: string, nights: number) {
 export function manLabel(won: number): string {
   const man = won / 10000;
   return (Number.isInteger(man) ? `${man}` : man.toFixed(1)) + "만";
-}
-
-// 배정 객실 마감(품절) 날짜 — 첫 사진(배정 객실 수)의 '마감' 반영
-const SOLD_OUT: Record<RoomType, string[]> = {
-  "디럭스 더블": ["2026-07-14", "2026-07-15", "2026-07-17", "2026-08-19"],
-  "패밀리 트윈": ["2026-07-17", "2026-07-22", "2026-07-23", "2026-08-19", "2026-09-09"],
-};
-function isSoldOut(room: RoomType, iso: string): boolean {
-  return SOLD_OUT[room].includes(iso);
 }
 
 export function nextISO(iso: string): string {
