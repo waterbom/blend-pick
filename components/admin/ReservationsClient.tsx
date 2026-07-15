@@ -26,6 +26,7 @@ interface Inv {
   remaining: number;
 }
 
+// 체크인/노쇼는 호텔이 관리 — 우리는 예약확정/취소만 다룸 (레거시 상태는 표시만)
 const STATUS: Record<string, { label: string; cls: string }> = {
   paid:       { label: "예약확정",   cls: "bg-blue-50 text-blue-600" },
   checked_in: { label: "체크인완료", cls: "bg-green-50 text-green-600" },
@@ -36,9 +37,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 const TABS = [
   { key: "", label: "전체" },
   { key: "paid", label: "예약확정" },
-  { key: "checked_in", label: "체크인완료" },
   { key: "cancelled", label: "취소" },
-  { key: "no_show", label: "노쇼" },
 ];
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -101,7 +100,8 @@ export default function ReservationsClient() {
   const [pending, setPending] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [inv, setInv] = useState<Inv[]>([]);
-  const [invAll, setInvAll] = useState(false);
+  const [invMonth, setInvMonth] = useState<string>(""); // "2026-07" 형식, "" = 전체
+  const [invFilter, setInvFilter] = useState<"all" | "booked" | "tight">("all");
 
   useEffect(() => {
     fetch("/api/admin/reservations")
@@ -190,19 +190,29 @@ export default function ReservationsClient() {
   }
 
   const stats = useMemo(() => {
-    const today = todayISO();
-    let confirmed = 0, upcoming = 0, cancelled = 0;
+    let confirmed = 0, cancelled = 0, revenue = 0;
     for (const r of rows) {
-      if (r.status === "paid") { confirmed++; if (r.stay_check_in && r.stay_check_in >= today) upcoming++; }
+      if (r.status === "paid") { confirmed++; revenue += Number(r.total_amount) || 0; }
       if (r.status === "cancelled") cancelled++;
     }
-    return { confirmed, upcoming, cancelled };
+    return { confirmed, cancelled, revenue };
   }, [rows]);
 
-  const visible = useMemo(
-    () => (tab ? rows.filter((r) => r.status === tab) : rows),
-    [rows, tab]
-  );
+  const [query, setQuery] = useState("");
+
+  const visible = useMemo(() => {
+    let list = tab ? rows.filter((r) => r.status === tab) : rows;
+    const q = query.trim().toLowerCase();
+    if (q) {
+      const qDigits = q.replace(/[^0-9]/g, "");
+      list = list.filter((r) =>
+        (r.order_number ?? "").toLowerCase().includes(q) ||
+        (r.buyer_name ?? "").toLowerCase().includes(q) ||
+        (qDigits.length >= 3 && (r.buyer_phone ?? "").replace(/[^0-9]/g, "").includes(qDigits))
+      );
+    }
+    return list;
+  }, [rows, tab, query]);
 
   async function updateStatus(id: string, status: string) {
     let fullRefund = false;
@@ -248,26 +258,43 @@ export default function ReservationsClient() {
   }
 
   const cards = [
-    { label: "예약 확정", value: stats.confirmed },
-    { label: "체크인 예정", value: stats.upcoming },
-    { label: "취소", value: stats.cancelled },
+    { label: "예약 확정", value: `${stats.confirmed}건` },
+    { label: "확정 매출", value: `${stats.revenue.toLocaleString()}원` },
+    { label: "취소", value: `${stats.cancelled}건` },
   ];
 
-  // 재고 피벗 (날짜 × 객실타입)
+  // 재고 피벗 (날짜 × 객실타입) — 월별 탭 + 필터 + 요약
   const invView = useMemo(() => {
     const rooms = Array.from(new Set(inv.map((i) => i.room_type)));
     const byDate = new Map<string, Record<string, Inv>>();
-    const totals: Record<string, { allocated: number; booked: number; remaining: number }> = {};
     for (const i of inv) {
       if (!byDate.has(i.date)) byDate.set(i.date, {});
       byDate.get(i.date)![i.room_type] = i;
-      const t = (totals[i.room_type] ??= { allocated: 0, booked: 0, remaining: 0 });
-      t.allocated += i.allocated; t.booked += i.booked; t.remaining += i.remaining;
     }
-    let dates = Array.from(byDate.keys()).sort();
-    if (!invAll) dates = dates.filter((d) => rooms.some((rm) => (byDate.get(d)![rm]?.booked ?? 0) > 0));
-    return { rooms, byDate, dates, totals };
-  }, [inv, invAll]);
+    const allDates = Array.from(byDate.keys()).sort();
+    const months = Array.from(new Set(allDates.map((d) => d.slice(0, 7)))).sort();
+
+    let dates = invMonth ? allDates.filter((d) => d.startsWith(invMonth)) : allDates;
+    if (invFilter === "booked") dates = dates.filter((d) => rooms.some((rm) => (byDate.get(d)![rm]?.booked ?? 0) > 0));
+    if (invFilter === "tight") dates = dates.filter((d) => rooms.some((rm) => {
+      const c = byDate.get(d)![rm];
+      return c && c.allocated > 0 && c.remaining <= 2;
+    }));
+
+    // 현재 보이는 범위 기준 요약 (객실별 잔여 합 / 마감 일수 / 임박 일수)
+    const totals: Record<string, { remaining: number; soldOutDays: number; tightDays: number }> = {};
+    for (const d of dates) {
+      for (const rm of rooms) {
+        const c = byDate.get(d)![rm];
+        if (!c) continue;
+        const t = (totals[rm] ??= { remaining: 0, soldOutDays: 0, tightDays: 0 });
+        t.remaining += c.remaining;
+        if (c.allocated > 0 && c.remaining <= 0) t.soldOutDays++;
+        else if (c.allocated > 0 && c.remaining <= 2) t.tightDays++;
+      }
+    }
+    return { rooms, byDate, dates, months, totals };
+  }, [inv, invMonth, invFilter]);
 
   return (
     <div>
@@ -278,24 +305,45 @@ export default function ReservationsClient() {
         {cards.map((c) => (
           <div key={c.label} className="bg-white rounded-2xl border border-gray-100 p-6">
             <p className="text-sm text-gray-400">{c.label}</p>
-            <p className="text-3xl font-bold text-gray-800 mt-2">
-              {c.value}<span className="text-base font-medium text-gray-400 ml-0.5">건</span>
-            </p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2 tnum">{c.value}</p>
           </div>
         ))}
       </div>
 
       {/* 필터 탭 + 명단 내보내기 */}
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <div className="flex gap-1 bg-white rounded-full border border-gray-100 p-1 w-fit">
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                tab === t.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
-              }`}>
-              {t.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex gap-1 bg-white rounded-full border border-gray-100 p-1 w-fit">
+            {TABS.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  tab === t.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {/* 예약 검색 */}
+          <div className="relative">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="예약번호 · 예약자 · 연락처 검색"
+              className="w-56 sm:w-64 border border-gray-200 rounded-full pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-gray-400 bg-white"
+            />
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+            </svg>
+            {query && (
+              <button onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-sm leading-none">
+                ✕
+              </button>
+            )}
+          </div>
+          {query && (
+            <span className="text-xs text-gray-400">{visible.length}건 검색됨</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -367,9 +415,7 @@ export default function ReservationsClient() {
                     title="상태 변경"
                   >
                     <option value="paid">예약확정</option>
-                    <option value="checked_in">체크인완료</option>
                     <option value="cancelled">취소</option>
-                    <option value="no_show">노쇼</option>
                   </select>
                 )}
               </div>
@@ -378,51 +424,89 @@ export default function ReservationsClient() {
         )}
       </div>
 
-      {/* 객실 재고 현황 */}
+      {/* 객실 재고 현황 — 월별 탭 + 필터 + 요약 */}
       <div className="mt-8">
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
           <h2 className="text-lg font-bold text-gray-800">🛏 객실 재고 현황</h2>
-          <div className="flex gap-3 items-center text-xs text-gray-500 flex-wrap">
-            {invView.rooms.map((rm) => {
-              const t = invView.totals[rm];
-              return t ? (
-                <span key={rm}>{rm} · 예약 <b className="text-gray-800">{t.booked}</b> / 배정 {t.allocated} · 남음 <b className="text-gray-800">{t.remaining}</b></span>
-              ) : null;
-            })}
-            <button onClick={() => setInvAll((v) => !v)} className="px-3 py-1.5 rounded-full border border-gray-200 font-medium hover:bg-gray-50">
-              {invAll ? "예약 있는 날짜만" : "전체 날짜 보기"}
-            </button>
+          <div className="flex gap-2 items-center flex-wrap">
+            {/* 필터 칩 */}
+            {([["all", "전체 날짜"], ["booked", "예약 있는 날"], ["tight", "마감·임박만"]] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setInvFilter(k)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  invFilter === k ? "bg-gray-800 text-white border-gray-800" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                {label}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* 월 탭 */}
+        <div className="flex gap-1 mb-3 bg-white rounded-xl border border-gray-100 p-1 w-fit flex-wrap">
+          <button onClick={() => setInvMonth("")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              !invMonth ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
+            전체
+          </button>
+          {invView.months.map((m) => (
+            <button key={m} onClick={() => setInvMonth(m)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                invMonth === m ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
+              {Number(m.slice(5))}월
+            </button>
+          ))}
+        </div>
+
+        {/* 보이는 범위 요약 */}
+        <div className="flex gap-2 mb-3 flex-wrap">
+          {invView.rooms.map((rm) => {
+            const t = invView.totals[rm];
+            if (!t) return null;
+            return (
+              <div key={rm} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 text-xs text-gray-500 flex items-center gap-3">
+                <b className="text-gray-800">{rm}</b>
+                <span>잔여 <b className="text-gray-800 tnum">{t.remaining}</b>실</span>
+                <span style={{ color: "#dc2626" }}>마감 <b className="tnum">{t.soldOutDays}</b>일</span>
+                <span style={{ color: "#ea580c" }}>임박(1~2) <b className="tnum">{t.tightDays}</b>일</span>
+              </div>
+            );
+          })}
+        </div>
+
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="grid px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400" style={{ gridTemplateColumns: `1.2fr repeat(${invView.rooms.length}, 1fr)` }}>
             <span>투숙일</span>
             {invView.rooms.map((rm) => <span key={rm} className="text-center">{rm} (남음/배정)</span>)}
           </div>
-          <div className="max-h-96 overflow-auto">
+          <div className="max-h-[32rem] overflow-auto">
             {inv.length === 0 ? (
               <div className="p-12 text-center text-sm text-gray-400">재고 데이터가 없습니다</div>
             ) : invView.dates.length === 0 ? (
-              <div className="p-12 text-center text-sm text-gray-400">예약된 객실이 없습니다 — “전체 날짜 보기”로 전체 재고 확인</div>
+              <div className="p-12 text-center text-sm text-gray-400">조건에 맞는 날짜가 없습니다 — 필터를 바꿔보세요</div>
             ) : (
-              invView.dates.map((d) => (
-                <div key={d} className="grid px-6 py-2.5 border-b border-gray-50 last:border-0 items-center text-sm" style={{ gridTemplateColumns: `1.2fr repeat(${invView.rooms.length}, 1fr)` }}>
-                  <span className="text-gray-600 tnum">{md(d)}</span>
-                  {invView.rooms.map((rm) => {
-                    const c = invView.byDate.get(d)?.[rm];
-                    if (!c) return <span key={rm} className="text-center text-gray-300">-</span>;
-                    const soldOut = c.remaining <= 0;
-                    const low = c.remaining > 0 && c.remaining <= 2;
-                    return (
-                      <span key={rm} className="text-center tnum font-semibold" style={{ color: soldOut ? "#dc2626" : low ? "#ea580c" : "#374151" }}>
-                        {soldOut ? "마감" : c.remaining}
-                        <span className="text-gray-300 font-normal"> / {c.allocated}</span>
-                        {c.booked > 0 && <span className="text-gray-400 font-normal text-xs"> (−{c.booked})</span>}
-                      </span>
-                    );
-                  })}
-                </div>
-              ))
+              invView.dates.map((d) => {
+                const dow = new Date(d).getDay(); // 0=일, 6=토
+                return (
+                  <div key={d} className={`grid px-6 py-2.5 border-b border-gray-50 last:border-0 items-center text-sm ${dow === 0 || dow === 6 ? "bg-amber-50/40" : ""}`}
+                    style={{ gridTemplateColumns: `1.2fr repeat(${invView.rooms.length}, 1fr)` }}>
+                    <span className="tnum font-medium" style={{ color: dow === 0 ? "#dc2626" : dow === 6 ? "#2563eb" : "#4b5563" }}>
+                      {md(d)}
+                    </span>
+                    {invView.rooms.map((rm) => {
+                      const c = invView.byDate.get(d)?.[rm];
+                      if (!c || c.allocated === 0) return <span key={rm} className="text-center text-gray-300">배정 없음</span>;
+                      const soldOut = c.remaining <= 0;
+                      const low = c.remaining > 0 && c.remaining <= 2;
+                      return (
+                        <span key={rm} className="text-center tnum font-semibold" style={{ color: soldOut ? "#dc2626" : low ? "#ea580c" : "#374151" }}>
+                          {soldOut ? "마감" : `${c.remaining}실`}
+                          <span className="text-gray-300 font-normal"> / {c.allocated}</span>
+                          {c.booked > 0 && <span className="text-gray-400 font-normal text-xs"> (예약 {c.booked})</span>}
+                        </span>
+                      );
+                    })}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
