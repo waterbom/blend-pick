@@ -40,61 +40,55 @@ export async function GET(req: Request) {
   const HOTEL_SUPPLY_RATE = 0.88;
   const HOTEL_INF_RATE = 0.05;
   const HOTEL_PG_RATE = 0.017;
-  // 공구 차수 경계 — 7/14(KST) 이전 결제 = 1차(후다닥맘), 이후 = 2차(현재).
+  // 인플루언서별 행 분리 — 귀속 주문끼리 묶어 집계, 귀속 없는 건(예약 변경 차액 등)은 별도 행.
   // 상태(status) 기준 집계라 취소되면 실시간으로 매출에서 빠진다.
-  const HOTEL_ROUND2_FROM = "2026-07-14";
-  async function hotelRow(label: string, dateCond: string) {
-    const hConds = ["o.status = ANY($1)", "o.order_type IN ('hotel', 'extra')", dateCond];
+  async function hotelRows() {
+    const hConds = ["o.status = ANY($1)", "o.order_type IN ('hotel', 'extra')"];
     const hParams: unknown[] = [[...COUNTABLE_ORDER_STATUSES]];
     if (from) { hParams.push(from); hConds.push(`o.paid_at >= $${hParams.length}::date`); }
     if (to) { hParams.push(to); hConds.push(`o.paid_at < ($${hParams.length}::date + INTERVAL '1 day')`); }
     const h = await shopPool.query(
-      `SELECT COUNT(*) AS orders,
-              COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross,
-              COALESCE(SUM(o.total_amount - o.shipping_fee) FILTER (WHERE o.influencer_id IS NOT NULL), 0) AS inf_gross
-       FROM orders o WHERE ${hConds.join(" AND ")}`,
+      `SELECT o.influencer_id, o.influencer_name,
+              COUNT(*) AS orders,
+              COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
+       FROM orders o WHERE ${hConds.join(" AND ")}
+       GROUP BY o.influencer_id, o.influencer_name`,
       hParams
     );
-    const gross = Number(h.rows[0].gross);
-    const orderCount = Number(h.rows[0].orders);
-    if (orderCount === 0) return null;
-    const supplyCost = Math.round(gross * HOTEL_SUPPLY_RATE);                 // 호텔 정산분 88%
-    const commission = Math.round(Number(h.rows[0].inf_gross) * HOTEL_INF_RATE); // 인플 5% (귀속 주문만)
-    const pgFee = Math.round(gross * HOTEL_PG_RATE);                          // 토스 1.7%
-    // 부가세 순납부 예상 = 매출부가세(우리 몫 12%분의 10/110)
-    //   − 매입세액공제(인플루언서 세금계산서·토스 수수료에 포함된 부가세)
-    const grossVat = Math.round((gross * (1 - HOTEL_SUPPLY_RATE) * 10) / 110);
-    const vatCredit = Math.round(commission / 11) + Math.round(pgFee / 11);
-    const salesVat = Math.max(0, grossVat - vatCredit);
-    return {
-      campaign_id: null,
-      label,
-      influencer_id: null,
-      influencer_name: null,
-      business_type: null,
-      period: null,
-      channel: "hotel",
-      orders: orderCount,
-      qty: orderCount,
-      gross,
-      sales_vat: salesVat,
-      supply_cost: supplyCost,
-      missing_supply: 0,
-      shipping_cost: 0,
-      pg_fee: pgFee,
-      fee_estimated: false,
-      other_costs: 0,
-      commission,
-      rate: 5,
-      net_profit: gross - supplyCost - salesVat - commission - pgFee, // 전량 귀속 시 매출의 약 4.82% (실질)
-    };
-  }
-  async function hotelRows() {
-    const [r1, r2] = await Promise.all([
-      hotelRow("호텔 공구 · 1차 후다닥맘 (~7/13 결제)", `(o.paid_at AT TIME ZONE 'Asia/Seoul')::date < '${HOTEL_ROUND2_FROM}'`),
-      hotelRow("호텔 공구 · 2차 (7/14~ 결제)", `(o.paid_at AT TIME ZONE 'Asia/Seoul')::date >= '${HOTEL_ROUND2_FROM}'`),
-    ]);
-    return [r1, r2].filter((r): r is NonNullable<typeof r> => r != null);
+    return h.rows.map((r) => {
+      const gross = Number(r.gross);
+      const attributed = r.influencer_id != null;
+      const supplyCost = Math.round(gross * HOTEL_SUPPLY_RATE);              // 호텔 정산분 88%
+      const commission = attributed ? Math.round(gross * HOTEL_INF_RATE) : 0; // 인플 5% (귀속 주문만)
+      const pgFee = Math.round(gross * HOTEL_PG_RATE);                       // 토스 1.7%
+      // 부가세 순납부 예상 = 매출부가세(우리 몫 12%분의 10/110)
+      //   − 매입세액공제(인플루언서 세금계산서·토스 수수료에 포함된 부가세)
+      const grossVat = Math.round((gross * (1 - HOTEL_SUPPLY_RATE) * 10) / 110);
+      const vatCredit = Math.round(commission / 11) + Math.round(pgFee / 11);
+      const salesVat = Math.max(0, grossVat - vatCredit);
+      return {
+        campaign_id: null,
+        label: attributed ? `호텔 공구 · ${r.influencer_name}` : "호텔 공구 · 차액·기타 (귀속 없음)",
+        influencer_id: r.influencer_id,
+        influencer_name: r.influencer_name,
+        business_type: null,
+        period: null,
+        channel: "hotel",
+        orders: Number(r.orders),
+        qty: Number(r.orders),
+        gross,
+        sales_vat: salesVat,
+        supply_cost: supplyCost,
+        missing_supply: 0,
+        shipping_cost: 0,
+        pg_fee: pgFee,
+        fee_estimated: false,
+        other_costs: 0,
+        commission,
+        rate: attributed ? 5 : null,
+        net_profit: gross - supplyCost - salesVat - commission - pgFee, // 귀속 행 기준 매출의 약 4.82% (실질)
+      };
+    });
   }
 
   const statuses = [...COUNTABLE_ORDER_STATUSES];
