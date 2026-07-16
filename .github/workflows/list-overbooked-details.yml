@@ -1,0 +1,62 @@
+name: List Overbooked Details
+
+# 오버부킹 상세 조회 (읽기전용) — 0715표(전체 배정) 초과 날짜별로
+# 0715 이전/이후 결제 분해 + 초과분에 해당하는 예약(최근 결제순) 목록 출력 (이름 마스킹)
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const DATA = "2026-07-15:5/5;2026-07-16:1/10;2026-07-17:0/0;2026-07-18:3/10;2026-07-19:5/15;2026-07-20:5/10;2026-07-21:3/15;2026-07-22:3/10;2026-07-23:5/3;2026-07-24:5/10;2026-07-25:5/10;2026-07-26:5/10;2026-07-27:3/3;2026-07-28:3/3;2026-07-29:5/5;2026-07-30:3/0;2026-07-31:1/1;2026-08-01:1/1;2026-08-02:1/1;2026-08-03:5/5;2026-08-04:5/10;2026-08-05:5/10;2026-08-06:3/10;2026-08-07:0/10;2026-08-08:5/10;2026-08-09:5/10;2026-08-10:5/10;2026-08-11:5/10;2026-08-12:5/10;2026-08-13:3/10;2026-08-14:3/10;2026-08-15:3/3;2026-08-16:3/5;2026-08-17:3/10;2026-08-18:3/10;2026-08-19:0/10;2026-08-20:3/10;2026-08-21:5/10;2026-08-22:5/10;2026-08-23:5/10;2026-08-24:5/10;2026-08-25:5/10;2026-08-26:5/10;2026-08-27:5/10;2026-08-28:3/10;2026-08-29:3/10;2026-08-30:3/10;2026-08-31:5/10;2026-09-01:5/10;2026-09-02:5/10;2026-09-03:5/10;2026-09-04:5/10;2026-09-05:5/10;2026-09-06:5/10;2026-09-07:5/10;2026-09-08:5/10;2026-09-09:5/3;2026-09-10:5/10;2026-09-11:5/10;2026-09-12:5/10;2026-09-13:5/10;2026-09-14:5/10;2026-09-15:5/10;2026-09-16:5/10;2026-09-17:5/10;2026-09-18:5/10;2026-09-19:5/10;2026-09-20:5/10;2026-09-21:5/10;2026-09-22:5/10;2026-09-23:5/10;2026-09-24:5/10;2026-09-25:5/10;2026-09-26:5/10;2026-09-27:5/10;2026-09-28:5/10;2026-09-29:5/10;2026-09-30:5/10;2026-10-01:5/10;2026-10-02:5/10;2026-10-03:5/10;2026-10-04:5/10;2026-10-05:5/10;2026-10-06:5/10;2026-10-07:5/10;2026-10-08:5/10;2026-10-09:5/10;2026-10-10:5/10;2026-10-11:5/10;2026-10-12:5/10;2026-10-13:5/10;2026-10-14:5/10;2026-10-15:5/10;2026-10-16:5/10;2026-10-17:5/10;2026-10-18:5/10;2026-10-19:5/10;2026-10-20:5/10;2026-10-21:5/10;2026-10-22:5/10;2026-10-23:5/10;2026-10-24:5/10;2026-10-25:5/10;2026-10-26:5/10;2026-10-27:5/10;2026-10-28:5/0;2026-10-29:5/0;2026-10-30:5/10;2026-10-31:5/10";
+            const ROOMS = { double: "디럭스 더블", twin: "패밀리 트윈" };
+            const CUTOFF = "2026-07-15"; // 0715표 기준 — 이 날짜(KST) 이후 결제를 "표 이후 결제"로 분류
+            const { Pool } = require("pg");
+            const pool = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const mask = (s) => !s ? "-" : s.length <= 1 ? s + "*" : s[0] + "*".repeat(Math.max(1, s.length - 2)) + s[s.length - 1];
+            (async () => {
+              for (const entry of DATA.split(";")) {
+                const [date, nums] = entry.split(":");
+                const [dbl, twn] = nums.split("/").map(Number);
+                for (const [key, roomType] of Object.entries(ROOMS)) {
+                  const sheet = key === "double" ? dbl : twn;
+                  const r = await pool.query(`
+                    SELECT o.order_number, o.buyer_name,
+                           to_char(o.paid_at AT TIME ZONE \x27Asia/Seoul\x27, \x27MM-DD HH24:MI\x27) AS paid_kst,
+                           (o.paid_at AT TIME ZONE \x27Asia/Seoul\x27)::date >= $3::date AS after_sheet,
+                           to_char(o.stay_check_in, \x27MM-DD\x27) || \x27~\x27 || to_char(o.stay_check_out, \x27MM-DD\x27) AS stay
+                    FROM orders o
+                    WHERE o.order_type = \x27hotel\x27 AND o.status = \x27paid\x27
+                      AND o.stay_check_in <= $1 AND o.stay_check_out > $1
+                      AND COALESCE(split_part((SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1), \x27 · \x27, 3), \x27\x27) = $2
+                    ORDER BY o.paid_at ASC`, [date, roomType, CUTOFF]);
+                  const total = r.rows.length;
+                  if (total <= sheet) continue;
+                  const before = r.rows.filter((x) => !x.after_sheet).length;
+                  const after = total - before;
+                  const excess = r.rows.slice(sheet); // 배정을 넘어선 예약 = 결제 순서상 늦은 쪽
+                  console.log(`===DATE=== ${date} | ${roomType} | 시트 ${sheet} | 총판매 ${total} (0715이전 ${before} + 이후 ${after}) | 초과 ${total - sheet}`);
+                  for (const x of excess)
+                    console.log(`  초과: ${x.order_number} | ${mask(x.buyer_name)} | 결제 ${x.paid_kst} | 투숙 ${x.stay}`);
+                }
+              }
+              console.log("===END===");
+              await pool.end();
+            })();'
