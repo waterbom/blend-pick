@@ -1,0 +1,25 @@
+name: Inspect Extra Pay Logs
+
+# 추가결제(차액) 흐름 진단용 서버 로그 조회 (읽기전용, 일회성)
+# 최근 4일 blend-pick 로그에서 차액 결제/휴대폰 인증 관련 흔적을 전화번호 마스킹해서 출력
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Grep logs on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "===EXTRA_PAY_LOG_MATCHES==="
+            sudo journalctl -u blend-pick --since "4 days ago" --no-pager 2>/dev/null \
+              | grep -iE "extra|verify|toss|승인|저장 실패|SMS" \
+              | tail -n 150 \
+              | sed -E "s/01[0-9][- ]?[0-9]{3,4}[- ]?[0-9]{4}/010-****-****/g" \
+              || echo "(매칭되는 로그 없음)"
+            echo "===END==="
