@@ -1,0 +1,62 @@
+name: Inspect Extra Orders
+
+# 추가결제(차액) 주문 진단용 읽기전용 조회 (일회성)
+# 최근 차액 주문 목록 + 특정 성씨 예약과의 매칭 상태를 마스킹해서 출력
+on:
+  workflow_dispatch:
+    inputs:
+      surname:
+        description: "예약자 성 (예: 홍) — 해당 성씨 호텔 예약과 차액 매칭 점검"
+        required: false
+        default: "홍"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            SURNAME="${{ github.event.inputs.surname }}" node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const mask = (s) => !s ? "-" : s.length <= 1 ? s + "*" : s[0] + "*".repeat(Math.max(1, s.length - 2)) + s[s.length - 1];
+            (async () => {
+              // ① 최근 7일 차액(extra) 주문 전부 — 품명에 든 예약번호로 매칭 여부 확인 가능
+              const extras = await shop.query(`
+                SELECT e.order_number, ei.product_name, e.total_amount, e.status, e.buyer_name,
+                       to_char(e.paid_at AT TIME ZONE \x27Asia/Seoul\x27, \x27MM-DD HH24:MI\x27) AS paid_kst
+                FROM orders e LEFT JOIN order_items ei ON ei.order_id = e.id
+                WHERE e.order_type = \x27extra\x27 AND e.created_at > NOW() - INTERVAL \x277 days\x27
+                ORDER BY e.created_at DESC`);
+              console.log("===EXTRA_ORDERS_7D=== (" + extras.rows.length + "건)");
+              for (const r of extras.rows)
+                console.log(`${r.order_number} | 품명: ${r.product_name} | ${Number(r.total_amount).toLocaleString()}원 | ${r.status} | ${r.paid_kst} | 구매자 ${mask(r.buyer_name)}`);
+              // ② 해당 성씨 호텔 예약 + 예약관리와 동일한 조건의 차액 매칭 합계
+              const res = await shop.query(`
+                SELECT o.order_number, o.status, o.total_amount, o.buyer_name,
+                       to_char(o.paid_at AT TIME ZONE \x27Asia/Seoul\x27, \x27MM-DD HH24:MI\x27) AS paid_kst,
+                       COALESCE((SELECT SUM(e.total_amount)::bigint FROM orders e
+                                 JOIN order_items ei ON ei.order_id = e.id
+                                 WHERE e.order_type = \x27extra\x27 AND e.status = \x27paid\x27
+                                   AND ei.product_name LIKE o.order_number || \x27 %\x27), 0) AS extra_paid
+                FROM orders o
+                WHERE o.order_type = \x27hotel\x27 AND o.buyer_name LIKE $1 || \x27%\x27
+                ORDER BY o.created_at DESC LIMIT 20`, [process.env.SURNAME]);
+              console.log("===SURNAME_RESERVATIONS=== (" + res.rows.length + "건)");
+              for (const r of res.rows)
+                console.log(`${r.order_number} | ${mask(r.buyer_name)} | ${r.status} | ${Number(r.total_amount).toLocaleString()}원 | 결제 ${r.paid_kst} | 차액매칭 ${Number(r.extra_paid).toLocaleString()}원`);
+              await shop.end();
+            })();'
