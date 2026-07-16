@@ -41,6 +41,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     original_price: "", discount_rate: "", price: "",
     instant_discount_price: "",
     supply_price: "",
+    influencer_rate: "",
     sale_start_at: "", sale_end_at: "",
     tax_type: "taxable",
     stock: "0",
@@ -99,6 +100,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           price,
           instant_discount_price: data.instant_discount_price ? String(data.instant_discount_price) : "",
           supply_price: data.supply_price ? String(data.supply_price) : "",
+          influencer_rate: data.influencer_rate != null ? String(data.influencer_rate) : "",
           sale_start_at: data.sale_start_at ? String(data.sale_start_at).slice(0, 16) : "",
           sale_end_at: data.sale_end_at ? String(data.sale_end_at).slice(0, 16) : "",
           tax_type: data.tax_type ?? "taxable",
@@ -271,6 +273,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       original_price: form.original_price ? Number(form.original_price) : null,
       instant_discount_price: form.instant_discount_price ? Number(form.instant_discount_price) : null,
       supply_price: form.supply_price ? Number(form.supply_price) : null,
+      influencer_rate: form.influencer_rate !== "" ? Number(form.influencer_rate) : null,
       sale_start_at: form.sale_start_at || null,
       sale_end_at: form.sale_end_at || null,
       tax_type: form.tax_type,
@@ -530,7 +533,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 type="number" min="0" className={inp} placeholder="손익관리용 — 고객에게 노출 안 됨" />
               <p className="text-xs text-gray-400 mt-1">옵션별 공급가가 다르면 아래 옵션 행에서 개별 입력 (옵션값 우선 적용)</p>
             </div>
-            <div />
+            <div>
+              <label className={lbl}>인플루언서 수수료율 (%)</label>
+              <input value={form.influencer_rate} onChange={e => set("influencer_rate", e.target.value)}
+                type="number" min="0" max="100" step="0.1" className={inp} placeholder="예: 5" />
+              <p className="text-xs text-gray-400 mt-1">입력하면 인플루언서 전용 링크(?inf=) 판매가 귀속되고 공구 정산에 수수료가 잡혀요</p>
+            </div>
           </Grid2>
           <Grid2>
             <div>

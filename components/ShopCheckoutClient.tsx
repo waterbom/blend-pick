@@ -16,9 +16,11 @@ interface Props {
   totalAmount: number;
   orderName: string;
   clientKey: string;
+  influencerId?: string | null;
 }
 
 export default function ShopCheckoutClient({
+  influencerId,
   productId,
   productName,
   optionId,
@@ -71,6 +73,7 @@ export default function ShopCheckoutClient({
     setLoading(true);
 
     const checkoutData = {
+      influencerId: influencerId ?? null, // 인플루언서 귀속 (결제 승인 시 서버가 검증 후 도장)
       productId,
       productName,
       optionId,

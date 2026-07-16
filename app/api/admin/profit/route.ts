@@ -152,7 +152,15 @@ export async function GET(req: Request) {
     return NextResponse.json(await hotelRows());
   }
 
-  const [orders, items, costs, hotel] = await Promise.all([ordersQ, itemsQ, costsQ, channel ? Promise.resolve([]) : hotelRows()]);
+  // 자사몰(campaign 없음) 주문 중 인플루언서 귀속분 수수료 — 주문에 찍힌 요율 스냅샷 기준
+  const shopCommQ = shopPool.query(
+    `SELECT COALESCE(SUM(ROUND((o.total_amount - o.shipping_fee) * o.commission_rate / 100)), 0) AS comm
+     FROM orders o
+     ${where} AND o.campaign_id IS NULL AND o.influencer_id IS NOT NULL AND o.commission_rate IS NOT NULL`,
+    params
+  );
+
+  const [orders, items, costs, hotel, shopComm] = await Promise.all([ordersQ, itemsQ, costsQ, channel ? Promise.resolve([]) : hotelRows(), shopCommQ]);
   if (orders.rows.length === 0) return NextResponse.json(hotel);
 
   const itemMap = new Map(items.rows.map((r) => [r.campaign_id, r]));
@@ -188,7 +196,9 @@ export async function GET(req: Request) {
     const shippingCost = Number(cost?.shipping_cost ?? 0);
     const otherCosts = Number(cost?.other_costs ?? 0);
     const rate = c?.commission_rate != null ? Number(c.commission_rate) : null;
-    const commission = o.campaign_id && rate != null ? calcCommission(gross, rate) : 0;
+    const commission = o.campaign_id
+      ? rate != null ? calcCommission(gross, rate) : 0
+      : Number(shopComm.rows[0]?.comm ?? 0); // 자사몰 행: 인플 귀속 주문의 요율 스냅샷 합
     const salesVat = calcSalesVat(gross);
     const netProfit = calcNetProfit({ gross, supplyCost, shippingCost, pgFee, otherCosts, commission });
 

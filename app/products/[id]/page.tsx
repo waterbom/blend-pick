@@ -1,8 +1,20 @@
 import shopPool from "@/lib/db-shop";
+import pool from "@/lib/db";
 import Header from "@/components/Header";
 import { notFound } from "next/navigation";
 import ProductDetail from "@/components/ProductDetail";
 import RefundPolicy from "@/components/RefundPolicy";
+
+// 인플루언서 전용 링크(?inf=) 검증 — 존재하는 인플루언서만 귀속 (호텔 공구와 동일 패턴)
+async function getInfluencer(inf?: string): Promise<{ id: string; name: string } | null> {
+  if (!inf) return null;
+  try {
+    const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [inf]);
+    return r.rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 interface Product {
   id: string;
@@ -101,16 +113,20 @@ async function getReviews(productId: string) {
 
 export default async function ProductDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ inf?: string }>;
 }) {
   const { id } = await params;
-  const [product, images, options, addons, reviews] = await Promise.all([
+  const { inf } = await searchParams;
+  const [product, images, options, addons, reviews, influencer] = await Promise.all([
     getProduct(id),
     getImages(id),
     getOptions(id),
     getAddons(id),
     getReviews(id),
+    getInfluencer(inf),
   ]);
 
   if (!product) notFound();
@@ -131,6 +147,7 @@ export default async function ProductDetailPage({
         addons={addons}
         addonMulti={product.addon_multi}
         reviews={reviews}
+        influencerId={influencer?.id}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <RefundPolicy />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import shopPool from "@/lib/db-shop";
+import pool from "@/lib/db";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { randomBytes } from "crypto";
@@ -42,7 +43,23 @@ export async function POST(req: NextRequest) {
     userId = payload?.id ?? null;
   }
 
-  // 3. blendpunch_shop DB에 orders + order_items 저장
+  // 3. 인플루언서 링크 유입 검증 — 이름은 DB값만 신뢰, 요율은 상품의 influencer_rate 스냅샷
+  let influencer: { id: string; name: string } | null = null;
+  let commissionRate: number | null = null;
+  if (checkoutData.influencerId) {
+    try {
+      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [checkoutData.influencerId]);
+      influencer = r.rows[0] ?? null;
+      if (influencer) {
+        const pr = await shopPool.query("SELECT influencer_rate FROM products_shop WHERE id = $1", [checkoutData.productId]);
+        commissionRate = pr.rows[0]?.influencer_rate != null ? Number(pr.rows[0].influencer_rate) : null;
+      }
+    } catch (e) {
+      console.error("[shop-confirm] 인플루언서 조회 실패:", e);
+    }
+  }
+
+  // 4. blendpunch_shop DB에 orders + order_items 저장
   const orderNumber = generateOrderNumber();
   const client = await shopPool.connect();
   try {
@@ -54,8 +71,10 @@ export async function POST(req: NextRequest) {
         recipient_name, recipient_phone,
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
-        status, payment_key, payment_method, paid_at, order_type
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'paid',$14,$15,NOW(),'shop')
+        status, payment_key, payment_method, paid_at, order_type,
+        influencer_id, influencer_name, commission_rate
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'paid',$14,$15,NOW(),'shop',
+        $16,$17,$18)
       RETURNING id`,
       [
         orderNumber,
@@ -73,6 +92,9 @@ export async function POST(req: NextRequest) {
         checkoutData.shippingCost,
         paymentKey,
         tossData.method,
+        influencer?.id ?? null,
+        influencer?.name ?? null,
+        influencer ? commissionRate : null,
       ]
     );
 

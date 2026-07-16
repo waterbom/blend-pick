@@ -80,6 +80,27 @@ export default async function InfluencerPage() {
   );
   const campaigns = campaignsRes.rows;
 
+  // 상품공구(Shop 상품) — 수수료율이 설정된 판매 중 상품만 전용 링크 발급 대상
+  const shopProductsRes = await shopPool.query(
+    `SELECT id, name, influencer_rate
+       FROM products_shop
+      WHERE status = 'active' AND influencer_rate IS NOT NULL
+      ORDER BY created_at DESC`
+  );
+  const shopProducts = shopProductsRes.rows as { id: string; name: string; influencer_rate: number }[];
+
+  // 상품공구 내 귀속 매출 (상품별)
+  const shopSalesRes = await shopPool.query(
+    `SELECT oi.product_id, COUNT(DISTINCT o.id) AS orders,
+            COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
+       FROM orders o JOIN order_items oi ON oi.order_id = o.id
+      WHERE o.order_type = 'shop' AND o.influencer_id = $1 AND o.campaign_id IS NULL
+        AND o.status = ANY($2) AND oi.product_id IS NOT NULL
+      GROUP BY oi.product_id`,
+    [inf.id, [...COUNTABLE_ORDER_STATUSES]]
+  );
+  const shopSalesMap = new Map(shopSalesRes.rows.map((r) => [r.product_id, r]));
+
   // 호텔공구 매출 (공통 요율 — 링크만 공유하면 귀속)
   const hotelSalesRes = await shopPool.query(
     `SELECT COUNT(*) AS orders, COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
@@ -245,6 +266,33 @@ export default async function InfluencerPage() {
             </div>
           </div>
         </section>
+
+        {/* 상품공구 — 전용 링크로 판매하면 귀속 (상품별 요율) */}
+        {shopProducts.length > 0 && (
+          <section className={card} style={cardStyle}>
+            <h2 className="text-sm font-bold mb-1" style={{ color: "var(--text-primary)" }}>🛍 상품 공구 전용 링크</h2>
+            <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+              링크를 공유하면 그 링크로 들어온 구매가 내 실적으로 집계돼요
+            </p>
+            <div className="space-y-2">
+              {shopProducts.map((p) => {
+                const sale = shopSalesMap.get(p.id);
+                return (
+                  <div key={p.id} className="flex items-center justify-between gap-3 text-sm rounded-xl px-3 py-2.5" style={{ border: "1px solid var(--line)" }}>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{p.name}</p>
+                      <p className="text-xs mt-0.5 tnum" style={{ color: "var(--text-muted)" }}>
+                        수수료 {Number(p.influencer_rate)}%
+                        {sale && ` · 내 판매 ${sale.orders}건 / ${WON(Number(sale.gross))}`}
+                      </p>
+                    </div>
+                    <CopyLinkButton path={`/products/${p.id}?inf=${inf.id}`} />
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* 공구 현황 */}
         <section className={card} style={cardStyle}>

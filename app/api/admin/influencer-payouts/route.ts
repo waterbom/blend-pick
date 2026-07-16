@@ -40,35 +40,56 @@ export async function POST(req: Request) {
 
   const isHotel = campaign_id === HOTEL_PAYOUT_CAMPAIGN_ID;
 
-  // OS: 요율 + 사업자유형 (호텔은 공통 요율 상수 사용)
-  const [campaign, influencer] = await Promise.all([
-    isHotel
-      ? Promise.resolve({ rows: [{ commission_rate: HOTEL_COMMISSION_RATE }] })
-      : pool.query("SELECT commission_rate FROM campaigns WHERE id = $1 AND influencer_id = $2", [
-          campaign_id,
-          influencer_id,
-        ]),
-    pool.query("SELECT business_type FROM influencers WHERE id = $1", [influencer_id]),
-  ]);
-  const rate = campaign.rows[0]?.commission_rate;
+  // 버킷 종류 판별: 호텔(센티널) / 캠페인(OS) / 상품공구(products_shop.id)
+  let rate: number | null = null;
+  let bucket: "hotel" | "campaign" | "product" = "campaign";
+  if (isHotel) {
+    bucket = "hotel";
+    rate = HOTEL_COMMISSION_RATE;
+  } else {
+    const c = await pool.query(
+      "SELECT commission_rate FROM campaigns WHERE id = $1 AND influencer_id = $2",
+      [campaign_id, influencer_id]
+    );
+    if (c.rows[0]) {
+      rate = c.rows[0].commission_rate;
+    } else {
+      const p = await shopPool.query("SELECT influencer_rate FROM products_shop WHERE id = $1", [campaign_id]);
+      if (p.rows[0]) {
+        bucket = "product";
+        rate = p.rows[0].influencer_rate != null ? Number(p.rows[0].influencer_rate) : null;
+      }
+    }
+  }
+  const influencer = await pool.query("SELECT business_type FROM influencers WHERE id = $1", [influencer_id]);
   const businessType = influencer.rows[0]?.business_type as BusinessType | undefined;
   if (rate == null) return NextResponse.json({ error: "수수료율이 설정되지 않은 공구입니다" }, { status: 400 });
   if (!businessType) return NextResponse.json({ error: "인플루언서 사업자유형이 미설정입니다" }, { status: 400 });
 
-  // Shop: 매출 재집계 (호텔은 order_type='hotel' + influencer_id 기준)
-  const sales = isHotel
-    ? await shopPool.query(
-        `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
-         FROM orders
-         WHERE order_type = 'hotel' AND influencer_id = $1 AND status = ANY($2)`,
-        [influencer_id, [...COUNTABLE_ORDER_STATUSES]]
-      )
-    : await shopPool.query(
-        `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
-         FROM orders
-         WHERE campaign_id = $1 AND influencer_id = $2 AND status = ANY($3)`,
-        [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES]]
-      );
+  // Shop: 매출 재집계 (버킷별 기준)
+  const sales =
+    bucket === "hotel"
+      ? await shopPool.query(
+          `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
+           FROM orders
+           WHERE order_type = 'hotel' AND influencer_id = $1 AND status = ANY($2)`,
+          [influencer_id, [...COUNTABLE_ORDER_STATUSES]]
+        )
+      : bucket === "product"
+      ? await shopPool.query(
+          `SELECT COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
+           FROM orders o
+           JOIN order_items oi ON oi.order_id = o.id AND oi.product_id = $1
+           WHERE o.order_type = 'shop' AND o.influencer_id = $2
+             AND o.campaign_id IS NULL AND o.status = ANY($3)`,
+          [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES]]
+        )
+      : await shopPool.query(
+          `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
+           FROM orders
+           WHERE campaign_id = $1 AND influencer_id = $2 AND status = ANY($3)`,
+          [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES]]
+        );
   const gross = Number(sales.rows[0].gross);
   const commission = calcCommission(gross, Number(rate));
   const b = calcPayout(commission, businessType);

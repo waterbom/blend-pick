@@ -6,9 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shopUnitPrice } from "@/lib/shop-price";
 
-function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number) {
+function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number, influencerId?: string | null) {
   const params = new URLSearchParams({ quantity: String(quantity) });
   if (optionId) params.set("optionId", optionId);
+  if (influencerId) params.set("inf", influencerId); // 인플루언서 귀속 유지
   return `/products/${productId}/checkout?${params.toString()}`;
 }
 
@@ -83,6 +84,7 @@ export default function ProductDetail({
   addons,
   addonMulti,
   reviews,
+  influencerId,
 }: {
   product: Product;
   images: ProductImage[];
@@ -90,6 +92,7 @@ export default function ProductDetail({
   addons: ProductAddon[];
   addonMulti: boolean;
   reviews: Review[];
+  influencerId?: string | null;
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<SelectedLine[]>([]);
@@ -206,7 +209,7 @@ export default function ProductDetail({
 
     // 추가옵션이 선택되지 않았고 옵션도 없는 단일상품 → 기존 단일 결제 흐름
     if (selectedAddons.length === 0 && !hasOptions) {
-      router.push(buildCheckoutUrl(product.id, null, quantity));
+      router.push(buildCheckoutUrl(product.id, null, quantity, influencerId));
       return;
     }
 
@@ -268,7 +271,7 @@ export default function ProductDetail({
     const items = [...mainItems, ...addonItems];
     sessionStorage.setItem(
       "cartCheckoutData",
-      JSON.stringify({ items, totalAmount: grandTotal, shippingCost })
+      JSON.stringify({ items, totalAmount: grandTotal, shippingCost, influencerId: influencerId ?? null })
     );
     router.push("/cart/checkout");
   }

@@ -45,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const body = await req.json();
   const {
     name, brand, description, price, original_price, instant_discount_price,
-    supply_price,
+    supply_price, influencer_rate,
     stock, category, status, sale_type,
     presale_enabled, presale_start_at, presale_end_at,
     sale_start_at, sale_end_at, tax_type,
@@ -81,8 +81,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         as_notes = $31,
         manufacturer = $32, origin_country = $33,
         product_condition = $34, manufacture_date = $35,
-        main_image = $36, addon_multi = $37, supply_price = $38, updated_at = NOW()
-      WHERE id = $39
+        main_image = $36, addon_multi = $37, supply_price = $38, influencer_rate = $39, updated_at = NOW()
+      WHERE id = $40
     `, [
       name, brand || null, description || null,
       price, original_price || null, instant_discount_price || null,
@@ -103,6 +103,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       main_image || null,
       addon_multi !== false,
       supply_price || null,
+      influencer_rate ?? null,
       id,
     ]);
 

@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   const body = await req.json();
   const {
     name, brand, description, price, original_price, instant_discount_price,
-    supply_price,
+    supply_price, influencer_rate,
     stock, category, status, sale_type,
     presale_enabled, presale_start_at, presale_end_at,
     sale_start_at, sale_end_at, tax_type,
@@ -68,12 +68,12 @@ export async function POST(req: Request) {
         exchange_cost_oneway, exchange_cost_roundtrip,
         as_notes,
         manufacturer, origin_country, product_condition, manufacture_date,
-        main_image, addon_multi, supply_price
+        main_image, addon_multi, supply_price, influencer_rate
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
         $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
         $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
-        $31,$32,$33,$34,$35,$36,$37,$38
+        $31,$32,$33,$34,$35,$36,$37,$38,$39
       ) RETURNING id
     `, [
       name, brand || null, description || null,
@@ -95,6 +95,7 @@ export async function POST(req: Request) {
       main_image || null,
       addon_multi !== false,
       supply_price || null,
+      influencer_rate ?? null,
     ]);
 
     const productId = result.rows[0].id;

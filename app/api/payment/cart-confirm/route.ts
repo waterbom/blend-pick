@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import shopPool from "@/lib/db-shop";
+import pool from "@/lib/db";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { shopUnitPrice } from "@/lib/shop-price";
@@ -56,6 +57,23 @@ export async function POST(req: NextRequest) {
     is_addon?: boolean;
   }> = checkoutData.items;
 
+  // 인플루언서 링크 유입 검증 — 요율은 대표(첫) 상품의 influencer_rate 스냅샷
+  let influencer: { id: string; name: string } | null = null;
+  let commissionRate: number | null = null;
+  if (checkoutData.influencerId) {
+    try {
+      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [checkoutData.influencerId]);
+      influencer = r.rows[0] ?? null;
+      const mainProductId = items.find((i) => i.product_id)?.product_id;
+      if (influencer && mainProductId) {
+        const pr = await shopPool.query("SELECT influencer_rate FROM products_shop WHERE id = $1", [mainProductId]);
+        commissionRate = pr.rows[0]?.influencer_rate != null ? Number(pr.rows[0].influencer_rate) : null;
+      }
+    } catch (e) {
+      console.error("[cart-confirm] 인플루언서 조회 실패:", e);
+    }
+  }
+
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
@@ -66,8 +84,10 @@ export async function POST(req: NextRequest) {
         order_number, user_id, buyer_name, buyer_phone, buyer_email,
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
-        status, payment_key, payment_method, paid_at, order_type
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'paid',$12,$13,NOW(),'shop')
+        status, payment_key, payment_method, paid_at, order_type,
+        influencer_id, influencer_name, commission_rate
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'paid',$12,$13,NOW(),'shop',
+        $14,$15,$16)
       RETURNING id`,
       [
         orderNumber,
@@ -83,6 +103,9 @@ export async function POST(req: NextRequest) {
         checkoutData.shippingCost,
         paymentKey,
         tossData.method,
+        influencer?.id ?? null,
+        influencer?.name ?? null,
+        influencer ? commissionRate : null,
       ]
     );
 

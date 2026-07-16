@@ -1,4 +1,5 @@
 import shopPool from "@/lib/db-shop";
+import pool from "@/lib/db";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import ShopCheckoutClient from "@/components/ShopCheckoutClient";
@@ -21,15 +22,27 @@ async function getOption(optionId: string) {
   return result.rows[0] || null;
 }
 
+// 인플루언서 전용 링크(?inf=) 검증 — 존재하는 인플루언서만 귀속
+async function getInfluencer(inf?: string): Promise<{ id: string } | null> {
+  if (!inf) return null;
+  try {
+    const r = await pool.query("SELECT id FROM influencers WHERE id = $1", [inf]);
+    return r.rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function ShopCheckoutPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ optionId?: string; quantity?: string }>;
+  searchParams: Promise<{ optionId?: string; quantity?: string; inf?: string }>;
 }) {
   const { id } = await params;
-  const { optionId, quantity: qStr } = await searchParams;
+  const { optionId, quantity: qStr, inf } = await searchParams;
+  const influencer = await getInfluencer(inf);
   const quantity = Math.max(1, parseInt(qStr ?? "1") || 1);
 
   const [product, option] = await Promise.all([
@@ -76,6 +89,7 @@ export default async function ShopCheckoutPage({
         </div>
 
         <ShopCheckoutClient
+          influencerId={influencer?.id ?? null}
           productId={product.id}
           productName={product.name}
           optionId={option?.id ?? null}
