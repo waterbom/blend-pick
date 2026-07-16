@@ -254,7 +254,7 @@ export default function ReservationsClient() {
   }, [rows]);
 
   const [query, setQuery] = useState("");
-  const [infSel, setInfSel] = useState(""); // "" 전체 / "__direct" 직접 유입 / 인플루언서 이름
+  const [infSel, setInfSel] = useState(""); // "" 전체 / 인플루언서 이름
 
   // 필터 옵션 — 예약 데이터에 등장하는 인플루언서 목록
   const influencerOptions = useMemo(() => {
@@ -265,8 +265,7 @@ export default function ReservationsClient() {
 
   const visible = useMemo(() => {
     let list = tab ? rows.filter((r) => r.status === tab) : rows;
-    if (infSel === "__direct") list = list.filter((r) => !r.influencer_name);
-    else if (infSel) list = list.filter((r) => r.influencer_name === infSel);
+    if (infSel) list = list.filter((r) => r.influencer_name === infSel);
     const q = query.trim().toLowerCase();
     if (q) {
       const qDigits = q.replace(/[^0-9]/g, "");
@@ -408,7 +407,6 @@ export default function ReservationsClient() {
           <select value={infSel} onChange={(e) => setInfSel(e.target.value)}
             className="border border-gray-200 rounded-full px-3 py-2 text-sm focus:outline-none focus:border-gray-400 bg-white text-gray-600">
             <option value="">유입 전체</option>
-            <option value="__direct">직접 유입</option>
             {influencerOptions.map((n) => (
               <option key={n} value={n}>@{n}</option>
             ))}
