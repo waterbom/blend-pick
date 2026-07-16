@@ -211,14 +211,20 @@ export default function InfluencerSettlementsClient() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 sm:grid-cols-7 gap-x-4 gap-y-2 text-xs mt-3 pt-3 border-t border-gray-50 tnum">
+                <div className="grid grid-cols-3 sm:grid-cols-8 gap-x-4 gap-y-2 text-xs mt-3 pt-3 border-t border-gray-50 tnum">
                   <div><p className="text-gray-400">주문/수량</p><p className="font-bold text-gray-800">{r.orders}건 / {r.qty}개</p></div>
                   <div><p className="text-gray-400">총매출</p><p className="font-bold text-gray-800">{WON(r.gross)}</p></div>
                   <div><p className="text-gray-400">수수료율</p><p className="font-bold text-orange-600">{r.rate != null ? `${r.rate}%` : "미설정"}</p></div>
-                  <div><p className="text-gray-400">수수료</p><p className="font-bold text-gray-800">{view ? WON(view.commission) : "—"}</p></div>
+                  <div><p className="text-gray-400">수수료 (부가세 포함)</p><p className="font-bold text-gray-800">{view ? WON(view.commission) : "—"}</p></div>
                   <div><p className="text-gray-400">공급가액/부가세</p><p className="font-bold text-gray-800">{view ? `${WON(view.supplyValue)} / ${WON(view.vat)}` : "—"}</p></div>
                   <div><p className="text-gray-400">원천징수</p><p className="font-bold text-gray-800">{view ? WON(view.withholding) : "—"}</p></div>
-                  <div><p className="text-gray-400">지급액</p><p className="font-black text-orange-600">{view ? WON(view.payout) : "—"}</p></div>
+                  <div><p className="text-gray-400">지급액 (이체)</p><p className="font-black text-orange-600">{view ? WON(view.payout) : "—"}</p></div>
+                  <div>
+                    <p className="text-gray-400">실질 수령 (세후)</p>
+                    <p className="font-black text-gray-900">
+                      {view ? WON(r.business_type === "general" ? view.supplyValue : view.payout) : "—"}
+                    </p>
+                  </div>
                 </div>
               </div>
             );
@@ -228,6 +234,7 @@ export default function InfluencerSettlementsClient() {
 
       <p className="text-xs text-gray-400 mt-4">
         · 미확정 상태의 금액은 현재 매출·요율 기준 예상치입니다. <b>정산 확정</b> 시점의 수치로 동결되며, 이후 요율 변경에 영향받지 않습니다.
+        <br />· <b>지급액(이체)</b> = 실제 송금할 금액. <b>실질 수령(세후)</b> = 인플루언서가 자기 세금(사업자: 부가세 납부 / 프리랜서: 원천세 기공제)까지 정리한 뒤 남는 돈.
       </p>
     </div>
   );
