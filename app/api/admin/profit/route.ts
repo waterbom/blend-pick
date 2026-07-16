@@ -61,6 +61,8 @@ export async function GET(req: Request) {
     const supplyCost = Math.round(gross * HOTEL_SUPPLY_RATE);                 // 호텔 정산분 88%
     const commission = Math.round(Number(h.rows[0].inf_gross) * HOTEL_INF_RATE); // 인플 5% (귀속 주문만)
     const pgFee = Math.round(gross * HOTEL_PG_RATE);                          // 토스 1.7%
+    // 우리 몫(12%)은 부가세 포함 금액 — 그중 10/110은 납부할 매출부가세 (매출의 약 1.09%)
+    const salesVat = Math.round((gross * (1 - HOTEL_SUPPLY_RATE) * 10) / 110);
     return {
       campaign_id: null,
       label,
@@ -72,7 +74,7 @@ export async function GET(req: Request) {
       orders: orderCount,
       qty: orderCount,
       gross,
-      sales_vat: 0, // 대행 매출 — 부가세는 수수료분 기준이라 별도 처리
+      sales_vat: salesVat,
       supply_cost: supplyCost,
       missing_supply: 0,
       shipping_cost: 0,
@@ -81,7 +83,7 @@ export async function GET(req: Request) {
       other_costs: 0,
       commission,
       rate: 5,
-      net_profit: gross - supplyCost - commission - pgFee, // 전량 귀속 시 매출의 5.3%
+      net_profit: gross - supplyCost - salesVat - commission - pgFee, // 전량 귀속 시 매출의 약 4.21%
     };
   }
   async function hotelRows() {
