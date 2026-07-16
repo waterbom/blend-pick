@@ -473,6 +473,13 @@ export default function ReservationsClient() {
                 <div className="text-sm text-gray-700">
                   <div className="font-medium text-gray-800">{r.buyer_name}</div>
                   <div className="text-xs text-gray-400">{r.buyer_phone}</div>
+                  {r.influencer_name ? (
+                    <span className="inline-block mt-1 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-purple-50 text-purple-600" title="이 인플루언서 전용 링크로 들어온 예약">
+                      @{r.influencer_name}
+                    </span>
+                  ) : (
+                    <span className="inline-block mt-1 text-[11px] text-gray-300">직접 유입</span>
+                  )}
                 </div>
                 <div className="text-sm text-gray-700 min-w-0">
                   <div>{hotelRoom(r.product_name)}</div>
