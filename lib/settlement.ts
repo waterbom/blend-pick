@@ -47,8 +47,9 @@ export interface PayoutBreakdown {
 /** 사업자유형별 지급액 분해 */
 export function calcPayout(commission: number, type: BusinessType): PayoutBreakdown {
   if (type === "general") {
-    // 일반사업자: 부가세 차감 없이 전액 지급 (인플루언서가 세금계산서 발행)
-    return { commission, supplyValue: commission, vat: 0, withholding: 0, payout: commission };
+    // 일반사업자: 수수료 전액 지급 (세금계산서 발행) — 공급가액/부가세는 표시용 분해
+    const supplyValue = Math.round(commission / 1.1);
+    return { commission, supplyValue, vat: commission - supplyValue, withholding: 0, payout: commission };
   }
   const supplyValue = Math.round(commission / 1.1);
   const vat = commission - supplyValue;
