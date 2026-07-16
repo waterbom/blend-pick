@@ -217,23 +217,33 @@ export default function HotelReserveClient({
                 오션뷰 객실 · 조식 · 인피니티풀 · 레이트 체크아웃까지, 한 번에.
               </p>
             </div>
-            {/* 카운트다운 — 데스크톱 우하단 / 모바일 별도 행 */}
-            <div className="mt-6 lg:mt-0 pt-4 lg:pt-0 pb-0 lg:pb-1 flex justify-between items-center lg:block lg:text-right border-t lg:border-t-0"
-              style={{ borderColor: "rgba(234,240,230,.18)" }}>
-              <div className="text-[10px] lg:text-[11px] lg:mb-2" style={{ letterSpacing: ".2em", color: C.sageLight }}>
-                {sale === "before" ? "판매 시작까지" : "판매 종료까지"}
+            {/* 카운트다운 — 데스크톱 우하단 / 모바일 별도 행 (직접 방문은 타이머 없이 예약 조회만) */}
+            {!linkOnly ? (
+              <div className="mt-6 lg:mt-0 pt-4 lg:pt-0 pb-0 lg:pb-1 flex justify-between items-center lg:block lg:text-right border-t lg:border-t-0"
+                style={{ borderColor: "rgba(234,240,230,.18)" }}>
+                <div className="text-[10px] lg:text-[11px] lg:mb-2" style={{ letterSpacing: ".2em", color: C.sageLight }}>
+                  {sale === "before" ? "판매 시작까지" : "판매 종료까지"}
+                </div>
+                <div className="text-[24px] lg:text-[40px]" suppressHydrationWarning
+                  style={{ fontFamily: MONO, fontWeight: 600, color: C.gold }}>
+                  {countdownText}
+                </div>
+                {/* 예약 조회 — 귀속 링크로 들어와도 항상 접근 가능 */}
+                <a href="/hotel/lookup"
+                  className="hidden lg:inline-block mt-3 px-5 py-2.5 text-[11px] font-bold transition-colors duration-150"
+                  style={{ background: C.gold, color: C.green900, letterSpacing: ".12em" }}>
+                  예약 조회 →
+                </a>
               </div>
-              <div className="text-[24px] lg:text-[40px]" suppressHydrationWarning
-                style={{ fontFamily: MONO, fontWeight: 600, color: C.gold }}>
-                {countdownText}
+            ) : (
+              <div className="hidden lg:block lg:pb-1 lg:text-right">
+                <a href="/hotel/lookup"
+                  className="inline-block px-5 py-2.5 text-[11px] font-bold transition-colors duration-150"
+                  style={{ background: C.gold, color: C.green900, letterSpacing: ".12em" }}>
+                  예약 조회 →
+                </a>
               </div>
-              {/* 예약 조회 — 귀속 링크로 들어와도 항상 접근 가능 */}
-              <a href="/hotel/lookup"
-                className="hidden lg:inline-block mt-3 px-5 py-2.5 text-[11px] font-bold transition-colors duration-150"
-                style={{ background: C.gold, color: C.green900, letterSpacing: ".12em" }}>
-                예약 조회 →
-              </a>
-            </div>
+            )}
           </div>
 
           {/* 예약 조회 (모바일) */}

@@ -1,0 +1,70 @@
+name: Attribute Round2 Direct Orders
+
+# 2차(7/14 이후 결제) 직접 유입 호텔 주문을 민경이네로 귀속 (일회성)
+# 직접 유입은 이제 차단되어 새로 생기지 않으므로, 남아있는 건 전부 민경 공구 기간의 주문
+# apply=false(기본): 읽기전용 조회만 / apply=true: 귀속 없는 2차 주문에 민경 귀속 스탬프
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "true면 귀속 지정 실행 (기본은 조회만)"
+        required: false
+        default: "false"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect/attribute on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            APPLY="${{ github.event.inputs.apply }}" node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const os = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const R2 = "(o.paid_at AT TIME ZONE \x27Asia/Seoul\x27)::date >= \x272026-07-14\x27";
+            (async () => {
+              // ① 2차 주문 귀속 분포 (개인정보 없음 — 집계만)
+              const dist = await shop.query(`
+                SELECT COALESCE(o.influencer_name, \x27(귀속 없음)\x27) AS who, o.status,
+                       COUNT(*) AS n, COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
+                FROM orders o
+                WHERE o.order_type = \x27hotel\x27 AND o.paid_at IS NOT NULL AND ${R2}
+                GROUP BY 1, 2 ORDER BY 1, 2`);
+              console.log("===ROUND2_DIST===");
+              for (const r of dist.rows) console.log(`${r.who} | ${r.status} | ${r.n}건 | ${Number(r.gross).toLocaleString()}원`);
+              if (dist.rows.length === 0) console.log("(2차 주문 없음)");
+              // ② 민경 인플루언서 검색
+              const inf = await os.query(`SELECT id, name FROM influencers WHERE name LIKE \x27%민경%\x27`);
+              console.log("===MINKYUNG_CANDIDATES===");
+              for (const r of inf.rows) console.log(`${r.id} | ${r.name}`);
+              if (inf.rows.length === 0) console.log("(없음 — 인플루언서 관리에서 민경 등록 필요)");
+              // ③ apply=true면 귀속 없는 2차 주문에 스탬프
+              if (process.env.APPLY === "true") {
+                if (inf.rows.length !== 1) {
+                  console.log("APPLY 중단: 민경 후보가 정확히 1명이 아님 (" + inf.rows.length + "명)");
+                  process.exit(1);
+                }
+                const { id, name } = inf.rows[0];
+                const u = await shop.query(`
+                  UPDATE orders o SET influencer_id = $1, influencer_name = $2, commission_rate = 5
+                  WHERE o.order_type = \x27hotel\x27 AND o.paid_at IS NOT NULL AND ${R2}
+                    AND o.influencer_id IS NULL`, [id, name]);
+                console.log(`===APPLIED=== ${u.rowCount}건 → ${name} 귀속 (수수료율 5%)`);
+              } else {
+                console.log("===DRY_RUN=== 조회만 수행 (apply=true로 재실행 시 귀속 지정)");
+              }
+              await shop.end(); await os.end();
+            })();'
