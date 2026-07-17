@@ -3,7 +3,7 @@
 import { validateBuyerName } from "@/lib/validate-name";
 import { useState, useEffect } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
-import { WON, REFUND_POLICY, PARTNER_BENEFITS, type PkgKey, type RoomType } from "@/lib/hotel";
+import { WON, REFUND_POLICY, PARTNER_BENEFITS, refundRateFor, type PkgKey, type RoomType } from "@/lib/hotel";
 
 interface Reservation {
   pkg: PkgKey;
@@ -70,6 +70,13 @@ export default function HotelCheckoutClient({
   const [method, setMethod] = useState<(typeof PAY_METHODS)[number]["key"]>("card");
   const [loading, setLoading] = useState(false);
 
+  // 체크인 임박 안내 — 서버/클라 시간 차로 인한 hydration 불일치 방지 위해 마운트 후 계산
+  const [refundWarn, setRefundWarn] = useState<{ days: number; rate: number } | null>(null);
+  useEffect(() => {
+    const p = refundRateFor(reservation.checkIn);
+    if (p.rate < 100) setRefundWarn({ days: p.days, rate: p.rate });
+  }, [reservation.checkIn]);
+
   // 휴대폰 인증
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
@@ -135,6 +142,14 @@ export default function HotelCheckoutClient({
     if (phoneVerifyEnabled && !phoneVerified) {
       alert("휴대폰 인증을 완료해주세요.");
       return;
+    }
+    // 체크인 임박 예약: 환불 규정에 걸리는 기간이면 결제 전에 안내 (동의해야 진행)
+    const policy = refundRateFor(reservation.checkIn);
+    if (policy.rate < 100) {
+      const msg = policy.days >= 1
+        ? `현재 입실 ${policy.days}일 전입니다.\n취소하게 될 경우 ${policy.rate}% 환불만 가능합니다!\n\n동의하시면 결제를 진행합니다.`
+        : `오늘 입실하는 예약입니다.\n결제 후 취소 시 환불이 불가합니다!\n\n동의하시면 결제를 진행합니다.`;
+      if (!confirm(msg)) return;
     }
     setLoading(true);
 
@@ -359,6 +374,18 @@ export default function HotelCheckoutClient({
 
       {/* 결제 버튼 */}
       <div className="mb-6">
+        {refundWarn && (
+          <div className="rounded-2xl px-4 py-3 mb-3 text-center" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+            <p className="text-sm font-bold" style={{ color: "#B45309" }}>
+              ⚠️ 현재 입실 {refundWarn.days >= 1 ? `${refundWarn.days}일 전` : "당일"}입니다
+            </p>
+            <p className="text-xs mt-1" style={{ color: "#92400E" }}>
+              {refundWarn.rate > 0
+                ? `취소하게 될 경우 ${refundWarn.rate}% 환불만 가능합니다!`
+                : "결제 후 취소 시 환불이 불가합니다!"}
+            </p>
+          </div>
+        )}
         {!isLoggedIn && (
           <p className="text-xs text-center mb-2" style={{ color: "var(--text-muted)" }}>비회원으로도 예약할 수 있어요 · 예약번호로 확인됩니다</p>
         )}
