@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { cancelHotelReservation } from "@/lib/hotel-cancel";
+import { smsConfigured } from "@/lib/sms";
+import { sendReservationSMS } from "@/lib/hotel-notify";
 
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
@@ -73,11 +75,45 @@ export async function PATCH(req: Request) {
         { status: 409 }
       );
     }
+    const wasAwaiting = cur.rows[0].status === "awaiting";
     const r = await shopPool.query(
       `UPDATE orders SET status = $1 WHERE id = $2 AND order_type = 'hotel'`,
       [status, id]
     );
-    return NextResponse.json({ ok: true, updated: r.rowCount });
+
+    // 예약대기 → 예약확정 승인: 고객에게 예약확정 문자 발송 (결제 시엔 안 보냈음)
+    let smsSent = false;
+    if (wasAwaiting && status === "paid" && smsConfigured()) {
+      try {
+        const o = (await shopPool.query(
+          `SELECT o.order_number, o.buyer_name, o.buyer_phone, o.total_amount,
+                  to_char(o.stay_check_in, 'YYYY-MM-DD') AS check_in,
+                  to_char(o.stay_check_out, 'YYYY-MM-DD') AS check_out,
+                  (SELECT oi.product_name FROM order_items oi WHERE oi.order_id = o.id LIMIT 1) AS product_name
+           FROM orders o WHERE o.id = $1`,
+          [id]
+        )).rows[0];
+        const nights = Math.round(
+          (Date.parse(o.check_out) - Date.parse(o.check_in)) / 86400000
+        );
+        const sms = await sendReservationSMS(o.buyer_phone, {
+          buyerName: o.buyer_name,
+          orderNumber: o.order_number,
+          room: (o.product_name || "").split(" · ")[2] || "",
+          checkIn: o.check_in,
+          checkOut: o.check_out,
+          nights: Math.max(1, nights),
+          total: Number(o.total_amount),
+        });
+        if (sms.ok) {
+          smsSent = true;
+          await shopPool.query(`UPDATE orders SET kakao_notified_at = NOW() WHERE id = $1`, [id]);
+        }
+      } catch (e) {
+        console.error("[reservations] 승인 확정 문자 발송 실패:", e);
+      }
+    }
+    return NextResponse.json({ ok: true, updated: r.rowCount, smsSent });
   }
 
   // 취소 → 공용 취소 엔진 (환불 규정 + 토스 부분 환불 + 재고 복원 + 취소 문자)

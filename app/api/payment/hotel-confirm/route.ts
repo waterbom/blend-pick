@@ -81,6 +81,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 승인제 날짜 포함 여부 — 하나라도 있으면 예약대기(awaiting)로 저장, 관리자 승인 시 확정
+  let needsApproval = false;
+  try {
+    const ap = await shopPool.query(
+      `SELECT COUNT(*)::int AS n FROM hotel_room_inventory
+       WHERE room_type = $1 AND stay_date >= $2 AND stay_date < $3 AND needs_approval`,
+      [cd.room, cd.checkIn, cd.checkOut]
+    );
+    needsApproval = Number(ap.rows[0].n) > 0;
+  } catch (e) {
+    console.error("[hotel-confirm] 승인제 조회 실패(기본 확정 저장):", e);
+  }
+  const orderStatus = needsApproval ? "awaiting" : "paid";
+
   const client = await shopPool.connect();
   let saved = false;
   try {
@@ -94,7 +108,7 @@ export async function POST(req: NextRequest) {
         status, payment_key, payment_method, paid_at, order_type,
         stay_check_in, stay_check_out,
         influencer_id, influencer_name, commission_rate
-      ) VALUES ($1,$12,$2,$3,NULL,$4,$5,NULL,NULL,NULL,$6,$7,0,'paid',$8,$9,NOW(),'hotel',$10,$11,
+      ) VALUES ($1,$12,$2,$3,NULL,$4,$5,NULL,NULL,NULL,$6,$7,0,$16,$8,$9,NOW(),'hotel',$10,$11,
         $13,$14,$15)
       RETURNING id`,
       [
@@ -113,6 +127,7 @@ export async function POST(req: NextRequest) {
         influencer?.id ?? null,
         influencer?.name ?? null,
         influencer ? HOTEL_COMMISSION_RATE : null,
+        orderStatus,
       ]
     );
     await client.query(
@@ -140,7 +155,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 예약 확정 즉시 예약확인 문자 자동 발송 (실패해도 예약엔 영향 없음 → 일괄발송으로 재시도 가능)
-  if (smsConfigured()) {
+  // 예약대기(awaiting) 건은 관리자 승인 시점에 발송하므로 여기선 건너뜀
+  if (!needsApproval && smsConfigured()) {
     try {
       const r = await sendReservationSMS(cd.customerPhone, {
         buyerName: cd.customerName,
@@ -169,5 +185,6 @@ export async function POST(req: NextRequest) {
     nights,
     total,
     paymentMethod: tossData.method,
+    status: orderStatus, // 'awaiting'이면 완료 화면에서 예약대기 안내
   });
 }

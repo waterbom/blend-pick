@@ -11,6 +11,7 @@ interface Result {
   room: string;
   checkIn: string;
   checkOut: string;
+  awaiting: boolean; // 승인제 날짜 예약 → 관리자 승인 전 예약대기
 }
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -48,6 +49,7 @@ function SuccessContent() {
             room: cd.room,
             checkIn: cd.checkIn,
             checkOut: cd.checkOut,
+            awaiting: data.status === "awaiting",
           });
           sessionStorage.removeItem("hotelCheckoutData");
         } else {
@@ -78,11 +80,24 @@ function SuccessContent() {
             <line x1="7" y1="8" x2="17" y2="8" /><line x1="7" y1="12" x2="17" y2="12" /><line x1="7" y1="16" x2="13" y2="16" />
           </svg>
         </div>
-        <h1 className="text-2xl font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>예약이 확정됐어요!</h1>
+        <h1 className="text-2xl font-extrabold mb-2" style={{ color: "var(--text-primary)" }}>
+          {result.awaiting ? "결제 완료 — 예약대기 상태입니다" : "예약이 확정됐어요!"}
+        </h1>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           예약번호 <span className="font-bold font-mono" style={{ color: "var(--text-primary)" }}>{result.orderNumber}</span>
         </p>
       </div>
+
+      {/* 예약대기 안내 */}
+      {result.awaiting && (
+        <div className="rounded-2xl px-5 py-4 mb-5 text-center" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+          <p className="text-sm font-bold" style={{ color: "#B45309" }}>⏳ 관리자 승인 후 예약이 확정됩니다</p>
+          <p className="text-xs mt-1.5 leading-relaxed" style={{ color: "#92400E" }}>
+            카카오톡 채널로 <b>승인 요청</b> 부탁드립니다.
+            <br />승인이 완료되면 예약확정 문자를 보내드려요.
+          </p>
+        </div>
+      )}
 
       {/* 호텔 카드 */}
       <div className="rounded-2xl overflow-hidden mb-5" style={{ border: "1.5px dashed var(--line)" }}>
@@ -115,7 +130,9 @@ function SuccessContent() {
 
       {/* 안내 */}
       <div className="mb-6 space-y-2">
-        <p className="text-sm font-semibold text-center" style={{ color: "var(--accent)" }}>📩 예약 확인 문자를 보내드렸어요</p>
+        <p className="text-sm font-semibold text-center" style={{ color: "var(--accent)" }}>
+          {result.awaiting ? "📩 승인 완료 시 예약확정 문자를 보내드려요" : "📩 예약 확인 문자를 보내드렸어요"}
+        </p>
         <div className="rounded-xl px-4 py-3 text-center" style={{ background: "var(--accent-soft)" }}>
           <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>🏨 체크인 시 호텔 프런트에</p>
           <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>예약 확인 문자를 보여주시면 입장 가능합니다</p>

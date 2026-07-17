@@ -25,6 +25,7 @@ function fmt(iso: string | null) {
 }
 
 const STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  awaiting:   { label: "예약대기 (승인 전)", color: "#b45309", bg: "#fffbeb" },
   paid:       { label: "예약확정",   color: "#2563eb", bg: "#eff6ff" },
   checked_in: { label: "체크인완료", color: "#16a34a", bg: "#f0fdf4" },
   cancelled:  { label: "예약취소",   color: "#9ca3af", bg: "#f3f4f6" },

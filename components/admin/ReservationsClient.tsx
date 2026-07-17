@@ -30,6 +30,7 @@ interface Inv {
 
 // 체크인/노쇼는 호텔이 관리 — 우리는 예약확정/취소만 다룸 (레거시 상태는 표시만)
 const STATUS: Record<string, { label: string; cls: string }> = {
+  awaiting:   { label: "예약대기",   cls: "bg-amber-50 text-amber-600" },
   paid:       { label: "예약확정",   cls: "bg-blue-50 text-blue-600" },
   checked_in: { label: "체크인완료", cls: "bg-green-50 text-green-600" },
   cancelled:  { label: "취소",       cls: "bg-gray-100 text-gray-400" },
@@ -38,6 +39,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 
 const TABS = [
   { key: "", label: "전체" },
+  { key: "awaiting", label: "예약대기" },
   { key: "paid", label: "예약확정" },
   { key: "cancelled", label: "취소" },
 ];
@@ -334,6 +336,9 @@ export default function ReservationsClient() {
         ? `${Number(d.refundAmount).toLocaleString()}원 환불 (${d.refundNote ?? "규정 적용"})`
         : "환불 처리";
       alert(`취소 완료 — ${refundMsg}${d.smsSent ? " + 취소 문자 발송" : " (취소 문자는 발송되지 않았어요)"}`);
+    } else if (status === "paid" && prev.find((r) => r.id === id)?.status === "awaiting") {
+      const d = await res.json().catch(() => ({}));
+      alert(`승인 완료 — 예약확정${d.smsSent ? " + 확정 문자 발송" : " (문자는 발송되지 않았어요 — 문자 설정 확인)"}`);
     }
   }
 
@@ -514,7 +519,8 @@ export default function ReservationsClient() {
                     style={{ appearance: "auto" }}
                     title="상태 변경"
                   >
-                    <option value="paid">예약확정</option>
+                    {r.status === "awaiting" && <option value="awaiting">예약대기</option>}
+                    <option value="paid">{r.status === "awaiting" ? "✅ 승인 (예약확정)" : "예약확정"}</option>
                     <option value="cancelled">취소</option>
                   </select>
                 )}
