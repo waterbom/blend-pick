@@ -1,0 +1,56 @@
+name: Open Room
+
+# 특정 투숙일·객실의 잔여를 지정 개수만큼 열기 (고객 요청 대응용)
+# allocated = booked + open_count 로 맞춤 → 잔여가 정확히 open_count가 됨
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "투숙일 (YYYY-MM-DD)"
+        required: true
+      room:
+        description: "객실 (패밀리 트윈 / 디럭스 더블)"
+        required: false
+        default: "패밀리 트윈"
+      open_count:
+        description: "열어줄 잔여 개수"
+        required: false
+        default: "1"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            D="${{ github.event.inputs.date }}" R="${{ github.event.inputs.room }}" N="${{ github.event.inputs.open_count }}" node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const pool = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            (async () => {
+              const n = parseInt(process.env.N, 10);
+              if (!Number.isInteger(n) || n < 0 || n > 20) { console.log("중단: open_count가 이상함 (" + process.env.N + ")"); process.exit(1); }
+              const cur = await pool.query(
+                "SELECT allocated, booked FROM hotel_room_inventory WHERE stay_date = $1 AND room_type = $2",
+                [process.env.D, process.env.R]);
+              if (cur.rows.length !== 1) { console.log("중단: 해당 날짜/객실 재고 행 없음"); process.exit(1); }
+              const { allocated, booked } = cur.rows[0];
+              const target = Number(booked) + n;
+              await pool.query(
+                "UPDATE hotel_room_inventory SET allocated = $1 WHERE stay_date = $2 AND room_type = $3",
+                [target, process.env.D, process.env.R]);
+              console.log(`===OPENED=== ${process.env.D} | ${process.env.R} | 배정 ${allocated} → ${target} (판매 ${booked}, 잔여 ${Number(allocated) - Number(booked)} → ${n})`);
+              await pool.end();
+            })();'
