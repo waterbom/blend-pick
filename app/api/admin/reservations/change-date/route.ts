@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
-import { quoteReservation, nextISO, mdLabel, PACKAGES, type PkgKey, type RoomType } from "@/lib/hotel";
+import { quoteReservation, nextISO, mdLabel, refundRateFor, PACKAGES, type PkgKey, type RoomType } from "@/lib/hotel";
 import { decrementStay } from "@/lib/hotel-inventory";
 import { signPayLink } from "@/lib/pay-link";
 
@@ -65,7 +65,16 @@ export async function POST(req: Request) {
 
   const oldTotal = Number(ord.total_amount);
   const newTotal = q.total;
-  const diff = newTotal - oldTotal; // >0 추가결제 필요, <0 환불
+
+  // 변경 위약금 — 기존 체크인까지 남은 일수 기준, 취소수수료율과 동일 (6일 전 0% / 5~3일 50% / 2~1일 70% / 당일 불가)
+  const policy = refundRateFor(ord.old_in);
+  if (policy.rate === 0) {
+    return NextResponse.json({ error: "체크인 당일/경과 예약은 변경이 불가합니다 (위약금 100%)." }, { status: 400 });
+  }
+  const penaltyRate = 100 - policy.rate;
+  const penalty = Math.round((oldTotal * penaltyRate) / 100);
+  const priceDiff = newTotal - oldTotal; // 순수 요금 차액
+  const diff = priceDiff + penalty; // >0 추가결제 필요, <0 환불 (위약금 합산)
 
   // 미리보기 — 실제 변경 없이 차액 + 대상 날짜 잔여 객실을 계산해서 반환 (확인창용)
   if (preview) {
@@ -101,6 +110,10 @@ export async function POST(req: Request) {
       preview: true,
       payLink: previewPayLink,
       diff,
+      priceDiff,
+      penalty,
+      penaltyRate,
+      policyDays: policy.days,
       oldTotal,
       newTotal,
       checkIn: q.checkIn,
@@ -153,14 +166,14 @@ export async function POST(req: Request) {
     let needRepay = false;
 
     if (diff < 0) {
-      // 더 저렴 → 토스 부분취소(자동 환불)
+      // 더 저렴 → 토스 부분취소(자동 환불) — 위약금은 차감하고 환불
       const refundAmount = -diff;
       if (ord.payment_key && !String(ord.payment_key).startsWith("SIM_")) {
         const secretKey = process.env.TOSS_SECRET_KEY;
         const tossRes = await fetch(`https://api.tosspayments.com/v1/payments/${ord.payment_key}/cancel`, {
           method: "POST",
           headers: { Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ cancelReason: "예약 날짜 변경 차액 환불", cancelAmount: refundAmount }),
+          body: JSON.stringify({ cancelReason: `예약 날짜 변경 차액 환불${penalty > 0 ? ` (위약금 ${penaltyRate}% 차감)` : ""}`, cancelAmount: refundAmount }),
         });
         if (!tossRes.ok) {
           const e = await tossRes.json().catch(() => ({}));
@@ -169,7 +182,8 @@ export async function POST(req: Request) {
         }
       }
       refunded = refundAmount;
-      await client.query(`UPDATE orders SET total_amount = $1 WHERE id = $2`, [newTotal, id]);
+      // 고객 실부담 = 새 요금 + 위약금
+      await client.query(`UPDATE orders SET total_amount = $1 WHERE id = $2`, [newTotal + penalty, id]);
     } else if (diff > 0) {
       // 더 비쌈 → 자동 결제 불가(기존 결제 증액 불가). 차액 결제링크 생성해서 반환.
       needRepay = true;
@@ -189,6 +203,10 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       diff,
+      priceDiff,
+      penalty,
+      penaltyRate,
+      policyDays: policy.days,
       newTotal,
       checkIn: q.checkIn,
       checkOut: q.checkOut,

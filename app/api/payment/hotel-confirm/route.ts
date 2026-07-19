@@ -5,7 +5,7 @@ import pool from "@/lib/db";
 import { randomBytes } from "crypto";
 import { verifyToken } from "@/lib/auth";
 import { HOTEL_COMMISSION_RATE } from "@/lib/settlement";
-import { quoteReservation, mdLabel } from "@/lib/hotel";
+import { quoteReservation, mdLabel, minBookableCheckIn } from "@/lib/hotel";
 import { decrementStay, isStayAvailable } from "@/lib/hotel-inventory";
 import { phoneVerifyOn, smsConfigured } from "@/lib/sms";
 import { isPhoneVerified } from "@/lib/phone-verify";
@@ -26,6 +26,11 @@ export async function POST(req: NextRequest) {
   if (!q) {
     console.warn("[hotel-confirm] 거절: 예약정보 무효", { pkg: cd.pkg, room: cd.room, in: cd.checkIn, out: cd.checkOut });
     return NextResponse.json({ ok: false, error: "예약 정보가 올바르지 않습니다." }, { status: 400 });
+  }
+  // 예약 컷오프 — 체크인 5일 전까지만 신규 예약 가능
+  if (q.checkIn < minBookableCheckIn()) {
+    console.warn("[hotel-confirm] 거절: 컷오프", { in: q.checkIn });
+    return NextResponse.json({ ok: false, error: "체크인 5일 전까지만 예약할 수 있습니다." }, { status: 400 });
   }
   if (Number(amount) !== q.total) {
     console.warn("[hotel-confirm] 거절: 금액 불일치", { paid: Number(amount), expected: q.total });

@@ -158,7 +158,7 @@ export default function ReservationsClient() {
   const [changing, setChanging] = useState(false);
   const [newPkg, setNewPkg] = useState<PkgKey>("p2");
   const [newRoom, setNewRoom] = useState<RoomType>("패밀리 트윈");
-  const [datePreview, setDatePreview] = useState<{ diff: number; oldTotal: number; newTotal: number; nights: number; pkgLabel: string; room: string; available: boolean; minRemaining: number; soldOutDates: string[]; payLink: string | null } | null>(null);
+  const [datePreview, setDatePreview] = useState<{ diff: number; priceDiff?: number; penalty?: number; penaltyRate?: number; policyDays?: number; oldTotal: number; newTotal: number; nights: number; pkgLabel: string; room: string; available: boolean; minRemaining: number; soldOutDates: string[]; payLink: string | null } | null>(null);
   const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; needRepay: boolean; payLink: string | null } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   // 날짜 고르는 동안 대상 기간 잔여 객실 자동 확인 (본인 예약 반납분 포함해서 계산)
@@ -779,6 +779,12 @@ export default function ReservationsClient() {
                 ) : (
                   <div className="rounded-lg bg-red-50 px-4 py-2.5 text-xs text-red-600">
                     ⛔ 변경 불가 — 마감된 날짜: <b>{datePreview.soldOutDates.map((d) => md(d)).join(", ")}</b>
+                  </div>
+                )}
+                {(datePreview.penalty ?? 0) > 0 && (
+                  <div className="rounded-lg bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+                    ⚠️ 체크인 {datePreview.policyDays}일 전 변경 — <b>위약금 {datePreview.penaltyRate}% ({datePreview.penalty!.toLocaleString()}원)</b>가 아래 금액에 포함됐어요
+                    {datePreview.priceDiff != null && <> (요금 차액 {datePreview.priceDiff >= 0 ? "+" : ""}{datePreview.priceDiff.toLocaleString()}원 + 위약금)</>}
                   </div>
                 )}
                 {datePreview.diff > 0 ? (

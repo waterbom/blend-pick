@@ -147,8 +147,8 @@ export default function HotelCheckoutClient({
     const policy = refundRateFor(reservation.checkIn);
     if (policy.rate < 100) {
       const msg = policy.days >= 1
-        ? `현재 입실 ${policy.days}일 전입니다.\n취소하게 될 경우 ${policy.rate}% 환불만 가능합니다!\n\n동의하시면 결제를 진행합니다.`
-        : `오늘 입실하는 예약입니다.\n결제 후 취소 시 환불이 불가합니다!\n\n동의하시면 결제를 진행합니다.`;
+        ? `현재 입실 ${policy.days}일 전입니다.\n취소하게 될 경우 ${policy.rate}% 환불만 가능합니다!\n(예약 변경 시에도 위약금 ${100 - policy.rate}%가 발생합니다)\n\n동의하시면 결제를 진행합니다.`
+        : `오늘 입실하는 예약입니다.\n결제 후 취소·변경이 불가합니다!\n\n동의하시면 결제를 진행합니다.`;
       if (!confirm(msg)) return;
     }
     setLoading(true);
@@ -381,8 +381,8 @@ export default function HotelCheckoutClient({
             </p>
             <p className="text-xs mt-1" style={{ color: "#92400E" }}>
               {refundWarn.rate > 0
-                ? `취소하게 될 경우 ${refundWarn.rate}% 환불만 가능합니다!`
-                : "결제 후 취소 시 환불이 불가합니다!"}
+                ? `취소하게 될 경우 ${refundWarn.rate}% 환불만 가능합니다! (변경 시 위약금 ${100 - refundWarn.rate}%)`
+                : "결제 후 취소·변경이 불가합니다!"}
             </p>
           </div>
         )}

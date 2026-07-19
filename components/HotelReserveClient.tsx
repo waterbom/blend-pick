@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   PACKAGES, ROOM_META, TIERS, getTier, nightlyWon, stayPriceWon, listWon, manLabel, nextISO,
-  BOOKABLE_FROM, BOOKABLE_TO, saleScheduleFor, WON,
+  BOOKABLE_FROM, BOOKABLE_TO, minBookableCheckIn, saleScheduleFor, WON,
   type PkgKey, type RoomType, type Tier,
 } from "@/lib/hotel";
 
@@ -105,6 +105,12 @@ export default function HotelReserveClient({
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [checkOut, setCheckOut] = useState<string | null>(null);
   const [soldOut, setSoldOut] = useState<Set<string>>(new Set());
+  // 예약 컷오프(체크인 5일 전까지) — SSR/CSR 시간 차 hydration 문제 없게 마운트 후 계산
+  const [minCI, setMinCI] = useState<string>(BOOKABLE_FROM);
+  useEffect(() => {
+    const v = minBookableCheckIn();
+    setMinCI(v > BOOKABLE_FROM ? v : BOOKABLE_FROM);
+  }, []);
   const [benefitsOpen, setBenefitsOpen] = useState(false); // 투숙객 혜택 이미지 모달
 
   // 선택 객실의 실시간 재고 마감일 (DB)
@@ -149,6 +155,8 @@ export default function HotelReserveClient({
   //   (퇴실일은 그 날 밤을 점유하지 않으므로 마감이어도 무방)
   function selectable(iso: string): boolean {
     if (iso < BOOKABLE_FROM || iso > BOOKABLE_TO) return false;
+    // 예약 컷오프: 체크인 5일 전까지만 (퇴실일은 입실 이후라 자동으로 통과)
+    if (iso < minCI) return false;
     if (!soldOut.has(iso)) return true;
     if (checkIn && !checkOut && iso > checkIn) {
       return daysBetween(checkIn, iso) <= maxNights(checkIn);
@@ -501,6 +509,8 @@ export default function HotelReserveClient({
                       </span>
                     ) : sold ? (
                       <span className="text-[9.5px] lg:text-[11px] font-bold" style={{ color: C.sunday }}>마감</span>
+                    ) : iso < minCI ? (
+                      <span className="text-[9.5px] lg:text-[11px] font-semibold" style={{ color: C.disabledText }}>예약마감</span>
                     ) : canPick ? (
                       <span className="text-[9.5px] lg:text-[11px] tnum" style={{ color: C.muted2 }}>
                         {manLabel(nightlyWon(pkg, iso))}

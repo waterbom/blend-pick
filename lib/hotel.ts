@@ -138,6 +138,13 @@ export function refundRateFor(checkInISO: string, nowMs = Date.now()): { rate: n
   return { rate, days, label };
 }
 
+// 예약 컷오프 — 체크인 5일 전(D-5)까지만 신규 예약 가능 (호텔이 D-4부터 블럭 해제)
+// 예: 7/18 체크인은 7/13까지만 예약 가능
+export const BOOKING_CUTOFF_DAYS = 5;
+export function minBookableCheckIn(nowMs = Date.now()): string {
+  return new Date(nowMs + 9 * 3600e3 + BOOKING_CUTOFF_DAYS * 86400e3).toISOString().slice(0, 10);
+}
+
 // 호텔 정보 (결제 요약 카드용)
 export const HOTEL = {
   name: "여수 UTOP 마리나 호텔",

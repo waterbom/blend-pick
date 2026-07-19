@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import Header from "@/components/Header";
 import HotelCheckoutClient from "@/components/HotelCheckoutClient";
 import { verifyToken } from "@/lib/auth";
-import { PACKAGES, HOTEL, quoteReservation, stayBreakdown, saleStateFor } from "@/lib/hotel";
+import { PACKAGES, HOTEL, quoteReservation, stayBreakdown, saleStateFor, minBookableCheckIn } from "@/lib/hotel";
 import { isStayAvailable, minRemainingForStay } from "@/lib/hotel-inventory";
 import { phoneVerifyOn } from "@/lib/sms";
 import pool from "@/lib/db";
@@ -47,6 +47,8 @@ export default async function HotelCheckoutPage({
 
   const q = quoteReservation(sp.pkg ?? "", sp.room ?? "", sp.in ?? "", sp.out ?? "");
   if (!q) redirect(backTo);
+  // 예약 컷오프 — 체크인 5일 전까지만 예약 가능 (호텔 블럭 해제 정책)
+  if (q.checkIn < minBookableCheckIn()) redirect(backTo);
   // 실제 재고(마감) 확인 — 마감된 날짜면 결제 진입 차단
   if (!(await isStayAvailable(q.room, q.checkIn, q.nights))) redirect(backTo);
 
