@@ -31,6 +31,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
   const [stockConfirmed, setStockConfirmed] = useState(false);
   const [detailFullscreen, setDetailFullscreen] = useState(false);
 
+  // 공동구매 인플루언서 태그 — 태그 1명당 상품 1개씩 복제 등록
+  // 제목은 [이름 X 브랜드] 상품명 양식으로 자동, 공구기간(판매기간)만 태그별 개별 입력
+  const [infList, setInfList] = useState<{ id: string; name: string }[]>([]);
+  const [infTags, setInfTags] = useState<{ influencerId: string; start: string; end: string }[]>([]);
+
   const [form, setForm] = useState({
     name: "", brand: "", category: "",
     manufacturer: "", origin_country: "",
@@ -67,6 +72,32 @@ export default function ProductFormClient({ mode, productId }: Props) {
     fetch("/api/admin/categories").then(r => r.json()).then(setCategories).catch(() => {});
   }, []);
 
+  // 인플루언서 목록 (공동구매 태그용 — 등록 모드에서만)
+  useEffect(() => {
+    if (mode !== "new") return;
+    fetch("/api/admin/influencers")
+      .then(r => r.json())
+      .then((rows: { id: string; name: string }[]) => {
+        if (Array.isArray(rows)) setInfList(rows.map(r => ({ id: r.id, name: r.name })));
+      })
+      .catch(() => {});
+  }, [mode]);
+
+  const infNameOf = (id: string) => infList.find(i => i.id === id)?.name ?? "";
+  // 제목 양식: [인플루언서 X 브랜드] 상품명 (브랜드 없으면 이름만)
+  const taggedTitle = (infName: string) =>
+    `[${infName}${form.brand ? ` X ${form.brand}` : ""}] ${form.name}`;
+
+  // 날짜 입력은 한국시간 의도 — 서버 저장 시 +09:00 명시 (없으면 UTC로 해석돼 9시간 밀림)
+  const kstISO = (v: string) => (v ? `${v}:00+09:00` : null);
+  // DB의 UTC ISO → 수정화면 표시용 KST "YYYY-MM-DDTHH:mm"
+  const utcToKSTLocal = (v: string | null | undefined) => {
+    if (!v) return "";
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return String(v).slice(0, 16);
+    return new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 16);
+  };
+
   useEffect(() => {
     if (mode !== "edit" || !productId) return;
     setLoading(true);
@@ -93,16 +124,16 @@ export default function ProductFormClient({ mode, productId }: Props) {
           manufacture_date: data.manufacture_date ? String(data.manufacture_date).slice(0, 10) : "",
           sale_type: data.sale_type ?? "always",
           presale_enabled: String(data.presale_enabled ?? false),
-          presale_start_at: data.presale_start_at ? String(data.presale_start_at).slice(0, 16) : "",
-          presale_end_at: data.presale_end_at ? String(data.presale_end_at).slice(0, 16) : "",
+          presale_start_at: utcToKSTLocal(data.presale_start_at),
+          presale_end_at: utcToKSTLocal(data.presale_end_at),
           original_price: origPrice,
           discount_rate: discountRate,
           price,
           instant_discount_price: data.instant_discount_price ? String(data.instant_discount_price) : "",
           supply_price: data.supply_price ? String(data.supply_price) : "",
           influencer_rate: data.influencer_rate != null ? String(data.influencer_rate) : "",
-          sale_start_at: data.sale_start_at ? String(data.sale_start_at).slice(0, 16) : "",
-          sale_end_at: data.sale_end_at ? String(data.sale_end_at).slice(0, 16) : "",
+          sale_start_at: utcToKSTLocal(data.sale_start_at),
+          sale_end_at: utcToKSTLocal(data.sale_end_at),
           tax_type: data.tax_type ?? "taxable",
           stock: String(data.stock ?? 0),
           shipping_type: data.shipping_type ?? "paid",
@@ -267,15 +298,15 @@ export default function ProductFormClient({ mode, productId }: Props) {
       sale_type: form.sale_type,
       status: statusMap[form.sale_type] ?? "active",
       presale_enabled: form.presale_enabled === "true",
-      presale_start_at: form.presale_start_at || null,
-      presale_end_at: form.presale_end_at || null,
+      presale_start_at: kstISO(form.presale_start_at),
+      presale_end_at: kstISO(form.presale_end_at),
       price: Number(form.price) || 0,
       original_price: form.original_price ? Number(form.original_price) : null,
       instant_discount_price: form.instant_discount_price ? Number(form.instant_discount_price) : null,
       supply_price: form.supply_price ? Number(form.supply_price) : null,
       influencer_rate: form.influencer_rate !== "" ? Number(form.influencer_rate) : null,
-      sale_start_at: form.sale_start_at || null,
-      sale_end_at: form.sale_end_at || null,
+      sale_start_at: kstISO(form.sale_start_at),
+      sale_end_at: kstISO(form.sale_end_at),
       tax_type: form.tax_type,
       stock: Number(form.stock) || 0,
       shipping_type: form.shipping_type,
@@ -311,6 +342,46 @@ export default function ProductFormClient({ mode, productId }: Props) {
     e.preventDefault();
     setSaving(true);
     setError("");
+
+    // 공동구매 + 인플루언서 태그 → 태그별로 상품 복제 등록 (제목 양식 + 개별 공구기간)
+    if (mode === "new" && form.sale_type === "groupbuy" && infTags.length > 0) {
+      for (const [i, t] of infTags.entries()) {
+        if (!t.influencerId) { setError(`${i + 1}번째 태그의 인플루언서를 선택해주세요.`); setSaving(false); return; }
+        if (!t.start || !t.end) { setError(`${infNameOf(t.influencerId)}의 공구기간(시작·종료)을 입력해주세요.`); setSaving(false); return; }
+        if (t.end <= t.start) { setError(`${infNameOf(t.influencerId)}의 공구 종료가 시작보다 빨라요.`); setSaving(false); return; }
+      }
+      const dupIds = new Set(infTags.map(t => t.influencerId));
+      if (dupIds.size !== infTags.length) { setError("같은 인플루언서가 중복 태그되어 있어요."); setSaving(false); return; }
+
+      const base = buildPayload();
+      const created: string[] = [];
+      for (const t of infTags) {
+        const res = await fetch("/api/admin/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...base,
+            name: taggedTitle(infNameOf(t.influencerId)),
+            sale_start_at: kstISO(t.start),
+            sale_end_at: kstISO(t.end),
+          }),
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          setError(
+            `${infNameOf(t.influencerId)} 상품 등록 실패${created.length ? ` (${created.join(", ")}은 이미 등록됨)` : ""}: ${d.error || "오류"}`
+          );
+          setSaving(false);
+          return;
+        }
+        created.push(infNameOf(t.influencerId));
+      }
+      router.push("/admin/products");
+      router.refresh();
+      setSaving(false);
+      return;
+    }
+
     const url = mode === "new" ? "/api/admin/products" : `/api/admin/products/${productId}`;
     const method = mode === "new" ? "POST" : "PATCH";
     const res = await fetch(url, {
@@ -431,6 +502,74 @@ export default function ProductFormClient({ mode, productId }: Props) {
               </button>
             ))}
           </div>
+
+          {/* 공동구매 — 인플루언서 태그 (태그당 상품 1개 복제 등록, 기간 개별) */}
+          {mode === "new" && form.sale_type === "groupbuy" && (
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">인플루언서 태그</p>
+                  <p className="text-xs text-gray-400">
+                    태그한 인플루언서마다 <b>[이름 X 브랜드] 상품명</b> 제목으로 상품이 각각 등록돼요 · 공구기간만 개별 입력
+                  </p>
+                </div>
+                <button type="button"
+                  onClick={() => setInfTags(t => [...t, { influencerId: "", start: "", end: "" }])}
+                  className="text-xs font-bold text-orange-500 border border-orange-200 px-3 py-1.5 rounded-lg hover:bg-orange-50">
+                  + 인플루언서 추가
+                </button>
+              </div>
+
+              {infTags.length === 0 ? (
+                <p className="text-xs text-gray-300">태그 없이 등록하면 일반 공동구매 상품 1개만 등록돼요.</p>
+              ) : (
+                <div className="space-y-2">
+                  {infTags.map((t, i) => (
+                    <div key={i} className="rounded-lg border border-gray-100 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        {/* ① 인플루언서 태그 */}
+                        <select value={t.influencerId}
+                          onChange={e => setInfTags(rows => rows.map((r, idx) => idx === i ? { ...r, influencerId: e.target.value } : r))}
+                          className={`${inp} flex-1`}>
+                          <option value="">인플루언서 선택</option>
+                          {infList.map(inf => (
+                            <option key={inf.id} value={inf.id}>{inf.name}</option>
+                          ))}
+                        </select>
+                        <button type="button"
+                          onClick={() => setInfTags(rows => rows.filter((_, idx) => idx !== i))}
+                          className="shrink-0 text-xs text-red-400 hover:text-red-600 px-2 py-2">
+                          삭제
+                        </button>
+                      </div>
+                      {/* ② 공구기간 (태그별 개별) */}
+                      <Grid2>
+                        <div>
+                          <label className={lbl}>공구 시작일시</label>
+                          <input type="datetime-local" value={t.start}
+                            onChange={e => setInfTags(rows => rows.map((r, idx) => idx === i ? { ...r, start: e.target.value } : r))}
+                            className={inp} />
+                        </div>
+                        <div>
+                          <label className={lbl}>공구 종료일시</label>
+                          <input type="datetime-local" value={t.end}
+                            onChange={e => setInfTags(rows => rows.map((r, idx) => idx === i ? { ...r, end: e.target.value } : r))}
+                            className={inp} />
+                        </div>
+                      </Grid2>
+                      {/* ③ 제목 미리보기 */}
+                      {t.influencerId && form.name && (
+                        <p className="text-xs text-gray-500">
+                          등록될 제목: <b className="text-gray-700">{taggedTitle(infNameOf(t.influencerId))}</b>
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between">
               <div>
@@ -873,7 +1012,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
             className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
             {saving
               ? (mode === "new" ? "등록 중..." : "저장 중...")
-              : (mode === "new" ? "상품 등록" : "저장")}
+              : mode !== "new" ? "저장"
+              : form.sale_type === "groupbuy" && infTags.length > 0
+              ? `상품 ${infTags.length}개 등록 (인플루언서별)`
+              : "상품 등록"}
           </button>
         </div>
       </form>
