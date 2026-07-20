@@ -22,11 +22,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q");
 
+  // 쇼핑몰 관리 계정만 표시 — 옛 블렌드 OS가 같은 테이블에 넣는 행 차단
   const params: string[] = [];
-  let where = "";
+  let where = "WHERE i.shop_managed = true";
   if (q) {
     params.push(`%${q}%`);
-    where = "WHERE i.name ILIKE $1";
+    where += " AND i.name ILIKE $1";
   }
 
   const [influencers, stats] = await Promise.all([
@@ -73,12 +74,12 @@ export async function POST(req: Request) {
   // 레거시 테이블 제약: id 기본값 없음(직접 생성), platform/handle NOT NULL
   const { rows } = await pool.query(
     `INSERT INTO influencers (
-       id, handle, created_at, updated_at,
+       id, handle, created_at, updated_at, shop_managed,
        name, platform, profile_image, phone, followers_count, category,
        business_type, bank_name, bank_account, bank_holder, tax_email, memo,
        id_card_file, biz_cert_file, bankbook_file,
        hotel_sale_start, hotel_sale_deadline
-     ) VALUES ($1, $2, NOW(), NOW(), $3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+     ) VALUES ($1, $2, NOW(), NOW(), true, $3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING id`,
     [
       randomUUID(), b.handle || b.name,
