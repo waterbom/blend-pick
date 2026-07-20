@@ -23,6 +23,7 @@ export async function GET() {
        FROM campaigns c
        JOIN products p ON p.id = c.product_id
        JOIN influencers i ON i.id = c.influencer_id
+       WHERE c.shop_managed = true
        ORDER BY c.is_archived ASC, c.end_date DESC`
     ),
     shopPool.query(
