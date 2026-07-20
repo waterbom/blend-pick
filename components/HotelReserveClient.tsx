@@ -93,16 +93,24 @@ export default function HotelReserveClient({
   saleStart,
   saleDeadline,
   activeOptions = [],
+  upcomingOptions = [],
 }: {
   influencerId?: string | null;
   influencerName?: string | null;
   saleStart?: string; // 서버에서 계산된 인플루언서별 판매 시작 (없으면 클라이언트 폴백)
   saleDeadline?: string;
   activeOptions?: { id: string; name: string }[]; // 직접 유입 시 이동 가능한 진행 중 공구
+  upcomingOptions?: { id: string; name: string; start: string }[]; // 진행 중이 없을 때 오픈 예정 공구 (커밍순)
 }) {
   const router = useRouter();
   // 직접 유입 → select로 고른 진행 중 공구의 전용 링크로 이동
   const gotoInfluencer = (id: string) => { if (id) router.push(`/hotel/reserve?inf=${id}`); };
+  // "2026-07-22T10:00:00+09:00" → "7/22(수) 10:00"
+  const fmtOpenAt = (iso: string) => {
+    const [y, mo, dd] = iso.slice(0, 10).split("-").map(Number);
+    const dow = ["일", "월", "화", "수", "목", "금", "토"][new Date(Date.UTC(y, mo - 1, dd)).getUTCDay()];
+    return `${mo}/${dd}(${dow}) ${iso.slice(11, 16)}`;
+  };
   const [pkg, setPkg] = useState<PkgKey>("p2");
   const [room, setRoom] = useState<RoomType>("디럭스 더블");
   const [monthIdx, setMonthIdx] = useState(0); // MONTHS 인덱스
@@ -296,8 +304,21 @@ export default function HotelReserveClient({
             🔒 이 공동구매는 <b style={{ color: C.green800 }}>인플루언서 전용 링크를 통해서만</b> 예약할 수 있어요.
             {activeOptions.length > 0
               ? " 아래에서 진행 중인 공구를 선택하면 해당 예약 페이지로 이동해요."
+              : upcomingOptions.length > 0
+              ? ` 다음 공구가 곧 열려요 — ${upcomingOptions[0].name} 공구 ${fmtOpenAt(upcomingOptions[0].start)} 오픈 예정.`
               : " 공유받은 링크로 다시 접속해주세요."}{" "}
             이미 예약하신 분은 상단 <b>예약 조회</b>를 이용하시면 돼요.
+            {activeOptions.length === 0 && upcomingOptions.length > 0 && (
+              <span className="block mt-3">
+                {upcomingOptions.map((u) => (
+                  <button key={u.id} type="button" onClick={() => gotoInfluencer(u.id)}
+                    className="inline-block mr-2 px-3.5 py-2.5 text-[13px] font-bold cursor-pointer"
+                    style={{ background: C.gold, color: C.green900, borderRadius: 8, border: "none" }}>
+                    ◷ COMING SOON — {u.name} 공구 {fmtOpenAt(u.start)} 오픈 →
+                  </button>
+                ))}
+              </span>
+            )}
             {activeOptions.length > 0 && (
               <select
                 defaultValue=""
@@ -577,7 +598,16 @@ export default function HotelReserveClient({
               )}
             </div>
           </div>
-          {linkOnly && activeOptions.length > 0 ? (
+          {linkOnly && activeOptions.length === 0 && upcomingOptions.length > 0 ? (
+            // 진행 중은 없고 오픈 예정만 있으면 — 커밍순 버튼 (전용 링크의 오픈 카운트다운으로 이동)
+            <button type="button"
+              onClick={() => gotoInfluencer(upcomingOptions[0].id)}
+              className="w-full lg:w-auto lg:flex-none py-[15px] lg:px-9 text-[14px] font-bold text-center cursor-pointer transition-all duration-150 hover:brightness-105"
+              style={{ background: C.gold, color: C.green900, letterSpacing: ".04em", border: "none" }}
+            >
+              ◷ COMING SOON — {upcomingOptions[0].name} 공구 {fmtOpenAt(upcomingOptions[0].start)} 오픈
+            </button>
+          ) : linkOnly && activeOptions.length > 0 ? (
             // 직접 유입인데 진행 중 공구가 있으면 — 비활성 버튼 대신 공구 선택 select
             <select
               defaultValue=""

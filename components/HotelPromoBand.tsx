@@ -15,12 +15,21 @@ function roParticle(name: string) {
   return jong === 0 || jong === 8 ? "로" : "으로";
 }
 
+// "2026-07-22T10:00:00+09:00" (KST 표기) → "7/22(수) 10:00"
+function fmtOpenAt(iso: string) {
+  const [y, m, day] = iso.slice(0, 10).split("-").map(Number);
+  const dow = ["일", "월", "화", "수", "목", "금", "토"][new Date(Date.UTC(y, m - 1, day)).getUTCDay()];
+  return `${m}/${day}(${dow}) ${iso.slice(11, 16)}`;
+}
+
 // PRODUCTS 하단 "진행 중 공구" 밴드 — 지금 열려 있는 인플루언서 공구를 DB 기준으로 표시
-// active가 비어 있으면 마감 안내 (일정은 관리자 > 인플루언서에서 관리)
+// active가 비면 upcoming(오픈 예정)을 커밍순으로, 그것도 없으면 마감 안내
 export default function HotelPromoBand({
   active = [],
+  upcoming = [],
 }: {
   active?: { id: string; name: string; deadline: string }[];
+  upcoming?: { id: string; name: string; start: string }[];
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -29,9 +38,11 @@ export default function HotelPromoBand({
   }, []);
 
   const open = active.length > 0;
+  const soon = !open && upcoming.length > 0;
   const names = active.map((a) => a.name).join(" · ");
-  // 카운트다운은 가장 먼저 끝나는 공구 기준
-  const diff = open ? Math.max(0, new Date(active[0].deadline).getTime() - now) : 0;
+  // 카운트다운: 진행 중이면 가장 먼저 끝나는 공구의 종료까지, 커밍순이면 가장 임박한 오픈까지
+  const target = open ? active[0].deadline : soon ? upcoming[0].start : null;
+  const diff = target ? Math.max(0, new Date(target).getTime() - now) : 0;
   const d = Math.floor(diff / 86400000);
   const h = Math.floor((diff % 86400000) / 3600000);
   const m = Math.floor((diff % 3600000) / 60000);
@@ -61,11 +72,13 @@ export default function HotelPromoBand({
             .neon-dot  { animation: neonDot 1.3s ease-in-out infinite; }
           `}</style>
         )}
-        <div className="text-[10px] mb-2" style={{ fontFamily: MONO, fontWeight: 600, letterSpacing: ".28em", color: open ? "#A65B4B" : "#9A9482" }}>
+        <div className="text-[10px] mb-2" style={{ fontFamily: MONO, fontWeight: 600, letterSpacing: ".28em", color: open ? "#A65B4B" : soon ? "#A67C1B" : "#9A9482" }}>
           {open ? (
             <span className="neon-live">
               <span className="neon-dot">●</span> LIVE — 지금 진행 중
             </span>
+          ) : soon ? (
+            "◷ COMING SOON — 오픈 예정"
           ) : (
             "HOTEL 공동구매"
           )}
@@ -77,6 +90,13 @@ export default function HotelPromoBand({
           {open ? (
             <>
               <b style={{ color: "#244B1F" }}>{names}</b> 공구 진행 중 · 종료까지{" "}
+              <span style={{ fontFamily: MONO, fontWeight: 700, color: "#A67C1B" }}>
+                {d}일 {pad(h)}:{pad(m)}:{pad(s)}
+              </span>
+            </>
+          ) : soon ? (
+            <>
+              <b style={{ color: "#244B1F" }}>{upcoming[0].name}</b> 공구 {fmtOpenAt(upcoming[0].start)} 오픈 · 오픈까지{" "}
               <span style={{ fontFamily: MONO, fontWeight: 700, color: "#A67C1B" }}>
                 {d}일 {pad(h)}:{pad(m)}:{pad(s)}
               </span>
@@ -94,6 +114,17 @@ export default function HotelPromoBand({
               className="inline-block text-center px-8 py-3 lg:py-[13px] text-[13px] lg:text-[13.5px] font-bold rounded-xl transition-all duration-150 hover:brightness-110"
               style={{ background: "#244B1F", color: "#fff" }}>
               {a.name}{roParticle(a.name)} 이동하기 →
+            </Link>
+          ))}
+        </div>
+      ) : soon ? (
+        // 오픈 예정 공구의 전용 링크로 — 랜딩에서 오픈 카운트다운 표시
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          {upcoming.map((u) => (
+            <Link key={u.id} href={`/hotel/reserve?inf=${u.id}`}
+              className="inline-block text-center px-8 py-3 lg:py-[13px] text-[13px] lg:text-[13.5px] font-bold rounded-xl transition-all duration-150 hover:brightness-110"
+              style={{ background: "#E9C46A", color: "#1C2418" }}>
+              COMING SOON — {u.name} 공구 →
             </Link>
           ))}
         </div>

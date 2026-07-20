@@ -51,6 +51,22 @@ async function getActiveInfluencers(): Promise<{ id: string; name: string }[]> {
   }
 }
 
+// 오픈 예정 공구 — 진행 중이 없을 때 커밍순 안내용
+async function getUpcomingInfluencers(): Promise<{ id: string; name: string; start: string }[]> {
+  try {
+    const r = await pool.query(
+      `SELECT id, name,
+              to_char(hotel_sale_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD"T"HH24:MI:SS"+09:00"') AS start
+       FROM influencers
+       WHERE hotel_sale_start > NOW()
+       ORDER BY hotel_sale_start ASC`
+    );
+    return r.rows;
+  } catch {
+    return [];
+  }
+}
+
 export default async function HotelReservePage({
   searchParams,
 }: {
@@ -59,6 +75,7 @@ export default async function HotelReservePage({
   const { inf } = await searchParams;
   const influencer = await getInfluencer(inf);
   const activeOptions = influencer ? [] : await getActiveInfluencers();
+  const upcomingOptions = influencer || activeOptions.length > 0 ? [] : await getUpcomingInfluencers();
 
   return (
     <main className="min-h-screen" style={{ background: "#FFFFFF" }}>
@@ -76,6 +93,7 @@ export default async function HotelReservePage({
         saleStart={saleScheduleFor(influencer).start}
         saleDeadline={saleScheduleFor(influencer).deadline}
         activeOptions={activeOptions}
+        upcomingOptions={upcomingOptions}
       />
     </main>
   );

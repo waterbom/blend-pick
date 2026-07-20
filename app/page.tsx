@@ -79,9 +79,25 @@ async function getActiveHotelInfluencers(): Promise<{ id: string; name: string; 
   }
 }
 
+// 오픈 예정(다가오는) 호텔 공구 — 시작이 미래인 인플루언서, 임박 순
+async function getUpcomingHotelInfluencers(): Promise<{ id: string; name: string; start: string }[]> {
+  try {
+    const r = await pool.query(
+      `SELECT id, name,
+              to_char(hotel_sale_start AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD"T"HH24:MI:SS"+09:00"') AS start
+       FROM influencers
+       WHERE hotel_sale_start > NOW()
+       ORDER BY hotel_sale_start ASC`
+    );
+    return r.rows;
+  } catch {
+    return [];
+  }
+}
+
 export default async function Home() {
-  const [selling, upcoming, hotelActive] = await Promise.all([
-    getSellingProducts(), getUpcomingProducts(), getActiveHotelInfluencers(),
+  const [selling, upcoming, hotelActive, hotelUpcoming] = await Promise.all([
+    getSellingProducts(), getUpcomingProducts(), getActiveHotelInfluencers(), getUpcomingHotelInfluencers(),
   ]);
 
   return (
@@ -182,7 +198,7 @@ export default async function Home() {
 
       {/* 진행 중 호텔 공구 밴드 */}
       <section className="container-blend pt-8 pb-4">
-        <HotelPromoBand active={hotelActive} />
+        <HotelPromoBand active={hotelActive} upcoming={hotelUpcoming} />
       </section>
 
       {/* BLEND PICK TREND BY AI */}
