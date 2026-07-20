@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BOOKABLE_FROM, BOOKABLE_TO, refundRateFor, PACKAGES, ROOM_META, type PkgKey, type RoomType } from "@/lib/hotel";
+import { downloadXlsx } from "@/lib/xlsx-download";
 
 interface Reservation {
   id: string;
@@ -82,11 +83,10 @@ function requestMemo(memo: string | null) {
   return i >= 0 ? memo.slice(i + "요청: ".length).trim() : "";
 }
 
-// 호텔 전달용 예약자 명단 CSV
-function toCSV(list: Reservation[]) {
-  const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "추가결제", "인플루언서", "결제시간", "예약일"];
-  const rows = list.map((r) => {
+// 호텔 전달용 예약자 명단 — 엑셀(.xlsx) 다운로드 (금액은 숫자 셀 → 바로 SUM 가능)
+const ROSTER_HEADER = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "결제금액", "추가결제", "인플루언서", "결제시간", "예약일"];
+function toRosterRows(list: Reservation[]): (string | number)[][] {
+  return list.map((r) => {
     const parts = (r.product_name || "").split(" · ");
     const pkg = parts[1] || "";
     const room = parts[2] || parts[0] || "";
@@ -94,18 +94,9 @@ function toCSV(list: Reservation[]) {
     return [
       r.order_number, r.buyer_name, r.buyer_phone, pkg, room, requestMemo(r.addr_memo),
       r.stay_check_in || "", r.stay_check_out || "", nightsOf(r.stay_check_in, r.stay_check_out),
-      st, Number(r.total_amount).toLocaleString(), Number(r.extra_paid || 0) > 0 ? Number(r.extra_paid).toLocaleString() : "", r.influencer_name || "직접 유입", r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
-    ].map(esc).join(",");
+      st, Number(r.total_amount), Number(r.extra_paid || 0) > 0 ? Number(r.extra_paid) : "", r.influencer_name || "직접 유입", r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
+    ];
   });
-  return "﻿" + [header.map(esc).join(","), ...rows].join("\n");
-}
-
-function downloadCSV(content: string, filename: string) {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
 }
 
 export default function ReservationsClient() {
@@ -448,7 +439,7 @@ export default function ReservationsClient() {
             📩 {sending ? "발송 중…" : `예약확인 문자 일괄발송${pending != null ? ` (${pending})` : ""}`}
           </button>
           <button
-            onClick={() => downloadCSV(toCSV(visible), `호텔예약명단_${todayISO().replace(/-/g, "")}.csv`)}
+            onClick={() => downloadXlsx(`호텔예약명단_${todayISO().replace(/-/g, "")}.xlsx`, ROSTER_HEADER, toRosterRows(visible), "예약명단")}
             disabled={visible.length === 0}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
             title="호텔에 전달할 예약자 명단 다운로드"

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { downloadXlsx } from "@/lib/xlsx-download";
 
 interface OrderItem {
   id: string;
@@ -76,9 +77,9 @@ const COLUMNS = [
   "택배사", "배송번호",
 ];
 
-function toCSV(orders: Order[]): string {
-  const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows: string[][] = [];
+// 발주용 엑셀(.xlsx) 행 데이터 — 주문수량은 숫자 셀
+function toOrderRows(orders: Order[]): (string | number)[][] {
+  const rows: (string | number)[][] = [];
   for (const o of orders) {
     for (const item of o.items) {
       const addr = [o.addr_address, o.addr_detail].filter(Boolean).join(" ");
@@ -95,26 +96,14 @@ function toCSV(orders: Order[]): string {
         o.addr_zipcode,
         addr,
         item.option_label ?? "없음",
-        String(item.quantity),
+        item.quantity,
         o.addr_memo ?? "",
         o.tracking_company ?? "",
         o.tracking_number ?? "",
       ]);
     }
   }
-  const header = COLUMNS.map(esc).join(",");
-  const body = rows.map((r) => r.map(esc).join(",")).join("\n");
-  return "﻿" + header + "\n" + body;
-}
-
-function downloadCSV(content: string, filename: string) {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  return rows;
 }
 
 export default function OrdersClient() {
@@ -214,7 +203,7 @@ export default function OrdersClient() {
     if (withCSV) {
       const selectedOrders = orders.filter((o) => selected.has(o.id));
       const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      downloadCSV(toCSV(selectedOrders), `발주_${date}.csv`);
+      await downloadXlsx(`발주_${date}.xlsx`, COLUMNS, toOrderRows(selectedOrders), "발주");
     }
 
     await fetch("/api/admin/orders", {
@@ -244,7 +233,7 @@ export default function OrdersClient() {
     const selectedOrders = orders.filter((o) => selected.has(o.id));
     if (selectedOrders.length === 0) return;
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    downloadCSV(toCSV(selectedOrders), `발주_${date}.csv`);
+    downloadXlsx(`발주_${date}.xlsx`, COLUMNS, toOrderRows(selectedOrders), "발주");
   }
 
   const actionButton = () => {

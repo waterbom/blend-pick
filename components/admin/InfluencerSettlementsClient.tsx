@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BUSINESS_TYPE_LABEL, HOTEL_PAYOUT_CAMPAIGN_ID, type BusinessType, type PayoutBreakdown } from "@/lib/settlement";
+import { downloadXlsx } from "@/lib/xlsx-download";
 
 interface Row {
   campaign_id: string;
@@ -70,7 +71,7 @@ export default function InfluencerSettlementsClient() {
     else alert(d.error || "확정 실패");
   }
 
-  // 호텔공구 — 해당 인플루언서 링크로 구매한 사람들 명단 CSV (취소 포함, 상태 표기)
+  // 호텔공구 — 해당 인플루언서 링크로 구매한 사람들 명단 엑셀 (취소 포함, 상태 표기)
   async function downloadRoster(r: Row) {
     setActing(true);
     try {
@@ -81,25 +82,17 @@ export default function InfluencerSettlementsClient() {
         paid_at_kst: string | null; product_name: string | null; influencer_id: string | null }[] = await res.json();
       const mine = all.filter((o) => o.influencer_id === r.influencer_id);
       if (mine.length === 0) { alert("이 인플루언서 링크로 들어온 예약이 없습니다."); return; }
-      const esc = (v: string | number) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "체크인", "체크아웃", "상태", "결제금액", "결제시간"];
-      const lines = mine.map((o) => {
+      const rows = mine.map((o) => {
         const parts = (o.product_name || "").split(" · ");
         return [
           o.order_number, o.buyer_name, o.buyer_phone, parts[1] || "", parts[2] || "",
           o.stay_check_in || "", o.stay_check_out || "",
           o.status === "paid" ? "예약확정" : o.status === "cancelled" ? "취소" : o.status,
-          Number(o.total_amount).toLocaleString(), o.paid_at_kst || "",
-        ].map(esc).join(",");
+          Number(o.total_amount), o.paid_at_kst || "",
+        ];
       });
-      const csv = "﻿" + [header.map(esc).join(","), ...lines].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `구매자명단_${r.influencer_name}_${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadXlsx(`구매자명단_${r.influencer_name}_${new Date().toISOString().slice(0, 10)}.xlsx`, header, rows, "구매자명단");
     } finally {
       setActing(false);
     }

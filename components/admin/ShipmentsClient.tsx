@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { CORE_CARRIERS, carrierName as libCarrierName } from "@/lib/carriers";
+import { downloadXlsx } from "@/lib/xlsx-download";
 
 interface OrderItem {
   product_name: string;
@@ -29,30 +30,38 @@ interface Order {
 // 택배사 목록은 서버(/api/admin/shipments/carriers)에서 스위트트래커 공식 코드표를
 // 받아온다 (키 미설정 시 주요 6사 폴백). 코드표 하드코딩으로 인한 오배송 조회 방지.
 
-function parseTrackingCSV(text: string): { order_number: string; tracking_number: string }[] {
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+// 행 배열(엑셀/CSV 공통) → 주문번호·운송장번호 목록
+// 헤더 감지: 첫 줄에 '주문/운송장/order/tracking' 이 있으면 헤더로 보고 스킵
+// (주문번호가 BP… 처럼 문자로 시작해도 데이터가 누락되지 않게)
+function parseTrackingRows(grid: string[][]): { order_number: string; tracking_number: string }[] {
+  const rows = grid.filter((r) => r.some((c) => c));
+  const hasHeader = /주문|운송장|order|tracking/i.test((rows[0] ?? []).join(","));
   const results = [];
-  // 헤더 감지: 첫 줄에 '주문/운송장/order/tracking' 이 있으면 헤더로 보고 스킵
-  // (주문번호가 BP… 처럼 문자로 시작해도 데이터가 누락되지 않게)
-  const hasHeader = /주문|운송장|order|tracking/i.test(lines[0] ?? "");
-  const startIdx = hasHeader ? 1 : 0;
-  for (let i = startIdx; i < lines.length; i++) {
-    const cols = lines[i].split(",").map((c) => c.replace(/^"|"$/g, "").trim());
-    if (cols.length < 2 || !cols[0] || !cols[1]) continue;
-    results.push({ order_number: cols[0], tracking_number: cols[1] });
+  for (let i = hasHeader ? 1 : 0; i < rows.length; i++) {
+    const [a, b] = rows[i];
+    if (!a || !b) continue;
+    results.push({ order_number: a, tracking_number: b });
   }
   return results;
 }
 
+function parseTrackingCSV(text: string) {
+  const grid = text.split("\n").map((l) =>
+    l.trim().split(",").map((c) => c.replace(/^"|"$/g, "").trim())
+  );
+  return parseTrackingRows(grid);
+}
+
+async function parseTrackingXlsx(buf: ArrayBuffer) {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.read(buf, { type: "array" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const grid: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
+  return parseTrackingRows(grid.map((r) => r.map((c) => String(c ?? "").trim())));
+}
+
 function downloadTemplate() {
-  const content = "주문번호,운송장번호\nBP20240101001,123456789012\n";
-  const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "운송장입력양식.csv";
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadXlsx("운송장입력양식.xlsx", ["주문번호", "운송장번호"], [["BP20240101001", "123456789012"]], "운송장");
 }
 
 type Tab =
@@ -148,12 +157,15 @@ export default function ShipmentsClient() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const isXlsx = /\.xlsx?$/i.test(file.name);
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setCsvRows(parseTrackingCSV(ev.target?.result as string));
+    reader.onload = async (ev) => {
+      const data = ev.target?.result;
+      setCsvRows(isXlsx ? await parseTrackingXlsx(data as ArrayBuffer) : parseTrackingCSV(data as string));
       setImportResult(null);
     };
-    reader.readAsText(file, "utf-8");
+    if (isXlsx) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file, "utf-8");
     e.target.value = "";
   }
 
@@ -259,7 +271,7 @@ export default function ShipmentsClient() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <p className="text-sm font-bold text-gray-800">운송장번호 일괄 입력</p>
-                <p className="text-xs text-gray-400 mt-0.5">CSV: 주문번호, 운송장번호 (2컬럼)</p>
+                <p className="text-xs text-gray-400 mt-0.5">엑셀/CSV: 주문번호, 운송장번호 (2컬럼)</p>
               </div>
               <button onClick={downloadTemplate}
                 className="text-xs text-blue-500 hover:text-blue-600 font-medium border border-blue-200 px-3 py-1.5 rounded-lg">
@@ -278,7 +290,7 @@ export default function ShipmentsClient() {
             {csvRows.length === 0 ? (
               <button onClick={() => fileRef.current?.click()}
                 className="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 text-sm text-gray-400 hover:border-orange-300 hover:text-orange-400 transition-colors">
-                CSV 파일 선택 또는 클릭
+                엑셀/CSV 파일 선택 또는 클릭
               </button>
             ) : (
               <div>
@@ -322,7 +334,7 @@ export default function ShipmentsClient() {
               </div>
             )}
 
-            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
 
             {importResult && (
               <div className={`mt-3 px-4 py-3 rounded-lg text-sm ${importResult.failed.length > 0 ? "bg-yellow-50" : "bg-green-50"}`}>
