@@ -1,4 +1,5 @@
 import shopPool from "@/lib/db-shop";
+import pool from "@/lib/db";
 import Header from "@/components/Header";
 import ShopHeroBanner from "@/components/ShopHeroBanner";
 import TrendByAI from "@/components/TrendByAI";
@@ -62,8 +63,26 @@ async function getUpcomingProducts(): Promise<UpcomingProduct[]> {
   }
 }
 
+// 지금 호텔 공구가 열려 있는 인플루언서 (일정이 현재 시각을 포함) — 마감 임박 순
+async function getActiveHotelInfluencers(): Promise<{ name: string; deadline: string }[]> {
+  try {
+    const r = await pool.query(
+      `SELECT name,
+              to_char(hotel_sale_deadline AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD"T"HH24:MI:SS"+09:00"') AS deadline
+       FROM influencers
+       WHERE hotel_sale_start <= NOW() AND hotel_sale_deadline >= NOW()
+       ORDER BY hotel_sale_deadline ASC`
+    );
+    return r.rows;
+  } catch {
+    return [];
+  }
+}
+
 export default async function Home() {
-  const [selling, upcoming] = await Promise.all([getSellingProducts(), getUpcomingProducts()]);
+  const [selling, upcoming, hotelActive] = await Promise.all([
+    getSellingProducts(), getUpcomingProducts(), getActiveHotelInfluencers(),
+  ]);
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -163,7 +182,7 @@ export default async function Home() {
 
       {/* 진행 중 호텔 공구 밴드 */}
       <section className="container-blend pt-8 pb-4">
-        <HotelPromoBand />
+        <HotelPromoBand active={hotelActive} />
       </section>
 
       {/* BLEND PICK TREND BY AI */}
