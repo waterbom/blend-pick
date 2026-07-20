@@ -92,13 +92,17 @@ export default function HotelReserveClient({
   influencerName,
   saleStart,
   saleDeadline,
+  activeOptions = [],
 }: {
   influencerId?: string | null;
   influencerName?: string | null;
   saleStart?: string; // 서버에서 계산된 인플루언서별 판매 시작 (없으면 클라이언트 폴백)
   saleDeadline?: string;
+  activeOptions?: { id: string; name: string }[]; // 직접 유입 시 이동 가능한 진행 중 공구
 }) {
   const router = useRouter();
+  // 직접 유입 → select로 고른 진행 중 공구의 전용 링크로 이동
+  const gotoInfluencer = (id: string) => { if (id) router.push(`/hotel/reserve?inf=${id}`); };
   const [pkg, setPkg] = useState<PkgKey>("p2");
   const [room, setRoom] = useState<RoomType>("디럭스 더블");
   const [monthIdx, setMonthIdx] = useState(0); // MONTHS 인덱스
@@ -285,12 +289,28 @@ export default function HotelReserveClient({
         </div>
       </section>
 
-      {/* 직접 유입 안내 — 전용 링크로만 구매 가능 */}
+      {/* 직접 유입 안내 — 전용 링크로만 구매 가능 (진행 중 공구가 있으면 select로 이동 지원) */}
       {linkOnly && (
         <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-5">
           <div className="px-4 py-3.5 text-[13px] leading-relaxed" style={{ background: C.surfaceSoft, border: `1px solid ${C.hairline}`, color: C.muted2 }}>
             🔒 이 공동구매는 <b style={{ color: C.green800 }}>인플루언서 전용 링크를 통해서만</b> 예약할 수 있어요.
-            공유받은 링크로 다시 접속해주세요. 이미 예약하신 분은 상단 <b>예약 조회</b>를 이용하시면 돼요.
+            {activeOptions.length > 0
+              ? " 아래에서 진행 중인 공구를 선택하면 해당 예약 페이지로 이동해요."
+              : " 공유받은 링크로 다시 접속해주세요."}{" "}
+            이미 예약하신 분은 상단 <b>예약 조회</b>를 이용하시면 돼요.
+            {activeOptions.length > 0 && (
+              <select
+                defaultValue=""
+                onChange={(e) => gotoInfluencer(e.target.value)}
+                className="mt-3 block w-full lg:w-auto px-3.5 py-2.5 text-[13px] font-bold cursor-pointer"
+                style={{ border: `1.5px solid ${C.green800}`, color: C.green800, background: "#fff", borderRadius: 8 }}
+              >
+                <option value="" disabled>▾ 진행 중인 공구 선택 — 예약하러 가기</option>
+                {activeOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name} 공구로 이동</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
       )}
@@ -557,6 +577,20 @@ export default function HotelReserveClient({
               )}
             </div>
           </div>
+          {linkOnly && activeOptions.length > 0 ? (
+            // 직접 유입인데 진행 중 공구가 있으면 — 비활성 버튼 대신 공구 선택 select
+            <select
+              defaultValue=""
+              onChange={(e) => gotoInfluencer(e.target.value)}
+              className="w-full lg:w-auto lg:flex-none py-[15px] lg:px-9 text-[14px] font-bold text-center cursor-pointer"
+              style={{ background: C.green800, color: "#fff", letterSpacing: ".04em", border: "none" }}
+            >
+              <option value="" disabled>진행 중인 공구 선택 → 예약하러 가기</option>
+              {activeOptions.map((o) => (
+                <option key={o.id} value={o.id}>{o.name} 공구로 이동</option>
+              ))}
+            </select>
+          ) : (
           <button
             disabled={!ctaOn}
             onClick={() => {
@@ -582,6 +616,7 @@ export default function HotelReserveClient({
               : sale === "closed" ? "판매가 마감되었어요"
               : complete ? `예약 진행 · ${WON(total)}` : "예약 진행"}
           </button>
+          )}
         </div>
       </div>
     </div>

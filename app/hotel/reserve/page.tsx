@@ -37,6 +37,20 @@ async function getInfluencer(
   }
 }
 
+// 직접 유입 방문자에게 보여줄 "지금 진행 중인 공구" 목록 — select로 골라 이동
+async function getActiveInfluencers(): Promise<{ id: string; name: string }[]> {
+  try {
+    const r = await pool.query(
+      `SELECT id, name FROM influencers
+       WHERE hotel_sale_start <= NOW() AND hotel_sale_deadline >= NOW()
+       ORDER BY hotel_sale_deadline ASC`
+    );
+    return r.rows;
+  } catch {
+    return [];
+  }
+}
+
 export default async function HotelReservePage({
   searchParams,
 }: {
@@ -44,6 +58,7 @@ export default async function HotelReservePage({
 }) {
   const { inf } = await searchParams;
   const influencer = await getInfluencer(inf);
+  const activeOptions = influencer ? [] : await getActiveInfluencers();
 
   return (
     <main className="min-h-screen" style={{ background: "#FFFFFF" }}>
@@ -60,6 +75,7 @@ export default async function HotelReservePage({
         influencerName={influencer?.name}
         saleStart={saleScheduleFor(influencer).start}
         saleDeadline={saleScheduleFor(influencer).deadline}
+        activeOptions={activeOptions}
       />
     </main>
   );
