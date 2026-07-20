@@ -53,10 +53,18 @@ jobs:
               for (const t of targets) console.log("  -", mask(t.name), "(등록", t.created + ")");
               if (!APPLY) { console.log("\n[드라이런] apply=true 로 다시 실행하면 위 대상이 삭제됩니다."); }
               else {
-                const del = await os.query("DELETE FROM influencers WHERE shop_managed = false");
-                console.log("\n✅ 삭제 완료:", del.rowCount, "건");
+                // 옛 캠페인 등 다른 테이블이 참조(FK)하는 행은 지울 수 없음 → 건너뜀
+                // (건너뛴 행도 shop_managed=false 라 쇼핑몰 화면에는 안 나타남)
+                let deleted = 0; const skipped = [];
+                for (const t of targets) {
+                  try { const r = await os.query("DELETE FROM influencers WHERE id = $1 AND shop_managed = false", [t.id]); deleted += r.rowCount; }
+                  catch (e) { skipped.push(mask(t.name) + " (" + String(e.message).slice(0, 60) + ")"); }
+                }
+                console.log("\n✅ 삭제 완료:", deleted, "건 / 참조로 건너뜀:", skipped.length, "건");
+                for (const s of skipped.slice(0, 20)) console.log("  건너뜀:", s);
+                if (skipped.length > 20) console.log("  ... 외", skipped.length - 20, "건");
                 const remain = await os.query("SELECT COUNT(*) AS n FROM influencers");
-                console.log("남은 인플루언서:", remain.rows[0].n, "명");
+                console.log("남은 인플루언서:", remain.rows[0].n, "명 (화면 표시:", marked.rows.length, "명)");
               }
               await os.end(); await shop.end();
             })().catch(e => { console.error(e.message); process.exit(1); });
