@@ -4,7 +4,6 @@ import { verifyToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import CopyLinkButton from "@/components/CopyLinkButton";
-import InfluencerForkClient from "@/components/InfluencerForkClient";
 import {
   BUSINESS_TYPE_LABEL,
   COUNTABLE_ORDER_STATUSES,
@@ -222,10 +221,9 @@ export default async function InfluencerPage() {
           )}
         </section>
 
-        {/* 셀프 공구 등록 (포크) */}
-        <InfluencerForkClient />
+        {/* 공구 등록은 관리자 중앙관리 — 인플루언서는 발급된 전용 링크 공유 + 실적 확인만 */}
 
-        {/* 호텔공구 — 포크 없이 링크만 공유하면 귀속 (전 인플루언서 공통 요율) */}
+        {/* 호텔공구 — 링크만 공유하면 귀속 (전 인플루언서 공통 요율) */}
         <section className={card} style={cardStyle}>
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="min-w-0">

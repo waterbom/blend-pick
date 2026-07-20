@@ -119,6 +119,9 @@ export default function InfluencerFormClient({
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [portalPassword, setPortalPassword] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
+  // 상품 공구 — 요율이 설정된 판매중 상품의 인플루언서별 전용 링크 (중앙관리)
+  const [shopProducts, setShopProducts] = useState<{ id: string; name: string; influencer_rate: number }[]>([]);
+  const [prodLinkCopied, setProdLinkCopied] = useState<string | null>(null);
 
   // 계정 발급 — 자동 생성된 아이디/비밀번호 (발급 직후 1회만 표시)
   const [accBusy, setAccBusy] = useState(false);
@@ -147,6 +150,18 @@ export default function InfluencerFormClient({
         setCampaigns(d.campaigns ?? []);
       })
       .finally(() => setLoading(false));
+    // 상품 공구 링크 발급용 — 요율 설정된 판매중 상품 목록
+    fetch("/api/admin/products")
+      .then((r) => r.json())
+      .then((list: { id: string; name: string; status: string; influencer_rate: number | null }[]) => {
+        if (!Array.isArray(list)) return;
+        setShopProducts(
+          list
+            .filter((p) => p.status === "active" && p.influencer_rate != null)
+            .map((p) => ({ id: p.id, name: p.name, influencer_rate: Number(p.influencer_rate) }))
+        );
+      })
+      .catch(() => {});
   }, [mode, influencerId]);
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -326,6 +341,43 @@ export default function InfluencerFormClient({
           )
         ) : (
           <p className="text-xs text-gray-400">등록 후 수정 화면에서 전용 링크를 복사할 수 있어요.</p>
+        )}
+      </Section>
+
+      <Section title="상품 공구 전용 링크">
+        {mode !== "edit" ? (
+          <p className="text-xs text-gray-400">등록 후 수정 화면에서 상품별 전용 링크를 복사할 수 있어요.</p>
+        ) : shopProducts.length === 0 ? (
+          <p className="text-xs text-gray-400">
+            수수료율이 설정된 판매중 상품이 없어요. Shop 상품 등록/수정에서 인플루언서 수수료율을 입력하면 여기에 링크가 떠요.
+          </p>
+        ) : (
+          <>
+            <p className="text-xs text-gray-500 -mt-1">
+              링크를 복사해 전달하면 그 링크로 들어온 구매가 이 인플루언서 실적으로 집계돼요 (상품별 공통 요율)
+            </p>
+            <div className="space-y-2">
+              {shopProducts.map((p) => (
+                <div key={p.id} className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
+                    <p className="text-[11px] text-gray-400">수수료 {p.influencer_rate}% · /products/{p.id}?inf=…</p>
+                  </div>
+                  <button type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${window.location.origin}/products/${p.id}?inf=${influencerId}`);
+                        setProdLinkCopied(p.id);
+                        setTimeout(() => setProdLinkCopied(null), 1500);
+                      } catch { alert("복사에 실패했어요. 잠시 후 다시 시도해주세요."); }
+                    }}
+                    className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${prodLinkCopied === p.id ? "bg-green-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"}`}>
+                    {prodLinkCopied === p.id ? "✓ 복사됨" : "링크 복사"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </Section>
 
