@@ -64,10 +64,10 @@ async function getUpcomingProducts(): Promise<UpcomingProduct[]> {
 }
 
 // 지금 호텔 공구가 열려 있는 인플루언서 (일정이 현재 시각을 포함) — 마감 임박 순
-async function getActiveHotelInfluencers(): Promise<{ name: string; deadline: string }[]> {
+async function getActiveHotelInfluencers(): Promise<{ id: string; name: string; deadline: string }[]> {
   try {
     const r = await pool.query(
-      `SELECT name,
+      `SELECT id, name,
               to_char(hotel_sale_deadline AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD"T"HH24:MI:SS"+09:00"') AS deadline
        FROM influencers
        WHERE hotel_sale_start <= NOW() AND hotel_sale_deadline >= NOW()

@@ -7,12 +7,20 @@ const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 const SERIF = "'Noto Serif KR', serif";
 const pad = (n: number) => String(n).padStart(2, "0");
 
+// "하블리네로" / "민경으로" — 받침 유무에 따른 조사 선택 (ㄹ 받침은 '로')
+function roParticle(name: string) {
+  const code = name.charCodeAt(name.length - 1);
+  if (code < 0xac00 || code > 0xd7a3) return "로";
+  const jong = (code - 0xac00) % 28;
+  return jong === 0 || jong === 8 ? "로" : "으로";
+}
+
 // PRODUCTS 하단 "진행 중 공구" 밴드 — 지금 열려 있는 인플루언서 공구를 DB 기준으로 표시
 // active가 비어 있으면 마감 안내 (일정은 관리자 > 인플루언서에서 관리)
 export default function HotelPromoBand({
   active = [],
 }: {
-  active?: { name: string; deadline: string }[];
+  active?: { id: string; name: string; deadline: string }[];
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -56,11 +64,24 @@ export default function HotelPromoBand({
           )}
         </div>
       </div>
-      <Link href="/hotel/reserve"
-        className="inline-block text-center px-8 py-3 lg:py-[13px] text-[13px] lg:text-[13.5px] font-bold rounded-xl transition-all duration-150 hover:brightness-110"
-        style={{ background: "#244B1F", color: "#fff" }}>
-        {open ? "예약 페이지로 →" : "예약 조회 →"}
-      </Link>
+      {open ? (
+        // 진행 중 인플루언서의 전용 링크로 연결 — 귀속(inf)까지 그대로 이어짐
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          {active.map((a) => (
+            <Link key={a.id} href={`/hotel/reserve?inf=${a.id}`}
+              className="inline-block text-center px-8 py-3 lg:py-[13px] text-[13px] lg:text-[13.5px] font-bold rounded-xl transition-all duration-150 hover:brightness-110"
+              style={{ background: "#244B1F", color: "#fff" }}>
+              {a.name}{roParticle(a.name)} 이동하기 →
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <Link href="/hotel/reserve"
+          className="inline-block text-center px-8 py-3 lg:py-[13px] text-[13px] lg:text-[13.5px] font-bold rounded-xl transition-all duration-150 hover:brightness-110"
+          style={{ background: "#244B1F", color: "#fff" }}>
+          예약 조회 →
+        </Link>
+      )}
     </div>
   );
 }
