@@ -1,0 +1,65 @@
+name: Inspect Influencers
+
+# 인플루언서 테이블 현황 조회 (읽기전용) — 이름 마스킹
+# 어떤 계정이 사업자/서류/판매실적을 갖고 있는지 정리해 삭제 대상 판단용
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const os = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const mask = (s) => { s = String(s || ""); return s.length <= 1 ? s : s.length === 2 ? s[0] + "*" : s[0] + "*".repeat(s.length - 2) + s[s.length - 1]; };
+            (async () => {
+              const rows = (await os.query(
+                `SELECT i.id, i.name, i.business_type, i.bank_name IS NOT NULL AND i.bank_name <> \x27\x27 AS has_bank,
+                        i.biz_cert_file IS NOT NULL AND i.biz_cert_file <> \x27\x27 AS has_bizcert,
+                        i.id_card_file IS NOT NULL AND i.id_card_file <> \x27\x27 AS has_idcard,
+                        i.user_id IS NOT NULL AS has_account,
+                        i.hotel_sale_start IS NOT NULL AS has_hotel_schedule,
+                        to_char(i.created_at, \x27YYYY-MM-DD\x27) AS created,
+                        (SELECT COUNT(*) FROM campaigns c WHERE c.influencer_id = i.id) AS campaigns
+                 FROM influencers i ORDER BY i.created_at ASC`)).rows;
+              const sales = (await shop.query(
+                `SELECT influencer_id, COUNT(*) AS orders, COALESCE(SUM(total_amount),0) AS gross
+                 FROM orders WHERE influencer_id IS NOT NULL GROUP BY influencer_id`)).rows;
+              const sMap = new Map(sales.map(r => [r.influencer_id, r]));
+              console.log("총 인플루언서:", rows.length, "명\n");
+              for (const r of rows) {
+                const s = sMap.get(r.id);
+                console.log([
+                  "id=" + r.id.slice(0, 8),
+                  "이름=" + mask(r.name),
+                  "등록일=" + r.created,
+                  "사업자유형=" + (r.business_type || "-"),
+                  "사업자등록증=" + (r.has_bizcert ? "O" : "-"),
+                  "신분증=" + (r.has_idcard ? "O" : "-"),
+                  "계좌=" + (r.has_bank ? "O" : "-"),
+                  "로그인계정=" + (r.has_account ? "O" : "-"),
+                  "호텔일정=" + (r.has_hotel_schedule ? "O" : "-"),
+                  "구캠페인=" + r.campaigns + "건",
+                  "쇼핑몰귀속주문=" + (s ? `${s.orders}건/${Number(s.gross).toLocaleString()}원` : "0건"),
+                ].join(" | "));
+              }
+              await os.end(); await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
