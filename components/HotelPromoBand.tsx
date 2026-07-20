@@ -45,8 +45,30 @@ export default function HotelPromoBand({
         color: "#1C2418",
       }}>
       <div>
+        {open && (
+          <style>{`
+            @keyframes neonGlow {
+              0%, 100% { text-shadow: 0 0 3px rgba(166,91,75,.9), 0 0 9px rgba(198,106,86,.65), 0 0 18px rgba(214,120,96,.4), 0 0 30px rgba(214,120,96,.22); opacity: 1; }
+              8%       { text-shadow: 0 0 2px rgba(166,91,75,.5), 0 0 5px rgba(198,106,86,.3); opacity: .8; }
+              10%      { text-shadow: 0 0 3px rgba(166,91,75,.9), 0 0 9px rgba(198,106,86,.65), 0 0 18px rgba(214,120,96,.4), 0 0 30px rgba(214,120,96,.22); opacity: 1; }
+              50%      { text-shadow: 0 0 4px rgba(166,91,75,1), 0 0 12px rgba(198,106,86,.8), 0 0 24px rgba(214,120,96,.5), 0 0 40px rgba(214,120,96,.3); opacity: 1; }
+            }
+            @keyframes neonDot {
+              0%, 100% { text-shadow: 0 0 4px rgba(166,91,75,1), 0 0 10px rgba(214,120,96,.9), 0 0 20px rgba(214,120,96,.6); opacity: 1; }
+              50%      { text-shadow: 0 0 2px rgba(166,91,75,.4); opacity: .35; }
+            }
+            .neon-live { animation: neonGlow 2.6s ease-in-out infinite; }
+            .neon-dot  { animation: neonDot 1.3s ease-in-out infinite; }
+          `}</style>
+        )}
         <div className="text-[10px] mb-2" style={{ fontFamily: MONO, fontWeight: 600, letterSpacing: ".28em", color: open ? "#A65B4B" : "#9A9482" }}>
-          {open ? "● LIVE — 지금 진행 중" : "HOTEL 공동구매"}
+          {open ? (
+            <span className="neon-live">
+              <span className="neon-dot">●</span> LIVE — 지금 진행 중
+            </span>
+          ) : (
+            "HOTEL 공동구매"
+          )}
         </div>
         <div className="text-[17px] lg:text-[20px]" style={{ fontFamily: SERIF, fontWeight: 700, color: "#1C2418" }}>
           호텔공구 × 여수 UTOP 마리나 호텔
