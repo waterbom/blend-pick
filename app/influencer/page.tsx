@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import CopyLinkButton from "@/components/CopyLinkButton";
+import FirstBuyersClient from "@/components/FirstBuyersClient";
 import {
   BUSINESS_TYPE_LABEL,
   COUNTABLE_ORDER_STATUSES,
@@ -276,15 +277,19 @@ export default async function InfluencerPage() {
               {shopProducts.map((p) => {
                 const sale = shopSalesMap.get(p.id);
                 return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 text-sm rounded-xl px-3 py-2.5" style={{ border: "1px solid var(--line)" }}>
-                    <div className="min-w-0">
-                      <p className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{p.name}</p>
-                      <p className="text-xs mt-0.5 tnum" style={{ color: "var(--text-muted)" }}>
-                        수수료 {Number(p.influencer_rate)}%
-                        {sale && ` · 내 판매 ${sale.orders}건 / ${WON(Number(sale.gross))}`}
-                      </p>
+                  <div key={p.id} className="text-sm rounded-xl px-3 py-2.5" style={{ border: "1px solid var(--line)" }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{p.name}</p>
+                        <p className="text-xs mt-0.5 tnum" style={{ color: "var(--text-muted)" }}>
+                          수수료 {Number(p.influencer_rate)}%
+                          {sale && ` · 내 판매 ${sale.orders}건 / ${WON(Number(sale.gross))}`}
+                        </p>
+                      </div>
+                      <CopyLinkButton path={`/products/${p.id}?inf=${inf.id}`} />
                     </div>
-                    <CopyLinkButton path={`/products/${p.id}?inf=${inf.id}`} />
+                    {/* 선착순 구매자 — 내 링크 유효 결제만, 번호 중복 제거, 승인시간 순 */}
+                    <FirstBuyersClient productId={p.id} />
                   </div>
                 );
               })}
