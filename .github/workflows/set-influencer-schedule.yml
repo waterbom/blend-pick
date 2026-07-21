@@ -1,0 +1,58 @@
+name: Set Influencer Schedule
+
+# 인플루언서 호텔 공구 일정 설정/복원 (재사용 가능)
+# id_prefix로 대상 지정, start/deadline은 KST ISO (예: 2026-07-21T23:59:00+09:00)
+# 빈 값이면 해당 필드는 그대로 둠
+on:
+  workflow_dispatch:
+    inputs:
+      id_prefix:
+        description: "인플루언서 id 앞 8자리"
+        required: true
+      start:
+        description: "공구 시작 (KST ISO, 빈 값 = 유지)"
+        required: false
+        default: ""
+      deadline:
+        description: "공구 마감 (KST ISO, 빈 값 = 유지)"
+        required: false
+        default: ""
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            ID_PREFIX="${{ github.event.inputs.id_prefix }}" NEW_START="${{ github.event.inputs.start }}" NEW_DEADLINE="${{ github.event.inputs.deadline }}" node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            (async () => {
+              const { ID_PREFIX, NEW_START, NEW_DEADLINE } = process.env;
+              const r = await pool.query(
+                `UPDATE influencers SET
+                   hotel_sale_start = COALESCE(NULLIF($2, \x27\x27)::timestamptz, hotel_sale_start),
+                   hotel_sale_deadline = COALESCE(NULLIF($3, \x27\x27)::timestamptz, hotel_sale_deadline)
+                 WHERE id::text LIKE $1 || \x27%\x27
+                 RETURNING substring(name, 1, 1) || \x27*\x27 AS masked,
+                   to_char(hotel_sale_start AT TIME ZONE \x27Asia/Seoul\x27, \x27MM-DD HH24:MI\x27) AS s,
+                   to_char(hotel_sale_deadline AT TIME ZONE \x27Asia/Seoul\x27, \x27MM-DD HH24:MI\x27) AS e`,
+                [ID_PREFIX, NEW_START, NEW_DEADLINE]);
+              if (!r.rows.length) { console.log("!! 대상 없음:", ID_PREFIX); process.exit(1); }
+              for (const row of r.rows) console.log("✅", row.masked, "일정:", row.s, "~", row.e, "(KST)");
+              await pool.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
