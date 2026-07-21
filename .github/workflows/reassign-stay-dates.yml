@@ -1,0 +1,86 @@
+name: Reassign Stay Dates
+
+# 8/19 트윈 2건 투숙일 재할당 (apply=false 드라이런 기본)
+# BP-H-20260716-06D574 → 8/17~8/18, BP-H-20260717-D1EACF → 8/20~8/21
+# 요금 동일(평일 199,000) — 재고 반납/차감 + 주문·품목 라벨 갱신만, 결제 변동 없음
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "true 입력 시 실제 적용 (기본 드라이런)"
+        required: false
+        default: "false"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reassign on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            APPLY="${{ github.event.inputs.apply }}" node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const APPLY = process.env.APPLY === "true";
+            const ROOM = "패밀리 트윈";
+            const MOVES = [
+              { order: "BP-H-20260716-06D574", newIn: "2026-08-17", newOut: "2026-08-18" },
+              { order: "BP-H-20260717-D1EACF", newIn: "2026-08-20", newOut: "2026-08-21" },
+            ];
+            const md = (iso) => { const [, m, d] = iso.split("-").map(Number); return m + "/" + d; };
+            (async () => {
+              for (const mv of MOVES) {
+                const o = (await shop.query(
+                  `SELECT o.id, o.order_number, o.status,
+                          to_char(o.stay_check_in, \x27YYYY-MM-DD\x27) AS ci, to_char(o.stay_check_out, \x27YYYY-MM-DD\x27) AS co,
+                          oi.id AS item_id, oi.product_name
+                   FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id
+                   WHERE o.order_number = $1`, [mv.order])).rows[0];
+                if (!o) { console.log("!! 주문 없음:", mv.order); continue; }
+                const dest = (await shop.query(
+                  "SELECT allocated - booked AS remain FROM hotel_room_inventory WHERE stay_date = $1 AND room_type = $2",
+                  [mv.newIn, ROOM])).rows[0];
+                console.log(mv.order, "| 상태", o.status, "| 현재", o.ci, "→", o.co, "| 변경", mv.newIn, "→", mv.newOut, "| 새 날짜 잔여", dest ? dest.remain : "행 없음");
+                if (!APPLY) continue;
+                if (o.status !== "paid") { console.log("  !! paid 아님 — 건너뜀"); continue; }
+                if (!dest || Number(dest.remain) <= 0) { console.log("  !! 새 날짜 잔여 없음 — 건너뜀"); continue; }
+                const client = await shop.connect();
+                try {
+                  await client.query("BEGIN");
+                  await client.query(
+                    "UPDATE hotel_room_inventory SET booked = GREATEST(booked - 1, 0) WHERE stay_date = $1 AND room_type = $2",
+                    [o.ci, ROOM]);
+                  const dec = await client.query(
+                    "UPDATE hotel_room_inventory SET booked = booked + 1 WHERE stay_date = $1 AND room_type = $2 AND allocated - booked > 0",
+                    [mv.newIn, ROOM]);
+                  if (dec.rowCount === 0) throw new Error("새 날짜 재고 차감 실패");
+                  await client.query("UPDATE orders SET stay_check_in = $1, stay_check_out = $2 WHERE id = $3", [mv.newIn, mv.newOut, o.id]);
+                  if (o.item_id) await client.query(
+                    "UPDATE order_items SET option_label = $1 WHERE id = $2",
+                    [ROOM + " · " + md(mv.newIn) + "~" + md(mv.newOut) + " (1박)", o.item_id]);
+                  await client.query("COMMIT");
+                  console.log("  ✅ 변경 완료");
+                } catch (e) { await client.query("ROLLBACK"); console.log("  !! 롤백:", e.message); } finally { client.release(); }
+              }
+              if (APPLY) {
+                const chk = await shop.query(
+                  `SELECT to_char(stay_date, \x27MM-DD\x27) AS d, allocated, booked, allocated - booked AS remain
+                   FROM hotel_room_inventory WHERE room_type = $1 AND stay_date IN (\x272026-08-17\x27,\x272026-08-19\x27,\x272026-08-20\x27) ORDER BY stay_date`, [ROOM]);
+                console.log("\n적용 후 트윈 재고:");
+                for (const r of chk.rows) console.log("  ", r.d, "배정", r.allocated, "판매", r.booked, "잔여", r.remain);
+              }
+              await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
