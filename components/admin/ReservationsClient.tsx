@@ -42,6 +42,7 @@ const TABS = [
   { key: "", label: "전체" },
   { key: "awaiting", label: "예약대기" },
   { key: "paid", label: "예약확정" },
+  { key: "checked_in", label: "체크인완료" },
   { key: "cancelled", label: "취소" },
 ];
 

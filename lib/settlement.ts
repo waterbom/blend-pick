@@ -21,9 +21,11 @@ export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
 
 /** 손익/정산 집계에 포함되는 주문 상태 (SQL IN 절용) */
 // awaiting = 예약대기(결제 완료·승인 전) — 돈은 받았으므로 매출·정산에 포함, 취소 시 자동 제외
+// checked_in = 입실 완료 — 매출 확정 상태이므로 당연히 포함 (빠지면 입실 처리 순간 매출이 증발)
 export const COUNTABLE_ORDER_STATUSES = [
   "awaiting",
   "paid",
+  "checked_in",
   "confirmed",
   "preparing",
   "shipped",
