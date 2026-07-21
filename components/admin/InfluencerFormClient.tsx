@@ -227,6 +227,17 @@ export default function InfluencerFormClient({
     } else alert(d.error || "변경 실패");
   }
 
+  // 비밀번호 없이 이 인플루언서 계정으로 바로 로그인 → 인플루언서 페이지 새 탭
+  // (브라우저의 쇼핑몰 로그인(shop_token)이 이 계정으로 바뀜 — 관리자 로그인은 유지)
+  async function impersonate() {
+    setAccBusy(true);
+    const res = await fetch(`/api/admin/influencers/${influencerId}/impersonate`, { method: "POST" });
+    const d = await res.json().catch(() => ({}));
+    setAccBusy(false);
+    if (res.ok) window.open(d.redirect || "/influencer", "_blank");
+    else alert(d.error || "로그인 실패");
+  }
+
   async function copyCredentials() {
     const creds = issued ?? (accountEmail && portalPassword ? { login_id: accountEmail, password: portalPassword } : null);
     if (!creds) return;
@@ -460,6 +471,10 @@ export default function InfluencerFormClient({
                 <button type="button" onClick={resetPassword} disabled={accBusy}
                   className="text-xs border border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40">
                   {accBusy ? "처리 중..." : "비밀번호 재발급"}
+                </button>
+                <button type="button" onClick={impersonate} disabled={accBusy}
+                  className="text-xs bg-green-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-40">
+                  이 계정으로 로그인하기 →
                 </button>
               </div>
             ) : (
