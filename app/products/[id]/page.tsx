@@ -31,6 +31,7 @@ interface Product {
   free_shipping_threshold: number | null;
   main_image: string | null;
   addon_multi: boolean;
+  influencer_id: string | null; // 소속 인플루언서 (지정 시 그 인플루언서 링크만 귀속)
 }
 
 interface ProductAddon {
@@ -67,7 +68,8 @@ interface Review {
 async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
-            stock, status, shipping_type, shipping_cost, free_shipping_threshold, main_image, addon_multi
+            stock, status, shipping_type, shipping_cost, free_shipping_threshold, main_image, addon_multi,
+            influencer_id
      FROM products_shop WHERE id = $1`,
     [id]
   );
@@ -131,6 +133,13 @@ export default async function ProductDetailPage({
 
   if (!product) notFound();
 
+  // 소속 인플루언서가 지정된 상품은 그 인플루언서의 링크로만 귀속
+  // (다른 인플루언서가 남의 상품 링크를 만들어 공유해도 귀속되지 않게)
+  const attributed =
+    influencer && (!product.influencer_id || product.influencer_id === influencer.id)
+      ? influencer
+      : null;
+
   // main_image를 images 맨 앞에 합쳐서 전달
   const allImages = [
     ...(product.main_image ? [{ id: "main", url: product.main_image, sort_order: -1 }] : []),
@@ -147,7 +156,7 @@ export default async function ProductDetailPage({
         addons={addons}
         addonMulti={product.addon_multi}
         reviews={reviews}
-        influencerId={influencer?.id}
+        influencerId={attributed?.id}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <RefundPolicy />

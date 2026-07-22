@@ -402,6 +402,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
             name: taggedTitle(infNameOf(t.influencerId)),
             sale_start_at: kstISO(t.start),
             sale_end_at: kstISO(t.end),
+            influencer_id: t.influencerId, // 소속 인플루언서 — 본인 페이지에만 노출·본인 링크만 귀속
           }),
         });
         if (!res.ok) {

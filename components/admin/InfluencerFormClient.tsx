@@ -150,14 +150,15 @@ export default function InfluencerFormClient({
         setCampaigns(d.campaigns ?? []);
       })
       .finally(() => setLoading(false));
-    // 상품 공구 링크 발급용 — 요율 설정된 판매중 상품 목록
+    // 상품 공구 링크 발급용 — 요율 설정된 판매중 상품 중 이 인플루언서 소속(또는 공용)만
     fetch("/api/admin/products")
       .then((r) => r.json())
-      .then((list: { id: string; name: string; status: string; influencer_rate: number | null }[]) => {
+      .then((list: { id: string; name: string; status: string; influencer_rate: number | null; influencer_id: string | null }[]) => {
         if (!Array.isArray(list)) return;
         setShopProducts(
           list
-            .filter((p) => p.status === "active" && p.influencer_rate != null)
+            .filter((p) => p.status === "active" && p.influencer_rate != null
+              && (p.influencer_id == null || p.influencer_id === influencerId))
             .map((p) => ({ id: p.id, name: p.name, influencer_rate: Number(p.influencer_rate) }))
         );
       })

@@ -80,12 +80,14 @@ export default async function InfluencerPage() {
   );
   const campaigns = campaignsRes.rows;
 
-  // 상품공구(Shop 상품) — 수수료율이 설정된 판매 중 상품만 전용 링크 발급 대상
+  // 상품공구(Shop 상품) — 수수료율이 설정된 판매 중 상품 중 내 소속(또는 공용)만 전용 링크 발급
   const shopProductsRes = await shopPool.query(
     `SELECT id, name, influencer_rate
        FROM products_shop
       WHERE status = 'active' AND influencer_rate IS NOT NULL
-      ORDER BY created_at DESC`
+        AND (influencer_id IS NULL OR influencer_id = $1)
+      ORDER BY created_at DESC`,
+    [inf.id]
   );
   const shopProducts = shopProductsRes.rows as { id: string; name: string; influencer_rate: number }[];
 

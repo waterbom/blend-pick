@@ -1,0 +1,50 @@
+name: Migrate Product Influencer
+
+# products_shop.influencer_id 컬럼 추가 + 제목 [이름 ...] 프리픽스로 소속 백필 (일회성)
+# 소속이 지정된 상품은 그 인플루언서 페이지에만 노출 + 그 인플루언서 링크만 귀속
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Migrate on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const os = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const mask = (s) => { s = String(s || ""); return s.length <= 1 ? s : s.length === 2 ? s[0] + "*" : s[0] + "*".repeat(s.length - 2) + s[s.length - 1]; };
+            (async () => {
+              await shop.query("ALTER TABLE products_shop ADD COLUMN IF NOT EXISTS influencer_id text");
+              const infs = (await os.query("SELECT id, name FROM influencers WHERE shop_managed = true")).rows;
+              let marked = 0;
+              for (const i of infs) {
+                const r = await shop.query(
+                  `UPDATE products_shop SET influencer_id = $1
+                   WHERE influencer_id IS NULL AND influencer_rate IS NOT NULL
+                     AND name LIKE \x27[\x27 || $2 || \x27 %\x27
+                   RETURNING name`, [i.id, i.name]);
+                for (const p of r.rows) { marked++; console.log("  ", mask(i.name), "←", p.name.slice(0, 40)); }
+              }
+              const rest = (await shop.query(
+                "SELECT name FROM products_shop WHERE influencer_id IS NULL AND influencer_rate IS NOT NULL AND status = \x27active\x27")).rows;
+              console.log("✅ 소속 지정:", marked, "건 / 공용(미지정)으로 남은 판매중 상품:", rest.length, "건");
+              for (const p of rest) console.log("   공용:", p.name.slice(0, 40));
+              await os.end(); await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '

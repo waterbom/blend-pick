@@ -16,7 +16,7 @@ export async function GET() {
 
   const result = await shopPool.query(`
     SELECT id, name, brand, price, original_price, stock, category, status, sale_type,
-           shipping_type, shipping_cost, main_image, influencer_rate, product_code, created_at
+           shipping_type, shipping_cost, main_image, influencer_rate, influencer_id, product_code, created_at
     FROM products_shop
     ORDER BY created_at DESC
   `);
@@ -68,12 +68,12 @@ export async function POST(req: Request) {
         exchange_cost_oneway, exchange_cost_roundtrip,
         as_notes,
         manufacturer, origin_country, product_condition, manufacture_date,
-        main_image, addon_multi, supply_price, influencer_rate
+        main_image, addon_multi, supply_price, influencer_rate, influencer_id
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
         $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
         $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
-        $31,$32,$33,$34,$35,$36,$37,$38,$39
+        $31,$32,$33,$34,$35,$36,$37,$38,$39,$40
       ) RETURNING id
     `, [
       name, brand || null, description || null,
@@ -96,6 +96,7 @@ export async function POST(req: Request) {
       addon_multi !== false,
       supply_price || null,
       influencer_rate ?? null,
+      body.influencer_id || null,
     ]);
 
     const productId = result.rows[0].id;
