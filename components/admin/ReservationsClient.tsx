@@ -531,6 +531,8 @@ export default function ReservationsClient() {
                   >
                     {r.status === "awaiting" && <option value="awaiting">예약대기</option>}
                     <option value="paid">{r.status === "awaiting" ? "✅ 승인 (예약확정)" : "예약확정"}</option>
+                    {r.status !== "awaiting" && <option value="checked_in">체크인완료</option>}
+                    {r.status !== "awaiting" && <option value="no_show">노쇼</option>}
                     <option value="cancelled">취소</option>
                   </select>
                 )}

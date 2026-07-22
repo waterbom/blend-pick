@@ -16,6 +16,15 @@ export async function GET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // 입실시간(체크인일 15:00 KST)이 지난 예약확정 건은 자동으로 체크인완료 처리
+  // (노쇼였다면 목록의 상태 선택에서 노쇼로 정정 — 매출 집계는 둘 다 포함이라 금액엔 영향 없음)
+  await shopPool.query(
+    `UPDATE orders SET status = 'checked_in'
+      WHERE order_type = 'hotel' AND status = 'paid'
+        AND stay_check_in IS NOT NULL
+        AND stay_check_in::date + TIME '15:00' <= (NOW() AT TIME ZONE 'Asia/Seoul')`
+  );
+
   const status = new URL(req.url).searchParams.get("status") || "";
   const where = status
     ? `WHERE o.order_type = 'hotel' AND o.status = $1`
