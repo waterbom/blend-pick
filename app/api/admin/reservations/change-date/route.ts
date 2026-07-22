@@ -151,7 +151,7 @@ export async function POST(req: Request) {
     // 3) 주문 날짜/항목 갱신 (더 비싼 경우 total은 실제 결제액 유지, 환불 후엔 아래서 갱신)
     const stayLabel = `${mdLabel(q.checkIn)}~${mdLabel(q.checkOut)} (${q.nights}박)`;
     await client.query(
-      `UPDATE orders SET stay_check_in = $1, stay_check_out = $2 WHERE id = $3`,
+      `UPDATE orders SET stay_check_in = $1, stay_check_out = $2, stay_changed_at = NOW() WHERE id = $3`,
       [q.checkIn, q.checkOut, id]
     );
     if (ord.item_id) {

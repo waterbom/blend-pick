@@ -30,6 +30,7 @@ export async function GET(req: Request) {
        to_char(o.stay_check_in, 'YYYY-MM-DD') AS stay_check_in,
        to_char(o.stay_check_out, 'YYYY-MM-DD') AS stay_check_out,
        o.total_amount, o.created_at, o.influencer_name, o.influencer_id,
+       o.stay_changed_at IS NOT NULL AS stay_changed,
        to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS paid_at_kst,
        (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name,
        -- 예약 변경 차액 등 이 예약번호로 결제된 추가 결제 합계 (extra 주문의 품명이 "예약번호 …" 형식)
