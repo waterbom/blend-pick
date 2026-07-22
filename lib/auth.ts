@@ -12,10 +12,10 @@ export type TokenPayload = {
   role: string;
 };
 
-export async function signToken(payload: TokenPayload) {
+export async function signToken(payload: TokenPayload, expiresIn = "7d") {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("7d")
+    .setExpirationTime(expiresIn)
     .sign(SECRET);
 }
 

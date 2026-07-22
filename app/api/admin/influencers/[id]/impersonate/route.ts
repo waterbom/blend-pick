@@ -28,19 +28,23 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   if (!user) return NextResponse.json({ error: "발급된 계정이 없어요. 먼저 계정을 발급해주세요." }, { status: 404 });
   if (user.role !== "influencer") return NextResponse.json({ error: "인플루언서 계정이 아닙니다." }, { status: 400 });
 
-  const token = await signToken({
-    id: user.id,
-    email: user.email ?? undefined,
-    nickname: user.name || "",
-    role: user.role,
-  });
+  // 대리 로그인은 2시간만 유효 — 관리자 확인용 세션이 브라우저에 오래 남지 않게
+  const token = await signToken(
+    {
+      id: user.id,
+      email: user.email ?? undefined,
+      nickname: user.name || "",
+      role: user.role,
+    },
+    "2h"
+  );
 
   const res = NextResponse.json({ ok: true, redirect: "/influencer" });
   res.cookies.set("shop_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 2,
     path: "/",
   });
   return res;
