@@ -1,0 +1,56 @@
+name: Check Repay Attribution
+
+# 재결제 귀속 불일치 점검 (읽기전용, 이름 마스킹)
+# 취소된 호텔 주문(귀속 있음) 이후 같은 전화번호로 재결제된 주문 중
+# 귀속이 다르거나 없는 케이스를 전부 나열
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const mask = (s) => { s = String(s || ""); return s.length <= 1 ? s : s.length === 2 ? s[0] + "*" : s[0] + "*".repeat(s.length - 2) + s[s.length - 1]; };
+            (async () => {
+              const { rows } = await shop.query(
+                `SELECT DISTINCT ON (o2.order_number)
+                        o2.order_number, o2.buyer_name, o2.status,
+                        o2.influencer_name AS now_inf, o1.influencer_name AS first_inf,
+                        o1.order_number AS first_order,
+                        to_char(o2.created_at AT TIME ZONE \x27Asia/Seoul\x27, \x27MM-DD HH24:MI\x27) AS repaid_at,
+                        o2.total_amount
+                 FROM orders o1
+                 JOIN orders o2 ON o2.buyer_phone = o1.buyer_phone AND o2.order_type = \x27hotel\x27
+                 WHERE o1.order_type = \x27hotel\x27 AND o1.status = \x27cancelled\x27
+                   AND o1.influencer_id IS NOT NULL
+                   AND o2.status <> \x27cancelled\x27 AND o2.created_at > o1.created_at
+                   AND o2.influencer_id IS DISTINCT FROM o1.influencer_id
+                 ORDER BY o2.order_number, o1.created_at ASC`);
+              console.log("재결제 귀속 불일치:", rows.length, "건");
+              for (const r of rows) console.log(
+                " ", r.order_number, "|", mask(r.buyer_name), "|", r.status,
+                "| 현재 귀속:", r.now_inf ? mask(r.now_inf) : "(없음)",
+                "| 처음 귀속:", mask(r.first_inf), "(" + r.first_order + ")",
+                "| 재결제", r.repaid_at, "|", Number(r.total_amount).toLocaleString() + "원");
+              if (!rows.length) console.log("✅ 불일치 케이스 없음");
+              await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
