@@ -86,6 +86,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 재결제 보호 — 같은 번호로 취소된 호텔 주문이 있으면 처음 귀속된 인플루언서 유지
+  // (A 링크로 결제 → 취소 → B 링크로 재결제해도 실적은 처음 A에게 귀속)
+  try {
+    const prev = await shopPool.query(
+      `SELECT influencer_id, influencer_name FROM orders
+       WHERE order_type = 'hotel' AND buyer_phone = $1
+         AND status = 'cancelled' AND influencer_id IS NOT NULL
+       ORDER BY created_at ASC LIMIT 1`,
+      [cd.customerPhone]
+    );
+    const first = prev.rows[0];
+    if (first && first.influencer_id !== influencer?.id) {
+      influencer = { id: first.influencer_id, name: first.influencer_name };
+    }
+  } catch (e) {
+    console.error("[hotel-confirm] 재결제 귀속 확인 실패(링크 귀속 유지):", e);
+  }
+
   // 승인제 날짜 포함 여부 — 하나라도 있으면 예약대기(awaiting)로 저장, 관리자 승인 시 확정
   let needsApproval = false;
   try {
