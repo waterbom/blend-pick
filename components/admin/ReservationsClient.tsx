@@ -46,6 +46,7 @@ const TABS = [
   { key: "paid", label: "예약확정" },
   { key: "checked_in", label: "체크인완료" },
   { key: "cancelled", label: "취소" },
+  { key: "changed", label: "변경" }, // 날짜 변경 이력 or 취소 후 재결제 건만 모아보기
 ];
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -264,7 +265,12 @@ export default function ReservationsClient() {
   }, [rows]);
 
   const visible = useMemo(() => {
-    let list = tab ? rows.filter((r) => r.status === tab) : rows;
+    let list =
+      tab === "changed"
+        ? rows.filter((r) => r.stay_changed || r.repaid_after_cancel)
+        : tab
+          ? rows.filter((r) => r.status === tab)
+          : rows;
     if (infSel) list = list.filter((r) => r.influencer_name === infSel);
     const q = query.trim().toLowerCase();
     if (q) {
@@ -492,6 +498,12 @@ export default function ReservationsClient() {
                 </div>
                 <div className="text-xs text-gray-500 tnum">
                   <div>{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</div>
+                  {changeMark(r) && (
+                    <span className="inline-block mt-0.5 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-600"
+                      title={`${r.stay_changed ? "투숙일 변경 이력 있음. " : ""}${r.repaid_after_cancel ? "같은 연락처로 먼저 취소된 예약이 있는 재결제 건." : ""}`}>
+                      🔁 {changeMark(r)}
+                    </span>
+                  )}
                   {r.status === "paid" && (
                     <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 예약변경</button>
                   )}
