@@ -48,6 +48,7 @@ export async function GET(req: Request) {
             AND c.id <> o.id AND c.created_at < o.created_at
        )) AS repaid_after_cancel,
        to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS paid_at_kst,
+       to_char(o.cancelled_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS cancelled_at_kst,
        (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name,
        -- 예약 변경 차액 등 이 예약번호로 결제된 추가 결제 합계 (extra 주문의 품명이 "예약번호 …" 형식)
        COALESCE((

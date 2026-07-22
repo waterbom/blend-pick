@@ -61,7 +61,7 @@ export async function cancelHotelReservation(
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(`UPDATE orders SET status = 'cancelled' WHERE id = $1`, [orderId]);
+    await client.query(`UPDATE orders SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`, [orderId]);
     if (room && ord.ci && ord.co) {
       let cur = ord.ci;
       while (cur < ord.co) {
@@ -77,7 +77,7 @@ export async function cancelHotelReservation(
     await client.query("ROLLBACK");
     console.error("[hotel-cancel] 재고 복원 실패:", e);
     // 결제는 이미 환불됨 → 상태는 취소로 처리(재고는 수동 조정)
-    await shopPool.query(`UPDATE orders SET status = 'cancelled' WHERE id = $1`, [orderId]);
+    await shopPool.query(`UPDATE orders SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`, [orderId]);
   } finally {
     client.release();
   }
