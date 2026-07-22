@@ -1,8 +1,14 @@
 name: List Marked Reservations
 
-# 변경(날짜 변경 이력) / 취소 후 재결제 예약번호 목록 조회 (읽기 전용, 일회성)
+# 예약번호 목록을 주면 각 건의 현재 상태(변경/취소/취소 후 재결제 여부)를 조회 (읽기 전용)
+# order_numbers 없이 실행하면 전체 호텔 예약 중 변경·재결제 표시 대상만 나열
 on:
   workflow_dispatch:
+    inputs:
+      order_numbers:
+        description: "쉼표로 구분한 예약번호 목록 (비우면 전체에서 표시 대상만)"
+        required: false
+        default: ""
 
 jobs:
   run:
@@ -10,10 +16,13 @@ jobs:
     steps:
       - name: Query on EC2
         uses: appleboy/ssh-action@v1
+        env:
+          ORDER_NUMBERS: ${{ github.event.inputs.order_numbers }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ORDER_NUMBERS
           script: |
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -26,30 +35,54 @@ jobs:
             }
             const { Pool } = require("pg");
             const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
-            const mask = (s) => { s = String(s || ""); return s.length <= 1 ? s : s.length === 2 ? s[0] + "*" : s[0] + "*".repeat(s.length - 2) + s[s.length - 1]; };
+            const nums = (process.env.ORDER_NUMBERS || "").split(",").map(s => s.trim()).filter(Boolean);
             (async () => {
-              const r = await shop.query(`
-                SELECT o.order_number, o.buyer_name, o.status,
-                       o.stay_changed_at IS NOT NULL AS changed,
-                       (o.status <> \x27cancelled\x27 AND EXISTS (
-                         SELECT 1 FROM orders c
-                          WHERE c.order_type = \x27hotel\x27 AND c.status = \x27cancelled\x27
-                            AND c.buyer_phone = o.buyer_phone
-                            AND c.id <> o.id AND c.created_at < o.created_at
-                       )) AS repaid
-                  FROM orders o
-                 WHERE o.order_type = \x27hotel\x27
-                   AND (o.stay_changed_at IS NOT NULL OR (o.status <> \x27cancelled\x27 AND EXISTS (
-                         SELECT 1 FROM orders c
-                          WHERE c.order_type = \x27hotel\x27 AND c.status = \x27cancelled\x27
-                            AND c.buyer_phone = o.buyer_phone
-                            AND c.id <> o.id AND c.created_at < o.created_at)))
-                 ORDER BY o.created_at`);
-              for (const o of r.rows) {
-                const marks = [o.changed ? "변경" : null, o.repaid ? "재결제" : null].filter(Boolean).join("·");
-                console.log(o.order_number, mask(o.buyer_name), o.status, marks);
+              if (nums.length) {
+                // 주어진 예약번호 각각: 현재 상태 + 날짜 변경 여부 + (취소건이면) 같은 사람이 이후 재결제했는지
+                const r = await shop.query(`
+                  SELECT o.order_number, o.status,
+                         o.stay_changed_at IS NOT NULL AS changed,
+                         (o.status = \x27cancelled\x27 AND EXISTS (
+                           SELECT 1 FROM orders n
+                            WHERE n.order_type = \x27hotel\x27 AND n.buyer_phone = o.buyer_phone
+                              AND n.id <> o.id AND n.created_at > o.created_at
+                              AND n.status <> \x27cancelled\x27
+                         )) AS repaid_later
+                    FROM orders o
+                   WHERE o.order_type = \x27hotel\x27 AND o.order_number = ANY($1)
+                   ORDER BY o.order_number`, [nums]);
+                const seen = new Set();
+                for (const o of r.rows) {
+                  seen.add(o.order_number);
+                  const marks = [
+                    o.changed ? "변경" : null,
+                    o.status === "cancelled" ? (o.repaid_later ? "취소후재결제" : "취소") : null,
+                  ].filter(Boolean).join("·");
+                  if (marks) console.log(o.order_number, o.status, marks);
+                }
+                console.log("입력", nums.length, "건 / 조회", r.rows.length, "건 / 표시 대상", r.rows.filter(o => o.changed || o.status === "cancelled").length, "건");
+                const miss = nums.filter(n => !seen.has(n));
+                if (miss.length) console.log("DB에 없음:", miss.join(", "));
+              } else {
+                const r = await shop.query(`
+                  SELECT o.order_number, o.status,
+                         o.stay_changed_at IS NOT NULL AS changed,
+                         (o.status <> \x27cancelled\x27 AND EXISTS (
+                           SELECT 1 FROM orders c
+                            WHERE c.order_type = \x27hotel\x27 AND c.status = \x27cancelled\x27
+                              AND c.buyer_phone = o.buyer_phone
+                              AND c.id <> o.id AND c.created_at < o.created_at
+                         )) AS repaid
+                    FROM orders o
+                   WHERE o.order_type = \x27hotel\x27
+                   ORDER BY o.created_at`);
+                let n = 0;
+                for (const o of r.rows) {
+                  const marks = [o.changed ? "변경" : null, o.repaid ? "재결제" : null].filter(Boolean).join("·");
+                  if (marks) { n++; console.log(o.order_number, o.status, marks); }
+                }
+                console.log("총", n, "건");
               }
-              console.log("총", r.rows.length, "건");
               await shop.end();
             })().catch(e => { console.error(e.message); process.exit(1); });
             '
