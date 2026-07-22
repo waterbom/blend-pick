@@ -12,6 +12,10 @@ interface AddonRow { name: string; price: string; active: boolean; }
 
 const EMPTY_IMAGES = ["", "", "", "", ""];
 
+// 관리자 토큰 만료(401) 시 안내 — 새 탭 재로그인이면 이 화면의 입력 내용은 그대로 유지된다
+const SESSION_EXPIRED_MSG =
+  "관리자 로그인이 만료됐어요. 이 화면은 그대로 두고, 새 탭에서 관리자 로그인을 다시 한 뒤 돌아와서 등록 버튼을 다시 눌러주세요. (입력한 내용은 유지돼요)";
+
 interface Props {
   mode: "new" | "edit";
   productId?: string;
@@ -408,7 +412,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
           setError(
-            `${infNameOf(t.influencerId)} 상품 등록 실패${created.length ? ` (${created.join(", ")}은 이미 등록됨)` : ""}: ${d.error || "오류"}`
+            res.status === 401
+              ? SESSION_EXPIRED_MSG
+              : `${infNameOf(t.influencerId)} 상품 등록 실패${created.length ? ` (${created.join(", ")}은 이미 등록됨)` : ""}: ${d.error || "오류"}`
           );
           setSaving(false);
           return;
@@ -432,8 +438,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
       router.push("/admin/products");
       router.refresh();
     } else {
-      const d = await res.json();
-      setError(d.error || (mode === "new" ? "등록 실패" : "수정 실패"));
+      const d = await res.json().catch(() => ({}));
+      setError(
+        res.status === 401
+          ? SESSION_EXPIRED_MSG
+          : d.error || (mode === "new" ? "등록 실패" : "수정 실패")
+      );
     }
     setSaving(false);
   }

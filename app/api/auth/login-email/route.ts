@@ -26,9 +26,10 @@ export async function POST(req: NextRequest) {
     if (!valid) {
       return NextResponse.json({ ok: false, error: "이메일 또는 비밀번호가 올바르지 않습니다." }, { status: 401 });
     }
+    // 12시간 — 1시간이면 상품 등록처럼 긴 작업 중에 만료돼 저장이 401로 튕김
     const adminToken = await new SignJWT({ id: admin.id, email: admin.email, name: admin.name })
       .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("1h")
+      .setExpirationTime("12h")
       .sign(ADMIN_SECRET);
 
     const res = NextResponse.json({ ok: true, redirect: "/" });
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60,
+      maxAge: 60 * 60 * 12,
       path: "/",
     });
     return res;
