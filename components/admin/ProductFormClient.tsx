@@ -98,12 +98,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
     return new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 16);
   };
 
-  useEffect(() => {
-    if (mode !== "edit" || !productId) return;
-    setLoading(true);
-    fetch(`/api/admin/products/${productId}`)
-      .then(r => r.json())
-      .then((data) => {
+  // 상품 데이터 → 폼 채우기 (수정 모드 로드와 코드 복제 로드가 공유)
+  // stripTagPrefix: "[인플루언서 X 브랜드] 상품명" 제목에서 대괄호 프리픽스 제거 (복제 시 새 태그로 다시 조합)
+  function fillFromData(data: any, opts?: { stripTagPrefix?: boolean }) {
+    {
         const origPrice = String(data.original_price ?? "");
         const price = String(data.price ?? "");
         let discountRate = "";
@@ -115,7 +113,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
         const rawAttr = data.shipping_attr || "standard";
         const isCustomAttr = rawAttr !== "standard";
         setForm({
-          name: data.name ?? "",
+          name: opts?.stripTagPrefix ? String(data.name ?? "").replace(/^\[[^\]]*\]\s*/, "") : (data.name ?? ""),
           brand: data.brand ?? "",
           category: data.category ?? "",
           manufacturer: data.manufacturer ?? "",
@@ -174,9 +172,49 @@ export default function ProductFormClient({ mode, productId }: Props) {
           }))
         );
         setAddonMulti(data.addon_multi !== false);
-      })
+    }
+  }
+
+  useEffect(() => {
+    if (mode !== "edit" || !productId) return;
+    setLoading(true);
+    fetch(`/api/admin/products/${productId}`)
+      .then(r => r.json())
+      .then((data) => fillFromData(data))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, productId]);
+
+  // ── 상품코드 복제 등록 — 코드 입력으로 기존 상품 정보를 그대로 채움 ──
+  // 공구(공동구매) 상품이면 인플루언서 태그·공구기간만 수정 가능하게 잠금
+  const [copyCode, setCopyCode] = useState("");
+  const [copyBusy, setCopyBusy] = useState(false);
+  const [copyInfo, setCopyInfo] = useState<string | null>(null);
+  const [copyLocked, setCopyLocked] = useState(false);
+
+  async function loadFromCode() {
+    const code = copyCode.trim().toUpperCase();
+    if (!code) return;
+    setCopyBusy(true);
+    try {
+      const list = await fetch("/api/admin/products").then(r => r.json());
+      const hit = Array.isArray(list)
+        ? list.find((p: { product_code?: string | null }) => String(p.product_code || "").toUpperCase() === code)
+        : null;
+      if (!hit) { alert(`상품코드 ${code} 를 찾을 수 없어요.`); return; }
+      const data = await fetch(`/api/admin/products/${hit.id}`).then(r => r.json());
+      fillFromData(data, { stripTagPrefix: true });
+      const isGroupbuy = (data.sale_type ?? "always") === "groupbuy";
+      setCopyLocked(isGroupbuy);
+      if (isGroupbuy && infTags.length === 0) setInfTags([{ influencerId: "", start: "", end: "" }]);
+      setCopyInfo(
+        `"${data.name}" 정보를 불러왔어요.` +
+        (isGroupbuy ? " 공구 상품이라 인플루언서 태그와 공구기간만 수정할 수 있어요." : "")
+      );
+    } finally {
+      setCopyBusy(false);
+    }
+  }
 
   function set(key: string, value: string) {
     setForm(f => ({ ...f, [key]: value }));
@@ -432,6 +470,31 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
+        {/* 상품코드 복제 등록 — 기존 상품 정보를 그대로 불러와 새 상품으로 등록 */}
+        {mode === "new" && (
+          <Section title="상품코드로 복제 등록">
+            <div className="flex items-center gap-2">
+              <input value={copyCode} onChange={e => setCopyCode(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); loadFromCode(); } }}
+                className={`${inp} font-mono max-w-[160px]`} placeholder="예: P0012" />
+              <button type="button" onClick={loadFromCode} disabled={copyBusy}
+                className="shrink-0 bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-40">
+                {copyBusy ? "불러오는 중..." : "불러오기"}
+              </button>
+              {copyLocked && (
+                <button type="button" onClick={() => { setCopyLocked(false); setCopyInfo(null); }}
+                  className="shrink-0 text-xs text-gray-400 hover:text-gray-600 underline">
+                  잠금 해제
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-400">
+              {copyInfo ?? "상품 관리에서 복사한 상품코드를 붙여넣으면 그 상품 정보가 그대로 채워져요 (공구 상품은 인플루언서만 바꿔서 등록)"}
+            </p>
+          </Section>
+        )}
+
+        <fieldset disabled={copyLocked} className={`space-y-4 ${copyLocked ? "opacity-60" : ""}`}>
         {/* ① 기본 정보 */}
         <Section title="기본 정보">
           <div>
@@ -480,8 +543,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
           </Grid2>
         </Section>
 
+        </fieldset>
+
         {/* ② 판매 상태 */}
         <Section title="판매 상태">
+          <fieldset disabled={copyLocked} className={copyLocked ? "opacity-60" : ""}>
           <div className="grid grid-cols-2 gap-2">
             {[
               { value: "always", label: "상시 판매", sub: "전시 상품" },
@@ -502,8 +568,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
               </button>
             ))}
           </div>
+          </fieldset>
 
-          {/* 공동구매 — 인플루언서 태그 (태그당 상품 1개 복제 등록, 기간 개별) */}
+          {/* 공동구매 — 인플루언서 태그 (태그당 상품 1개 복제 등록, 기간 개별) — 복제 잠금과 무관하게 항상 수정 가능 */}
           {mode === "new" && form.sale_type === "groupbuy" && (
             <div className="border-t border-gray-100 pt-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -570,6 +637,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
             </div>
           )}
 
+          <fieldset disabled={copyLocked} className={copyLocked ? "opacity-60" : ""}>
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between">
               <div>
@@ -601,8 +669,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
               </Grid2>
             )}
           </div>
+          </fieldset>
         </Section>
 
+        <fieldset disabled={copyLocked} className={`space-y-4 ${copyLocked ? "opacity-60 pointer-events-none" : ""}`}>
         {/* ③ 이미지 */}
         <Section title="이미지">
           {/* 대표 이미지 */}
@@ -1000,6 +1070,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
             placeholder="여기에 상세 내용을 붙여넣으세요"
           />
         </Section>
+
+        </fieldset>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 

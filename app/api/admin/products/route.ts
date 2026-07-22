@@ -16,7 +16,7 @@ export async function GET() {
 
   const result = await shopPool.query(`
     SELECT id, name, brand, price, original_price, stock, category, status, sale_type,
-           shipping_type, shipping_cost, main_image, influencer_rate, created_at
+           shipping_type, shipping_cost, main_image, influencer_rate, product_code, created_at
     FROM products_shop
     ORDER BY created_at DESC
   `);
