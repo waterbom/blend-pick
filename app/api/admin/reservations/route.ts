@@ -31,6 +31,13 @@ export async function GET(req: Request) {
        to_char(o.stay_check_out, 'YYYY-MM-DD') AS stay_check_out,
        o.total_amount, o.created_at, o.influencer_name, o.influencer_id,
        o.stay_changed_at IS NOT NULL AS stay_changed,
+       -- 취소 후 재결제: 같은 연락처로 이 예약보다 먼저 취소된 호텔 예약이 있는 경우 (취소된 예약 자신은 제외)
+       (o.status <> 'cancelled' AND EXISTS (
+         SELECT 1 FROM orders c
+          WHERE c.order_type = 'hotel' AND c.status = 'cancelled'
+            AND c.buyer_phone = o.buyer_phone
+            AND c.id <> o.id AND c.created_at < o.created_at
+       )) AS repaid_after_cancel,
        to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS paid_at_kst,
        (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name,
        -- 예약 변경 차액 등 이 예약번호로 결제된 추가 결제 합계 (extra 주문의 품명이 "예약번호 …" 형식)

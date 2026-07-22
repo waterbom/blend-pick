@@ -17,6 +17,7 @@ interface Reservation {
   extra_paid: number; // 예약 변경 차액 등 이 예약번호로 들어온 추가 결제 합계
   influencer_name: string | null; // 어느 인플루언서 링크로 들어온 예약인지 (null = 직접 유입)
   stay_changed: boolean; // 예약 변경(날짜 이동·재결제 정정 등) 이력 표시
+  repaid_after_cancel: boolean; // 같은 연락처로 먼저 취소된 예약이 있는 재결제 건
   created_at: string;
   paid_at_kst: string | null;
   product_name: string | null;
@@ -86,7 +87,11 @@ function requestMemo(memo: string | null) {
 }
 
 // 호텔 전달용 예약자 명단 — 엑셀(.xlsx) 다운로드 (금액은 숫자 셀 → 바로 SUM 가능)
-const ROSTER_HEADER = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "변경", "결제금액", "추가결제", "인플루언서", "결제시간", "예약일"];
+const ROSTER_HEADER = ["예약번호", "예약자", "연락처", "패키지", "객실", "요청사항", "체크인", "체크아웃", "박수", "상태", "변경/취소", "결제금액", "추가결제", "인플루언서", "결제시간", "예약일"];
+// 변경/취소 열: 날짜 변경 이력 → "변경", 취소 후 재결제 → "취소", 둘 다면 "변경·취소"
+function changeMark(r: Reservation) {
+  return [r.stay_changed ? "변경" : "", r.repaid_after_cancel ? "취소" : ""].filter(Boolean).join("·");
+}
 function toRosterRows(list: Reservation[]): (string | number)[][] {
   return list.map((r) => {
     const parts = (r.product_name || "").split(" · ");
@@ -96,7 +101,7 @@ function toRosterRows(list: Reservation[]): (string | number)[][] {
     return [
       r.order_number, r.buyer_name, r.buyer_phone, pkg, room, requestMemo(r.addr_memo),
       r.stay_check_in || "", r.stay_check_out || "", nightsOf(r.stay_check_in, r.stay_check_out),
-      st, r.stay_changed ? "변경됨" : "", Number(r.total_amount), Number(r.extra_paid || 0) > 0 ? Number(r.extra_paid) : "", r.influencer_name || "직접 유입", r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
+      st, changeMark(r), Number(r.total_amount), Number(r.extra_paid || 0) > 0 ? Number(r.extra_paid) : "", r.influencer_name || "직접 유입", r.paid_at_kst || "", new Date(r.created_at).toLocaleDateString("ko-KR"),
     ];
   });
 }
