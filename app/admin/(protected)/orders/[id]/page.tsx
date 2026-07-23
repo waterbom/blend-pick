@@ -34,8 +34,8 @@ const STATUS_STYLE: Record<string, string> = {
   cancel_requested:   "bg-red-50 text-red-500",
   exchange_requested: "bg-violet-50 text-violet-600",
   exchange_completed: "bg-violet-50 text-violet-400",
-  return_requested:   "bg-orange-50 text-orange-500",
-  return_completed:   "bg-orange-50 text-orange-400",
+  return_requested:   "bg-[#EAF0E6] text-[#2D5A27]",
+  return_completed:   "bg-[#EAF0E6] text-[#7A8B6F]",
 };
 
 async function getOrder(id: string) {
@@ -130,7 +130,7 @@ export default async function OrderDetailPage({
       </div>
 
       {/* 주문 정보 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
+      <div className="bg-white rounded-none border border-gray-100 p-5 mb-4">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">주문 정보</h2>
         <Row label="주문번호" value={<span className="font-mono">{order.order_number}</span>} />
         <Row label="주문일시" value={formatDateTime(order.created_at)} />
@@ -139,7 +139,7 @@ export default async function OrderDetailPage({
       </div>
 
       {/* 주문자 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
+      <div className="bg-white rounded-none border border-gray-100 p-5 mb-4">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">주문자</h2>
         <Row label="이름" value={order.buyer_name} />
         <Row label="연락처" value={order.buyer_phone} />
@@ -147,7 +147,7 @@ export default async function OrderDetailPage({
       </div>
 
       {/* 수령인 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
+      <div className="bg-white rounded-none border border-gray-100 p-5 mb-4">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">수령인</h2>
         <Row label="이름" value={order.recipient_name ?? order.buyer_name} />
         <Row label="연락처" value={order.recipient_phone ?? order.buyer_phone} />
@@ -158,7 +158,7 @@ export default async function OrderDetailPage({
       </div>
 
       {/* 주문 상품 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
+      <div className="bg-white rounded-none border border-gray-100 p-5 mb-4">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">주문 상품</h2>
         <div className="space-y-0">
           {order.items.map((item: {

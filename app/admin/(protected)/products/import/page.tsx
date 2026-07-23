@@ -90,11 +90,11 @@ export default function ProductImportPage() {
         </div>
         <div className="flex gap-2">
           <a href="/api/admin/products/import/template"
-            className="text-xs font-bold text-blue-500 border border-blue-200 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors">
+            className="text-xs font-bold text-blue-500 border border-blue-200 px-3 py-2 rounded-none hover:bg-blue-50 transition-colors">
             템플릿 다운로드
           </a>
           <Link href="/admin/products"
-            className="text-xs font-bold text-gray-500 border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+            className="text-xs font-bold text-gray-500 border border-gray-200 px-3 py-2 rounded-none hover:bg-gray-50 transition-colors">
             목록으로
           </Link>
         </div>
@@ -102,7 +102,7 @@ export default function ProductImportPage() {
 
       {/* 결과 */}
       {result && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 mb-6">
+        <div className="bg-green-50 border border-green-200 rounded-none p-5 mb-6">
           <p className="text-sm font-bold text-green-700 mb-1">업로드 완료</p>
           <p className="text-sm text-green-600">
             {result.saved}개 등록 완료
@@ -114,7 +114,7 @@ export default function ProductImportPage() {
             </ul>
           )}
           <button onClick={() => router.push("/admin/products")}
-            className="mt-3 text-xs font-bold text-white bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+            className="mt-3 text-xs font-bold text-white bg-green-600 px-4 py-2 rounded-none hover:bg-green-700 transition-colors">
             상품 목록 보기
           </button>
         </div>
@@ -122,22 +122,22 @@ export default function ProductImportPage() {
 
       {/* 파일 업로드 */}
       {!preview && !result && (
-        <div className="bg-white rounded-xl border border-gray-100 p-8">
+        <div className="bg-white rounded-none border border-gray-100 p-8">
           <div
-            className="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center cursor-pointer hover:border-orange-300 hover:bg-orange-50 transition-colors"
+            className="border-2 border-dashed border-gray-200 rounded-none p-12 text-center cursor-pointer hover:border-[#2D5A27] hover:bg-[#EAF0E6] transition-colors"
             onClick={() => fileRef.current?.click()}
           >
             <p className="text-4xl mb-3">📊</p>
             <p className="text-sm font-bold text-gray-700">클릭하여 파일 선택</p>
             <p className="text-xs text-gray-400 mt-1">.xlsx, .xls, .csv 파일 지원</p>
-            {uploading && <p className="text-xs text-orange-500 mt-3 animate-pulse">파일 분석 중...</p>}
+            {uploading && <p className="text-xs text-[#2D5A27] mt-3 animate-pulse">파일 분석 중...</p>}
           </div>
           <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv"
             className="hidden" onChange={handleFileChange} />
 
           {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
 
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className="mt-6 p-4 bg-gray-50 rounded-none">
             <p className="text-xs font-bold text-gray-500 mb-2">사용 방법</p>
             <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
               <li>위 템플릿 다운로드 버튼으로 양식 다운로드</li>
@@ -153,7 +153,7 @@ export default function ProductImportPage() {
       {preview && (
         <div className="space-y-4">
           {/* 컬럼 매핑 */}
-          <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <div className="bg-white rounded-none border border-gray-100 p-6">
             <p className="text-sm font-bold text-gray-700 mb-1">컬럼 매핑 확인</p>
             <p className="text-xs text-gray-400 mb-4">각 엑셀 컬럼을 어떤 항목으로 가져올지 확인·조정해요</p>
             <div className="grid grid-cols-2 gap-3">
@@ -166,7 +166,7 @@ export default function ProductImportPage() {
                   <select
                     value={mapping[String(i)] ?? "__skip__"}
                     onChange={(e) => setMapping((m) => ({ ...m, [String(i)]: e.target.value }))}
-                    className="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                    className="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#C7D6C0]"
                   >
                     {ALL_FIELDS.map((f) => (
                       <option key={f.value} value={f.value}>{f.label}</option>
@@ -178,7 +178,7 @@ export default function ProductImportPage() {
           </div>
 
           {/* 미리보기 테이블 */}
-          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-none border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-50">
               <p className="text-sm font-bold text-gray-700">
                 ��리보기
@@ -195,7 +195,7 @@ export default function ProductImportPage() {
                       <th key={i} className="px-3 py-2 text-left text-gray-400 font-bold whitespace-nowrap">
                         {h}
                         {mapping[String(i)] && mapping[String(i)] !== "__skip__" && (
-                          <span className="ml-1 text-orange-400">({mapping[String(i)]})</span>
+                          <span className="ml-1 text-[#7A8B6F]">({mapping[String(i)]})</span>
                         )}
                       </th>
                     ))}
@@ -220,11 +220,11 @@ export default function ProductImportPage() {
 
           <div className="flex gap-3">
             <button onClick={() => { setPreview(null); setResult(null); }}
-              className="flex-1 border border-gray-200 text-gray-600 font-bold py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+              className="flex-1 border border-gray-200 text-gray-600 font-bold py-2.5 rounded-none text-sm hover:bg-gray-50 transition-colors">
               다시 선택
             </button>
             <button onClick={handleConfirm} disabled={saving}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+              className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] text-white font-bold py-2.5 rounded-none text-sm transition-colors disabled:opacity-50">
               {saving ? `등록 중...` : `${preview.totalRows}개 상품 등록 확정`}
             </button>
           </div>

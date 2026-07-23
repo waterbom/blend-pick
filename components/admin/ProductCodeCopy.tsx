@@ -16,9 +16,9 @@ export default function ProductCodeCopy({ code }: { code: string }) {
       onClick={handleCopy}
       className="flex items-center gap-1 font-mono text-xs px-2 py-0.5 rounded transition-colors"
       style={{
-        background: copied ? "#dcfce7" : "#fff7ed",
-        color: copied ? "#15803d" : "#ea580c",
-        border: `1px solid ${copied ? "#bbf7d0" : "#fed7aa"}`,
+        background: copied ? "#EAF0E6" : "rgba(0,0,0,.05)",
+        color: copied ? "#244B1F" : "#3E423A",
+        border: `1px solid ${copied ? "#C7D6C0" : "#D6D6CF"}`,
       }}
     >
       {code}

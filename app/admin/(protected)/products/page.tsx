@@ -32,19 +32,19 @@ export default async function AdminProductsPage() {
         <div className="flex flex-wrap gap-2">
           <Link
             href="/admin/categories"
-            className="border border-gray-200 text-gray-600 text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            className="border border-gray-200 text-gray-600 text-sm font-bold px-4 py-2 rounded-none hover:bg-gray-50 transition-colors"
           >
             카테고리 관리
           </Link>
           <Link
             href="/admin/products/import"
-            className="border border-gray-200 text-gray-600 text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            className="border border-gray-200 text-gray-600 text-sm font-bold px-4 py-2 rounded-none hover:bg-gray-50 transition-colors"
           >
             엑셀 일괄 업로드
           </Link>
           <Link
             href="/admin/products/new"
-            className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+            className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors"
           >
             + 상품 등록
           </Link>
@@ -52,7 +52,7 @@ export default async function AdminProductsPage() {
       </div>
 
       {/* 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
+      <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
         {products.length === 0 ? (
           <div className="text-center py-16 text-gray-400 text-sm">
             등록된 상품이 없어요
@@ -78,16 +78,16 @@ export default async function AdminProductsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {p.main_image ? (
-                          <img src={p.main_image} alt={p.name} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
+                          <img src={p.main_image} alt={p.name} className="w-10 h-10 rounded-none object-cover bg-gray-100" />
                         ) : (
-                          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-lg">□</div>
+                          <div className="w-10 h-10 rounded-none bg-gray-100 flex items-center justify-center text-gray-300 text-lg">□</div>
                         )}
                         <div>
                           <a
                             href={`/products/${p.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-medium text-gray-900 truncate max-w-xs block hover:text-orange-600 hover:underline"
+                            className="font-medium text-gray-900 truncate max-w-xs block hover:text-[#244B1F] hover:underline"
                             title="공개 상품 페이지 열기"
                           >
                             {p.name}
@@ -117,7 +117,7 @@ export default async function AdminProductsPage() {
                       <div className="flex items-center justify-end gap-3">
                         <Link
                           href={`/admin/products/${p.id}`}
-                          className="text-xs text-orange-500 font-bold hover:text-orange-600"
+                          className="text-xs text-[#2D5A27] font-bold hover:text-[#244B1F]"
                         >
                           수정
                         </Link>

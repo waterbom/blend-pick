@@ -91,7 +91,7 @@ export default function CampaignsClient() {
     if (res.ok) { setCosts((c) => c.filter((x) => x.id !== costId)); load(); }
   }
 
-  const inp = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400";
+  const inp = "border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-[#C7D6C0]";
 
   return (
     <div>
@@ -104,12 +104,12 @@ export default function CampaignsClient() {
 
       <div className="space-y-2">
         {loading ? (
-          <div className="bg-white rounded-xl border border-gray-100 text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
+          <div className="bg-white rounded-none border border-gray-100 text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
         ) : rows.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-100 text-center py-16 text-gray-400 text-sm">공구가 없어요</div>
+          <div className="bg-white rounded-none border border-gray-100 text-center py-16 text-gray-400 text-sm">공구가 없어요</div>
         ) : (
           rows.map((c) => (
-            <div key={c.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div key={c.id} className="bg-white rounded-none border border-gray-100 overflow-hidden">
               <div
                 onClick={() => openDetail(c.id)}
                 className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -124,7 +124,7 @@ export default function CampaignsClient() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-xs shrink-0">
-                  <span className={c.commission_rate != null ? "font-bold text-orange-600" : "text-gray-300"}>
+                  <span className={c.commission_rate != null ? "font-bold text-[#2D5A27]" : "text-gray-300"}>
                     {c.commission_rate != null ? `수수료 ${Number(c.commission_rate)}%` : "요율 미설정"}
                   </span>
                   <span className={c.supply_price != null ? "text-gray-600" : "text-gray-300"}>
@@ -147,7 +147,7 @@ export default function CampaignsClient() {
                       <input value={supply} onChange={(e) => setSupply(e.target.value)} type="number" min="0" className={`${inp} w-36`} />
                     </div>
                     <button onClick={() => saveSettings(c.id)} disabled={saving}
-                      className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg disabled:opacity-40">
+                      className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none disabled:opacity-40">
                       {saving ? "저장 중..." : "저장"}
                     </button>
                   </div>
@@ -157,7 +157,7 @@ export default function CampaignsClient() {
                     {costs.length > 0 && (
                       <div className="space-y-1.5 mb-2">
                         {costs.map((cost) => (
-                          <div key={cost.id} className="flex items-center justify-between text-sm bg-white border border-gray-100 rounded-lg px-3 py-2">
+                          <div key={cost.id} className="flex items-center justify-between text-sm bg-white border border-gray-100 rounded-none px-3 py-2">
                             <span className="text-gray-700">
                               <b className="text-xs text-gray-500 mr-2">{COST_CATEGORY_LABEL[cost.category] ?? cost.category}</b>
                               {Number(cost.amount).toLocaleString()}원
@@ -179,7 +179,7 @@ export default function CampaignsClient() {
                       <input value={newCost.memo} onChange={(e) => setNewCost((n) => ({ ...n, memo: e.target.value }))}
                         placeholder="메모 (선택)" className={`${inp} flex-1 min-w-[120px]`} />
                       <button onClick={() => addCost(c.id)}
-                        className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-700">
+                        className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-none hover:bg-gray-700">
                         추가
                       </button>
                     </div>

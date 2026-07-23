@@ -90,7 +90,7 @@ const TABS: { key: Tab; label: string }[] = [
 // 각 탭의 일괄처리 액션 정의
 const TAB_ACTION: Partial<Record<Tab, { action: string; label: string; color: string }>> = {
   exchange_requested: { action: "exchange_complete", label: "교환완료 처리", color: "bg-violet-600 hover:bg-violet-700" },
-  return_requested:   { action: "return_complete",   label: "반품완료 처리", color: "bg-orange-500 hover:bg-orange-600" },
+  return_requested:   { action: "return_complete",   label: "반품완료 처리", color: "bg-[#2D5A27] hover:bg-[#244B1F]" },
   cancel_requested:   { action: "cancel_confirm",    label: "취소 확인",     color: "bg-red-500 hover:bg-red-600" },
 };
 
@@ -253,10 +253,10 @@ export default function ShipmentsClient() {
   return (
     <div>
       {/* 탭 */}
-      <div className="flex flex-wrap gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-4">
+      <div className="flex flex-wrap gap-1 bg-white rounded-none border border-gray-100 p-1 mb-4">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-none text-sm font-medium transition-colors ${
               tab === t.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
             }`}>
             {t.label}
@@ -267,14 +267,14 @@ export default function ShipmentsClient() {
       {/* ── 배송준비 탭 ── */}
       {tab === "preparing" && (
         <>
-          <div className="bg-white rounded-xl border border-gray-100 p-6 mb-4">
+          <div className="bg-white rounded-none border border-gray-100 p-6 mb-4">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <p className="text-sm font-bold text-gray-800">운송장번호 일괄 입력</p>
                 <p className="text-xs text-gray-400 mt-0.5">엑셀/CSV: 주문번호, 운송장번호 (2컬럼)</p>
               </div>
               <button onClick={downloadTemplate}
-                className="text-xs text-blue-500 hover:text-blue-600 font-medium border border-blue-200 px-3 py-1.5 rounded-lg">
+                className="text-xs text-blue-500 hover:text-blue-600 font-medium border border-blue-200 px-3 py-1.5 rounded-none">
                 양식 다운로드
               </button>
             </div>
@@ -282,19 +282,19 @@ export default function ShipmentsClient() {
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 선택</label>
               <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-orange-400 bg-white">
+                className="w-full border border-gray-200 rounded-none px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#C7D6C0] bg-white">
                 {carriers.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
             </div>
 
             {csvRows.length === 0 ? (
               <button onClick={() => fileRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 text-sm text-gray-400 hover:border-orange-300 hover:text-orange-400 transition-colors">
+                className="w-full border-2 border-dashed border-gray-200 rounded-none py-8 text-sm text-gray-400 hover:border-[#2D5A27] hover:text-[#7A8B6F] transition-colors">
                 엑셀/CSV 파일 선택 또는 클릭
               </button>
             ) : (
               <div>
-                <div className="border border-gray-100 rounded-lg overflow-x-auto mb-3">
+                <div className="border border-gray-100 rounded-none overflow-x-auto mb-3">
                   <table className="w-full min-w-[480px] text-xs">
                     <thead className="bg-gray-50">
                       <tr>
@@ -323,11 +323,11 @@ export default function ShipmentsClient() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleImport} disabled={importing}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg transition-colors">
+                    className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-none transition-colors">
                     {importing ? "처리 중..." : `${csvRows.length}건 배송중으로 변경`}
                   </button>
                   <button onClick={() => setCsvRows([])}
-                    className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg">
+                    className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-none">
                     취소
                   </button>
                 </div>
@@ -337,7 +337,7 @@ export default function ShipmentsClient() {
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
 
             {importResult && (
-              <div className={`mt-3 px-4 py-3 rounded-lg text-sm ${importResult.failed.length > 0 ? "bg-yellow-50" : "bg-green-50"}`}>
+              <div className={`mt-3 px-4 py-3 rounded-none text-sm ${importResult.failed.length > 0 ? "bg-yellow-50" : "bg-green-50"}`}>
                 <p className="font-semibold text-gray-800">
                   처리 완료 — 성공 {importResult.succeeded}건
                   {importResult.failed.length > 0 && `, 실패 ${importResult.failed.length}건`}
@@ -352,7 +352,7 @@ export default function ShipmentsClient() {
           {selected.size > 0 && (
             <div className="mb-3">
               <button onClick={() => { setModalTracking({}); setShowTrackModal(true); }}
-                className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors">
+                className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors">
                 선택 {selected.size}건 운송장 입력 → 배송중
               </button>
             </div>
@@ -369,14 +369,14 @@ export default function ShipmentsClient() {
         <>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <button onClick={handleTrack} disabled={tracking}
-              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors">
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               {tracking ? "조회 중..." : "배송추적 실행"}
             </button>
             {trackerKeyMissing && (
-              <span className="text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
+              <span className="text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-none px-3 py-1.5">
                 ⚠ 스마트택배 API 키 미설정 — 배송추적이 동작하지 않아요 (.env.local의 SWEETTRACKER_API_KEY)
               </span>
             )}
@@ -390,7 +390,7 @@ export default function ShipmentsClient() {
             )}
             {selected.size > 0 && (
               <button onClick={handleBulkDeliver} disabled={delivering}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors">
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -410,7 +410,7 @@ export default function ShipmentsClient() {
           {selected.size > 0 && (
             <div className="mb-3">
               <button onClick={() => handleTabAction(tabAction.action, tabAction.label)} disabled={acting}
-                className={`text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50 ${tabAction.color}`}>
+                className={`text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 ${tabAction.color}`}>
                 {acting ? "처리 중..." : `${tabAction.label} (${selected.size}건)`}
               </button>
             </div>
@@ -432,7 +432,7 @@ export default function ShipmentsClient() {
       {showTrackModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => !importing && setShowTrackModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+          <div className="bg-white rounded-none w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100">
               <p className="text-sm font-bold text-gray-800">운송장 입력 후 배송중 처리</p>
@@ -443,7 +443,7 @@ export default function ShipmentsClient() {
             <div className="p-5 border-b border-gray-100">
               <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 (전체 공통)</label>
               <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-orange-400 bg-white">
+                className="w-full border border-gray-200 rounded-none px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#C7D6C0] bg-white">
                 {carriers.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
             </div>
@@ -457,17 +457,17 @@ export default function ShipmentsClient() {
                   <input value={modalTracking[o.id] ?? ""}
                     onChange={(e) => setModalTracking((p) => ({ ...p, [o.id]: e.target.value }))}
                     placeholder="운송장번호" inputMode="numeric"
-                    className="w-40 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
+                    className="w-40 border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-[#C7D6C0]" />
                 </div>
               ))}
             </div>
             <div className="p-5 border-t border-gray-100 flex gap-2">
               <button onClick={handleModalSubmit} disabled={importing}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg transition-colors">
+                className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-none transition-colors">
                 {importing ? "처리 중..." : "배송중으로 변경"}
               </button>
               <button onClick={() => setShowTrackModal(false)} disabled={importing}
-                className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg">
+                className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-none">
                 취소
               </button>
             </div>
@@ -492,11 +492,11 @@ function OrderTable({
   const carrierName = (code: string | null) =>
     code ? libCarrierName(code) : "—";
 
-  if (loading) return <div className="bg-white rounded-xl border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>;
-  if (orders.length === 0) return <div className="bg-white rounded-xl border border-gray-100 p-16 text-center text-sm text-gray-400">{emptyText}</div>;
+  if (loading) return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>;
+  if (orders.length === 0) return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">{emptyText}</div>;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
+    <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
       <table className="w-full min-w-[720px] text-sm">
         <thead className="border-b border-gray-100 bg-gray-50">
           <tr>
@@ -504,7 +504,7 @@ function OrderTable({
               <input type="checkbox"
                 checked={selected.size === orders.length && orders.length > 0}
                 onChange={onToggleAll}
-                className="w-4 h-4 rounded accent-orange-500"
+                className="w-4 h-4 rounded accent-[#2D5A27]"
               />
             </th>
             <th className="text-left px-4 py-3 text-xs font-medium text-gray-400">주문번호</th>
@@ -517,10 +517,10 @@ function OrderTable({
         </thead>
         <tbody className="divide-y divide-gray-50">
           {orders.map((o) => (
-            <tr key={o.id} className={`hover:bg-gray-50 transition-colors ${selected.has(o.id) ? "bg-orange-50/40" : ""}`}>
+            <tr key={o.id} className={`hover:bg-gray-50 transition-colors ${selected.has(o.id) ? "bg-[#EAF0E6]/40" : ""}`}>
               <td className="px-4 py-3">
                 <input type="checkbox" checked={selected.has(o.id)} onChange={() => onToggle(o.id)}
-                  className="w-4 h-4 rounded accent-orange-500" />
+                  className="w-4 h-4 rounded accent-[#2D5A27]" />
               </td>
               <td className="px-4 py-3 font-mono text-xs text-gray-500">{o.order_number}</td>
               <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">

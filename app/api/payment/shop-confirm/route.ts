@@ -134,6 +134,18 @@ export async function POST(req: NextRequest) {
       ]
     );
 
+    // 재고 차감 — 옵션 상품은 옵션 재고, 상품 재고는 항상 함께 차감 (관리자 목록 표시 기준)
+    await client.query(
+      `UPDATE products_shop SET stock = GREATEST(stock - $1, 0) WHERE id = $2`,
+      [checkoutData.quantity, checkoutData.productId]
+    );
+    if (checkoutData.optionId) {
+      await client.query(
+        `UPDATE product_options SET stock = GREATEST(stock - $1, 0) WHERE id = $2`,
+        [checkoutData.quantity, checkoutData.optionId]
+      );
+    }
+
     await client.query("COMMIT");
 
     return NextResponse.json({

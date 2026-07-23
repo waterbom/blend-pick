@@ -141,6 +141,20 @@ export async function POST(req: NextRequest) {
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [newOrderId, item.product_id, item.option_id ?? null, item.name, unitPrice, item.quantity, supplyPrice]
       );
+
+      // 재고 차감 — 옵션 상품은 옵션 재고, 상품 재고는 항상 함께 차감 (추가옵션은 product_id 없음 → 제외)
+      if (item.product_id && !item.is_addon) {
+        await client.query(
+          `UPDATE products_shop SET stock = GREATEST(stock - $1, 0) WHERE id = $2`,
+          [item.quantity, item.product_id]
+        );
+        if (item.option_id) {
+          await client.query(
+            `UPDATE product_options SET stock = GREATEST(stock - $1, 0) WHERE id = $2`,
+            [item.quantity, item.option_id]
+          );
+        }
+      }
     }
 
     // 결제 완료된 아이템들을 cart 테이블에서 삭제

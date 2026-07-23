@@ -19,7 +19,7 @@ interface CampaignRow {
   is_archived: boolean;
 }
 
-const inp = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400";
+const inp = "w-full border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-[#C7D6C0]";
 const lbl = "text-xs font-bold text-gray-500 block mb-1.5";
 
 // DB의 timestamptz(UTC ISO) → 화면 입력용 KST "YYYY-MM-DDTHH:mm"
@@ -36,7 +36,7 @@ function localKSTToISO(v: string): string | null {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+    <section className="bg-white rounded-none border border-gray-100 p-5 space-y-4">
       <h2 className="text-sm font-black text-gray-900">{title}</h2>
       {children}
     </section>
@@ -68,7 +68,7 @@ function DocUpload({
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={busy}
-          className="text-xs border border-gray-200 text-gray-600 font-bold px-3 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-40"
+          className="text-xs border border-gray-200 text-gray-600 font-bold px-3 py-2 rounded-none hover:bg-gray-50 disabled:opacity-40"
         >
           {busy ? "업로드 중..." : value ? "파일 교체" : "파일 업로드"}
         </button>
@@ -78,7 +78,7 @@ function DocUpload({
               href={`/api/admin/private-files/${value}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-orange-500 font-bold hover:underline"
+              className="text-xs text-[#2D5A27] font-bold hover:underline"
             >
               보기
             </a>
@@ -325,13 +325,13 @@ export default function InfluencerFormClient({
         </div>
         {mode === "edit" ? (
           form.hotel_sale_start && form.hotel_sale_deadline ? (
-            <div className="rounded-xl border border-orange-100 bg-orange-50 p-4 space-y-2">
-              <p className="text-xs font-bold text-orange-700">
+            <div className="rounded-none border border-[#C7D6C0] bg-[#EAF0E6] p-4 space-y-2">
+              <p className="text-xs font-bold text-[#244B1F]">
                 🔗 전용 링크 — 이 인플루언서 링크로 들어온 예약은 위 일정으로만 열려요 (저장 후 적용)
               </p>
               <div className="flex gap-1.5">
                 <input readOnly value={`/hotel/reserve?inf=${influencerId}`}
-                  className="flex-1 min-w-0 text-xs font-mono bg-white border border-orange-200 rounded-lg px-2 py-2 text-gray-600"
+                  className="flex-1 min-w-0 text-xs font-mono bg-white border border-[#C7D6C0] rounded-none px-2 py-2 text-gray-600"
                   onFocus={(e) => e.target.select()} />
                 <button type="button"
                   onClick={async () => {
@@ -341,7 +341,7 @@ export default function InfluencerFormClient({
                       setTimeout(() => setLinkCopied(false), 1500);
                     } catch { alert("복사에 실패했어요. 링크를 직접 선택해 복사해주세요."); }
                   }}
-                  className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${linkCopied ? "bg-green-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"}`}>
+                  className={`shrink-0 px-3 py-2 text-xs font-bold rounded-none ${linkCopied ? "bg-green-600 text-white" : "bg-[#2D5A27] hover:bg-[#244B1F] text-white"}`}>
                   {linkCopied ? "✓ 복사됨" : "링크 복사"}
                 </button>
               </div>
@@ -370,7 +370,7 @@ export default function InfluencerFormClient({
             </p>
             <div className="space-y-2">
               {shopProducts.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2">
+                <div key={p.id} className="flex items-center gap-2 rounded-none border border-gray-100 px-3 py-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
                     <p className="text-[11px] text-gray-400">수수료 {p.influencer_rate}% · /products/{p.id}?inf=…</p>
@@ -383,7 +383,7 @@ export default function InfluencerFormClient({
                         setTimeout(() => setProdLinkCopied(null), 1500);
                       } catch { alert("복사에 실패했어요. 잠시 후 다시 시도해주세요."); }
                     }}
-                    className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${prodLinkCopied === p.id ? "bg-green-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"}`}>
+                    className={`shrink-0 px-3 py-2 text-xs font-bold rounded-none ${prodLinkCopied === p.id ? "bg-green-600 text-white" : "bg-[#2D5A27] hover:bg-[#244B1F] text-white"}`}>
                     {prodLinkCopied === p.id ? "✓ 복사됨" : "링크 복사"}
                   </button>
                 </div>
@@ -404,7 +404,7 @@ export default function InfluencerFormClient({
               ))}
             </select>
             {form.business_type && (
-              <p className="text-xs text-orange-500 mt-1.5">{REQUIRED_DOCS[form.business_type]}</p>
+              <p className="text-xs text-[#2D5A27] mt-1.5">{REQUIRED_DOCS[form.business_type]}</p>
             )}
           </div>
           <div>
@@ -438,7 +438,7 @@ export default function InfluencerFormClient({
         <>
           <Section title="포털 계정 (공구현황 로그인)">
             {issued ? (
-              <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+              <div className="rounded-none border border-green-200 bg-green-50 p-4">
                 <p className="text-xs font-bold text-green-700 mb-2">
                   ✅ 발급 완료 — 비밀번호는 지금만 확인할 수 있어요. 복사해서 인플루언서에게 전달하세요.
                 </p>
@@ -447,7 +447,7 @@ export default function InfluencerFormClient({
                   <p>비밀번호: <b>{issued.password}</b></p>
                 </div>
                 <button type="button" onClick={copyCredentials}
-                  className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors ${
+                  className={`text-xs font-bold px-3 py-2 rounded-none border transition-colors ${
                     credCopied ? "bg-green-600 border-green-600 text-white" : "bg-white border-green-300 text-green-700 hover:bg-green-100"
                   }`}>
                   {credCopied ? "복사됨 ✓" : "아이디+비밀번호 복사"}
@@ -463,25 +463,25 @@ export default function InfluencerFormClient({
                 </span>
                 {portalPassword && (
                   <button type="button" onClick={copyCredentials}
-                    className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
+                    className={`text-xs font-bold px-3 py-1.5 rounded-none border transition-colors ${
                       credCopied ? "bg-green-600 border-green-600 text-white" : "border-gray-200 text-gray-600 hover:bg-gray-50"
                     }`}>
                     {credCopied ? "복사됨 ✓" : "복사"}
                   </button>
                 )}
                 <button type="button" onClick={resetPassword} disabled={accBusy}
-                  className="text-xs border border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+                  className="text-xs border border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-none hover:bg-gray-50 disabled:opacity-40">
                   {accBusy ? "처리 중..." : "비밀번호 재발급"}
                 </button>
                 <button type="button" onClick={impersonate} disabled={accBusy}
-                  className="text-xs bg-green-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-40">
+                  className="text-xs bg-green-600 text-white font-bold px-3 py-1.5 rounded-none hover:bg-green-700 disabled:opacity-40">
                   이 계정으로 로그인하기 →
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-3">
                 <button type="button" onClick={issueAccount} disabled={accBusy}
-                  className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-40">
+                  className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-none hover:bg-gray-700 disabled:opacity-40">
                   {accBusy ? "발급 중..." : "아이디/비밀번호 발급"}
                 </button>
                 <span className="text-xs text-gray-400">버튼을 누르면 아이디와 비밀번호가 자동 생성됩니다</span>
@@ -493,7 +493,7 @@ export default function InfluencerFormClient({
             <Section title="진행 공구">
               <div className="space-y-2">
                 {campaigns.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between text-sm border border-gray-100 rounded-lg px-3 py-2">
+                  <div key={c.id} className="flex items-center justify-between text-sm border border-gray-100 rounded-none px-3 py-2">
                     <div>
                       <p className="font-medium text-gray-800">{c.product_name}</p>
                       <p className="text-xs text-gray-400">
@@ -516,11 +516,11 @@ export default function InfluencerFormClient({
 
       <div className="flex gap-2 items-center">
         <button type="submit" disabled={saving}
-          className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-6 py-2.5 rounded-lg disabled:opacity-40">
+          className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-6 py-2.5 rounded-none disabled:opacity-40">
           {saving ? "저장 중..." : mode === "new" ? "등록" : "저장"}
         </button>
         <button type="button" onClick={() => router.back()}
-          className="border border-gray-200 text-gray-600 text-sm font-bold px-6 py-2.5 rounded-lg hover:bg-gray-50">
+          className="border border-gray-200 text-gray-600 text-sm font-bold px-6 py-2.5 rounded-none hover:bg-gray-50">
           취소
         </button>
         {mode === "edit" && (

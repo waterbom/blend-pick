@@ -85,7 +85,7 @@ export default function ProfitClient() {
     [visible]
   );
 
-  const inp = "border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400";
+  const inp = "border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-[#C7D6C0]";
   const th = "px-3 py-3 text-xs font-bold text-gray-400 whitespace-nowrap";
   const td = "px-3 py-3 whitespace-nowrap tnum";
 
@@ -99,7 +99,7 @@ export default function ProfitClient() {
       </div>
 
       {/* 필터 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 flex flex-wrap items-end gap-2">
+      <div className="bg-white rounded-none border border-gray-100 p-4 mb-4 flex flex-wrap items-end gap-2">
         <div>
           <label className="text-xs font-bold text-gray-500 block mb-1">시작일</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inp} />
@@ -117,7 +117,7 @@ export default function ProfitClient() {
             <option value="hotel">호텔 공구</option>
           </select>
         </div>
-        <button onClick={load} className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-700">
+        <button onClick={load} className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-none hover:bg-gray-700">
           조회
         </button>
         <div className="ml-auto flex flex-wrap gap-2">
@@ -137,7 +137,7 @@ export default function ProfitClient() {
       </div>
 
       {/* 손익 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
+      <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
         {loading ? (
           <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
         ) : visible.length === 0 ? (
@@ -172,7 +172,7 @@ export default function ProfitClient() {
                   <td className={`${td} text-xs`}>
                     {r.influencer_name ? (
                       <>
-                        <span className="font-medium text-orange-600">@{r.influencer_name}</span>
+                        <span className="font-medium text-[#2D5A27]">@{r.influencer_name}</span>
                         {r.business_type && (
                           <span className="text-gray-400 ml-1">({BUSINESS_TYPE_LABEL[r.business_type]})</span>
                         )}
@@ -219,7 +219,7 @@ export default function ProfitClient() {
                 <td className={`${td} text-right font-bold text-gray-600`}>−{WON(total.pg_fee)}</td>
                 <td className={`${td} text-right font-bold text-gray-600`}>−{WON(total.other_costs)}</td>
                 <td className={`${td} text-right font-bold text-gray-600`}>−{WON(total.commission)}</td>
-                <td className={`${td} text-right font-black ${total.net_profit >= 0 ? "text-orange-600" : "text-red-500"}`}>
+                <td className={`${td} text-right font-black ${total.net_profit >= 0 ? "text-[#2D5A27]" : "text-red-500"}`}>
                   {WON(total.net_profit)}원
                 </td>
               </tr>

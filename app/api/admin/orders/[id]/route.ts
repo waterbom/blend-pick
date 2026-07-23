@@ -42,6 +42,10 @@ export async function PATCH(
   try {
     await client.query("BEGIN");
 
+    // 취소 전환 시 재고 복원용 — 이전 상태 확인 (이미 취소된 주문은 중복 복원 방지)
+    const prev = await client.query(`SELECT status FROM orders WHERE id = $1`, [id]);
+    const prevStatus = prev.rows[0]?.status;
+
     // 주문 상태 변경 (운송장 정보 있으면 함께 저장)
     const { rows } = await client.query(
       `UPDATE orders
@@ -59,6 +63,20 @@ export async function PATCH(
     }
 
     const order = rows[0];
+
+    // 취소 확정 → 재고 복원 (결제 시 차감한 만큼 되돌림, 추가옵션 제외)
+    if (status === "cancelled" && prevStatus !== "cancelled") {
+      const its = await client.query(
+        `SELECT product_id, option_id, quantity FROM order_items WHERE order_id = $1 AND product_id IS NOT NULL`,
+        [id]
+      );
+      for (const it of its.rows) {
+        await client.query(`UPDATE products_shop SET stock = stock + $1 WHERE id = $2`, [it.quantity, it.product_id]);
+        if (it.option_id) {
+          await client.query(`UPDATE product_options SET stock = stock + $1 WHERE id = $2`, [it.quantity, it.option_id]);
+        }
+      }
+    }
 
     // 배송완료 → 정산 레코드 자동 생성
     if (status === "delivered") {

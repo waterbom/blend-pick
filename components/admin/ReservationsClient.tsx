@@ -393,7 +393,7 @@ export default function ReservationsClient() {
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         {cards.map((c) => (
-          <div key={c.label} className="bg-white rounded-2xl border border-gray-100 p-6">
+          <div key={c.label} className="bg-white rounded-none border border-gray-100 p-6">
             <p className="text-sm text-gray-400">{c.label}</p>
             <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2 tnum">{c.value}</p>
           </div>
@@ -447,7 +447,7 @@ export default function ReservationsClient() {
           <button
             onClick={sendAlimtalk}
             disabled={sending || pending === 0}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-40"
             title="공구 마감 후 예약확인 문자 일괄발송"
           >
             📩 {sending ? "발송 중…" : `예약확인 문자 일괄발송${pending != null ? ` (${pending})` : ""}`}
@@ -455,7 +455,7 @@ export default function ReservationsClient() {
           <button
             onClick={() => downloadXlsx(`호텔예약명단_${todayISO().replace(/-/g, "")}.xlsx`, ROSTER_HEADER, toRosterRows(visible), "예약명단")}
             disabled={visible.length === 0}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-40"
             title="호텔에 전달할 예약자 명단 다운로드"
           >
             📋 예약자 명단 다운로드 ({visible.length})
@@ -464,7 +464,7 @@ export default function ReservationsClient() {
       </div>
 
       {/* 예약 테이블 */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
+      <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
         <div className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 min-w-[760px]">
           <span>예약번호</span><span>예약자</span><span>호텔 · 객실</span><span>투숙기간</span><span className="text-right">금액</span><span className="text-center">상태</span>
         </div>
@@ -514,7 +514,7 @@ export default function ReservationsClient() {
                     {(Number(r.total_amount) + Number(r.extra_paid || 0)).toLocaleString()}원
                   </div>
                   {Number(r.extra_paid) > 0 && (
-                    <div className="text-[11px] text-orange-500 mt-0.5">차액 +{Number(r.extra_paid).toLocaleString()} 포함</div>
+                    <div className="text-[11px] text-[#2D5A27] mt-0.5">차액 +{Number(r.extra_paid).toLocaleString()} 포함</div>
                   )}
                   {r.paid_at_kst && <div className="text-[11px] text-gray-400 mt-0.5">💳 {r.paid_at_kst}</div>}
                   {r.status === "cancelled" && r.cancelled_at_kst && (
@@ -550,18 +550,18 @@ export default function ReservationsClient() {
       {visible.length > PAGE_SIZE && (
         <div className="flex items-center justify-center gap-1.5 mt-4">
           <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}
-            className="w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-500 text-sm disabled:opacity-30 hover:bg-gray-50">
+            className="w-9 h-9 rounded-none border border-gray-200 bg-white text-gray-500 text-sm disabled:opacity-30 hover:bg-gray-50">
             ‹
           </button>
           {pageNums.map((n) => (
             <button key={n} onClick={() => setPage(n)}
-              className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
+              className={`w-9 h-9 rounded-none text-sm font-semibold transition-colors ${
                 n === safePage ? "bg-gray-900 text-white" : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
               {n}
             </button>
           ))}
           <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-            className="w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-500 text-sm disabled:opacity-30 hover:bg-gray-50">
+            className="w-9 h-9 rounded-none border border-gray-200 bg-white text-gray-500 text-sm disabled:opacity-30 hover:bg-gray-50">
             ›
           </button>
           <span className="text-xs text-gray-400 ml-2 tnum">
@@ -587,15 +587,15 @@ export default function ReservationsClient() {
         </div>
 
         {/* 월 탭 */}
-        <div className="flex gap-1 mb-3 bg-white rounded-xl border border-gray-100 p-1 w-fit flex-wrap">
+        <div className="flex gap-1 mb-3 bg-white rounded-none border border-gray-100 p-1 w-fit flex-wrap">
           <button onClick={() => setInvMonth("")}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3.5 py-1.5 rounded-none text-xs font-semibold transition-colors ${
               !invMonth ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
             전체
           </button>
           {invView.months.map((m) => (
             <button key={m} onClick={() => setInvMonth(m)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              className={`px-3.5 py-1.5 rounded-none text-xs font-semibold transition-colors ${
                 invMonth === m ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
               {Number(m.slice(5))}월
             </button>
@@ -608,7 +608,7 @@ export default function ReservationsClient() {
             const t = invView.totals[rm];
             if (!t) return null;
             return (
-              <div key={rm} className="bg-white rounded-xl border border-gray-100 px-4 py-2.5 text-xs text-gray-500 flex items-center gap-3">
+              <div key={rm} className="bg-white rounded-none border border-gray-100 px-4 py-2.5 text-xs text-gray-500 flex items-center gap-3">
                 <b className="text-gray-800">{rm}</b>
                 <span>잔여 <b className="text-gray-800 tnum">{t.remaining}</b>실</span>
                 <span style={{ color: "#dc2626" }}>마감 <b className="tnum">{t.soldOutDays}</b>일</span>
@@ -618,7 +618,7 @@ export default function ReservationsClient() {
           })}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-none border border-gray-100 overflow-hidden">
           <div className="grid px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400" style={{ gridTemplateColumns: `1.2fr repeat(${invView.rooms.length}, 1fr)` }}>
             <span>투숙일</span>
             {invView.rooms.map((rm) => <span key={rm} className="text-center">{rm} (남음/배정)</span>)}
@@ -662,7 +662,7 @@ export default function ReservationsClient() {
       {dateEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => !changing && setDateEdit(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-none w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100">
               <p className="text-sm font-bold text-gray-800">📅 예약 변경 — 날짜 · 인원 · 객실</p>
               <p className="text-xs text-gray-400 mt-0.5 font-mono">{dateEdit.order_number} · {dateEdit.buyer_name} · {hotelRoom(dateEdit.product_name)}</p>
@@ -681,30 +681,30 @@ export default function ReservationsClient() {
               <div className="p-5 space-y-3">
                 <p className="text-sm font-bold text-gray-800">✅ 예약 변경 완료</p>
                 {dateResult.refunded > 0 && (
-                  <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+                  <div className="rounded-none bg-green-50 px-4 py-3 text-sm text-green-700">
                     차액 <b>{dateResult.refunded.toLocaleString()}원</b> 자동 환불 완료
                   </div>
                 )}
                 {dateResult.diff === 0 && (
-                  <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음</div>
+                  <div className="rounded-none bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음</div>
                 )}
                 {dateResult.needRepay && (
-                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700 space-y-2">
+                  <div className="rounded-none bg-[#EAF0E6] px-4 py-3 text-sm text-[#244B1F] space-y-2">
                     <p><b>⚠️ 추가 차액 {dateResult.diff.toLocaleString()}원</b> — 아래 결제링크를 고객에게 보내주세요. 카드로 바로 결제할 수 있어요.</p>
                     {dateResult.payLink && (
                       <div className="flex gap-1.5">
                         <input readOnly value={dateResult.payLink}
-                          className="flex-1 min-w-0 text-[11px] font-mono bg-white border border-orange-200 rounded-lg px-2 py-2 text-gray-600"
+                          className="flex-1 min-w-0 text-[11px] font-mono bg-white border border-[#C7D6C0] rounded-none px-2 py-2 text-gray-600"
                           onFocus={(e) => e.target.select()} />
                         <button onClick={() => copyPayLink(dateResult.payLink!)}
-                          className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${linkCopied ? "bg-green-600 text-white" : "bg-orange-600 hover:bg-orange-700 text-white"}`}>
+                          className={`shrink-0 px-3 py-2 text-xs font-bold rounded-none ${linkCopied ? "bg-green-600 text-white" : "bg-[#244B1F] hover:bg-orange-700 text-white"}`}>
                           {linkCopied ? "✓ 복사됨" : "🔗 링크 복사"}
                         </button>
                       </div>
                     )}
                   </div>
                 )}
-                <button onClick={() => setDateEdit(null)} className="w-full py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg">완료</button>
+                <button onClick={() => setDateEdit(null)} className="w-full py-2.5 bg-gray-900 text-white text-sm font-bold rounded-none">완료</button>
               </div>
             ) : !datePreview ? (
               <div className="p-5 space-y-3">
@@ -714,7 +714,7 @@ export default function ReservationsClient() {
                   <div className="flex gap-1.5">
                     {(["p2", "p3", "p4"] as PkgKey[]).map((p) => (
                       <button key={p} onClick={() => pickPkg(p)}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg border ${newPkg === p ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                        className={`flex-1 py-2 text-xs font-bold rounded-none border ${newPkg === p ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
                         {PACKAGES[p].label}
                       </button>
                     ))}
@@ -728,7 +728,7 @@ export default function ReservationsClient() {
                       const disabled = newPkg !== "p2" && rm === "디럭스 더블";
                       return (
                         <button key={rm} onClick={() => !disabled && setNewRoom(rm)} disabled={disabled}
-                          className={`flex-1 py-2 text-xs font-bold rounded-lg border ${newRoom === rm ? "bg-blue-600 text-white border-blue-600" : disabled ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
+                          className={`flex-1 py-2 text-xs font-bold rounded-none border ${newRoom === rm ? "bg-blue-600 text-white border-blue-600" : disabled ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
                           {rm} <span className="font-normal">· {ROOM_META[rm].bed}</span>
                         </button>
                       );
@@ -743,13 +743,13 @@ export default function ReservationsClient() {
                     <label className="text-xs text-gray-400 block mb-1">체크인</label>
                     <input type="date" value={newIn} min={BOOKABLE_FROM} max={BOOKABLE_TO}
                       onChange={(e) => setNewIn(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                      className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
                   <div>
                     <label className="text-xs text-gray-400 block mb-1">체크아웃</label>
                     <input type="date" value={newOut} min={newIn || BOOKABLE_FROM} max={BOOKABLE_TO}
                       onChange={(e) => setNewOut(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                      className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
                 </div>
                 {/* 대상 기간 잔여 객실 즉시 확인 */}
@@ -757,11 +757,11 @@ export default function ReservationsClient() {
                   avail.checking ? (
                     <p className="text-xs text-gray-400">잔여 객실 확인 중…</p>
                   ) : avail.available ? (
-                    <div className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+                    <div className="rounded-none bg-green-50 px-3 py-2 text-xs text-green-700">
                       ✅ 변경 가능 — 해당 기간 잔여 <b>최소 {avail.minRemaining}실</b>
                     </div>
                   ) : (
-                    <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                    <div className="rounded-none bg-red-50 px-3 py-2 text-xs text-red-600">
                       ⛔ 변경 불가 — 마감된 날짜: <b>{(avail.soldOutDates ?? []).map((d) => md(d)).join(", ")}</b>
                     </div>
                   )
@@ -769,16 +769,16 @@ export default function ReservationsClient() {
                 <p className="text-xs text-gray-400">현재: {md(dateEdit.stay_check_in)} ~ {md(dateEdit.stay_check_out)} · 요금 차이는 자동 환불(저렴)/차액 링크(비쌈)로 처리돼요.</p>
                 <div className="flex gap-2 pt-1">
                   <button onClick={previewDateChange} disabled={changing || avail?.available === false}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg">
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-none">
                     {changing ? "계산 중…" : "차액 확인"}
                   </button>
                   <button onClick={() => setDateEdit(null)} disabled={changing}
-                    className="px-4 py-2.5 text-sm text-gray-400 border border-gray-200 rounded-lg hover:text-gray-600">닫기</button>
+                    className="px-4 py-2.5 text-sm text-gray-400 border border-gray-200 rounded-none hover:text-gray-600">닫기</button>
                 </div>
               </div>
             ) : datePreview ? (
               <div className="p-5 space-y-3">
-                <div className="rounded-lg bg-gray-50 px-4 py-3 space-y-1.5 text-sm">
+                <div className="rounded-none bg-gray-50 px-4 py-3 space-y-1.5 text-sm">
                   <div className="flex justify-between gap-3 text-gray-500">
                     <span className="shrink-0">변경 전</span>
                     <span className="text-right">{(() => { const m = stayMeta(dateEdit.product_name); return m ? `${m.pkgLabel} · ${m.room}` : hotelRoom(dateEdit.product_name); })()}<br />{md(dateEdit.stay_check_in)} ~ {md(dateEdit.stay_check_out)} · {datePreview.oldTotal.toLocaleString()}원</span>
@@ -789,51 +789,51 @@ export default function ReservationsClient() {
                   </div>
                 </div>
                 {datePreview.available ? (
-                  <div className="rounded-lg bg-green-50 px-4 py-2.5 text-xs text-green-700">
+                  <div className="rounded-none bg-green-50 px-4 py-2.5 text-xs text-green-700">
                     ✅ 해당 기간 예약 가능 — 잔여 최소 <b>{datePreview.minRemaining}실</b>
                   </div>
                 ) : (
-                  <div className="rounded-lg bg-red-50 px-4 py-2.5 text-xs text-red-600">
+                  <div className="rounded-none bg-red-50 px-4 py-2.5 text-xs text-red-600">
                     ⛔ 변경 불가 — 마감된 날짜: <b>{datePreview.soldOutDates.map((d) => md(d)).join(", ")}</b>
                   </div>
                 )}
                 {(datePreview.penalty ?? 0) > 0 && (
-                  <div className="rounded-lg bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+                  <div className="rounded-none bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
                     ⚠️ 체크인 {datePreview.policyDays}일 전 변경 — <b>위약금 {datePreview.penaltyRate}% ({datePreview.penalty!.toLocaleString()}원)</b>가 아래 금액에 포함됐어요
                     {datePreview.priceDiff != null && <> (요금 차액 {datePreview.priceDiff >= 0 ? "+" : ""}{datePreview.priceDiff.toLocaleString()}원 + 위약금)</>}
                   </div>
                 )}
                 {datePreview.diff > 0 ? (
-                  <div className="rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700 space-y-2">
+                  <div className="rounded-none bg-[#EAF0E6] px-4 py-3 text-sm text-[#244B1F] space-y-2">
                     <p>추가 차액 <b>{datePreview.diff.toLocaleString()}원</b> 발생 — 아래 결제링크를 <b>확정 전에 미리</b> 고객에게 보내 결제받아도 돼요.</p>
                     {datePreview.payLink && (
                       <div className="flex gap-1.5">
                         <input readOnly value={datePreview.payLink}
-                          className="flex-1 min-w-0 text-[11px] font-mono bg-white border border-orange-200 rounded-lg px-2 py-2 text-gray-600"
+                          className="flex-1 min-w-0 text-[11px] font-mono bg-white border border-[#C7D6C0] rounded-none px-2 py-2 text-gray-600"
                           onFocus={(e) => e.target.select()} />
                         <button onClick={() => copyPayLink(datePreview.payLink!)}
-                          className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg ${linkCopied ? "bg-green-600 text-white" : "bg-orange-600 hover:bg-orange-700 text-white"}`}>
+                          className={`shrink-0 px-3 py-2 text-xs font-bold rounded-none ${linkCopied ? "bg-green-600 text-white" : "bg-[#244B1F] hover:bg-orange-700 text-white"}`}>
                           {linkCopied ? "✓ 복사됨" : "🔗 링크 복사"}
                         </button>
                       </div>
                     )}
-                    <p className="text-[11px] text-orange-500">💡 결제 확인(주문 목록에 차액 주문 생성) 후 아래 [변경 확정]을 눌러야 예약이 실제로 바뀌어요. 먼저 확정해도 링크는 동일하게 유효해요.</p>
+                    <p className="text-[11px] text-[#2D5A27]">💡 결제 확인(주문 목록에 차액 주문 생성) 후 아래 [변경 확정]을 눌러야 예약이 실제로 바뀌어요. 먼저 확정해도 링크는 동일하게 유효해요.</p>
                   </div>
                 ) : datePreview.diff < 0 ? (
-                  <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+                  <div className="rounded-none bg-green-50 px-4 py-3 text-sm text-green-700">
                     <b>{(-datePreview.diff).toLocaleString()}원</b> 저렴 → 확정 시 <b>자동 환불</b>됩니다.
                   </div>
                 ) : (
-                  <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음 — 날짜만 변경됩니다.</div>
+                  <div className="rounded-none bg-gray-50 px-4 py-3 text-sm text-gray-600">요금 차이 없음 — 날짜만 변경됩니다.</div>
                 )}
                 <p className="text-xs text-gray-400">정말 이대로 변경할까요? 확정하면 재고와 결제가 즉시 처리됩니다.</p>
                 <div className="flex gap-2 pt-1">
                   <button onClick={confirmDateChange} disabled={changing || !datePreview.available}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-lg">
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-none">
                     {changing ? "변경 중…" : datePreview.available ? "변경 확정" : "잔여 객실 없음"}
                   </button>
                   <button onClick={() => setDatePreview(null)} disabled={changing}
-                    className="px-4 py-2.5 text-sm text-gray-400 border border-gray-200 rounded-lg hover:text-gray-600">뒤로</button>
+                    className="px-4 py-2.5 text-sm text-gray-400 border border-gray-200 rounded-none hover:text-gray-600">뒤로</button>
                 </div>
               </div>
             ) : null}

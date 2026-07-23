@@ -62,26 +62,26 @@ export default function CategoriesPage() {
         </div>
         <Link
           href="/admin/products"
-          className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+          className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1.5 rounded-none transition-colors"
         >
           ← 상품 목록
         </Link>
       </div>
 
       {/* 추가 폼 */}
-      <form onSubmit={handleAdd} className="bg-white rounded-xl border border-gray-100 p-5 mb-4">
+      <form onSubmit={handleAdd} className="bg-white rounded-none border border-gray-100 p-5 mb-4">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">새 카테고리 추가</p>
         <div className="flex gap-2">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="예: 식품, 생활용품, 뷰티"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+            className="flex-1 border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]"
           />
           <button
             type="submit"
             disabled={adding || !newName.trim()}
-            className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-40"
+            className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-40"
           >
             {adding ? "추가 중..." : "추가"}
           </button>
@@ -90,7 +90,7 @@ export default function CategoriesPage() {
       </form>
 
       {/* 카테고리 목록 */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-none border border-gray-100 overflow-hidden">
         {loading ? (
           <p className="text-sm text-gray-400 text-center py-10">불러오는 중...</p>
         ) : categories.length === 0 ? (

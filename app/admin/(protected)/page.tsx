@@ -89,7 +89,7 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {cards.map((card) => (
           <Link key={card.label} href={card.href}
-            className="bg-white rounded-xl border border-gray-100 p-6 hover:border-orange-200 hover:shadow-sm transition-all">
+            className="bg-white rounded-none border border-gray-100 p-6 hover:border-[#2D5A27] hover:shadow-sm transition-all">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">{card.label}</p>
             <p className="text-3xl font-black text-gray-900">{card.value}</p>
             <p className="text-sm text-gray-400 mt-1">{card.sub}</p>

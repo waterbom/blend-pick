@@ -455,7 +455,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     router.refresh();
   }
 
-  const inp = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400";
+  const inp = "w-full border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]";
   const lbl = "block text-xs font-medium text-gray-500 mb-1";
 
   if (loading) return <div className="text-sm text-gray-400">불러오는 중...</div>;
@@ -473,7 +473,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
         </div>
         {mode === "edit" && (
           <button onClick={handleDelete}
-            className="text-xs text-red-400 hover:text-red-600 font-bold border border-red-200 px-3 py-1.5 rounded-lg transition-colors">
+            className="text-xs text-red-400 hover:text-red-600 font-bold border border-red-200 px-3 py-1.5 rounded-none transition-colors">
             삭제
           </button>
         )}
@@ -489,7 +489,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); loadFromCode(); } }}
                 className={`${inp} font-mono max-w-[160px]`} placeholder="예: P0012" />
               <button type="button" onClick={loadFromCode} disabled={copyBusy}
-                className="shrink-0 bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-40">
+                className="shrink-0 bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-none hover:bg-gray-700 disabled:opacity-40">
                 {copyBusy ? "불러오는 중..." : "불러오기"}
               </button>
               {copyLocked && (
@@ -567,12 +567,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
               { value: "soldout", label: "품절", sub: "" },
             ].map(opt => (
               <button key={opt.value} type="button" onClick={() => set("sale_type", opt.value)}
-                className={`p-3 rounded-lg border text-left transition-colors ${
+                className={`p-3 rounded-none border text-left transition-colors ${
                   form.sale_type === opt.value
-                    ? "border-orange-400 bg-orange-50"
+                    ? "border-[#C7D6C0] bg-[#EAF0E6]"
                     : "border-gray-200 hover:border-gray-300"
                 }`}>
-                <p className={`text-sm font-semibold ${form.sale_type === opt.value ? "text-orange-600" : "text-gray-700"}`}>
+                <p className={`text-sm font-semibold ${form.sale_type === opt.value ? "text-[#2D5A27]" : "text-gray-700"}`}>
                   {opt.label}
                 </p>
                 {opt.sub && <p className="text-xs text-gray-400 mt-0.5">{opt.sub}</p>}
@@ -593,7 +593,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 </div>
                 <button type="button"
                   onClick={() => setInfTags(t => [...t, { influencerId: "", start: "", end: "" }])}
-                  className="text-xs font-bold text-orange-500 border border-orange-200 px-3 py-1.5 rounded-lg hover:bg-orange-50">
+                  className="text-xs font-bold text-[#2D5A27] border border-[#C7D6C0] px-3 py-1.5 rounded-none hover:bg-[#EAF0E6]">
                   + 인플루언서 추가
                 </button>
               </div>
@@ -603,7 +603,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
               ) : (
                 <div className="space-y-2">
                   {infTags.map((t, i) => (
-                    <div key={i} className="rounded-lg border border-gray-100 p-3 space-y-2">
+                    <div key={i} className="rounded-none border border-gray-100 p-3 space-y-2">
                       <div className="flex items-center gap-2">
                         {/* ① 인플루언서 태그 */}
                         <select value={t.influencerId}
@@ -658,7 +658,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
               <button type="button"
                 onClick={() => set("presale_enabled", form.presale_enabled === "true" ? "false" : "true")}
                 className={`relative w-11 h-6 rounded-full transition-colors ${
-                  form.presale_enabled === "true" ? "bg-orange-500" : "bg-gray-200"
+                  form.presale_enabled === "true" ? "bg-[#2D5A27]" : "bg-gray-200"
                 }`}>
                 <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
                   form.presale_enabled === "true" ? "translate-x-6" : "translate-x-1"
@@ -737,7 +737,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
               <input value={form.price} onChange={e => set("price", e.target.value)}
                 type="number" min="0" className={inp} placeholder="0" required />
               {discountAmount !== null && (
-                <p className="text-xs text-orange-500 mt-1 font-medium">→ {discountAmount.toLocaleString()}원 절약</p>
+                <p className="text-xs text-[#2D5A27] mt-1 font-medium">→ {discountAmount.toLocaleString()}원 절약</p>
               )}
             </div>
             <div>
@@ -781,9 +781,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 { value: "zero_rated", label: "영세상품" },
               ].map(t => (
                 <button key={t.value} type="button" onClick={() => set("tax_type", t.value)}
-                  className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-colors ${
+                  className={`flex-1 py-2 rounded-none border text-xs font-medium transition-colors ${
                     form.tax_type === t.value
-                      ? "border-orange-400 bg-orange-50 text-orange-600"
+                      ? "border-[#C7D6C0] bg-[#EAF0E6] text-[#2D5A27]"
                       : "border-gray-200 text-gray-500 hover:border-gray-300"
                   }`}>
                   {t.label}
@@ -795,7 +795,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
         {/* ⑤ 재고 & 옵션 */}
         <Section title="재고 & 옵션" action={
-          <button type="button" onClick={addOption} className="text-xs text-orange-500 font-bold hover:text-orange-600">
+          <button type="button" onClick={addOption} className="text-xs text-[#2D5A27] font-bold hover:text-[#244B1F]">
             + 옵션 추가
           </button>
         }>
@@ -809,41 +809,41 @@ export default function ProductFormClient({ mode, productId }: Props) {
             <>
               {/* 일괄 관리 툴바 — 옵션이 선택되면 노출 */}
               {selCount > 0 && (
-                <div className="mb-3 rounded-lg bg-orange-50 border border-orange-100 p-3 space-y-2">
-                  <p className="text-xs font-bold text-orange-600">선택한 {selCount}개 옵션 일괄 변경</p>
+                <div className="mb-3 rounded-none bg-[#EAF0E6] border border-[#C7D6C0] p-3 space-y-2">
+                  <p className="text-xs font-bold text-[#2D5A27]">선택한 {selCount}개 옵션 일괄 변경</p>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-1">
                       <input value={bulkPrice} onChange={e => setBulkPrice(e.target.value)}
                         type="number" min="0" placeholder="판매가"
-                        className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-orange-400" />
+                        className="w-24 border border-gray-200 rounded-none px-2 py-1.5 text-sm focus:outline-none focus:border-[#C7D6C0]" />
                       <button type="button" onClick={applyBulkPrice}
-                        className="text-xs bg-white border border-orange-200 text-orange-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-orange-100">판매가 적용</button>
+                        className="text-xs bg-white border border-[#C7D6C0] text-[#2D5A27] font-semibold px-3 py-1.5 rounded-none hover:bg-[#EAF0E6]">판매가 적용</button>
                     </div>
                     <div className="flex items-center gap-1">
                       <input value={bulkStock} onChange={e => setBulkStock(e.target.value)}
                         type="number" min="0" placeholder="재고"
-                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-orange-400" />
+                        className="w-20 border border-gray-200 rounded-none px-2 py-1.5 text-sm focus:outline-none focus:border-[#C7D6C0]" />
                       <button type="button" onClick={applyBulkStock}
-                        className="text-xs bg-white border border-orange-200 text-orange-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-orange-100">재고 적용</button>
+                        className="text-xs bg-white border border-[#C7D6C0] text-[#2D5A27] font-semibold px-3 py-1.5 rounded-none hover:bg-[#EAF0E6]">재고 적용</button>
                     </div>
                     <span className="w-px h-5 bg-orange-200" />
                     <button type="button" onClick={() => applyBulkStatus(true)}
-                      className="text-xs bg-white border border-green-200 text-green-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50">판매중으로</button>
+                      className="text-xs bg-white border border-green-200 text-green-600 font-semibold px-3 py-1.5 rounded-none hover:bg-green-50">판매중으로</button>
                     <button type="button" onClick={() => applyBulkStatus(false)}
-                      className="text-xs bg-white border border-gray-200 text-gray-500 font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50">판매중지로</button>
+                      className="text-xs bg-white border border-gray-200 text-gray-500 font-semibold px-3 py-1.5 rounded-none hover:bg-gray-50">판매중지로</button>
                   </div>
                 </div>
               )}
               <div className="space-y-2">
                 <div className="grid grid-cols-[24px_1fr_90px_90px_70px_92px_28px] gap-2 text-xs text-gray-400 items-center">
                   <input type="checkbox" checked={allSelected} onChange={toggleSelAll}
-                    className="w-4 h-4 accent-orange-500 cursor-pointer" title="전체 선택/해제" />
+                    className="w-4 h-4 accent-[#2D5A27] cursor-pointer" title="전체 선택/해제" />
                   <span>옵션명</span><span>옵션 가격</span><span>공급가</span><span>재고</span><span>판매상태</span><span />
                 </div>
                 {options.map((opt, i) => (
                   <div key={i} className="grid grid-cols-[24px_1fr_90px_90px_70px_92px_28px] gap-2 items-center">
                     <input type="checkbox" checked={opt.sel} onChange={() => toggleSel(i)}
-                      className="w-4 h-4 accent-orange-500 cursor-pointer" />
+                      className="w-4 h-4 accent-[#2D5A27] cursor-pointer" />
                     <input value={opt.name} onChange={e => setOption(i, "name", e.target.value)}
                       className={inp} placeholder="예: 빨강/XL" />
                     <input value={opt.price} onChange={e => setOption(i, "price", e.target.value)}
@@ -853,7 +853,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                     <input value={opt.stock} onChange={e => setOption(i, "stock", e.target.value)}
                       type="number" min="0" className={inp} placeholder="0" />
                     <button type="button" onClick={() => setOptionActive(i, !opt.active)}
-                      className={`text-xs font-bold px-2 py-1.5 rounded-lg border transition-colors ${
+                      className={`text-xs font-bold px-2 py-1.5 rounded-none border transition-colors ${
                         opt.active
                           ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
                           : "bg-gray-100 border-gray-200 text-gray-400 hover:bg-gray-200"
@@ -868,7 +868,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
               </div>
               <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
                 <button type="button" onClick={confirmOptionStock}
-                  className="text-xs bg-gray-800 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+                  className="text-xs bg-gray-800 text-white px-4 py-2 rounded-none font-semibold hover:bg-gray-700 transition-colors">
                   재고 확인
                 </button>
                 <p className="text-xs text-gray-500">
@@ -884,7 +884,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
         {/* ⑤-2 추가옵션(추가상품) */}
         <Section title="추가옵션 (추가상품)" action={
-          <button type="button" onClick={addAddon} className="text-xs text-orange-500 font-bold hover:text-orange-600">
+          <button type="button" onClick={addAddon} className="text-xs text-[#2D5A27] font-bold hover:text-[#244B1F]">
             + 추가옵션
           </button>
         }>
@@ -907,7 +907,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                     <input value={ad.price} onChange={e => setAddon(i, "price", e.target.value)}
                       type="number" min="0" className={inp} placeholder="1000" />
                     <button type="button" onClick={() => setAddonActive(i, !ad.active)}
-                      className={`text-xs font-bold px-2 py-1.5 rounded-lg border transition-colors ${
+                      className={`text-xs font-bold px-2 py-1.5 rounded-none border transition-colors ${
                         ad.active
                           ? "bg-green-50 border-green-200 text-green-600 hover:bg-green-100"
                           : "bg-gray-100 border-gray-200 text-gray-400 hover:bg-gray-200"
@@ -922,7 +922,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
               </div>
               <label className="flex items-center gap-2 pt-3 mt-1 border-t border-gray-100 cursor-pointer">
                 <input type="checkbox" checked={addonMulti} onChange={e => setAddonMulti(e.target.checked)}
-                  className="w-4 h-4 accent-orange-500" />
+                  className="w-4 h-4 accent-[#2D5A27]" />
                 <span className="text-sm text-gray-600">여러 개 선택 허용 <span className="text-xs text-gray-400">(끄면 추가옵션 중 1개만 선택 가능)</span></span>
               </label>
             </>
@@ -933,16 +933,16 @@ export default function ProductFormClient({ mode, productId }: Props) {
         <Section title="배송">
           <div>
             <label className={lbl}>배송 방법</label>
-            <div className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50">택배</div>
+            <div className="border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-400 bg-gray-50">택배</div>
           </div>
           <div>
             <label className={lbl}>배송 속성</label>
             <div className="flex gap-2 mb-2">
               {[{ value: "standard", label: "일반 배송" }, { value: "custom", label: "당일 출고" }].map(a => (
                 <button key={a.value} type="button" onClick={() => set("shipping_attr", a.value)}
-                  className={`px-4 py-2 rounded-lg border text-xs font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-none border text-xs font-medium transition-colors ${
                     form.shipping_attr === a.value
-                      ? "border-orange-400 bg-orange-50 text-orange-600"
+                      ? "border-[#C7D6C0] bg-[#EAF0E6] text-[#2D5A27]"
                       : "border-gray-200 text-gray-500"
                   }`}>
                   {a.label}
@@ -1068,7 +1068,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
         {/* ⑨ 상세 페이지 */}
         <Section title="상세 페이지" action={
           <button type="button" onClick={() => setDetailFullscreen(true)}
-            className="text-xs border border-gray-200 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors">
+            className="text-xs border border-gray-200 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-none transition-colors">
             전체화면 편집 ↗
           </button>
         }>
@@ -1076,7 +1076,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           <RichEditor
             value={form.detail_html}
             onChange={v => set("detail_html", v)}
-            className="min-h-[240px] max-h-[520px] overflow-auto border border-gray-200 rounded-lg p-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 [&_img]:max-w-full [&_img]:rounded-lg"
+            className="min-h-[240px] max-h-[520px] overflow-auto border border-gray-200 rounded-none p-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C7D6C0] [&_img]:max-w-full [&_img]:rounded-none"
             style={{ lineHeight: 1.6 }}
             placeholder="여기에 상세 내용을 붙여넣으세요"
           />
@@ -1088,11 +1088,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
         <div className="flex gap-3 pb-8">
           <button type="button" onClick={() => router.back()}
-            className="flex-1 border border-gray-200 text-gray-600 font-bold py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+            className="flex-1 border border-gray-200 text-gray-600 font-bold py-2.5 rounded-none text-sm hover:bg-gray-50 transition-colors">
             취소
           </button>
           <button type="submit" disabled={saving}
-            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50">
+            className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] text-white font-bold py-2.5 rounded-none text-sm transition-colors disabled:opacity-50">
             {saving
               ? (mode === "new" ? "등록 중..." : "저장 중...")
               : mode !== "new" ? "저장"
@@ -1112,14 +1112,14 @@ export default function ProductFormClient({ mode, productId }: Props) {
               <p className="text-xs text-gray-400 mt-0.5">스마트스토어 등에서 복사해 붙여넣으면 서식·이미지가 그대로 들어가요</p>
             </div>
             <button type="button" onClick={() => setDetailFullscreen(false)}
-              className="bg-gray-900 text-white text-sm font-bold px-5 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+              className="bg-gray-900 text-white text-sm font-bold px-5 py-2 rounded-none hover:bg-gray-700 transition-colors">
               완료
             </button>
           </div>
           <RichEditor
             value={form.detail_html}
             onChange={v => set("detail_html", v)}
-            className="flex-1 p-6 text-sm overflow-auto focus:outline-none [&_img]:max-w-full [&_img]:rounded-lg"
+            className="flex-1 p-6 text-sm overflow-auto focus:outline-none [&_img]:max-w-full [&_img]:rounded-none"
             style={{ lineHeight: 1.7 }}
             placeholder="여기에 상세 내용을 붙여넣으세요"
           />
@@ -1157,9 +1157,9 @@ function ImageSlot({
   return (
     <div className="space-y-1.5">
       <div
-        className={`relative overflow-hidden rounded-xl border-2 border-dashed bg-gray-50 transition-colors ${
+        className={`relative overflow-hidden rounded-none border-2 border-dashed bg-gray-50 transition-colors ${
           large ? "aspect-[4/3]" : "aspect-square"
-        } ${url ? "border-gray-200" : "border-gray-200 hover:border-orange-300 cursor-pointer"}`}
+        } ${url ? "border-gray-200" : "border-gray-200 hover:border-[#2D5A27] cursor-pointer"}`}
         onClick={() => !url && fileRef.current?.click()}
       >
         {url ? (
@@ -1175,7 +1175,7 @@ function ImageSlot({
             <button
               type="button"
               onClick={e => { e.stopPropagation(); fileRef.current?.click(); }}
-              className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white text-xs px-2 py-1 rounded-lg transition-colors"
+              className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white text-xs px-2 py-1 rounded-none transition-colors"
             >
               변경
             </button>
@@ -1202,7 +1202,7 @@ function ImageSlot({
         onChange={e => onUrl(e.target.value)}
         onPaste={handlePaste}
         onClick={e => e.stopPropagation()}
-        className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 text-gray-600 placeholder-gray-300"
+        className="w-full text-xs border border-gray-200 rounded-none px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#C7D6C0] text-gray-600 placeholder-gray-300"
         placeholder="URL 입력 또는 이미지 붙여넣기(Ctrl+V)"
       />
     </div>
@@ -1211,7 +1211,7 @@ function ImageSlot({
 
 function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+    <div className="bg-white rounded-none border border-gray-100 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{title}</p>
         {action}

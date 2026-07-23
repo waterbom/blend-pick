@@ -124,10 +124,10 @@ export default function InfluencerSettlementsClient() {
         <p className="text-sm text-gray-400 mt-0.5">공구별 인플루언서 수수료 확정 및 지급 관리</p>
       </div>
 
-      <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 mb-4 w-fit flex-wrap">
+      <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 mb-4 w-fit flex-wrap">
         {tabs.map((t) => (
           <button key={t.key} onClick={() => setFilter(t.key)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3 py-2 rounded-none text-sm font-medium transition-colors ${
               filter === t.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
             }`}>
             {t.label}
@@ -137,9 +137,9 @@ export default function InfluencerSettlementsClient() {
 
       <div className="space-y-2">
         {loading ? (
-          <div className="bg-white rounded-xl border border-gray-100 text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
+          <div className="bg-white rounded-none border border-gray-100 text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
         ) : visible.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-100 text-center py-16 text-gray-400 text-sm">
+          <div className="bg-white rounded-none border border-gray-100 text-center py-16 text-gray-400 text-sm">
             정산할 공구 매출이 없어요
           </div>
         ) : (
@@ -149,7 +149,7 @@ export default function InfluencerSettlementsClient() {
               ? { commission: r.payout.commission, supplyValue: r.payout.supply_value, vat: r.payout.vat, withholding: r.payout.withholding, payout: r.payout.payout_amount }
               : r.breakdown;
             return (
-              <div key={`${r.campaign_id}:${r.influencer_id}`} className="bg-white rounded-xl border border-gray-100 p-4">
+              <div key={`${r.campaign_id}:${r.influencer_id}`} className="bg-white rounded-none border border-gray-100 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-gray-900 truncate">
@@ -165,14 +165,14 @@ export default function InfluencerSettlementsClient() {
                   <div className="flex items-center gap-2 shrink-0">
                     {r.campaign_id === HOTEL_PAYOUT_CAMPAIGN_ID && (
                       <button onClick={() => downloadRoster(r)} disabled={acting}
-                        className="text-xs font-bold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                        className="text-xs font-bold px-3 py-2 rounded-none border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
                         title="이 인플루언서 링크로 구매한 사람들 명단 (취소 포함, 상태 표기)">
                         📋 구매자 명단
                       </button>
                     )}
                     {!r.payout && (
                       <button onClick={() => confirm(r)} disabled={acting}
-                        className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40">
+                        className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
                         정산 확정
                       </button>
                     )}
@@ -180,12 +180,12 @@ export default function InfluencerSettlementsClient() {
                       <>
                         <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-yellow-50 text-yellow-600">지급대기</span>
                         <button onClick={() => confirm(r)} disabled={acting}
-                          className="text-xs font-bold px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                          className="text-xs font-bold px-3 py-2 rounded-none border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
                           title="현재 매출로 다시 계산해 확정">
                           재확정
                         </button>
                         <button onClick={() => setStatus(r.payout!.id, "paid")} disabled={acting}
-                          className="bg-gray-900 hover:bg-gray-700 text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40">
+                          className="bg-gray-900 hover:bg-gray-700 text-white text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
                           지급완료
                         </button>
                       </>
@@ -207,11 +207,11 @@ export default function InfluencerSettlementsClient() {
                 <div className="grid grid-cols-3 sm:grid-cols-8 gap-x-4 gap-y-2 text-xs mt-3 pt-3 border-t border-gray-50 tnum">
                   <div><p className="text-gray-400">주문/수량</p><p className="font-bold text-gray-800">{r.orders}건 / {r.qty}개</p></div>
                   <div><p className="text-gray-400">총매출</p><p className="font-bold text-gray-800">{WON(r.gross)}</p></div>
-                  <div><p className="text-gray-400">수수료율</p><p className="font-bold text-orange-600">{r.rate != null ? `${r.rate}%` : "미설정"}</p></div>
+                  <div><p className="text-gray-400">수수료율</p><p className="font-bold text-[#2D5A27]">{r.rate != null ? `${r.rate}%` : "미설정"}</p></div>
                   <div><p className="text-gray-400">수수료 (부가세 포함)</p><p className="font-bold text-gray-800">{view ? WON(view.commission) : "—"}</p></div>
                   <div><p className="text-gray-400">공급가액/부가세</p><p className="font-bold text-gray-800">{view ? `${WON(view.supplyValue)} / ${WON(view.vat)}` : "—"}</p></div>
                   <div><p className="text-gray-400">원천징수</p><p className="font-bold text-gray-800">{view ? WON(view.withholding) : "—"}</p></div>
-                  <div><p className="text-gray-400">지급액 (이체)</p><p className="font-black text-orange-600">{view ? WON(view.payout) : "—"}</p></div>
+                  <div><p className="text-gray-400">지급액 (이체)</p><p className="font-black text-[#2D5A27]">{view ? WON(view.payout) : "—"}</p></div>
                   <div>
                     <p className="text-gray-400">실질 수령 (세후)</p>
                     <p className="font-black text-gray-900">

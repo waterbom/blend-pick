@@ -353,7 +353,11 @@ export default function ProductDetail({
                 {options.map((o) => (
                   <option key={o.id} value={o.id} disabled={isSoldout || optUnavailable(o)}>
                     {o.value}
-                    {o.extra_price > 0 ? ` (+${o.extra_price.toLocaleString()}원)` : ""}
+                    {/* 옵션가는 그 자체가 판매 단가 — 기본가 대비 증감으로 표시해야 오해가 없다 */}
+                    {(() => {
+                      const diff = o.extra_price - product.price;
+                      return diff === 0 ? "" : diff > 0 ? ` (+${diff.toLocaleString()}원)` : ` (−${(-diff).toLocaleString()}원)`;
+                    })()}
                     {optLabel(o, isSoldout)}
                   </option>
                 ))}

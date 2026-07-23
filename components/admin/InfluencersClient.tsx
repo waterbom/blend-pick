@@ -45,18 +45,18 @@ export default function InfluencersClient() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && load(q)}
             placeholder="이름 검색"
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400"
+            className="border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-[#C7D6C0]"
           />
           <Link
             href="/admin/influencers/new"
-            className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+            className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors"
           >
             + 인플루언서 등록
           </Link>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 overflow-x-auto">
+      <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
         {loading ? (
           <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
         ) : rows.length === 0 ? (
@@ -117,7 +117,7 @@ export default function InfluencersClient() {
                     {r.gross_sales.toLocaleString()}원
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link href={`/admin/influencers/${r.id}`} className="text-xs text-orange-500 font-bold hover:text-orange-600">
+                    <Link href={`/admin/influencers/${r.id}`} className="text-xs text-[#2D5A27] font-bold hover:text-[#244B1F]">
                       상세
                     </Link>
                   </td>

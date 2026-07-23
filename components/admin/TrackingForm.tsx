@@ -76,7 +76,7 @@ export default function TrackingForm({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-5">
+    <div className="bg-white rounded-none border border-gray-100 p-5">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">배송 처리</h2>
 
       {/* 운송장 입력 */}
@@ -87,7 +87,7 @@ export default function TrackingForm({
             value={company}
             onChange={(e) => setCompany(e.target.value)}
             disabled={alreadyShipped}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-orange-300 disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-[#C7D6C0] disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="">택배사 선택</option>
             {carriers.map((c) => (
@@ -103,7 +103,7 @@ export default function TrackingForm({
             onChange={(e) => setNumber(e.target.value)}
             disabled={alreadyShipped}
             placeholder="운송장번호 입력"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-orange-300 disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-[#C7D6C0] disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
 
@@ -111,8 +111,8 @@ export default function TrackingForm({
           <button
             onClick={handleSaveTracking}
             disabled={!company || !number.trim() || loading}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-all disabled:opacity-40"
-            style={{ background: "#f97316" }}
+            className="w-full py-2.5 rounded-none text-sm font-semibold text-white transition-all disabled:opacity-40"
+            style={{ background: "#2D5A27" }}
           >
             {saved ? "저장됐어요 ✓" : loading ? "처리중..." : "운송장 등록 + 배송중으로 변경"}
           </button>
@@ -131,7 +131,7 @@ export default function TrackingForm({
           <button
             onClick={() => handleStatusChange("delivered", "배송완료")}
             disabled={statusLoading}
-            className="flex-1 py-2 rounded-lg text-sm font-semibold border border-green-200 text-green-600 hover:bg-green-50 transition-colors disabled:opacity-40"
+            className="flex-1 py-2 rounded-none text-sm font-semibold border border-green-200 text-green-600 hover:bg-green-50 transition-colors disabled:opacity-40"
           >
             배송완료 처리
           </button>
@@ -140,7 +140,7 @@ export default function TrackingForm({
           <button
             onClick={() => handleStatusChange("shipped", "배송중")}
             disabled={statusLoading}
-            className="flex-1 py-2 rounded-lg text-sm font-semibold border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors disabled:opacity-40"
+            className="flex-1 py-2 rounded-none text-sm font-semibold border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors disabled:opacity-40"
           >
             운송장 없이 배송중으로
           </button>
@@ -149,7 +149,7 @@ export default function TrackingForm({
           <button
             onClick={() => handleStatusChange("cancelled", "취소")}
             disabled={statusLoading}
-            className="flex-1 py-2 rounded-lg text-sm font-semibold border border-red-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+            className="flex-1 py-2 rounded-none text-sm font-semibold border border-red-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
           >
             주문 취소
           </button>
