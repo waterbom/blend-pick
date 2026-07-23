@@ -18,8 +18,32 @@ async function getProducts() {
   return result.rows;
 }
 
-export default async function AdminProductsPage() {
-  const products = await getProducts();
+export default async function AdminProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ f?: string }>;
+}) {
+  const all = await getProducts();
+  const { f = "" } = await searchParams;
+  // 재고 확인 필요 = 판매중인데 재고 0 (이상 상태 경고)
+  const warn = all.filter((p) => p.status === "active" && Number(p.stock) === 0);
+  const counts = {
+    all: all.length,
+    active: all.filter((p) => p.status === "active").length,
+    soldout: all.filter((p) => p.status === "soldout").length,
+    warn: warn.length,
+  };
+  const products =
+    f === "active" ? all.filter((p) => p.status === "active")
+    : f === "soldout" ? all.filter((p) => p.status === "soldout")
+    : f === "warn" ? warn
+    : all;
+  const TABS = [
+    { key: "", label: `전체 ${counts.all}` },
+    { key: "active", label: `판매중 ${counts.active}` },
+    { key: "soldout", label: `품절 ${counts.soldout}` },
+    { key: "warn", label: `재고 확인 필요 ${counts.warn}`, warn: true },
+  ];
 
   return (
     <div>
@@ -27,7 +51,7 @@ export default async function AdminProductsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-black text-gray-900">상품 관리</h1>
-          <p className="text-sm text-gray-400 mt-0.5">총 {products.length}개 상품</p>
+          <p className="text-sm text-gray-400 mt-0.5">총 {counts.all}개 상품</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
@@ -49,6 +73,26 @@ export default async function AdminProductsPage() {
             + 상품 등록
           </Link>
         </div>
+      </div>
+
+      {/* 탭 필터 */}
+      <div className="flex mb-4">
+        {TABS.map((t, i) => {
+          const active = f === t.key;
+          return (
+            <Link key={t.key} href={t.key ? `/admin/products?f=${t.key}` : "/admin/products"}
+              className="px-4 py-2 text-xs font-semibold transition-colors"
+              style={{
+                border: "1px solid",
+                marginLeft: i > 0 ? "-1px" : 0,
+                background: active ? "#1A1D18" : "#fff",
+                color: active ? "#fff" : t.warn ? "#A6412F" : "#5C6156",
+                borderColor: active ? "#1A1D18" : "#D6D6CF",
+              }}>
+              {t.label}
+            </Link>
+          );
+        })}
       </div>
 
       {/* 테이블 */}
@@ -104,7 +148,11 @@ export default async function AdminProductsPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {Number(p.price).toLocaleString()}원
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{p.stock}개</td>
+                    <td className="px-4 py-3">
+                      {p.status === "active" && Number(p.stock) === 0
+                        ? <span className="ds-mono font-semibold" style={{ color: "#A6412F" }}>0개 ⚠</span>
+                        : <span className="text-gray-600 ds-mono">{p.stock}개</span>}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-bold px-2 py-1 rounded-full ${s.color}`}>
                         {s.label}
@@ -131,6 +179,13 @@ export default async function AdminProductsPage() {
           </table>
         )}
       </div>
+
+      {/* 이상 상태 경고 — 판매중인데 재고 0 */}
+      {warn.length > 0 && (
+        <div className="mt-4 px-5 py-3.5 text-xs bg-white" style={{ borderLeft: "3px solid #A6412F", border: "1px solid #E2E2DC", borderLeftWidth: "3px", borderLeftColor: "#A6412F", color: "#5C6156" }}>
+          <b style={{ color: "#A6412F" }}>재고 확인 필요</b> — {warn.map((p) => p.product_code || p.name.slice(0, 14)).join(", ")} 상품이 판매중 상태이지만 재고가 0입니다. 품절 처리하거나 재고를 입력해 주세요.
+        </div>
+      )}
     </div>
   );
 }
