@@ -52,6 +52,8 @@ export default function HeaderClient({
   isAdmin?: boolean;
   isInfluencer?: boolean;
 }) {
+  // 모바일 햄버거 메뉴 — sm 미만에서는 네비가 숨겨지므로 여기로 카테고리 진입
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <header
@@ -191,10 +193,61 @@ export default function HeaderClient({
               <CartCount />
             </Link>
           )}
+
+          {/* 모바일 햄버거 (데스크톱에선 네비가 보이므로 숨김) */}
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
+            className="sm:hidden p-1.5 -mr-1.5"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {menuOpen ? (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
 
-
+      {/* 모바일 펼침 메뉴 */}
+      {menuOpen && (
+        <nav className="sm:hidden border-t" style={{ borderColor: "var(--line)" }}>
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              onClick={() => setMenuOpen(false)}
+              className="block px-5 py-3.5 text-sm font-bold border-b"
+              style={
+                item.href === "/hotel"
+                  ? {
+                      borderColor: "var(--line-soft)",
+                      backgroundImage: "linear-gradient(90deg,#14b8a6,#22d3ee,#ec4899)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      color: "transparent",
+                    }
+                  : { borderColor: "var(--line-soft)", color: item.hot ? "var(--accent)" : "var(--text-secondary)" }
+              }
+            >
+              {item.label}
+            </Link>
+          ))}
+          <Link
+            href="/orders/lookup"
+            onClick={() => setMenuOpen(false)}
+            className="block px-5 py-3.5 text-sm font-medium"
+            style={{ color: "var(--text-muted)" }}
+          >
+            비회원 주문 조회
+          </Link>
+        </nav>
+      )}
     </header>
   );
 }
