@@ -412,7 +412,15 @@ export default function OrdersClient() {
                             <div className="text-xs text-gray-400">{o.recipient_phone ?? o.buyer_phone}</div>
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-500">
-                            {o.items[0]?.option_label ?? <span className="text-gray-300">없음</span>}
+                            {/* 주문의 모든 옵션명 표시 (옵션 없는 상품은 상품명, 2개 이상은 × N) */}
+                            {o.items.length === 0
+                              ? <span className="text-gray-300">—</span>
+                              : o.items.map((it, ii) => (
+                                  <div key={ii}>
+                                    {it.option_label ?? it.product_name}
+                                    {it.quantity > 1 ? ` × ${it.quantity}` : ""}
+                                  </div>
+                                ))}
                           </td>
                           <td className="px-4 py-3 text-xs">
                             {o.influencer_name
