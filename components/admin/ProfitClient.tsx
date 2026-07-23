@@ -92,7 +92,7 @@ export default function ProfitClient() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-900">수익 관리</h1>
+        <h1 className="text-xl font-bold text-[#1A1D18]">수익 관리</h1>
         <p className="text-sm text-gray-400 mt-0.5">
           공구별/자사몰 손익 — 순이익 = 총매출 − 부가세 − 공급가 − 배송비 − PG수수료 − 기타비용 − 인플루언서 정산
         </p>

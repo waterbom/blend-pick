@@ -36,7 +36,7 @@ export default function InfluencersClient() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">인플루언서 관리</h1>
+          <h1 className="text-xl font-bold text-[#1A1D18]">인플루언서 관리</h1>
           <p className="text-sm text-gray-400 mt-0.5">총 {rows.length}명</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">

@@ -403,12 +403,17 @@ export default function ReservationsClient() {
       {/* 필터 탭 + 명단 내보내기 */}
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex gap-1 bg-white rounded-full border border-gray-100 p-1 w-fit">
-            {TABS.map((t) => (
+          <div className="flex w-fit">
+            {TABS.map((t, ti) => (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  tab === t.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
-                }`}>
+                className="px-4 py-2 text-xs font-semibold transition-colors"
+                style={{
+                  border: "1px solid",
+                  marginLeft: ti > 0 ? "-1px" : 0,
+                  background: tab === t.key ? "#1A1D18" : "#fff",
+                  color: tab === t.key ? "#fff" : "#5C6156",
+                  borderColor: tab === t.key ? "#1A1D18" : "#D6D6CF",
+                }}>
                 {t.label}
               </button>
             ))}

@@ -464,7 +464,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">
+          <h1 className="text-xl font-bold text-[#1A1D18]">
             {mode === "new" ? "상품 등록" : "상품 수정"}
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">

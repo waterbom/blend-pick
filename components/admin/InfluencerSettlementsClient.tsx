@@ -120,16 +120,21 @@ export default function InfluencerSettlementsClient() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-900">공구 정산</h1>
+        <h1 className="text-xl font-bold text-[#1A1D18]">공구 정산</h1>
         <p className="text-sm text-gray-400 mt-0.5">공구별 인플루언서 수수료 확정 및 지급 관리</p>
       </div>
 
-      <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 mb-4 w-fit flex-wrap">
-        {tabs.map((t) => (
+      <div className="flex mb-4 w-fit flex-wrap">
+        {tabs.map((t, ti) => (
           <button key={t.key} onClick={() => setFilter(t.key)}
-            className={`px-3 py-2 rounded-none text-sm font-medium transition-colors ${
-              filter === t.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
-            }`}>
+            className="px-3.5 py-2 text-xs font-semibold transition-colors"
+            style={{
+              border: "1px solid",
+              marginLeft: ti > 0 ? "-1px" : 0,
+              background: filter === t.key ? "#1A1D18" : "#fff",
+              color: filter === t.key ? "#fff" : "#5C6156",
+              borderColor: filter === t.key ? "#1A1D18" : "#D6D6CF",
+            }}>
             {t.label}
           </button>
         ))}

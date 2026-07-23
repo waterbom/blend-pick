@@ -57,7 +57,7 @@ export default function CategoriesPage() {
     <div className="max-w-lg">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">카테고리 관리</h1>
+          <h1 className="text-xl font-bold text-[#1A1D18]">카테고리 관리</h1>
           <p className="text-sm text-gray-400 mt-0.5">상품 등록 시 선택할 카테고리를 관리해요</p>
         </div>
         <Link

@@ -50,7 +50,7 @@ export default async function AdminProductsPage({
       {/* 헤더 */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">상품 관리</h1>
+          <h1 className="text-xl font-bold text-[#1A1D18]">상품 관리</h1>
           <p className="text-sm text-gray-400 mt-0.5">총 {counts.all}개 상품</p>
         </div>
         <div className="flex flex-wrap gap-2">

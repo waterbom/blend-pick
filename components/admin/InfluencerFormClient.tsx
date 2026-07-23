@@ -261,7 +261,7 @@ export default function InfluencerFormClient({
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-black text-gray-900">
+      <h1 className="text-xl font-bold text-[#1A1D18]">
         {mode === "new" ? "인플루언서 등록" : "인플루언서 수정"}
       </h1>
 

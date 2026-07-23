@@ -96,7 +96,7 @@ export default function CampaignsClient() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-900">공구 관리</h1>
+        <h1 className="text-xl font-bold text-[#1A1D18]">공구 관리</h1>
         <p className="text-sm text-gray-400 mt-0.5">
           공구별 수수료율·공급가·기타비용 설정 및 인플루언서 전용 링크
         </p>

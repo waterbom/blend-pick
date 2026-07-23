@@ -300,12 +300,17 @@ export default function OrdersClient() {
 
       {/* 상태 필터 탭 + 액션 */}
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 flex-wrap">
-          {filterTabs.map((tab) => (
+        <div className="flex flex-wrap">
+          {filterTabs.map((tab, ti) => (
             <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-none text-sm font-medium transition-colors ${
-                statusFilter === tab.key ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"
-              }`}>
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold transition-colors"
+              style={{
+                border: "1px solid",
+                marginLeft: ti > 0 ? "-1px" : 0,
+                background: statusFilter === tab.key ? "#1A1D18" : "#fff",
+                color: statusFilter === tab.key ? "#fff" : "#5C6156",
+                borderColor: statusFilter === tab.key ? "#1A1D18" : "#D6D6CF",
+              }}>
               {tab.label}
               {tab.count > 0 && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full ${

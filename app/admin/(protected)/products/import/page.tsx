@@ -85,7 +85,7 @@ export default function ProductImportPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">엑셀 일괄 업로드</h1>
+          <h1 className="text-xl font-bold text-[#1A1D18]">엑셀 일괄 업로드</h1>
           <p className="text-sm text-gray-400 mt-0.5">xlsx / csv 파일로 상품을 한 번에 등록해요</p>
         </div>
         <div className="flex gap-2">
