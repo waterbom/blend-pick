@@ -70,36 +70,28 @@ const ORDER_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 const COLUMNS = [
-  "판매처", "상품코드", "상품명", "주문번호",
-  "주문자명", "주문자연락처", "주문일시",
-  "수령인명", "수령인연락처", "우편번호", "수령인주소",
-  "고객선택옵션", "주문수량", "배송요청사항",
-  "택배사", "배송번호",
+  "주문일시", "주문시간", "구매자", "구매자번호",
+  "수령인", "수령인주소", "선택옵션", "금액",
 ];
 
-// 발주용 엑셀(.xlsx) 행 데이터 — 주문수량은 숫자 셀
+// 발주용 엑셀(.xlsx) 행 데이터 — 금액은 숫자 셀 (옵션 없는 상품은 상품명을 선택옵션 칸에)
 function toOrderRows(orders: Order[]): (string | number)[][] {
   const rows: (string | number)[][] = [];
   for (const o of orders) {
     for (const item of o.items) {
-      const addr = [o.addr_address, o.addr_detail].filter(Boolean).join(" ");
+      const addr = [o.addr_zipcode ? `[${o.addr_zipcode}]` : "", o.addr_address, o.addr_detail]
+        .filter(Boolean).join(" ");
+      const d = new Date(o.created_at);
+      const opt = item.option_label ?? item.product_name;
       rows.push([
-        "블렌드픽",
-        item.product_code ?? "",
-        item.product_name,
-        o.order_number,
+        d.toLocaleDateString("ko-KR"),
+        d.toLocaleTimeString("ko-KR", { hour12: false, hour: "2-digit", minute: "2-digit" }),
         o.buyer_name,
         o.buyer_phone,
-        new Date(o.created_at).toLocaleString("ko-KR"),
         o.recipient_name ?? o.buyer_name,
-        o.recipient_phone ?? o.buyer_phone,
-        o.addr_zipcode,
         addr,
-        item.option_label ?? "없음",
-        item.quantity,
-        o.addr_memo ?? "",
-        o.tracking_company ?? "",
-        o.tracking_number ?? "",
+        item.quantity > 1 ? `${opt} × ${item.quantity}` : opt,
+        Number(item.unit_price) * item.quantity,
       ]);
     }
   }
