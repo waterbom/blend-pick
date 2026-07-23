@@ -145,3 +145,12 @@ body {
   color: var(--text-muted);
   pointer-events: none;
 }
+
+/* 상품 상세 본문 — 에디터로 넣은 이미지가 원본 크기 그대로 커지지 않게 제한 */
+.product-desc img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.5rem auto;
+  border-radius: 12px;
+}

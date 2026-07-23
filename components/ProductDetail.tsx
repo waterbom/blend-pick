@@ -490,9 +490,9 @@ export default function ProductDetail({
         </div>
       </div>
 
-      {/* 추가 이미지 — 세로 정렬 */}
+      {/* 추가 이미지 — 세로 정렬 (원본이 커도 한눈에 보이게 폭 제한) */}
       {images.length > 1 && (
-        <div className="mb-8 space-y-2">
+        <div className="mb-8 space-y-2 max-w-xl mx-auto">
           {images.slice(1).map((img, i) => (
             <FallbackImg
               key={img.id ?? i}
@@ -508,7 +508,7 @@ export default function ProductDetail({
       {product.description && (
         <div className="mb-16">
           <div
-            className="text-sm leading-relaxed"
+            className="text-sm leading-relaxed product-desc max-w-xl mx-auto"
             style={{ color: "var(--text-secondary)" }}
             dangerouslySetInnerHTML={{ __html: product.description }}
           />
