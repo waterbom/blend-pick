@@ -108,7 +108,10 @@ export default function LoginPage() {
         </div>
 
         <div className="px-8 sm:px-14 py-4 text-[11px]" style={{ borderTop: "1px solid #E4E1D6", color: "#8B927F" }}>
-          비회원 주문도 주문번호로 조회할 수 있어요
+          비회원으로 주문하셨나요?{" "}
+          <Link href="/orders/lookup" className="font-semibold underline" style={{ color: "#2D5A27" }}>
+            휴대폰 인증으로 주문 조회
+          </Link>
         </div>
       </div>
     </main>
