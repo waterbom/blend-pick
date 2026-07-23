@@ -70,30 +70,36 @@ const ORDER_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 const COLUMNS = [
-  "주문일시", "주문시간", "구매자", "구매자번호",
-  "수령인", "우편번호", "수령인주소", "선택옵션", "금액",
+  "주문일시", "주문일자", "주문시간", "구매자", "구매자번호",
+  "수령인", "수령인번호", "수령인주소", "우편번호",
+  "상품명", "선택옵션", "선택수량", "결제금액", "총 결제 금액",
 ];
 
-// 발주용 엑셀(.xlsx) 행 데이터 — 금액은 숫자 셀 (옵션 없는 상품은 상품명을 선택옵션 칸에)
+// 발주용 엑셀(.xlsx) 행 데이터 — 수량·금액은 숫자 셀
+// 총 결제 금액(배송비 포함, 주문 단위)은 주문의 첫 줄에만 기재 → 컬럼 SUM해도 중복 없음
 function toOrderRows(orders: Order[]): (string | number)[][] {
   const rows: (string | number)[][] = [];
   for (const o of orders) {
-    for (const item of o.items) {
+    o.items.forEach((item, idx) => {
       const addr = [o.addr_address, o.addr_detail].filter(Boolean).join(" ");
       const d = new Date(o.created_at);
-      const opt = item.option_label ?? item.product_name;
       rows.push([
+        d.toLocaleString("ko-KR", { hour12: false }),
         d.toLocaleDateString("ko-KR"),
         d.toLocaleTimeString("ko-KR", { hour12: false, hour: "2-digit", minute: "2-digit" }),
         o.buyer_name,
         o.buyer_phone,
         o.recipient_name ?? o.buyer_name,
-        o.addr_zipcode ?? "",
+        o.recipient_phone ?? o.buyer_phone,
         addr,
-        item.quantity > 1 ? `${opt} × ${item.quantity}` : opt,
+        o.addr_zipcode ?? "",
+        item.product_name,
+        item.option_label ?? "",
+        item.quantity,
         Number(item.unit_price) * item.quantity,
+        idx === 0 ? Number(o.total_amount) : "",
       ]);
-    }
+    });
   }
   return rows;
 }
