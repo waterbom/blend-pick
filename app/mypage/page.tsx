@@ -124,9 +124,10 @@ export default async function MyPage() {
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
-        {/* 프로필 — 헤어라인 카드 */}
-        <div className="ds-card flex items-center gap-5 p-5 mb-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-12 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-8 md:gap-12 items-start">
+        {/* 좌측 레일 — 프로필 + 메뉴 */}
+        <aside className="md:sticky md:top-6">
+        <div className="ds-card flex items-center gap-4 p-5">
           <div className="w-16 h-16 overflow-hidden shrink-0" style={{ background: "#F6F4EE", border: "1px solid #E4E1D6" }}>
             {user.profile_image ? (
               <img src={user.profile_image} alt={user.nickname} className="w-full h-full object-cover" />
@@ -151,9 +152,17 @@ export default async function MyPage() {
             </div>
           </div>
         </div>
+        <nav className="ds-card mt-4 flex flex-col">
+          <a href="#orders" className="px-5 py-3 text-[13px] font-bold" style={{ color: "#244B1F", borderLeft: "2px solid #244B1F", background: "#F6F4EE" }}>주문 내역</a>
+          <a href="#hotel" className="px-5 py-3 text-[13px]" style={{ color: "#4A5442", borderTop: "1px solid #F0EDE4" }}>호텔 예약 내역</a>
+          <a href="#subscribe" className="px-5 py-3 text-[13px]" style={{ color: "#4A5442", borderTop: "1px solid #F0EDE4" }}>OS 구독</a>
+          <a href="/api/auth/logout" className="px-5 py-3 text-[13px]" style={{ color: "#8B927F", borderTop: "1px solid #F0EDE4" }}>로그아웃</a>
+        </nav>
+        </aside>
 
+        <div className="min-w-0">
         {/* 호텔 예약 내역 */}
-        <section className="mb-10">
+        <section id="hotel" className="mb-10">
           <div className="ds-section-title mb-4"><span>호텔 예약 내역</span></div>
           {hotelReservations.length === 0 ? (
             <div className="ds-card p-5 text-sm" style={{ color: "#8B927F" }}>
@@ -200,7 +209,7 @@ export default async function MyPage() {
         </section>
 
         {/* 구매 내역 */}
-        <section className="mb-10">
+        <section id="orders" className="mb-10">
           <div className="ds-section-title mb-4"><span>주문 내역</span></div>
           {orders.length === 0 ? (
             <div className="ds-card p-5 text-sm" style={{ color: "#8B927F" }}>
@@ -302,7 +311,7 @@ export default async function MyPage() {
         </section>
 
         {/* OS 구독 */}
-        <section className="mb-10">
+        <section id="subscribe" className="mb-10">
           <div className="ds-section-title mb-4"><span>OS 구독</span></div>
           <div className="ds-card p-5">
             <p className="text-sm" style={{ color: "#8B927F" }}>구독을 하지 않은 상태입니다.</p>
@@ -319,6 +328,7 @@ export default async function MyPage() {
           </a>
           <span className="mx-3" style={{ color: "var(--line)" }}>|</span>
           <WithdrawButton />
+        </div>
         </div>
       </div>
     </main>
