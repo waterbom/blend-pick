@@ -71,7 +71,7 @@ const ORDER_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
 
 const COLUMNS = [
   "주문일시", "주문시간", "구매자", "구매자번호",
-  "수령인", "수령인주소", "선택옵션", "금액",
+  "수령인", "우편번호", "수령인주소", "선택옵션", "금액",
 ];
 
 // 발주용 엑셀(.xlsx) 행 데이터 — 금액은 숫자 셀 (옵션 없는 상품은 상품명을 선택옵션 칸에)
@@ -79,8 +79,7 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
   const rows: (string | number)[][] = [];
   for (const o of orders) {
     for (const item of o.items) {
-      const addr = [o.addr_zipcode ? `[${o.addr_zipcode}]` : "", o.addr_address, o.addr_detail]
-        .filter(Boolean).join(" ");
+      const addr = [o.addr_address, o.addr_detail].filter(Boolean).join(" ");
       const d = new Date(o.created_at);
       const opt = item.option_label ?? item.product_name;
       rows.push([
@@ -89,6 +88,7 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
         o.buyer_name,
         o.buyer_phone,
         o.recipient_name ?? o.buyer_name,
+        o.addr_zipcode ?? "",
         addr,
         item.quantity > 1 ? `${opt} × ${item.quantity}` : opt,
         Number(item.unit_price) * item.quantity,
