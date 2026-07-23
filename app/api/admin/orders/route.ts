@@ -56,7 +56,7 @@ export async function GET(req: Request) {
           'product_id', oi.product_id,
           'product_name', oi.product_name,
           'product_code', ps.product_code,
-          'option_label', oi.option_label,
+          'option_label', COALESCE(oi.option_label, po.value),
           'unit_price', oi.unit_price,
           'quantity', oi.quantity
         ) ORDER BY oi.id
@@ -64,6 +64,7 @@ export async function GET(req: Request) {
     FROM orders o
     JOIN order_items oi ON oi.order_id = o.id
     LEFT JOIN products_shop ps ON ps.id = oi.product_id
+    LEFT JOIN product_options po ON po.id = oi.option_id
     ${where}
     GROUP BY o.id
     ORDER BY o.created_at DESC

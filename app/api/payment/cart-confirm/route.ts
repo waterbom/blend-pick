@@ -140,20 +140,23 @@ export async function POST(req: NextRequest) {
     for (const item of items) {
       const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
       let supplyPrice: number | null = null;
+      let optionLabel: string | null = null;
       if (item.product_id) {
+        // 결제시점 공급가 + 옵션명 스냅샷 (옵션명이 있어야 판매 관리·발주 엑셀에 제대로 표시됨)
         const spRes = await client.query(
-          `SELECT COALESCE(po.supply_price, ps.supply_price) AS supply_price
+          `SELECT COALESCE(po.supply_price, ps.supply_price) AS supply_price, po.value AS option_label
            FROM products_shop ps
            LEFT JOIN product_options po ON po.id = $2 AND po.product_id = ps.id
            WHERE ps.id = $1`,
           [item.product_id, item.option_id ?? null]
         );
         supplyPrice = spRes.rows[0]?.supply_price ?? null;
+        optionLabel = spRes.rows[0]?.option_label ?? null;
       }
       await client.query(
-        `INSERT INTO order_items (order_id, product_id, option_id, product_name, unit_price, quantity, supply_price)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [newOrderId, item.product_id, item.option_id ?? null, item.name, unitPrice, item.quantity, supplyPrice]
+        `INSERT INTO order_items (order_id, product_id, option_id, product_name, option_label, unit_price, quantity, supply_price)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [newOrderId, item.product_id, item.option_id ?? null, item.name, optionLabel, unitPrice, item.quantity, supplyPrice]
       );
 
       // 재고 차감 — 옵션 상품은 옵션 재고, 상품 재고는 항상 함께 차감 (추가옵션은 product_id 없음 → 제외)
