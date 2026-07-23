@@ -350,8 +350,9 @@ export default function ProductDetail({
                 style={{ border: "1px solid var(--line)", background: "#fff", appearance: "auto", color: "var(--text-primary)" }}
               >
                 <option value="" disabled>옵션</option>
+                {/* 상품이 품절/오픈 전이어도 옵션·가격은 확인 가능 — 구매만 canBuy 로 차단 */}
                 {options.map((o) => (
-                  <option key={o.id} value={o.id} disabled={isSoldout || optUnavailable(o)}>
+                  <option key={o.id} value={o.id} disabled={optUnavailable(o)}>
                     {o.value}
                     {/* 옵션가는 그 자체가 판매 단가 — 기본가 대비 증감으로 표시해야 오해가 없다 */}
                     {(() => {
@@ -442,7 +443,7 @@ export default function ProductDetail({
           )}
 
           {/* 합계 */}
-          {(itemsTotal > 0 && (hasOptions ? lines.length > 0 : true) && !isSoldout) && (
+          {(itemsTotal > 0 && (hasOptions ? lines.length > 0 : true)) && (
             <div className="flex items-baseline justify-between mb-5 pt-1">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 총 {totalCount}개{addonsTotal > 0 ? ` + 추가옵션 ${selectedAddons.length}개` : ""}
