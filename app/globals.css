@@ -154,3 +154,29 @@ body {
   margin: 0.5rem auto;
   border-radius: 12px;
 }
+
+/* ── 딥 포레스트 디자인 시스템 (로그인·주문결제·마이페이지·관리자 공통) ──
+   radius 0 · 헤어라인 보더 · 인풋/버튼 48px · 캡션은 레터스페이싱 모노 · 숫자는 모노스페이스 */
+.ds-serif { font-family: "Noto Serif KR", serif; }
+.ds-mono { font-family: "IBM Plex Mono", monospace; }
+.ds-caption { font: 500 10px "IBM Plex Mono", monospace; letter-spacing: 0.28em; color: #7a8b6f; }
+.ds-label { display: block; font-size: 10px; letter-spacing: 0.2em; color: #7a8b6f; margin-bottom: 6px; }
+.ds-card { background: #fff; border: 1px solid #e4e1d6; border-radius: 0; }
+.ds-input {
+  height: 48px; width: 100%; border: 1px solid #e4e1d6; background: #fff;
+  padding: 0 16px; font-size: 13.5px; border-radius: 0; outline: none; color: #1c2418;
+}
+.ds-input:focus { border-color: #244b1f; }
+textarea.ds-input { height: auto; min-height: 48px; padding: 13px 16px; }
+.ds-btn {
+  height: 48px; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; cursor: pointer; border-radius: 0; transition: background 0.15s, border-color 0.15s;
+}
+.ds-btn-primary { background: #244b1f; color: #fff; }
+.ds-btn-primary:hover { background: #1c2418; }
+.ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.ds-section-title {
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 2px solid #1c2418; padding-bottom: 12px;
+  font: 600 18px "Noto Serif KR", serif; color: #1c2418;
+}

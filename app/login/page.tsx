@@ -36,78 +36,80 @@ export default function LoginPage() {
     window.location.href = redirect || data.redirect || "/";
   }
 
-  const inputCls =
-    "w-full rounded-xl px-4 py-3 text-sm border border-[var(--line)] focus:outline-none focus:border-[var(--accent)] transition-colors";
-
   return (
-    <main className="min-h-screen flex items-center justify-center px-6" style={{ background: "var(--background)" }}>
-      <div className="w-full max-w-sm">
-        <Link
-          href="/"
-          className="block text-center text-2xl font-extrabold tracking-tight mb-10"
-          style={{ color: "var(--text-primary)" }}
-        >
-          BLEND PICK
+    <main className="min-h-screen flex items-center justify-center px-4 py-10" style={{ background: "var(--background)" }}>
+      <div className="w-full max-w-[520px] ds-card">
+        {/* 상단 브랜드 밴드 */}
+        <Link href="/" className="flex items-center justify-center h-16" style={{ background: "#244B1F" }}>
+          <span className="text-white font-extrabold text-[17px]" style={{ letterSpacing: "0.06em" }}>BLEND PICK</span>
         </Link>
 
-        <p className="text-center text-sm mb-8" style={{ color: "var(--text-muted)" }}>
-          간편하게 시작해요
-        </p>
+        <div className="px-8 sm:px-14 pt-12 pb-10">
+          <div className="ds-caption mb-3">MEMBER LOGIN</div>
+          <h1 className="ds-serif text-[26px] font-semibold m-0" style={{ color: "#1C2418" }}>로그인</h1>
 
-        {/* 카카오 로그인 */}
-        <a
-          href={`/api/auth/kakao${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`}
-          className="w-full bg-[#FEE500] text-[#191600] py-4 text-sm font-bold hover:brightness-95 transition-all flex items-center justify-center gap-2 rounded-xl"
-        >
-          <span>💬</span> 카카오로 시작하기
-        </a>
+          <div className="mt-7 flex flex-col gap-3">
+            {/* 카카오 로그인 */}
+            <a
+              href={`/api/auth/kakao${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`}
+              className="ds-btn"
+              style={{ background: "#FAE100", color: "#3C1E1E" }}
+            >
+              카카오로 3초 만에 시작
+            </a>
 
-        {/* 구분선 */}
-        <div className="flex items-center gap-3 my-6">
-          <div className="flex-1 border-t" style={{ borderColor: "var(--line)" }} />
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>또는</span>
-          <div className="flex-1 border-t" style={{ borderColor: "var(--line)" }} />
+            {/* 구분선 */}
+            <div className="flex items-center gap-3.5 my-2">
+              <div className="flex-1 h-px" style={{ background: "#E4E1D6" }} />
+              <span className="text-[11px]" style={{ color: "#8B927F" }}>또는 이메일로</span>
+              <div className="flex-1 h-px" style={{ background: "#E4E1D6" }} />
+            </div>
+
+            {/* 이메일 로그인 */}
+            <form onSubmit={handleEmailLogin} className="flex flex-col gap-3">
+              <div>
+                <label className="ds-label">이메일</label>
+                <input
+                  type="text"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="ds-input"
+                />
+              </div>
+              <div>
+                <label className="ds-label">비밀번호</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="ds-input"
+                />
+              </div>
+              {error && <p className="text-xs" style={{ color: "var(--sale)" }}>{error}</p>}
+              <button type="submit" disabled={loading} className="ds-btn ds-btn-primary mt-2">
+                {loading ? "로그인 중..." : "로그인"}
+              </button>
+            </form>
+          </div>
+
+          <div className="flex justify-between mt-5 text-xs" style={{ color: "#6B7263" }}>
+            <span>로그인 시 이용약관에 동의하게 됩니다</span>
+            <span>
+              아직 회원이 아니신가요?{" "}
+              <Link href="/signup" className="font-semibold" style={{ color: "#2D5A27" }}>
+                회원가입
+              </Link>
+            </span>
+          </div>
         </div>
 
-        {/* 이메일 로그인 */}
-        <form onSubmit={handleEmailLogin} className="space-y-3">
-          <input
-            type="text"
-            placeholder="이메일 또는 아이디"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className={inputCls}
-          />
-          <input
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className={inputCls}
-          />
-          {error && <p className="text-xs" style={{ color: "var(--sale)" }}>{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full text-white py-3.5 text-sm font-bold rounded-xl transition-all hover:brightness-95 disabled:opacity-50"
-            style={{ background: "var(--accent)" }}
-          >
-            {loading ? "로그인 중..." : "이메일로 로그인"}
-          </button>
-        </form>
-
-        <p className="text-center text-xs mt-6" style={{ color: "var(--text-muted)" }}>
-          아직 계정이 없나요?{" "}
-          <Link href="/signup" className="font-semibold hover:underline" style={{ color: "var(--accent)" }}>
-            회원가입
-          </Link>
-        </p>
-
-        <p className="text-center text-xs mt-10" style={{ color: "var(--text-muted)" }}>
-          로그인 시 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
-        </p>
+        <div className="px-8 sm:px-14 py-4 text-[11px]" style={{ borderTop: "1px solid #E4E1D6", color: "#8B927F" }}>
+          비회원 주문도 주문번호로 조회할 수 있어요
+        </div>
       </div>
     </main>
   );
