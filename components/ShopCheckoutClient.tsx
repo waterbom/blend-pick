@@ -4,6 +4,7 @@ import { validateBuyerName } from "@/lib/validate-name";
 import { useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import PhoneVerifyField from "@/components/PhoneVerifyField";
+import PrivacyConsent from "@/components/PrivacyConsent";
 import AddressSearchButton from "@/components/AddressSearchButton";
 
 interface Props {
@@ -37,6 +38,7 @@ export default function ShopCheckoutClient({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [form, setForm] = useState({
     customerName: "",
     customerPhone: "",
@@ -64,6 +66,10 @@ export default function ShopCheckoutClient({
   }
 
   async function handlePay() {
+    if (!privacyAgreed) {
+      alert("개인정보 수집·이용에 동의해주세요.");
+      return;
+    }
     if (phoneVerifyRequired && !phoneVerified) {
       alert("비회원 주문은 휴대폰 인증 후 결제할 수 있어요.");
       return;
@@ -241,6 +247,9 @@ export default function ShopCheckoutClient({
             <span className="font-bold" style={{ color: "var(--text-primary)" }}>총 결제 금액</span>
             <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>{totalAmount.toLocaleString()}원</span>
           </div>
+        </div>
+        <div className="mt-3.5">
+          <PrivacyConsent checked={privacyAgreed} onChange={setPrivacyAgreed} />
         </div>
         <button
           onClick={handlePay}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import AddressSearchButton from "@/components/AddressSearchButton";
 import PhoneVerifyField from "@/components/PhoneVerifyField";
+import PrivacyConsent from "@/components/PrivacyConsent";
 import { shopUnitPrice } from "@/lib/shop-price";
 
 interface CartItem {
@@ -43,6 +44,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
   const [checkoutData, setCheckoutData] = useState<CartCheckoutData | null>(null);
   const [loading, setLoading] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [form, setForm] = useState({
     customerName: "",
     customerPhone: "",
@@ -86,6 +88,10 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
 
   async function handlePay() {
     if (!checkoutData) return;
+    if (!privacyAgreed) {
+      alert("개인정보 수집·이용에 동의해주세요.");
+      return;
+    }
     if (phoneVerifyRequired && !phoneVerified) {
       alert("비회원 주문은 휴대폰 인증 후 결제할 수 있어요.");
       return;
@@ -325,6 +331,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
             <span className="text-xs" style={{ letterSpacing: "0.14em", color: "#7A8B6F" }}>총 결제 금액</span>
             <span className="font-bold text-2xl" style={{ color: "#1C2418" }}>{grandTotal.toLocaleString()}원</span>
           </div>
+        </div>
+        <div className="mt-3.5">
+          <PrivacyConsent checked={privacyAgreed} onChange={setPrivacyAgreed} />
         </div>
         <button
           onClick={handlePay}
