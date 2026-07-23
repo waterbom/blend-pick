@@ -3,6 +3,8 @@ import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
+import { phoneVerifyOn } from "@/lib/sms";
+import { isPhoneVerified } from "@/lib/phone-verify";
 import { shopUnitPrice } from "@/lib/shop-price";
 import { findClosedSaleProduct } from "@/lib/sale-window";
 import { randomBytes } from "crypto";
@@ -26,6 +28,18 @@ export async function POST(req: NextRequest) {
       { ok: false, error: "아직 판매 기간이 아니거나 종료된 상품이 있습니다. 오픈 시간에 다시 시도해주세요." },
       { status: 400 }
     );
+  }
+
+  // 0.5 비회원 결제 휴대폰 인증 강제 (승인 전 차단 — 카드 청구 없음)
+  if (phoneVerifyOn()) {
+    const pre = await cookies();
+    const logged = pre.get("shop_token")?.value ? await verifyToken(pre.get("shop_token")!.value) : null;
+    if (!logged) {
+      const vt = pre.get("phone_verified")?.value;
+      if (!(await isPhoneVerified(vt, checkoutData?.customerPhone || ""))) {
+        return NextResponse.json({ ok: false, error: "비회원 주문은 휴대폰 인증이 필요합니다." }, { status: 403 });
+      }
+    }
   }
 
   // 1. 토스페이먼츠 결제 승인

@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import ShopCheckoutClient from "@/components/ShopCheckoutClient";
 import { shopUnitPrice } from "@/lib/shop-price";
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/auth";
+import { phoneVerifyOn } from "@/lib/sms";
 
 async function getProduct(id: string) {
   const result = await shopPool.query(
@@ -56,6 +59,10 @@ export default async function ShopCheckoutPage({
   const shippingCost = product.shipping_type === "free" ? 0 : (product.shipping_cost ?? 0);
   const totalAmount = unitPrice * quantity + shippingCost;
   const clientKey = process.env.TOSS_CLIENT_KEY!;
+  // 비회원(로그인 안 함)이면 휴대폰 인증 후 결제
+  const shopToken = (await cookies()).get("shop_token")?.value;
+  const loggedIn = shopToken ? !!(await verifyToken(shopToken)) : false;
+  const phoneVerifyRequired = phoneVerifyOn() && !loggedIn;
 
   const orderName = option
     ? `${product.name} (${option.value})`
@@ -100,6 +107,7 @@ export default async function ShopCheckoutPage({
           totalAmount={totalAmount}
           orderName={orderName}
           clientKey={clientKey}
+          phoneVerifyRequired={phoneVerifyRequired}
         />
       </div>
     </main>

@@ -3,6 +3,7 @@
 import { validateBuyerName } from "@/lib/validate-name";
 import { useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
+import PhoneVerifyField from "@/components/PhoneVerifyField";
 import AddressSearchButton from "@/components/AddressSearchButton";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   totalAmount: number;
   orderName: string;
   clientKey: string;
+  phoneVerifyRequired?: boolean; // 비회원이면 휴대폰 인증 후 결제
   influencerId?: string | null;
 }
 
@@ -31,8 +33,10 @@ export default function ShopCheckoutClient({
   totalAmount,
   orderName,
   clientKey,
+  phoneVerifyRequired = false,
 }: Props) {
   const [loading, setLoading] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const [form, setForm] = useState({
     customerName: "",
     customerPhone: "",
@@ -60,6 +64,10 @@ export default function ShopCheckoutClient({
   }
 
   async function handlePay() {
+    if (phoneVerifyRequired && !phoneVerified) {
+      alert("비회원 주문은 휴대폰 인증 후 결제할 수 있어요.");
+      return;
+    }
     if (!form.customerName || !form.customerPhone) {
       alert("구매자 이름과 연락처를 입력해주세요.");
       return;
@@ -117,22 +125,22 @@ export default function ShopCheckoutClient({
     }
   }
 
-  const inputClass = "w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-colors";
-  const inputStyle = { border: "1px solid var(--line)", background: "#fff" };
+  const inputClass = "ds-input";
+  const inputStyle = {};
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-9">
       {/* 구매자 정보 */}
-      <section className="bg-white rounded-2xl p-5" style={{ border: "1px solid var(--line)" }}>
-        <h2 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>구매자 정보</h2>
-        <div className="space-y-3">
+      <section>
+        <div className="ds-section-title">구매자 정보</div>
+        <div className="space-y-3.5 pt-5">
           {[
             { name: "customerName", label: "이름 *", placeholder: "홍길동" },
             { name: "customerPhone", label: "연락처 *", placeholder: "010-0000-0000" },
             { name: "customerEmail", label: "이메일 (선택)", placeholder: "example@email.com" },
           ].map(({ name, label, placeholder }) => (
             <div key={name}>
-              <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>{label}</label>
+              <label className="ds-label">{label}</label>
               <input
                 name={name}
                 value={(form as any)[name]}
@@ -140,9 +148,12 @@ export default function ShopCheckoutClient({
                 placeholder={placeholder}
                 className={inputClass}
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--line)")}
+                onFocus={(e) => (e.target.style.borderColor = "#244B1F")}
+                onBlur={(e) => (e.target.style.borderColor = "#E4E1D6")}
               />
+              {name === "customerPhone" && phoneVerifyRequired && (
+                <PhoneVerifyField phone={form.customerPhone} verified={phoneVerified} onVerified={() => setPhoneVerified(true)} />
+              )}
             </div>
           ))}
         </div>
@@ -164,7 +175,7 @@ export default function ShopCheckoutClient({
               { name: "shippingPhone", label: "연락처 *", placeholder: "010-0000-0000" },
             ].map(({ name, label, placeholder }) => (
               <div key={name}>
-                <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>{label}</label>
+                <label className="ds-label">{label}</label>
                 <input
                   name={name}
                   value={(form as any)[name]}

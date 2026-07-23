@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import AddressSearchButton from "@/components/AddressSearchButton";
+import PhoneVerifyField from "@/components/PhoneVerifyField";
 import { shopUnitPrice } from "@/lib/shop-price";
 
 interface CartItem {
@@ -34,12 +35,14 @@ interface CartCheckoutData {
 
 interface Props {
   clientKey: string;
+  phoneVerifyRequired?: boolean; // 비회원이면 휴대폰 인증 후 결제
 }
 
-export default function CartCheckoutClient({ clientKey }: Props) {
+export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = false }: Props) {
   const router = useRouter();
   const [checkoutData, setCheckoutData] = useState<CartCheckoutData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const [form, setForm] = useState({
     customerName: "",
     customerPhone: "",
@@ -83,6 +86,10 @@ export default function CartCheckoutClient({ clientKey }: Props) {
 
   async function handlePay() {
     if (!checkoutData) return;
+    if (phoneVerifyRequired && !phoneVerified) {
+      alert("비회원 주문은 휴대폰 인증 후 결제할 수 있어요.");
+      return;
+    }
     if (!form.customerName || !form.customerPhone) {
       alert("구매자 이름과 연락처를 입력해주세요.");
       return;
@@ -228,6 +235,9 @@ export default function CartCheckoutClient({ clientKey }: Props) {
                 onFocus={focusOn}
                 onBlur={focusOff}
               />
+              {name === "customerPhone" && phoneVerifyRequired && (
+                <PhoneVerifyField phone={form.customerPhone} verified={phoneVerified} onVerified={() => setPhoneVerified(true)} />
+              )}
             </div>
           ))}
         </div>
