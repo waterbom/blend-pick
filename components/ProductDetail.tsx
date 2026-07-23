@@ -85,6 +85,8 @@ export default function ProductDetail({
   addonMulti,
   reviews,
   influencerId,
+  saleState = "open",
+  openLabel = "",
 }: {
   product: Product;
   images: ProductImage[];
@@ -93,6 +95,8 @@ export default function ProductDetail({
   addonMulti: boolean;
   reviews: Review[];
   influencerId?: string | null;
+  saleState?: "upcoming" | "open" | "ended"; // 판매 시간창 (서버 판정)
+  openLabel?: string; // 오픈 예정 시각 표시용 "7/22 19:00"
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<SelectedLine[]>([]);
@@ -144,8 +148,9 @@ export default function ProductDetail({
     const o = optById(l.optionId);
     return !o || optUnavailable(o);
   });
+  const saleClosed = saleState !== "open"; // 오픈 전이거나 종료됨
   const canBuy =
-    !isSoldout && (hasOptions ? lines.length > 0 && !anySelectedSoldout : true);
+    !saleClosed && !isSoldout && (hasOptions ? lines.length > 0 && !anySelectedSoldout : true);
 
   // 드롭다운에서 옵션 추가 (이미 담긴 옵션은 무시)
   function addLine(optionId: string) {
@@ -458,7 +463,7 @@ export default function ProductDetail({
                 cursor: !canBuy ? "not-allowed" : "pointer",
               }}
             >
-              {cartDone ? "담겼어요 ✓" : cartLoading ? "처리중..." : isSoldout ? "품절" : "장바구니"}
+              {saleState === "upcoming" ? "오픈 전" : saleState === "ended" ? "공구 종료" : cartDone ? "담겼어요 ✓" : cartLoading ? "처리중..." : isSoldout ? "품절" : "장바구니"}
             </button>
             <button
               onClick={handleBuyNow}
@@ -469,7 +474,10 @@ export default function ProductDetail({
                 cursor: !canBuy ? "not-allowed" : "pointer",
               }}
             >
-              {buyLoading ? "이동중..." : isSoldout ? "품절" : "바로 구매"}
+              {saleState === "upcoming"
+                ? `⏰ 오픈 예정${openLabel ? ` · ${openLabel}` : ""}`
+                : saleState === "ended" ? "공구가 종료됐어요"
+                : buyLoading ? "이동중..." : isSoldout ? "품절" : "바로 구매"}
             </button>
           </div>
 

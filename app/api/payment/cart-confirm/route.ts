@@ -4,6 +4,7 @@ import pool from "@/lib/db";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { shopUnitPrice } from "@/lib/shop-price";
+import { findClosedSaleProduct } from "@/lib/sale-window";
 import { randomBytes } from "crypto";
 
 function generateOrderNumber() {
@@ -16,6 +17,16 @@ export async function POST(req: NextRequest) {
   const { paymentKey, orderId, amount, checkoutData } = await req.json();
 
   const secretKey = process.env.TOSS_SECRET_KEY!;
+
+  // 0. 판매 시간창 검사 — 오픈 전/종료 상품이 담겨 있으면 승인 자체를 막는다 (승인 전이라 카드 청구 없음)
+  const cartItems: Array<{ product_id: string | null }> = Array.isArray(checkoutData?.items) ? checkoutData.items : [];
+  const closed = await findClosedSaleProduct(cartItems.map((i) => i.product_id));
+  if (closed) {
+    return NextResponse.json(
+      { ok: false, error: "아직 판매 기간이 아니거나 종료된 상품이 있습니다. 오픈 시간에 다시 시도해주세요." },
+      { status: 400 }
+    );
+  }
 
   // 1. 토스페이먼츠 결제 승인
   const tossRes = await fetch("https://api.tosspayments.com/v1/payments/confirm", {

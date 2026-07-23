@@ -32,6 +32,8 @@ interface Product {
   main_image: string | null;
   addon_multi: boolean;
   influencer_id: string | null; // 소속 인플루언서 (지정 시 그 인플루언서 링크만 귀속)
+  sale_start_at: string | null;
+  sale_end_at: string | null;
 }
 
 interface ProductAddon {
@@ -69,7 +71,7 @@ async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
             stock, status, shipping_type, shipping_cost, free_shipping_threshold, main_image, addon_multi,
-            influencer_id
+            influencer_id, sale_start_at, sale_end_at
      FROM products_shop WHERE id = $1`,
     [id]
   );
@@ -140,6 +142,18 @@ export default async function ProductDetailPage({
       ? influencer
       : null;
 
+  // 판매 시간창 — 오픈 전/종료 상품은 상세에서도 구매 버튼을 잠근다 (결제 승인 단계에서도 한 번 더 차단)
+  const nowMs = Date.now();
+  const startMs = product.sale_start_at ? new Date(product.sale_start_at).getTime() : null;
+  const endMs = product.sale_end_at ? new Date(product.sale_end_at).getTime() : null;
+  const saleState: "upcoming" | "open" | "ended" =
+    startMs && startMs > nowMs ? "upcoming" : endMs && endMs < nowMs ? "ended" : "open";
+  const openLabel = (() => {
+    if (!product.sale_start_at) return "";
+    const d = new Date(new Date(product.sale_start_at).getTime() + 9 * 3600e3); // KST 표시
+    return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  })();
+
   // main_image를 images 맨 앞에 합쳐서 전달
   const allImages = [
     ...(product.main_image ? [{ id: "main", url: product.main_image, sort_order: -1 }] : []),
@@ -157,6 +171,8 @@ export default async function ProductDetailPage({
         addonMulti={product.addon_multi}
         reviews={reviews}
         influencerId={attributed?.id}
+        saleState={saleState}
+        openLabel={openLabel}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <RefundPolicy />
