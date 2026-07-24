@@ -311,11 +311,10 @@ export default function OrdersClient() {
                 borderColor: statusFilter === tab.key ? "#1A1D18" : "#D6D6CF",
               }}>
               {tab.label}
-              {tab.count > 0 && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  statusFilter === tab.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
-                }`}>{tab.count}</span>
-              )}
+              {/* 0건이어도 항상 표시 — 숨기면 숫자가 사라진 것처럼 보임 */}
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                statusFilter === tab.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+              }`}>{tab.count}</span>
             </button>
           ))}
         </div>
