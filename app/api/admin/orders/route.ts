@@ -26,9 +26,10 @@ export async function GET(req: Request) {
     OR EXISTS (SELECT 1 FROM order_items oi2 WHERE oi2.order_id = o.id AND oi2.product_id IS NOT NULL)
   )`;
   // status는 쉼표 목록 허용 (예: confirmed,preparing — 배송준비 탭에서 주문확인 건 포함)
+  // 판매·배송 관리는 일반 상품(shop)·공동구매(campaign)만 — 호텔 예약과 호텔 차액(extra)은 예약 관리에서
   const where = status
-    ? `WHERE o.status = ANY($1) AND o.order_type <> 'hotel' AND ${notDeletedProduct}`
-    : `WHERE o.order_type <> 'hotel' AND ${notDeletedProduct}`;
+    ? `WHERE o.status = ANY($1) AND o.order_type IN ('shop', 'campaign') AND ${notDeletedProduct}`
+    : `WHERE o.order_type IN ('shop', 'campaign') AND ${notDeletedProduct}`;
   const params = status ? [status.split(",").map((v) => v.trim()).filter(Boolean)] : [];
 
   const result = await shopPool.query(`

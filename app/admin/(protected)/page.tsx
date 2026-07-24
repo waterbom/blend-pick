@@ -26,7 +26,7 @@ async function getStats() {
     `),
     shopPool.query(`
       SELECT
-        (SELECT COUNT(*) FROM orders WHERE status = 'paid' AND order_type = 'shop') AS new_orders,
+        (SELECT COUNT(*) FROM orders WHERE status = 'paid' AND order_type IN ('shop', 'campaign')) AS new_orders,
         (SELECT COUNT(*) FROM products_shop WHERE status = 'active' AND stock = 0) AS zero_stock,
         (SELECT COUNT(*) FROM reviews WHERE created_at >= NOW() - INTERVAL '7 days') AS new_reviews,
         (SELECT COALESCE(SUM(net_amount), 0) FROM settlements
