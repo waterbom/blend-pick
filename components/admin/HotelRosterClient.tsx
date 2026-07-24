@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { downloadXlsx } from "@/lib/xlsx-download";
 
 /**
  * 호텔 명단 업데이트 — 호텔이 최종 전달한 엑셀(호텔 예약번호 포함)을 업로드하면
@@ -43,7 +42,7 @@ export default function HotelRosterClient() {
       const dataRows = grid.slice(headerIdx + 1).filter((r) => (r[cNo] || "").startsWith("BP-"));
       const nums = dataRows.map((r) => r[cNo]);
 
-      const res = await fetch("/api/admin/hotel-roster", {
+      const res = await fetch("/api/hotel-roster", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ order_numbers: nums }),
       });
@@ -54,19 +53,22 @@ export default function HotelRosterClient() {
       const outHeader = [...header];
       if (cNote < 0) { outHeader.push("비고"); cNote = outHeader.length - 1; }
       let cancelled = 0, changed = 0;
-      const outRows: (string | number)[][] = dataRows.map((r) => {
+      // colored: 이번 갱신으로 내용이 바뀐 행 — 호텔 요청대로 노란색 표기
+      const outRows: { row: string[]; colored: boolean }[] = dataRows.map((r) => {
         const row = [...r];
         while (row.length < outHeader.length) row.push("");
         const info = d.map[r[cNo]];
-        if (!info) { row[cNote] = "조회 안 됨"; return row; }
+        if (!info) { row[cNote] = row[cNote] || "조회 안 됨"; return { row, colored: false }; }
 
         row[cPhone] = fixPhone(info.buyer_phone || r[cPhone]);
         const notes: string[] = [];
+        let colored = false;
+        const fileStatus = (r[cStatus] || "").trim();
 
         if (info.status === "cancelled") {
           row[cStatus] = "취소";
           notes.push(`취소${info.cancelled_at_kst ? ` (${info.cancelled_at_kst})` : ""}`);
-          cancelled++;
+          if (fileStatus !== "취소") { colored = true; cancelled++; } // 이번에 취소로 바뀐 행만 색표기
         } else {
           row[cStatus] = "예약확정";
           // 변경건 — 호텔 예약번호가 이미 발급된 행의 투숙일이 파일과 달라진 경우만 비고 기재
@@ -80,23 +82,40 @@ export default function HotelRosterClient() {
             }
             if (hasHotelNo || info.stay_changed) {
               notes.push(`변경: ${md(fileIn)}→${md(info.check_in)} 입실`);
-              changed++;
+              colored = true; changed++;
             }
           }
         }
         if (notes.length) row[cNote] = notes.join(" · ");
-        return row;
+        return { row, colored };
       });
 
-      const preface = grid.slice(0, headerIdx).map((r) => r.map((c) => c ?? ""));
+      // ExcelJS로 생성 — 바뀐 행은 노란색 채움 (호텔이 쓰는 표기 방식 그대로)
+      const ExcelJS = (await import("exceljs")).default;
+      const owb = new ExcelJS.Workbook();
+      const ows = owb.addWorksheet("예약명단");
+      grid.slice(0, headerIdx).forEach((r) => ows.addRow(r));
+      const hr = ows.addRow(outHeader);
+      hr.font = { bold: true };
+      hr.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDE8" } }; });
+      outRows.forEach(({ row, colored }) => {
+        const rr = ows.addRow(row);
+        rr.getCell(cPhone + 1).numFmt = "@";
+        if (colored) {
+          for (let ci = 1; ci <= outHeader.length; ci++) {
+            rr.getCell(ci).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF200" } };
+          }
+        }
+      });
+      outHeader.forEach((h, i) => { ows.getColumn(i + 1).width = Math.max(10, Math.min(34, String(h).length * 2 + 8)); });
+
       const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
-      // downloadXlsx는 (헤더 1행 + 데이터) 형식 — 안내문 행들을 데이터 앞에 붙이는 대신 별도 시트 구성
-      await downloadXlsx(
-        `호텔예약명단_업데이트_${today}.xlsx`,
-        outHeader,
-        [...preface.map((r) => { const x = [...r]; while (x.length < outHeader.length) x.push(""); return x; }), ...outRows],
-        "예약명단"
-      );
+      const buf = await owb.xlsx.writeBuffer();
+      const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = `호텔예약명단_업데이트_${today}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
       setResult({ total: dataRows.length, cancelled, changed });
     } catch (e) {
       console.error(e);
