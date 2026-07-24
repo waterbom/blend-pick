@@ -33,14 +33,15 @@ interface Order {
 // 행 배열(엑셀/CSV 공통) → 주문번호·운송장번호 목록
 // 헤더 감지: 첫 줄에 '주문/운송장/order/tracking' 이 있으면 헤더로 보고 스킵
 // (주문번호가 BP… 처럼 문자로 시작해도 데이터가 누락되지 않게)
-function parseTrackingRows(grid: string[][]): { order_number: string; tracking_number: string }[] {
+function parseTrackingRows(grid: string[][]): { order_number: string; tracking_number: string; carrier_raw?: string }[] {
   const rows = grid.filter((r) => r.some((c) => c));
   const hasHeader = /주문|운송장|order|tracking/i.test((rows[0] ?? []).join(","));
   const results = [];
   for (let i = hasHeader ? 1 : 0; i < rows.length; i++) {
-    const [a, b] = rows[i];
+    const [a, b, c] = rows[i];
     if (!a || !b) continue;
-    results.push({ order_number: a, tracking_number: b });
+    // 3번째 컬럼(택배사)은 선택 — 있으면 행별 택배사로 사용, 없으면 드롭다운 선택값 적용
+    results.push({ order_number: a, tracking_number: b, carrier_raw: (c || "").trim() || undefined });
   }
   return results;
 }
@@ -61,7 +62,7 @@ async function parseTrackingXlsx(buf: ArrayBuffer) {
 }
 
 function downloadTemplate() {
-  downloadXlsx("운송장입력양식.xlsx", ["주문번호", "운송장번호"], [["BP20240101001", "123456789012"]], "운송장");
+  downloadXlsx("운송장입력양식.xlsx", ["주문번호", "운송장번호", "택배사"], [["BP20240101001", "123456789012", "CJ대한통운"]], "운송장");
 }
 
 type Tab =
@@ -102,8 +103,18 @@ export default function ShipmentsClient() {
 
   const [carrierCode, setCarrierCode] = useState("04");
   const [carriers, setCarriers] = useState(CORE_CARRIERS);
+
+  // 양식의 택배사 칸(이름 또는 코드) → 코드로 해석. 못 찾으면 null (드롭다운 선택값 사용)
+  function resolveCarrier(raw?: string): string | null {
+    if (!raw) return null;
+    const v = raw.replace(/\s/g, "");
+    const byCode = carriers.find((c) => c.code === v);
+    if (byCode) return byCode.code;
+    const byName = carriers.find((c) => c.name.replace(/\s/g, "") === v || c.name.replace(/\s/g, "").includes(v) || v.includes(c.name.replace(/\s/g, "")));
+    return byName ? byName.code : null;
+  }
   const [trackerKeyMissing, setTrackerKeyMissing] = useState(false);
-  const [csvRows, setCsvRows] = useState<{ order_number: string; tracking_number: string }[]>([]);
+  const [csvRows, setCsvRows] = useState<{ order_number: string; tracking_number: string; carrier_raw?: string }[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ succeeded: number; failed: { order_number: string; reason?: string }[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -174,7 +185,11 @@ export default function ShipmentsClient() {
   async function handleImport() {
     if (csvRows.length === 0) return;
     setImporting(true);
-    const rows = csvRows.map((r) => ({ ...r, carrier: carrierCode }));
+    const rows = csvRows.map((r) => ({
+      order_number: r.order_number,
+      tracking_number: r.tracking_number,
+      carrier: resolveCarrier(r.carrier_raw) ?? carrierCode,
+    }));
     const res = await fetch("/api/admin/shipments/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -278,7 +293,7 @@ export default function ShipmentsClient() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <p className="text-sm font-bold text-gray-800">운송장번호 일괄 입력</p>
-                <p className="text-xs text-gray-400 mt-0.5">엑셀/CSV: 주문번호, 운송장번호 (2컬럼)</p>
+                <p className="text-xs text-gray-400 mt-0.5">엑셀/CSV: 주문번호, 운송장번호, 택배사(선택) — 택배사 칸이 비면 아래 선택값 적용</p>
               </div>
               <button onClick={downloadTemplate}
                 className="text-xs text-blue-500 hover:text-blue-600 font-medium border border-blue-200 px-3 py-1.5 rounded-none">
@@ -314,7 +329,7 @@ export default function ShipmentsClient() {
                       {csvRows.slice(0, 5).map((r, i) => (
                         <tr key={i}>
                           <td className="px-4 py-2 font-mono text-gray-700">{r.order_number}</td>
-                          <td className="px-4 py-2 text-gray-600">{carrierName}</td>
+                          <td className="px-4 py-2 text-gray-600">{r.carrier_raw ? (libCarrierName(resolveCarrier(r.carrier_raw) ?? "") || r.carrier_raw) : carrierName}</td>
                           <td className="px-4 py-2 font-mono text-gray-700">{r.tracking_number}</td>
                         </tr>
                       ))}
