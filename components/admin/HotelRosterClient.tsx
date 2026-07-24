@@ -132,15 +132,6 @@ export default function HotelRosterClient() {
       </div>
 
       <div className="bg-white p-6" style={{ border: "1px solid #E2E2DC" }}>
-        <p className="text-sm mb-1 font-semibold" style={{ color: "#3E423A" }}>
-          호텔이 최종 전달한 명단(호텔 예약번호 포함)을 올리면, 예약번호별로 현재 상태를 대조해 갱신본을 내려받습니다.
-        </p>
-        <ul className="text-xs leading-relaxed mb-5" style={{ color: "#8F948A" }}>
-          <li>· 연락처는 010… 형태로 복원 (앞자리 0 유지)</li>
-          <li>· 취소건: 상태 "취소" + 비고에 취소 시각</li>
-          <li>· 호텔 예약번호 발급 후 투숙일이 바뀐 건만 비고에 "변경: 이전→현재"</li>
-          <li>· 호텔 예약번호·요청사항 등 호텔 기입값은 그대로 유지</li>
-        </ul>
         <label className="block border-2 border-dashed p-10 text-center text-sm cursor-pointer"
           style={{ borderColor: "#D6D6CF", color: busy ? "#8F948A" : "#5C6156" }}>
           {busy ? "대조 중…" : "호텔 명단 엑셀 선택 또는 클릭"}
