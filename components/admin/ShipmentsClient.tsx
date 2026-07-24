@@ -114,6 +114,15 @@ export default function ShipmentsClient() {
     return byName ? byName.code : null;
   }
   const [trackerKeyMissing, setTrackerKeyMissing] = useState(false);
+  // 상품 그룹 단위 선택/해제 (배송준비·배송중 테이블의 그룹 헤더 체크박스)
+  function toggleGroup(ids: string[], select: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (select ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  }
+
   const [csvRows, setCsvRows] = useState<{ order_number: string; tracking_number: string; carrier_raw?: string }[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ succeeded: number; failed: { order_number: string; reason?: string }[] } | null>(null);
@@ -380,7 +389,7 @@ export default function ShipmentsClient() {
             </div>
           )}
 
-          <OrderTable orders={orders} loading={loading} selected={selected}
+          <OrderTable orders={orders} loading={loading} selected={selected} onToggleGroup={toggleGroup}
             onToggleAll={toggleAll} onToggle={toggleOrder}
             emptyText="배송준비 중인 주문이 없습니다" />
         </>
@@ -420,7 +429,7 @@ export default function ShipmentsClient() {
               </button>
             )}
           </div>
-          <OrderTable orders={orders} loading={loading} selected={selected}
+          <OrderTable orders={orders} loading={loading} selected={selected} onToggleGroup={toggleGroup}
             onToggleAll={toggleAll} onToggle={toggleOrder} showTracking
             emptyText="배송 중인 주문이 없습니다" />
         </>
@@ -437,7 +446,7 @@ export default function ShipmentsClient() {
               </button>
             </div>
           )}
-          <OrderTable orders={orders} loading={loading} selected={selected}
+          <OrderTable orders={orders} loading={loading} selected={selected} onToggleGroup={toggleGroup}
             onToggleAll={toggleAll} onToggle={toggleOrder}
             emptyText={`${TABS.find(t => t.key === tab)?.label} 주문이 없습니다`} />
         </>
@@ -501,13 +510,14 @@ export default function ShipmentsClient() {
 }
 
 function OrderTable({
-  orders, loading, selected, onToggleAll, onToggle, showTracking = false, emptyText,
+  orders, loading, selected, onToggleAll, onToggle, onToggleGroup, showTracking = false, emptyText,
 }: {
   orders: Order[];
   loading: boolean;
   selected: Set<string>;
   onToggleAll: () => void;
   onToggle: (id: string) => void;
+  onToggleGroup?: (ids: string[], select: boolean) => void;
   showTracking?: boolean;
   emptyText: string;
 }) {
@@ -538,7 +548,34 @@ function OrderTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {orders.map((o) => (
+          {/* 상품별 그룹 — 같은 상품 주문을 묶어서 보고, 그룹 체크박스로 한 번에 선택 */}
+          {Array.from(
+            orders.reduce((m, o) => {
+              const key = o.items[0]?.product_name ?? "기타";
+              if (!m.has(key)) m.set(key, [] as Order[]);
+              m.get(key)!.push(o);
+              return m;
+            }, new Map<string, Order[]>())
+          ).flatMap(([productName, group]) => [
+            (() => {
+              const ids = group.map((g) => g.id);
+              const allSel = ids.every((id) => selected.has(id));
+              return (
+                <tr key={`g-${productName}`} style={{ background: "#F4F4F1" }}>
+                  <td className="px-4 py-2">
+                    {onToggleGroup && (
+                      <input type="checkbox" checked={allSel}
+                        onChange={() => onToggleGroup(ids, !allSel)}
+                        className="w-4 h-4 rounded accent-[#2D5A27]" title="이 상품 주문 전체 선택" />
+                    )}
+                  </td>
+                  <td colSpan={showTracking ? 6 : 5} className="px-4 py-2 text-xs font-bold" style={{ color: "#3E423A" }}>
+                    {productName} <span className="ds-mono font-semibold" style={{ color: "#8F948A" }}>{group.length}건</span>
+                  </td>
+                </tr>
+              );
+            })(),
+            ...group.map((o) => (
             <tr key={o.id} className={`hover:bg-gray-50 transition-colors ${selected.has(o.id) ? "bg-[#EAF0E6]/40" : ""}`}>
               <td className="px-4 py-3">
                 <input type="checkbox" checked={selected.has(o.id)} onChange={() => onToggle(o.id)}
@@ -577,7 +614,8 @@ function OrderTable({
                 </td>
               )}
             </tr>
-          ))}
+            )),
+          ])}
         </tbody>
       </table>
     </div>
