@@ -22,6 +22,7 @@ const NAV_GROUPS: { caption: string; items: { label: string; href: string }[] }[
       { label: "인플루언서", href: "/admin/influencers" },
       { label: "공구 관리", href: "/admin/campaigns" },
       { label: "예약 관리", href: "/admin/reservations" },
+      { label: "호텔 명단 업데이트", href: "/admin/hotel-roster" },
     ],
   },
   {
