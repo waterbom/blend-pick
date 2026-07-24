@@ -81,6 +81,7 @@ export default function HotelRosterClient() {
               row[cNights] = String(Math.round((Date.parse(info.check_out) - Date.parse(info.check_in)) / 86400000));
             }
             if (hasHotelNo || info.stay_changed) {
+              row[cStatus] = "예약확정/변경요청"; // 상태 칸만 봐도 변경건임을 알 수 있게
               notes.push(`변경: ${md(fileIn)}→${md(info.check_in)} 입실`);
               colored = true; changed++;
             }
