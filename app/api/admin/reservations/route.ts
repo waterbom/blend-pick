@@ -61,7 +61,7 @@ export async function GET(req: Request) {
      FROM orders o
      ${where}
      ORDER BY o.created_at DESC
-     LIMIT 500`,
+     LIMIT 5000`,
     params
   );
 
