@@ -122,7 +122,9 @@ export default function ShipmentsClient() {
     setSelected(new Set());
     setCsvRows([]);
     setImportResult(null);
-    const res = await fetch(`/api/admin/orders?status=${status}`);
+    // 배송준비 탭엔 주문확인(confirmed) 건도 포함 — 주문확인 후 바로 운송장 입력 가능
+    const q = status === "preparing" ? "confirmed,preparing" : status;
+    const res = await fetch(`/api/admin/orders?status=${q}`);
     const data = await res.json();
     setOrders(data);
     setLoading(false);
