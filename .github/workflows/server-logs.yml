@@ -1,0 +1,36 @@
+name: Server Logs
+
+# EC2 서버 로그 조회 (읽기 전용) — 문자인증/결제 등 서버 오류 확인용
+# grep: 필터 문자열 (비우면 전체), lines: 최근 N줄
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: "필터 문자열 (예: verify/phone, SOLAPI, error)"
+        required: false
+        default: ""
+      lines:
+        description: "최근 몇 줄"
+        required: false
+        default: "200"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read logs on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          GREP: ${{ github.event.inputs.grep }}
+          LINES: ${{ github.event.inputs.lines }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: GREP,LINES
+          script: |
+            if [ -n "$GREP" ]; then
+              sudo journalctl -u blend-pick --no-pager -n 3000 | grep -i -- "$GREP" | tail -n "${LINES:-200}"
+            else
+              sudo journalctl -u blend-pick --no-pager -n "${LINES:-200}"
+            fi
