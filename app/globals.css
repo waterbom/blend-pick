@@ -155,6 +155,14 @@ body {
   border-radius: 12px;
 }
 
+/* 상세 붙여넣기에 딸려 온 영상·iframe은 표시하지 않음 (인앱 브라우저에서 검은 박스로만 보임) */
+.product-desc video,
+.product-desc iframe,
+.product-desc embed,
+.product-desc object {
+  display: none;
+}
+
 /* ── 딥 포레스트 디자인 시스템 (로그인·주문결제·마이페이지·관리자 공통) ──
    radius 0 · 헤어라인 보더 · 인풋/버튼 48px · 캡션은 레터스페이싱 모노 · 숫자는 모노스페이스 */
 .ds-serif { font-family: "Noto Serif KR", serif; }

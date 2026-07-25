@@ -61,6 +61,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     addons, addon_multi,
   } = body;
 
+  // 옵션이 있으면 대표 재고는 판매중 옵션 재고 합계로 자동 반영 ("재고 확인" 버튼 안 눌러도 항상 일치)
+  const hasOptions = Array.isArray(options) && options.some((o: { name?: string }) => o?.name);
+  const effectiveStock = hasOptions
+    ? options
+        .filter((o: { name?: string; active?: boolean }) => o?.name && o.active !== false)
+        .reduce((s: number, o: { stock?: number }) => s + (Number(o.stock) || 0), 0)
+    : stock ?? 0;
+
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
@@ -86,7 +94,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     `, [
       name, brand || null, description || null,
       price, original_price || null, instant_discount_price || null,
-      stock ?? 0, category || null,
+      effectiveStock, category || null,
       status || "active", sale_type || "always",
       presale_enabled ?? false, presale_start_at || null, presale_end_at || null,
       sale_start_at || null, sale_end_at || null, tax_type || "taxable",

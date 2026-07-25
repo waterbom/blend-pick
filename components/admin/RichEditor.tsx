@@ -24,15 +24,21 @@ export default function RichEditor({
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
+  // 영상·iframe 등은 상세에서 재생 불가(검은 박스)인 데다 편집기에서 선택·삭제도 안 되므로 항상 제거
+  const clean = () => {
+    ref.current?.querySelectorAll("video, iframe, script, embed, object, source, track").forEach((n) => n.remove());
+  };
+
   // 외부 값 변경(초기 로드 등) 반영 — 편집 중(포커스)엔 커서 튐 방지 위해 건드리지 않음
   useEffect(() => {
     const el = ref.current;
     if (el && document.activeElement !== el && el.innerHTML !== (value || "")) {
       el.innerHTML = value || "";
+      clean(); // 기존에 저장된 영상 태그도 편집 화면에 여는 순간 정리 → 저장하면 사라짐
     }
   }, [value]);
 
-  const sync = () => onChange(ref.current?.innerHTML || "");
+  const sync = () => { clean(); onChange(ref.current?.innerHTML || ""); };
 
   async function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
     const cd = e.clipboardData;

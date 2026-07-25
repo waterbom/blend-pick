@@ -874,7 +874,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 <p className="text-xs text-gray-500">
                   {stockConfirmed
                     ? <span className="text-green-600 font-semibold">총 재고 {Number(form.stock).toLocaleString()}개 반영됨</span>
-                    : <>옵션 합계: <b>{optionStockTotal}</b>개 → 확인 눌러서 반영</>
+                    : <>옵션 합계: <b>{optionStockTotal}</b>개 — 저장하면 자동 반영돼요</>
                   }
                 </p>
               </div>
