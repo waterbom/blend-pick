@@ -87,7 +87,12 @@ export default function HotelRosterClient() {
             }
           }
         }
-        if (notes.length) row[cNote] = notes.join(" · ");
+        if (notes.length) {
+          // 호텔이 비고에 직접 적은 메모는 덮어쓰지 않고 뒤에 덧붙임 (이미 같은 내용이면 중복 제거)
+          const prev = (row[cNote] || "").trim();
+          const add = notes.filter((n) => !prev.includes(n));
+          row[cNote] = [prev, ...add].filter(Boolean).join(" · ");
+        }
         return { row, colored };
       });
 
