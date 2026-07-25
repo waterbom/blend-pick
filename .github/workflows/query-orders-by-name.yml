@@ -1,0 +1,56 @@
+name: Query Orders By Name
+
+# 구매자 이름으로 주문(모든 유형) 조회 — 읽기 전용, 로그엔 연락처 마스킹 출력
+on:
+  workflow_dispatch:
+    inputs:
+      buyer_name:
+        description: "구매자 이름 (정확히 일치)"
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          BUYER_NAME: ${{ github.event.inputs.buyer_name }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: BUYER_NAME
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const name = (process.env.BUYER_NAME || "").trim();
+            const mask = (p) => (p || "").replace(/^(\d{3})\d+(\d{4})$/, "$1****$2");
+            (async () => {
+              const r = await shop.query(`
+                SELECT o.order_number, o.order_type, o.status, o.total_amount, o.buyer_phone,
+                       to_char(o.created_at AT TIME ZONE \x27Asia/Seoul\x27, \x27YYYY-MM-DD HH24:MI\x27) AS created_kst,
+                       to_char(o.stay_check_in, \x27YYYY-MM-DD\x27) AS check_in,
+                       to_char(o.stay_check_out, \x27YYYY-MM-DD\x27) AS check_out,
+                       (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name
+                  FROM orders o
+                 WHERE o.buyer_name = $1 OR o.recipient_name = $1
+                 ORDER BY o.created_at DESC
+                 LIMIT 30`, [name]);
+              for (const o of r.rows) {
+                const stay = o.check_in ? ` 투숙 ${o.check_in}~${o.check_out}` : "";
+                console.log(`${o.order_number} [${o.order_type}] ${o.status} ${Number(o.total_amount).toLocaleString()}원 결제 ${o.created_kst} ${mask(o.buyer_phone)}${stay} | ${o.product_name || ""}`);
+              }
+              console.log("총", r.rows.length, "건");
+              await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
