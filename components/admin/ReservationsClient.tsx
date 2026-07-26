@@ -247,12 +247,17 @@ export default function ReservationsClient() {
   }
 
   const stats = useMemo(() => {
-    let confirmed = 0, cancelled = 0, revenue = 0;
+    let confirmed = 0, checkedIn = 0, cancelled = 0, revenue = 0;
     for (const r of rows) {
-      if (r.status === "paid") { confirmed++; revenue += (Number(r.total_amount) || 0) + (Number(r.extra_paid) || 0); }
+      if (r.status === "paid") confirmed++;
+      if (r.status === "checked_in") checkedIn++;
       if (r.status === "cancelled") cancelled++;
+      // 확정 매출 = 취소·승인 전 제외 전부 — 자동 체크인으로 상태가 넘어가도 매출은 그대로 누적
+      if (r.status !== "cancelled" && r.status !== "awaiting") {
+        revenue += (Number(r.total_amount) || 0) + (Number(r.extra_paid) || 0);
+      }
     }
-    return { confirmed, cancelled, revenue };
+    return { confirmed, checkedIn, cancelled, revenue };
   }, [rows]);
 
   const [query, setQuery] = useState("");
@@ -348,7 +353,8 @@ export default function ReservationsClient() {
   }
 
   const cards = [
-    { label: "예약 확정", value: `${stats.confirmed}건` },
+    { label: "예약 확정 (입실 전)", value: `${stats.confirmed}건` },
+    { label: "체크인 완료", value: `${stats.checkedIn}건` },
     { label: "확정 매출", value: `${stats.revenue.toLocaleString()}원` },
     { label: "취소", value: `${stats.cancelled}건` },
   ];
@@ -391,7 +397,7 @@ export default function ReservationsClient() {
       <h1 className="text-2xl font-bold text-gray-800 mb-6">호텔 예약 관리</h1>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         {cards.map((c) => (
           <div key={c.label} className="bg-white rounded-none border border-gray-100 p-6">
             <p className="text-sm text-gray-400">{c.label}</p>
