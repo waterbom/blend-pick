@@ -85,8 +85,10 @@ export default function ProductDetail({
   addonMulti,
   reviews,
   influencerId,
-  saleState = "open",
+  saleState: initialSaleState = "open",
   openLabel = "",
+  saleStartMs = null,
+  saleEndMs = null,
 }: {
   product: Product;
   images: ProductImage[];
@@ -97,6 +99,8 @@ export default function ProductDetail({
   influencerId?: string | null;
   saleState?: "upcoming" | "open" | "ended"; // 판매 시간창 (서버 판정)
   openLabel?: string; // 오픈 예정 시각 표시용 "7/22 19:00"
+  saleStartMs?: number | null; // 판매 시작 시각 (epoch ms) — 페이지 열어둔 채로 오픈되면 자동 활성화
+  saleEndMs?: number | null;
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<SelectedLine[]>([]);
@@ -105,6 +109,31 @@ export default function ProductDetail({
   const [cartLoading, setCartLoading] = useState(false);
   const [cartDone, setCartDone] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
+
+  // 판매 시간창 실시간 판정 — 페이지를 열어둔 채 오픈 시각이 되면 새로고침 없이 버튼이 활성화됨
+  // (서버가 준 시각 기준, 결제 승인 단계에서 서버가 한 번 더 검증하므로 기기 시계가 빨라도 안전)
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (saleStartMs == null && saleEndMs == null) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [saleStartMs, saleEndMs]);
+  const saleState: "upcoming" | "open" | "ended" =
+    saleStartMs == null && saleEndMs == null
+      ? initialSaleState
+      : saleStartMs != null && saleStartMs > nowMs
+        ? "upcoming"
+        : saleEndMs != null && saleEndMs < nowMs
+          ? "ended"
+          : "open";
+  // 오픈 24시간 이내면 남은 시간 카운트다운 표시
+  const countdown = (() => {
+    if (saleState !== "upcoming" || saleStartMs == null) return "";
+    const left = saleStartMs - nowMs;
+    if (left > 24 * 3600e3) return "";
+    const h = Math.floor(left / 3600e3), m = Math.floor((left % 3600e3) / 60e3), s = Math.floor((left % 60e3) / 1e3);
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")} 남음`;
+  })();
 
   const hasOptions = options.length > 0;
   const optById = (id: string) => options.find((o) => o.id === id);
@@ -485,6 +514,13 @@ export default function ProductDetail({
                 : buyLoading ? "이동중..." : isSoldout ? "품절" : "바로 구매"}
             </button>
           </div>
+
+          {/* 오픈 카운트다운 — 시간이 되면 이 화면 그대로 버튼이 자동 활성화됨 */}
+          {countdown && (
+            <p className="text-xs mt-2 text-center font-semibold tnum" style={{ color: "var(--accent)" }}>
+              오픈까지 {countdown} · 시간이 되면 자동으로 구매 버튼이 열려요
+            </p>
+          )}
 
           {/* 옵션 미선택 안내 */}
           {hasOptions && lines.length === 0 && !isSoldout && (

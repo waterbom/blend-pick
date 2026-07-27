@@ -173,6 +173,8 @@ export default async function ProductDetailPage({
         influencerId={attributed?.id}
         saleState={saleState}
         openLabel={openLabel}
+        saleStartMs={startMs}
+        saleEndMs={endMs}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <RefundPolicy />
