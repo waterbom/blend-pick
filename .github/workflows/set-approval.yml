@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       date:
-        description: "투숙일 (YYYY-MM-DD)"
+        description: "투숙일 (YYYY-MM-DD, 전체 = 승인제 걸린 모든 날짜 — 끄기 전용)"
         required: true
       room:
         description: "객실 (패밀리 트윈 / 디럭스 더블 / 전체)"
@@ -41,6 +41,18 @@ jobs:
             const pool = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
             (async () => {
               const on = process.env.M === "on";
+              // date=전체: 승인제 걸린 모든 날짜 일괄 해제 (실수 방지를 위해 끄기 전용)
+              if (process.env.D === "전체") {
+                if (on) { console.log("중단: 전체는 끄기(off) 전용입니다"); process.exit(1); }
+                const u = await pool.query(
+                  `UPDATE hotel_room_inventory SET needs_approval = false WHERE needs_approval
+                   RETURNING stay_date::text, room_type, allocated, booked`);
+                if (u.rows.length === 0) { console.log("승인제 걸린 날짜 없음 — 해제할 것 없음"); await pool.end(); return; }
+                for (const r of u.rows)
+                  console.log(`===OFF=== ${r.stay_date} | ${r.room_type} (배정 ${r.allocated}, 판매 ${r.booked})`);
+                console.log("총", u.rows.length, "건 해제");
+                await pool.end(); return;
+              }
               const roomCond = process.env.R === "전체" ? "" : " AND room_type = $3";
               const params = [on, process.env.D];
               if (process.env.R !== "전체") params.push(process.env.R);
