@@ -5,6 +5,7 @@ import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shopUnitPrice } from "@/lib/shop-price";
+import ReviewForm from "@/components/ReviewForm";
 
 function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number, influencerId?: string | null) {
   const params = new URLSearchParams({ quantity: String(quantity) });
@@ -89,6 +90,7 @@ export default function ProductDetail({
   openLabel = "",
   saleStartMs = null,
   saleEndMs = null,
+  loggedIn = false,
 }: {
   product: Product;
   images: ProductImage[];
@@ -101,6 +103,7 @@ export default function ProductDetail({
   openLabel?: string; // 오픈 예정 시각 표시용 "7/22 19:00"
   saleStartMs?: number | null; // 판매 시작 시각 (epoch ms) — 페이지 열어둔 채로 오픈되면 자동 활성화
   saleEndMs?: number | null;
+  loggedIn?: boolean; // 리뷰 작성 폼에서 비회원 인증 노출 여부
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<SelectedLine[]>([]);
@@ -557,10 +560,11 @@ export default function ProductDetail({
       )}
 
       {/* 리뷰 섹션 */}
-      <div>
+      <div id="review">
         <h2 className="text-base font-bold mb-4" style={{ color: "var(--text-primary)" }}>
           리뷰 {reviews.length > 0 && <span style={{ color: "var(--accent)" }}>{reviews.length}</span>}
         </h2>
+        <ReviewForm productId={product.id} loggedIn={loggedIn} />
         {reviews.length === 0 ? (
           <div className="rounded-2xl py-12 text-center text-sm" style={{ background: "var(--cream-dark)", color: "var(--text-muted)" }}>
             아직 리뷰가 없습니다

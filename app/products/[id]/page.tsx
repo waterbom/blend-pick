@@ -2,6 +2,7 @@ import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import Header from "@/components/Header";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import ProductDetail from "@/components/ProductDetail";
 import RefundPolicy from "@/components/RefundPolicy";
 
@@ -144,6 +145,8 @@ export default async function ProductDetailPage({
 
   // 판매 시간창 — 오픈 전/종료 상품은 상세에서도 구매 버튼을 잠근다 (결제 승인 단계에서도 한 번 더 차단)
   const nowMs = Date.now();
+  // 리뷰 작성 폼: 로그인 여부에 따라 비회원 휴대폰 인증 노출 (자격 검증은 서버 API가 최종 수행)
+  const loggedIn = !!(await cookies()).get("shop_token")?.value;
   const startMs = product.sale_start_at ? new Date(product.sale_start_at).getTime() : null;
   const endMs = product.sale_end_at ? new Date(product.sale_end_at).getTime() : null;
   const saleState: "upcoming" | "open" | "ended" =
@@ -175,6 +178,7 @@ export default async function ProductDetailPage({
         openLabel={openLabel}
         saleStartMs={startMs}
         saleEndMs={endMs}
+        loggedIn={loggedIn}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <RefundPolicy />

@@ -48,7 +48,8 @@ async function getOrders(userId: string) {
             'product_id', oi.product_id,
             'product_name', oi.product_name,
             'unit_price', oi.unit_price,
-            'quantity', oi.quantity
+            'quantity', oi.quantity,
+            'reviewed', EXISTS (SELECT 1 FROM reviews rv WHERE rv.order_id = o.id AND rv.product_id = oi.product_id)
           ) ORDER BY oi.id
         ) AS items
       FROM orders o
@@ -293,13 +294,19 @@ export default async function MyPage() {
                           <CancelOrderButton orderId={order.id} />
                         )}
                         {order.status === "delivered" && (
-                          <Link
-                            href={`/products/${order.items[0]?.product_id}#review`}
-                            className="text-xs font-semibold px-3.5 py-2"
-                            style={{ border: "1px solid #244B1F", color: "#244B1F" }}
-                          >
-                            리뷰 쓰기
-                          </Link>
+                          order.items[0]?.reviewed ? (
+                            <span className="text-xs font-semibold px-3.5 py-2" style={{ border: "1px solid #E4E1D6", color: "#8F948A" }}>
+                              리뷰 작성완료 ✓
+                            </span>
+                          ) : (
+                            <Link
+                              href={`/products/${order.items[0]?.product_id}#review`}
+                              className="text-xs font-semibold px-3.5 py-2"
+                              style={{ border: "1px solid #244B1F", color: "#244B1F" }}
+                            >
+                              리뷰 쓰기
+                            </Link>
+                          )
                         )}
                       </div>
                     </div>

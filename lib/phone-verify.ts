@@ -47,3 +47,14 @@ export async function isPhoneVerified(token: string | undefined, phone: string) 
     return false;
   }
 }
+
+// 인증완료 토큰에서 인증된 번호 자체를 꺼냄 (리뷰 작성 등 "번호를 미리 모르는" 검증용)
+export async function verifiedPhoneOf(token: string | undefined): Promise<string | null> {
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, SECRET);
+    return payload.v === true && typeof payload.phone === "string" ? payload.phone : null;
+  } catch {
+    return null;
+  }
+}
