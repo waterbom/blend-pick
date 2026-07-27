@@ -7,6 +7,7 @@ import { phoneVerifyOn } from "@/lib/sms";
 import { isPhoneVerified } from "@/lib/phone-verify";
 import { shopUnitPrice } from "@/lib/shop-price";
 import { findClosedSaleProduct } from "@/lib/sale-window";
+import { infRefFromCookie } from "@/lib/inf-ref";
 import { randomBytes } from "crypto";
 
 function generateOrderNumber() {
@@ -83,11 +84,13 @@ export async function POST(req: NextRequest) {
   }> = checkoutData.items;
 
   // 인플루언서 링크 유입 검증 — 요율은 대표(첫) 상품의 influencer_rate 스냅샷
+  // URL로 안 넘어왔으면 귀속 쿠키(inf_ref)로 복원 (장바구니 경유·페이지 이동 후 결제 대응)
   let influencer: { id: string; name: string } | null = null;
   let commissionRate: number | null = null;
-  if (checkoutData.influencerId) {
+  const cartInfId = checkoutData.influencerId || (await infRefFromCookie());
+  if (cartInfId) {
     try {
-      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [checkoutData.influencerId]);
+      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [cartInfId]);
       influencer = r.rows[0] ?? null;
       const mainProductId = items.find((i) => i.product_id)?.product_id;
       if (influencer && mainProductId) {

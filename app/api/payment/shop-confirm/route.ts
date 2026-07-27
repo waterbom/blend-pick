@@ -6,6 +6,7 @@ import { verifyToken } from "@/lib/auth";
 import { phoneVerifyOn } from "@/lib/sms";
 import { isPhoneVerified } from "@/lib/phone-verify";
 import { findClosedSaleProduct } from "@/lib/sale-window";
+import { infRefFromCookie } from "@/lib/inf-ref";
 import { randomBytes } from "crypto";
 
 function generateOrderNumber() {
@@ -68,11 +69,13 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. 인플루언서 링크 유입 검증 — 이름은 DB값만 신뢰, 요율은 상품의 influencer_rate 스냅샷
+  // URL로 안 넘어왔으면 귀속 쿠키(inf_ref)로 복원 (페이지 이동 후 결제 대응)
   let influencer: { id: string; name: string } | null = null;
   let commissionRate: number | null = null;
-  if (checkoutData.influencerId) {
+  const shopInfId = checkoutData.influencerId || (await infRefFromCookie());
+  if (shopInfId) {
     try {
-      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [checkoutData.influencerId]);
+      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [shopInfId]);
       influencer = r.rows[0] ?? null;
       if (influencer) {
         const pr = await shopPool.query("SELECT influencer_rate FROM products_shop WHERE id = $1", [checkoutData.productId]);

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import GlobalFloating from "@/components/GlobalFloating";
 import Footer from "@/components/Footer";
+import InfRefCookie from "@/components/InfRefCookie";
 
 export const metadata: Metadata = {
   title: "BLEND PICK — 인플루언서 공구 플랫폼",
@@ -29,6 +30,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
+        <InfRefCookie />
         {children}
         <Footer />
         <GlobalFloating />

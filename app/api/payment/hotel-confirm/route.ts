@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
+import { infRefFromCookie } from "@/lib/inf-ref";
 import pool from "@/lib/db";
 import { randomBytes } from "crypto";
 import { verifyToken } from "@/lib/auth";
@@ -76,10 +77,12 @@ export async function POST(req: NextRequest) {
   const userId = token ? (await verifyToken(token))?.id ?? null : null;
 
   // 인플루언서 링크 유입 검증 — 이름은 DB값만 신뢰, 실패해도 주문은 저장(귀속만 NULL)
+  // URL로 안 넘어왔으면 귀속 쿠키(inf_ref)로 복원 (페이지 이동 후 결제 대응)
   let influencer: { id: string; name: string } | null = null;
-  if (cd.influencerId) {
+  const hotelInfId = cd.influencerId || (await infRefFromCookie());
+  if (hotelInfId) {
     try {
-      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [cd.influencerId]);
+      const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [hotelInfId]);
       influencer = r.rows[0] ?? null;
     } catch (e) {
       console.error("[hotel-confirm] 인플루언서 조회 실패:", e);
