@@ -1,0 +1,65 @@
+name: Close Hotel Sales
+
+# 현재 진행 중인 호텔 공구를 전부 마감 — 인플루언서별 마감 시각(hotel_sale_deadline)을
+# 지금 시각으로 당긴다. apply=false면 대상만 보여주는 dry-run.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "true면 실제로 마감 (기본은 dry-run)"
+        required: false
+        default: "false"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          APPLY: ${{ github.event.inputs.apply }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: APPLY
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const os = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const apply = process.env.APPLY === "true";
+            (async () => {
+              const fmt = "MM/DD HH24:MI";
+              const open = await os.query(`
+                SELECT id, name,
+                       to_char(hotel_sale_start AT TIME ZONE \x27Asia/Seoul\x27, \x27${fmt}\x27) AS s,
+                       to_char(hotel_sale_deadline AT TIME ZONE \x27Asia/Seoul\x27, \x27${fmt}\x27) AS d
+                  FROM influencers
+                 WHERE hotel_sale_start <= NOW() AND hotel_sale_deadline > NOW()
+                 ORDER BY hotel_sale_deadline`);
+              const upcoming = await os.query(`
+                SELECT name, to_char(hotel_sale_start AT TIME ZONE \x27Asia/Seoul\x27, \x27${fmt}\x27) AS s
+                  FROM influencers WHERE hotel_sale_start > NOW() ORDER BY hotel_sale_start`);
+              console.log("지금 진행 중(마감 대상):", open.rows.length, "건");
+              for (const r of open.rows) console.log(` - ${r.name}: ${r.s} ~ ${r.d}`);
+              console.log("오픈 예정(건드리지 않음):", upcoming.rows.length, "건");
+              for (const r of upcoming.rows) console.log(` - ${r.name}: ${r.s} 오픈 예정`);
+              if (apply && open.rows.length) {
+                const u = await os.query(
+                  `UPDATE influencers SET hotel_sale_deadline = NOW()
+                    WHERE id = ANY($1::uuid[])`, [open.rows.map((r) => r.id)]);
+                console.log(`마감 처리: ${u.rowCount}건 — 이제 결제 진입이 차단됩니다`);
+              } else if (!apply) {
+                console.log("dry-run — apply=true로 다시 실행하면 위 진행 중 공구를 마감합니다");
+              }
+              await os.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
