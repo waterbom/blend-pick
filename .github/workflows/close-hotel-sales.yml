@@ -55,7 +55,7 @@ jobs:
               if (apply && open.rows.length) {
                 const u = await os.query(
                   `UPDATE influencers SET hotel_sale_deadline = NOW()
-                    WHERE id = ANY($1::uuid[])`, [open.rows.map((r) => r.id)]);
+                    WHERE id = ANY($1::text[])`, [open.rows.map((r) => String(r.id))]);
                 console.log(`마감 처리: ${u.rowCount}건 — 이제 결제 진입이 차단됩니다`);
               } else if (!apply) {
                 console.log("dry-run — apply=true로 다시 실행하면 위 진행 중 공구를 마감합니다");
