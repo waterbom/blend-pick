@@ -1,0 +1,68 @@
+name: Clear Stay Changed Flag
+
+# 테스트 등으로 잘못 찍힌 투숙일 변경 표시(stay_changed_at)를 지운다.
+# apply=false면 대상만 보여주는 dry-run — 로그엔 연락처 마스킹 출력
+on:
+  workflow_dispatch:
+    inputs:
+      buyer_name:
+        description: "구매자 이름 (정확히 일치, 변경 표시가 있는 호텔 주문만 대상)"
+        required: true
+      apply:
+        description: "true면 실제로 지움 (기본은 dry-run)"
+        required: false
+        default: "false"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clear on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          BUYER_NAME: ${{ github.event.inputs.buyer_name }}
+          APPLY: ${{ github.event.inputs.apply }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: BUYER_NAME,APPLY
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const name = (process.env.BUYER_NAME || "").trim();
+            const apply = process.env.APPLY === "true";
+            const mask = (p) => (p || "").replace(/^(\d{3})\d+(\d{4})$/, "$1****$2");
+            (async () => {
+              const r = await shop.query(`
+                SELECT o.id, o.order_number, o.status, o.buyer_phone,
+                       to_char(o.stay_check_in, \x27YYYY-MM-DD\x27) AS ci,
+                       to_char(o.stay_check_out, \x27YYYY-MM-DD\x27) AS co,
+                       to_char(o.stay_changed_at AT TIME ZONE \x27Asia/Seoul\x27, \x27MM/DD HH24:MI\x27) AS changed_kst
+                  FROM orders o
+                 WHERE (o.buyer_name = $1 OR o.recipient_name = $1)
+                   AND o.order_type = \x27hotel\x27 AND o.stay_changed_at IS NOT NULL`, [name]);
+              if (r.rows.length === 0) { console.log("변경 표시가 있는 호텔 주문 없음"); await shop.end(); return; }
+              for (const o of r.rows) {
+                console.log(`${o.order_number} ${o.status} ${mask(o.buyer_phone)} 투숙 ${o.ci}~${o.co} | 변경시각 ${o.changed_kst}`);
+              }
+              if (apply) {
+                const u = await shop.query(
+                  `UPDATE orders SET stay_changed_at = NULL WHERE id = ANY($1::uuid[])`,
+                  [r.rows.map((o) => o.id)]);
+                console.log(`변경 표시 지움: ${u.rowCount}건`);
+              } else {
+                console.log("dry-run — apply=true로 다시 실행하면 위 주문의 변경 표시를 지웁니다");
+              }
+              await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
