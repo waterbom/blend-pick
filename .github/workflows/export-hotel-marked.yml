@@ -1,0 +1,98 @@
+name: Export Hotel Marked (Excel)
+
+# 인플루언서별 호텔 예약 중 취소·변경건을 엑셀로 추출 — 파일은 서버 public/uploads/exports/에
+# 무작위 이름으로 저장하고 로그에는 링크와 건수만 남긴다 (개인정보 로그 노출 방지)
+on:
+  workflow_dispatch:
+    inputs:
+      influencers:
+        description: "쉼표로 구분한 인플루언서 이름"
+        required: false
+        default: "민경네,도도네"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Export on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          INFS: ${{ github.event.inputs.influencers }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: INFS
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const crypto = require("crypto");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const ExcelJS = require("exceljs");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const infs = (process.env.INFS || "").split(",").map((s) => s.trim()).filter(Boolean);
+            const fixPhone = (v) => { const d = String(v || "").replace(/[^0-9]/g, ""); return d && !d.startsWith("0") ? "0" + d : d; };
+            (async () => {
+              const r = await shop.query(`
+                SELECT o.order_number, o.buyer_name, o.buyer_phone, o.status, o.influencer_name,
+                       to_char(o.stay_check_in, \x27YYYY-MM-DD\x27) AS ci,
+                       to_char(o.stay_check_out, \x27YYYY-MM-DD\x27) AS co,
+                       o.total_amount,
+                       to_char(o.cancelled_at AT TIME ZONE \x27Asia/Seoul\x27, \x27MM/DD HH24:MI\x27) AS cancelled_kst,
+                       o.stay_changed_at IS NOT NULL AS changed,
+                       (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name
+                  FROM orders o
+                 WHERE o.order_type = \x27hotel\x27 AND o.influencer_name = ANY($1)
+                   AND (o.status = \x27cancelled\x27 OR o.stay_changed_at IS NOT NULL)
+                 ORDER BY o.influencer_name, o.status, o.created_at`, [infs]);
+              if (r.rows.length === 0) {
+                const names = await shop.query(
+                  `SELECT DISTINCT influencer_name FROM orders WHERE order_type = \x27hotel\x27 AND influencer_name IS NOT NULL`);
+                console.log("대상 없음. 주문에 존재하는 인플루언서:", names.rows.map((x) => x.influencer_name).join(", "));
+                await shop.end(); return;
+              }
+              const wb = new ExcelJS.Workbook();
+              const HEAD = ["구분", "예약번호", "예약자", "연락처", "상품", "체크인", "체크아웃", "결제금액", "취소시각", "비고"];
+              const counts = {};
+              for (const inf of infs) {
+                const rows = r.rows.filter((x) => x.influencer_name === inf);
+                if (rows.length === 0) continue;
+                const ws = wb.addWorksheet(inf);
+                const hr = ws.addRow(HEAD);
+                hr.font = { bold: true };
+                hr.eachCell((c) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDE8" } }; });
+                counts[inf] = { 취소: 0, 변경: 0 };
+                for (const x of rows) {
+                  const kind = x.status === "cancelled" ? "취소" : "변경";
+                  counts[inf][kind]++;
+                  const note = kind === "변경" ? "투숙일 변경됨 (현재 날짜 기준)" : (x.changed ? "변경 후 취소" : "");
+                  const row = ws.addRow([
+                    kind, x.order_number, x.buyer_name, fixPhone(x.buyer_phone),
+                    (x.product_name || "").replace(/^여수 UTOP 마리나 호텔 · /, ""),
+                    x.ci, x.co, Number(x.total_amount), x.cancelled_kst || "", note,
+                  ]);
+                  row.getCell(4).numFmt = "@";
+                  const color = kind === "취소" ? "FFFFC7CE" : "FFFFF200";
+                  row.eachCell({ includeEmpty: false }, (c) => {
+                    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };
+                  });
+                }
+                [10, 22, 9, 14, 22, 12, 12, 11, 13, 24].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+              }
+              const dir = path.join(process.cwd(), "public", "uploads", "exports");
+              fs.mkdirSync(dir, { recursive: true });
+              const name = crypto.randomUUID() + ".xlsx";
+              await wb.xlsx.writeFile(path.join(dir, name));
+              for (const [inf, c] of Object.entries(counts)) console.log(`${inf}: 취소 ${c.취소}건 / 변경 ${c.변경}건`);
+              console.log("===FILE=== /uploads/exports/" + name);
+              await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
