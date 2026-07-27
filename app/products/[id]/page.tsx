@@ -66,6 +66,8 @@ interface Review {
   content: string;
   images: string[] | null;
   created_at: string;
+  option_label?: string | null;
+  helpful_count?: number;
 }
 
 async function getProduct(id: string) {
@@ -108,12 +110,40 @@ async function getAddons(productId: string) {
 
 async function getReviews(productId: string) {
   const result = await shopPool.query(
-    `SELECT id, buyer_name, rating, content, images, created_at
-     FROM reviews WHERE product_id = $1 AND is_hidden = false
-     ORDER BY created_at DESC LIMIT 20`,
+    `SELECT rv.id, rv.buyer_name, rv.rating, rv.content, rv.images, rv.created_at,
+            COALESCE(rv.helpful_count, 0) AS helpful_count,
+            (SELECT oi.option_label FROM order_items oi
+              WHERE oi.order_id = rv.order_id AND oi.product_id = rv.product_id LIMIT 1) AS option_label
+     FROM reviews rv WHERE rv.product_id = $1 AND rv.is_hidden = false
+     ORDER BY rv.created_at DESC LIMIT 50`,
     [productId]
   );
   return result.rows as Review[];
+}
+
+// 평점 요약 — 전체 리뷰 기준 (목록은 50건까지만 내려도 통계는 전체)
+async function getReviewSummary(productId: string) {
+  const r = await shopPool.query(
+    `SELECT COUNT(*)::int AS total,
+            COALESCE(AVG(rating), 0)::float AS average,
+            ARRAY[
+              COUNT(*) FILTER (WHERE rating = 1),
+              COUNT(*) FILTER (WHERE rating = 2),
+              COUNT(*) FILTER (WHERE rating = 3),
+              COUNT(*) FILTER (WHERE rating = 4),
+              COUNT(*) FILTER (WHERE rating = 5)
+            ]::int[] AS distribution,
+            COUNT(*) FILTER (WHERE images IS NOT NULL AND array_length(images, 1) > 0)::int AS photo_count
+       FROM reviews WHERE product_id = $1 AND is_hidden = false`,
+    [productId]
+  );
+  const row = r.rows[0];
+  return {
+    total: row.total,
+    average: Number(row.average),
+    distribution: row.distribution as number[],
+    photoCount: row.photo_count,
+  };
 }
 
 export default async function ProductDetailPage({
@@ -125,12 +155,13 @@ export default async function ProductDetailPage({
 }) {
   const { id } = await params;
   const { inf } = await searchParams;
-  const [product, images, options, addons, reviews, influencer] = await Promise.all([
+  const [product, images, options, addons, reviews, reviewSummary, influencer] = await Promise.all([
     getProduct(id),
     getImages(id),
     getOptions(id),
     getAddons(id),
     getReviews(id),
+    getReviewSummary(id),
     getInfluencer(inf),
   ]);
 
@@ -173,6 +204,7 @@ export default async function ProductDetailPage({
         addons={addons}
         addonMulti={product.addon_multi}
         reviews={reviews}
+        reviewSummary={reviewSummary}
         influencerId={attributed?.id}
         saleState={saleState}
         openLabel={openLabel}

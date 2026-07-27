@@ -5,7 +5,7 @@ import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shopUnitPrice } from "@/lib/shop-price";
-import ReviewForm from "@/components/ReviewForm";
+import ReviewSection, { type ReviewSummary } from "@/components/ReviewSection";
 
 function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number, influencerId?: string | null) {
   const params = new URLSearchParams({ quantity: String(quantity) });
@@ -63,6 +63,8 @@ interface Review {
   content: string;
   images: string[] | null;
   created_at: string;
+  option_label?: string | null;
+  helpful_count?: number;
 }
 
 // 선택한 옵션 한 줄(네이버식 옵션 조합) — 옵션마다 독립 수량
@@ -91,6 +93,7 @@ export default function ProductDetail({
   saleStartMs = null,
   saleEndMs = null,
   loggedIn = false,
+  reviewSummary,
 }: {
   product: Product;
   images: ProductImage[];
@@ -104,6 +107,7 @@ export default function ProductDetail({
   saleStartMs?: number | null; // 판매 시작 시각 (epoch ms) — 페이지 열어둔 채로 오픈되면 자동 활성화
   saleEndMs?: number | null;
   loggedIn?: boolean; // 리뷰 작성 폼에서 비회원 인증 노출 여부
+  reviewSummary?: ReviewSummary;
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<SelectedLine[]>([]);
@@ -543,43 +547,14 @@ export default function ProductDetail({
         </div>
       </div>
 
-      {/* 리뷰 섹션 */}
-      <div id="review">
-        <h2 className="text-base font-bold mb-4" style={{ color: "var(--text-primary)" }}>
-          리뷰 {reviews.length > 0 && <span style={{ color: "var(--accent)" }}>{reviews.length}</span>}
-        </h2>
-        <ReviewForm productId={product.id} loggedIn={loggedIn} />
-        {reviews.length === 0 ? (
-          <div className="rounded-2xl py-12 text-center text-sm" style={{ background: "var(--cream-dark)", color: "var(--text-muted)" }}>
-            아직 리뷰가 없습니다
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {reviews.map((r) => (
-              <div key={r.id} className="rounded-2xl p-5" style={{ background: "#fff", border: "1px solid var(--line)" }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.buyer_name}</span>
-                    <span className="text-xs" style={{ color: "var(--accent)" }}>
-                      {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
-                    </span>
-                  </div>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {new Date(r.created_at).toLocaleDateString("ko-KR")}
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{r.content}</p>
-                {r.images && r.images.length > 0 && (
-                  <div className="flex gap-2 mt-3">
-                    {r.images.map((img, i) => (
-                      <img key={i} src={img} alt="" className="w-16 h-16 rounded-xl object-cover" />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+      {/* 리뷰 섹션 — 딥 포레스트 10a/10b 디자인 */}
+      <div className="mb-12">
+        <ReviewSection
+          productId={product.id}
+          loggedIn={loggedIn}
+          reviews={reviews}
+          summary={reviewSummary ?? { total: reviews.length, average: 0, distribution: [0, 0, 0, 0, 0], photoCount: 0 }}
+        />
       </div>
 
       {/* 추가 이미지 — 세로 정렬 (원본이 커도 한눈에 보이게 폭 제한) */}

@@ -30,7 +30,8 @@ jobs:
               await pool.query("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS order_id uuid");
               await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS reviews_order_product_uniq
                                 ON reviews (order_id, product_id) WHERE order_id IS NOT NULL`);
-              console.log("reviews.order_id + 유니크 인덱스 OK");
+              await pool.query("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS helpful_count integer NOT NULL DEFAULT 0");
+              console.log("reviews.order_id + 유니크 인덱스 + helpful_count OK");
               await pool.end();
             })().catch(e => { console.error(e.message); process.exit(1); });
             '
