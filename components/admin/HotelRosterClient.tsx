@@ -8,8 +8,9 @@ import type { Worksheet, Cell } from "exceljs";
  * 원본 파일을 그대로 열어 "바뀐 칸만" 수정하는 방식이라, 업로드한 파일의 서식
  * (직접 칠한 색·열 너비·시트명·추가 컬럼)이 전부 유지된다. 갱신된 행에만 노란색을 덧칠한다.
  *  · 연락처는 010… 형태 텍스트로 복원
- *  · 취소건: 상태 "취소" + 비고에 "취소 (M/D HH:MM)" — 파일에서 이미 취소였던 행은 색 없음
- *  · 변경건: 상태 "예약확정/변경요청" + 투숙일 갱신 + 비고 "변경: 이전→현재"
+ *  · 취소건(신규): 연한 빨강 + 상태 "취소" + 비고 "취소 (M/D HH:MM)" — 이미 취소였던 행은 색 없음
+ *  · 변경건: 노랑 + 상태 "예약확정/변경요청" + 투숙일 갱신 + 비고 "변경: 이전→현재"
+ *  · 맨 아래에 "이번 갱신 요약" 줄 추가 (재변환 시 같은 줄을 갱신)
  *  · 비고의 기존 메모는 덮어쓰지 않고 뒤에 덧붙임 (중복 방지)
  */
 export default function HotelRosterClient() {
@@ -116,13 +117,13 @@ export default function HotelRosterClient() {
         }
 
         const notes: string[] = [];
-        let colored = false;
+        let rowColor: string | null = null; // FFFFC7CE=취소(연빨강) / FFFFF200=변경(노랑)
         const fileStatus = cellText(row.getCell(cStatus));
 
         if (info.status === "cancelled") {
           row.getCell(cStatus).value = "취소";
           notes.push(`취소${info.cancelled_at_kst ? ` (${info.cancelled_at_kst})` : ""}`);
-          if (fileStatus !== "취소") { colored = true; cancelled++; } // 이번에 취소로 바뀐 행만 색표기
+          if (fileStatus !== "취소") { rowColor = "FFFFC7CE"; cancelled++; } // 이번에 취소로 바뀐 행만 색표기
         } else {
           if (fileStatus !== "예약확정/변경요청") row.getCell(cStatus).value = "예약확정";
           // 변경건 — 파일의 체크인과 DB 투숙일이 다르면 날짜 갱신
@@ -137,7 +138,7 @@ export default function HotelRosterClient() {
             if (hasHotelNo || info.stay_changed) {
               row.getCell(cStatus).value = "예약확정/변경요청"; // 상태 칸만 봐도 변경건임을 알 수 있게
               notes.push(`변경: ${md(fileIn)}→${md(info.check_in)} 입실`);
-              colored = true; changed++;
+              rowColor = "FFFFF200"; changed++;
             }
           }
         }
@@ -148,14 +149,29 @@ export default function HotelRosterClient() {
           const add = notes.filter((n) => !prev.includes(n));
           if (add.length) noteCell.value = [prev, ...add].filter(Boolean).join(" · ");
         }
-        if (colored) {
+        if (rowColor) {
           for (const ci of usedCols) {
             const cell = row.getCell(ci);
-            // 공유 서식 오염 방지 — 스타일 객체를 새로 만들어 이 셀에만 노란색 적용
-            cell.style = { ...cell.style, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF200" } } };
+            // 공유 서식 오염 방지 — 스타일 객체를 새로 만들어 이 셀에만 색 적용
+            cell.style = { ...cell.style, fill: { type: "pattern", pattern: "solid", fgColor: { argb: rowColor } } };
           }
         }
       }
+
+      // 맨 아래 "이번 갱신 요약" 줄 — 재변환 시 기존 요약 줄을 찾아 덮어씀 (중복 방지)
+      const todayLabel = new Date(Date.now() + 9 * 3600e3).toISOString().slice(5, 10).replace("-", "/");
+      let summaryRow = 0;
+      for (let r = dataRowNums[dataRowNums.length - 1] + 1; r <= ws.rowCount; r++) {
+        if (cellText(ws.getRow(r).getCell(cNo)).startsWith("※ 이번 갱신")) { summaryRow = r; break; }
+      }
+      if (!summaryRow) summaryRow = dataRowNums[dataRowNums.length - 1] + 2;
+      const sr = ws.getRow(summaryRow);
+      sr.getCell(cNo).value = `※ 이번 갱신 (${todayLabel})`;
+      const c1 = sr.getCell(cNo + 1), c2 = sr.getCell(cNo + 2);
+      c1.value = cancelled > 0 ? `신규 취소 ${cancelled}건` : "취소 없음";
+      c2.value = changed > 0 ? `날짜 변경 ${changed}건` : "변경 없음";
+      c1.style = { ...c1.style, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFC7CE" } } };
+      c2.style = { ...c2.style, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF200" } } };
 
       const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
       const buf = await wb.xlsx.writeBuffer();
@@ -189,8 +205,7 @@ export default function HotelRosterClient() {
         {error && <p className="text-xs mt-3" style={{ color: "#A6412F" }}>{error}</p>}
         {result && (
           <p className="text-xs mt-3 font-semibold" style={{ color: "#2D5A27" }}>
-            ✓ 갱신본 다운로드 완료 — 총 {result.total}건 / 취소 {result.cancelled}건 / 변경 {result.changed}건 표시
-            (원본 서식 유지)
+            ✓ 갱신본 다운로드 완료 — 총 {result.total}건 / 신규 취소 {result.cancelled}건(빨강) / 변경 {result.changed}건(노랑) — 원본 서식 유지
           </p>
         )}
       </div>
