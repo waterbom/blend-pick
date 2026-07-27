@@ -1,0 +1,76 @@
+name: Backfill Influencer Attribution
+
+# 귀속이 비어 있는 주문(shop/campaign) 중, 대표 상품이 인플루언서 전용 공구인 건을
+# 그 상품의 인플루언서로 일괄 귀속 (요율은 상품의 influencer_rate 스냅샷)
+# apply=false(기본)면 미리보기만, apply=true면 실제 반영
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "true = 실제 반영 / false = 미리보기(dry-run)"
+        required: false
+        default: "false"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          APPLY: ${{ github.event.inputs.apply }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: APPLY
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const os = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            (async () => {
+              // 대표(첫) 상품이 인플루언서 전용인 미귀속 주문
+              const r = await shop.query(`
+                SELECT o.id, o.order_number, o.status, o.total_amount,
+                       ps.influencer_id, ps.influencer_rate
+                  FROM orders o
+                  JOIN LATERAL (
+                    SELECT product_id FROM order_items
+                     WHERE order_id = o.id AND product_id IS NOT NULL
+                     ORDER BY id LIMIT 1
+                  ) oi ON true
+                  JOIN products_shop ps ON ps.id = oi.product_id
+                 WHERE o.order_type IN (\x27shop\x27, \x27campaign\x27)
+                   AND o.influencer_id IS NULL
+                   AND ps.influencer_id IS NOT NULL
+                 ORDER BY o.created_at`);
+              if (r.rows.length === 0) { console.log("대상 없음 — 미귀속 전용공구 주문이 없습니다"); await shop.end(); await os.end(); return; }
+              const infIds = [...new Set(r.rows.map((x) => x.influencer_id))];
+              const inf = await os.query("SELECT id, name FROM influencers WHERE id = ANY($1)", [infIds]);
+              const nameOf = Object.fromEntries(inf.rows.map((x) => [x.id, x.name]));
+              for (const o of r.rows)
+                console.log(`${o.order_number} [${o.status}] ${Number(o.total_amount).toLocaleString()}원 → @${nameOf[o.influencer_id] || "?"} (요율 ${o.influencer_rate ?? "없음"})`);
+              console.log("총", r.rows.length, "건");
+              if (process.env.APPLY !== "true") { console.log("(미리보기 — 반영 안 함)"); await shop.end(); await os.end(); return; }
+              let n = 0;
+              for (const o of r.rows) {
+                if (!nameOf[o.influencer_id]) continue; // 인플루언서 행이 없으면 건너뜀
+                const u = await shop.query(
+                  `UPDATE orders SET influencer_id = $1, influencer_name = $2, commission_rate = $3
+                    WHERE id = $4 AND influencer_id IS NULL`,
+                  [o.influencer_id, nameOf[o.influencer_id], o.influencer_rate ?? null, o.id]);
+                n += u.rowCount;
+              }
+              console.log("===APPLIED=== ", n, "건 귀속 반영");
+              await shop.end(); await os.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
