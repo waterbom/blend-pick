@@ -113,6 +113,15 @@ export default function ProductDetail({
   const [cartDone, setCartDone] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
 
+  // 맨 위로 버튼 — 한 화면 이상 내려가면 우하단에 표시 (기존 플로팅 버튼들 위)
+  const [showTop, setShowTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 600);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   // 판매 시간창 실시간 판정 — 페이지를 열어둔 채 오픈 시각이 되면 새로고침 없이 버튼이 활성화됨
   // (서버가 준 시각 기준, 결제 승인 단계에서 서버가 한 번 더 검증하므로 기기 시계가 빨라도 안전)
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -534,31 +543,6 @@ export default function ProductDetail({
         </div>
       </div>
 
-      {/* 추가 이미지 — 세로 정렬 (원본이 커도 한눈에 보이게 폭 제한) */}
-      {images.length > 1 && (
-        <div className="mb-8 space-y-2 max-w-xl mx-auto">
-          {images.slice(1).map((img, i) => (
-            <FallbackImg
-              key={img.id ?? i}
-              src={img.url}
-              alt={`상세 이미지 ${i + 1}`}
-              className="w-full rounded-xl object-contain"
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 상품 상세 HTML */}
-      {product.description && (
-        <div className="mb-16">
-          <div
-            className="text-sm leading-relaxed product-desc max-w-xl mx-auto"
-            style={{ color: "var(--text-secondary)" }}
-            dangerouslySetInnerHTML={{ __html: product.description }}
-          />
-        </div>
-      )}
-
       {/* 리뷰 섹션 */}
       <div id="review">
         <h2 className="text-base font-bold mb-4" style={{ color: "var(--text-primary)" }}>
@@ -597,6 +581,44 @@ export default function ProductDetail({
           </div>
         )}
       </div>
+
+      {/* 추가 이미지 — 세로 정렬 (원본이 커도 한눈에 보이게 폭 제한) */}
+      {images.length > 1 && (
+        <div className="mb-8 space-y-2 max-w-xl mx-auto">
+          {images.slice(1).map((img, i) => (
+            <FallbackImg
+              key={img.id ?? i}
+              src={img.url}
+              alt={`상세 이미지 ${i + 1}`}
+              className="w-full rounded-xl object-contain"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 상품 상세 HTML */}
+      {product.description && (
+        <div className="mb-16">
+          <div
+            className="text-sm leading-relaxed product-desc max-w-xl mx-auto"
+            style={{ color: "var(--text-secondary)" }}
+            dangerouslySetInnerHTML={{ __html: product.description }}
+          />
+        </div>
+      )}
+
+
+      {/* 맨 위로 — 문의·오픈예정 플로팅 버튼 위에 표시 */}
+      {showTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="맨 위로"
+          className="fixed right-6 z-40 w-11 h-11 rounded-full shadow-lg text-lg font-bold transition-opacity"
+          style={{ bottom: "150px", background: "#fff", border: "1.5px solid var(--line)", color: "var(--text-primary)" }}
+        >
+          ↑
+        </button>
+      )}
     </div>
   );
 }
