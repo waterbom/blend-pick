@@ -1,6 +1,7 @@
 "use client";
 
 import { validateBuyerName } from "@/lib/validate-name";
+import { tossMobilePhone, payErrorMessage } from "@/lib/pay-utils";
 import { useState, useEffect } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { WON, REFUND_POLICY, PARTNER_BENEFITS, refundRateFor, type PkgKey, type RoomType } from "@/lib/hotel";
@@ -181,11 +182,14 @@ export default function HotelCheckoutClient({
         successUrl: `${window.location.origin}/checkout/hotel-success`,
         failUrl: `${window.location.origin}/checkout/fail`,
         customerName: form.name,
-        customerMobilePhone: form.phone.replace(/-/g, ""),
+        customerMobilePhone: tossMobilePhone(form.phone),
         card: PAY_CARD_OPTS[method],
       });
     } catch (e) {
+      // 결제창을 못 연 이유를 사용자에게 알림 (창 닫기 취소는 조용히 무시)
       console.error(e);
+      const msg = payErrorMessage(e);
+      if (msg) alert(msg);
       setLoading(false);
     }
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { validateBuyerName } from "@/lib/validate-name";
+import { tossMobilePhone, payErrorMessage } from "@/lib/pay-utils";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
@@ -147,10 +148,13 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
         failUrl: `${window.location.origin}/checkout/fail`,
         customerName: form.customerName,
         customerEmail: form.customerEmail || undefined,
-        customerMobilePhone: form.customerPhone.replace(/-/g, ""),
+        customerMobilePhone: tossMobilePhone(form.customerPhone),
       });
     } catch (e) {
+      // 결제창을 못 연 이유를 사용자에게 알림 (창 닫기 취소는 조용히 무시)
       console.error(e);
+      const msg = payErrorMessage(e);
+      if (msg) alert(msg);
       setLoading(false);
     }
   }
