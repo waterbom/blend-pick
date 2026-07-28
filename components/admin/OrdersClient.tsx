@@ -227,6 +227,29 @@ export default function OrdersClient() {
     ...dashTabs,
   ];
 
+  // 개별 주문 취소 — 토스 전액 환불 + 상태 취소 + 재고 복원까지 서버가 한 번에 처리
+  const CANCELLABLE = ["paid", "confirmed", "preparing", "cancel_requested"];
+  async function handleCancelOne(o: { id: string; order_number: string; buyer_name: string; total_amount: number }) {
+    if (!confirm(
+      `${o.order_number} (${o.buyer_name}) 주문을 취소할까요?\n결제금액 ${Number(o.total_amount).toLocaleString()}원이 토스로 전액 환불됩니다.`
+    )) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${o.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(d.error || "취소에 실패했어요."); return; }
+      await load(statusFilter);
+    } catch {
+      alert("네트워크 문제로 취소 요청이 전달되지 않았어요. 목록을 새로고침해 상태를 확인해주세요.");
+    } finally {
+      setActing(false);
+    }
+  }
+
   // 상태 변경 없이 선택 주문의 발주 엑셀만 다시 다운로드 (분실/재출력용)
   function handleDownloadOnly() {
     const selectedOrders = orders.filter((o) => selected.has(o.id));
@@ -441,7 +464,13 @@ export default function OrdersClient() {
                               {STATUS_LABEL[o.status] ?? o.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            {CANCELLABLE.includes(o.status) && (
+                              <button onClick={() => handleCancelOne(o)} disabled={acting}
+                                className="text-xs text-red-400 hover:text-red-600 font-bold mr-3 disabled:opacity-50">
+                                취소
+                              </button>
+                            )}
                             <Link href={`/admin/orders/${o.id}`} className="text-xs text-[#2D5A27] hover:text-[#244B1F] font-bold">
                               상세
                             </Link>

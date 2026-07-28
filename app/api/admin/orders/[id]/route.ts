@@ -38,6 +38,40 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
+  // 취소 전환은 상태 변경 전에 토스 전액 환불부터 — 환불 실패 시 상태를 건드리지 않는다
+  // (호텔 취소 엔진과 같은 순서. 환불 성공 후 DB가 실패해도 재시도 시
+  //  ALREADY_CANCELED_PAYMENT를 정상 처리해 이어서 진행된다)
+  if (status === "cancelled") {
+    const cur = await shopPool.query(
+      `SELECT status, payment_key FROM orders WHERE id = $1`, [id]
+    );
+    const ord = cur.rows[0];
+    if (!ord) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    if (ord.status !== "cancelled" && ord.payment_key && !ord.payment_key.startsWith("SIM_")) {
+      const secretKey = process.env.TOSS_SECRET_KEY;
+      const tossRes = await fetch(
+        `https://api.tosspayments.com/v1/payments/${ord.payment_key}/cancel`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ cancelReason: "관리자 주문 취소" }),
+        }
+      );
+      if (!tossRes.ok) {
+        const e = await tossRes.json().catch(() => ({}));
+        if (e.code !== "ALREADY_CANCELED_PAYMENT") {
+          return NextResponse.json(
+            { error: e.message || "결제 환불에 실패했어요. 토스 상점관리자에서 결제 상태를 확인해주세요." },
+            { status: 400 }
+          );
+        }
+      }
+    }
+  }
+
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
