@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
+import { cancelShopOrder } from "@/lib/order-cancel";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -97,6 +98,28 @@ export async function PATCH(req: Request) {
 
   const t = TRANSITIONS[action];
   if (!t) return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+
+  // 취소요청 승인은 단순 상태 변경이 아니라 환불이 걸린 작업 — 건별로 취소 엔진을 태운다
+  // (토스 전액 환불 → 상태 취소 → 재고 복원, 환불 실패 건은 상태 유지하고 건수로 보고)
+  if (action === "cancel_confirm") {
+    const targets = await shopPool.query(
+      `SELECT id FROM orders WHERE id = ANY($1::uuid[]) AND status = 'cancel_requested'`,
+      [orderIds]
+    );
+    let updated = 0;
+    const failed: string[] = [];
+    for (const row of targets.rows) {
+      const r = await cancelShopOrder(row.id, "관리자 취소요청 승인");
+      if (r.ok) updated++;
+      else failed.push(r.error);
+    }
+    return NextResponse.json({
+      ok: failed.length === 0,
+      updated,
+      failed: failed.length,
+      ...(failed.length ? { error: `환불 실패 ${failed.length}건 — ${failed[0]}` } : {}),
+    });
+  }
 
   const result = await shopPool.query(
     `UPDATE orders SET status = $1     WHERE id = ANY($2::uuid[]) AND status = $3`,

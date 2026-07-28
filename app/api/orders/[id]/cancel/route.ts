@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
+import { cancelShopOrder } from "@/lib/order-cancel";
 
 // POST /api/orders/[id]/cancel
 // paid 상태 → 즉시 cancelled (어드민 확인 불필요)
@@ -37,20 +38,28 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return NextResponse.json({ error: "이미 배송이 시작되어 취소할 수 없습니다" }, { status: 400 });
   }
 
-  // paid → 즉시 취소
-  // confirmed/preparing → 취소요청 (어드민 확인 후 처리)
-  const newStatus = order.status === "paid" ? "cancelled" : "cancel_requested";
+  // paid → 즉시 취소 (토스 전액 환불 + 재고 복원까지 — 환불 실패 시 상태 유지)
+  // confirmed/preparing → 취소요청 (어드민 확인 시 환불 처리)
+  if (order.status === "paid") {
+    const r = await cancelShopOrder(id, "고객 주문 취소");
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.httpStatus });
+    return NextResponse.json({
+      ok: true,
+      status: "cancelled",
+      message: r.refunded
+        ? "주문이 취소되었습니다. 결제하신 금액은 전액 환불 처리됐어요. (카드사에 따라 3~5일 소요)"
+        : "주문이 취소되었습니다.",
+    });
+  }
 
   await shopPool.query(
-    `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2`,
-    [newStatus, id]
+    `UPDATE orders SET status = 'cancel_requested', updated_at = NOW() WHERE id = $1`,
+    [id]
   );
 
   return NextResponse.json({
     ok: true,
-    status: newStatus,
-    message: newStatus === "cancelled"
-      ? "주문이 취소되었습니다."
-      : "취소 신청이 접수되었습니다. 확인 후 처리됩니다.",
+    status: "cancel_requested",
+    message: "취소 신청이 접수되었습니다. 확인 후 환불 처리됩니다.",
   });
 }

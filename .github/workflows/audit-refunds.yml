@@ -1,0 +1,57 @@
+name: Audit Refunds
+
+# 취소된 일반 주문(호텔 제외) 중 토스 환불이 안 된 건을 점검 — 읽기 전용.
+# 토스 결제 조회 API의 balanceAmount(남은 결제 잔액)가 0보다 크면 환불 누락.
+# 로그엔 주문번호·금액·취소일만 출력 (이름·연락처 없음)
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const auth = "Basic " + Buffer.from(process.env.TOSS_SECRET_KEY + ":").toString("base64");
+            (async () => {
+              const r = await shop.query(`
+                SELECT order_number, payment_key, total_amount,
+                       to_char(COALESCE(cancelled_at, updated_at) AT TIME ZONE \x27Asia/Seoul\x27, \x27MM/DD\x27) AS cx
+                  FROM orders
+                 WHERE status = \x27cancelled\x27 AND order_type <> \x27hotel\x27
+                   AND payment_key IS NOT NULL AND payment_key NOT LIKE \x27SIM_%\x27
+                 ORDER BY cancelled_at NULLS LAST`);
+              console.log("점검 대상(취소된 실결제 일반주문):", r.rows.length, "건");
+              let missing = 0, err = 0, okCnt = 0;
+              for (const o of r.rows) {
+                try {
+                  const res = await fetch("https://api.tosspayments.com/v1/payments/" + o.payment_key, {
+                    headers: { Authorization: auth } });
+                  if (!res.ok) { err++; console.log(` ? ${o.order_number} — 토스 조회 실패 (${res.status})`); continue; }
+                  const p = await res.json();
+                  const bal = Number(p.balanceAmount ?? 0);
+                  if (bal > 0) { missing++; console.log(` ✗ ${o.order_number} — 미환불 ${bal.toLocaleString()}원 / 결제 ${Number(o.total_amount).toLocaleString()}원 / 취소 ${o.cx} / 토스상태 ${p.status}`); }
+                  else okCnt++;
+                } catch (e) { err++; console.log(` ? ${o.order_number} — 조회 오류: ${e.message}`); }
+              }
+              console.log(`결과: 환불 완료 ${okCnt}건 / 미환불 ${missing}건 / 조회 실패 ${err}건`);
+              if (missing === 0 && err === 0) console.log("✅ 환불 누락 없음");
+              await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
