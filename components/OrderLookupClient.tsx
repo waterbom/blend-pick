@@ -49,8 +49,8 @@ export default function OrderLookupClient() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-      <div className="ds-caption mb-2">GUEST ORDER LOOKUP</div>
-      <h1 className="ds-serif text-2xl font-semibold m-0 mb-6" style={{ color: "#1C2418" }}>비회원 주문 조회</h1>
+      <div className="ds-caption mb-2">ORDER LOOKUP</div>
+      <h1 className="ds-serif text-2xl font-semibold m-0 mb-6" style={{ color: "#1C2418" }}>주문 조회</h1>
 
       {!orders && (
         <div className="ds-card p-6">

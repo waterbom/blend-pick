@@ -244,7 +244,7 @@ export default function HeaderClient({
             className="block px-5 py-3.5 text-sm font-medium"
             style={{ color: "var(--text-muted)" }}
           >
-            비회원 주문 조회
+            주문 조회
           </Link>
         </nav>
       )}
