@@ -291,7 +291,7 @@ export default async function MyPage() {
                           </a>
                         )}
                         {(order.status === "paid" || order.status === "confirmed") && (
-                          <CancelOrderButton orderId={order.id} />
+                          <CancelOrderButton orderId={order.id} status={order.status} />
                         )}
                         {order.status === "delivered" && (
                           order.items[0]?.reviewed ? (

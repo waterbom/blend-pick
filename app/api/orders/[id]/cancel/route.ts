@@ -60,6 +60,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   return NextResponse.json({
     ok: true,
     status: "cancel_requested",
-    message: "취소 신청이 접수되었습니다. 확인 후 환불 처리됩니다.",
+    message:
+      "취소 요청이 접수되었습니다. 확인 후 환불 처리되며, 단순 변심에 의한 취소는 배송비를 제외한 금액이 환불됩니다.",
   });
 }

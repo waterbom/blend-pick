@@ -83,7 +83,7 @@ export async function PATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { orderIds, action } = await req.json();
+  const { orderIds, action, deduct_shipping } = await req.json();
   if (!Array.isArray(orderIds) || orderIds.length === 0) {
     return NextResponse.json({ error: "주문 ID가 없습니다" }, { status: 400 });
   }
@@ -109,7 +109,11 @@ export async function PATCH(req: Request) {
     let updated = 0;
     const failed: string[] = [];
     for (const row of targets.rows) {
-      const r = await cancelShopOrder(row.id, "관리자 취소요청 승인");
+      const r = await cancelShopOrder(
+        row.id,
+        deduct_shipping ? "취소요청 승인 (단순 변심)" : "취소요청 승인",
+        { deductShipping: !!deduct_shipping }
+      );
       if (r.ok) updated++;
       else failed.push(r.error);
     }

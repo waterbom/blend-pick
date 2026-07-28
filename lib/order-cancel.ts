@@ -12,20 +12,31 @@ export type ShopCancelResult =
  */
 export async function cancelShopOrder(
   orderId: string,
-  reason: string
+  reason: string,
+  opts: { deductShipping?: boolean } = {}
 ): Promise<ShopCancelResult> {
   const { rows } = await shopPool.query(
-    `SELECT status, payment_key FROM orders WHERE id = $1 AND order_type <> 'hotel'`,
+    `SELECT status, payment_key, total_amount, COALESCE(shipping_fee, 0) AS shipping_fee
+       FROM orders WHERE id = $1 AND order_type <> 'hotel'`,
     [orderId]
   );
   const ord = rows[0];
   if (!ord) return { ok: false, error: "주문을 찾을 수 없습니다.", httpStatus: 404 };
   if (ord.status === "cancelled") return { ok: true, alreadyCancelled: true, refunded: false };
 
-  // 1) 토스 전액 환불 (실결제 건만 — 시뮬레이션 키는 스킵)
+  // 환불액 — 단순 변심 승인 시 배송비 차감 (고객 안내 문구와 일치)
+  const total = Number(ord.total_amount);
+  const deduct = opts.deductShipping ? Math.min(Number(ord.shipping_fee), total) : 0;
+  const refundAmount = total - deduct;
+
+  // 1) 토스 환불 (실결제 건만 — 시뮬레이션 키는 스킵, 차감 시 부분 환불)
   let refunded = false;
-  if (ord.payment_key && !ord.payment_key.startsWith("SIM_")) {
+  if (ord.payment_key && !ord.payment_key.startsWith("SIM_") && refundAmount > 0) {
     const secretKey = process.env.TOSS_SECRET_KEY;
+    const body: Record<string, unknown> = {
+      cancelReason: deduct > 0 ? `${reason} (배송비 ${deduct.toLocaleString()}원 차감)` : reason,
+    };
+    if (refundAmount < total) body.cancelAmount = refundAmount;
     const tossRes = await fetch(
       `https://api.tosspayments.com/v1/payments/${ord.payment_key}/cancel`,
       {
@@ -34,7 +45,7 @@ export async function cancelShopOrder(
           Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ cancelReason: reason }),
+        body: JSON.stringify(body),
       }
     );
     if (tossRes.ok) {

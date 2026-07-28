@@ -260,17 +260,29 @@ export default function ShipmentsClient() {
     setDelivering(false);
   }
 
-  async function handleTabAction(action: string, label: string) {
+  async function handleTabAction(action: string, label: string, deductShipping = false) {
     if (selected.size === 0) return;
-    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?`)) return;
+    const extra = action === "cancel_confirm"
+      ? deductShipping
+        ? "\n각 주문의 배송비를 뺀 금액이 토스로 환불됩니다."
+        : "\n결제 금액이 토스로 전액 환불됩니다."
+      : "";
+    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?${extra}`)) return;
     setActing(true);
-    await fetch("/api/admin/orders", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderIds: [...selected], action }),
-    });
-    await load(tab);
-    setActing(false);
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.error) alert(d.error || "처리에 실패했어요.");
+      await load(tab);
+    } catch {
+      alert("네트워크 문제로 요청이 전달되지 않았어요. 목록을 새로고침해 확인해주세요.");
+    } finally {
+      setActing(false);
+    }
   }
 
   const carrierName = carriers.find((c) => c.code === carrierCode)?.name ?? "";
@@ -439,11 +451,25 @@ export default function ShipmentsClient() {
       {tabAction && (
         <>
           {selected.size > 0 && (
-            <div className="mb-3">
-              <button onClick={() => handleTabAction(tabAction.action, tabAction.label)} disabled={acting}
-                className={`text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 ${tabAction.color}`}>
-                {acting ? "처리 중..." : `${tabAction.label} (${selected.size}건)`}
-              </button>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {tab === "cancel_requested" ? (
+                <>
+                  {/* 취소 승인 = 토스 환불 실행 — 사유에 따라 전액 / 배송비 차감(단순 변심) 선택 */}
+                  <button onClick={() => handleTabAction("cancel_confirm", "취소 승인 · 전액 환불")} disabled={acting}
+                    className="text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 bg-red-500 hover:bg-red-600">
+                    {acting ? "처리 중..." : `취소 승인 · 전액 환불 (${selected.size}건)`}
+                  </button>
+                  <button onClick={() => handleTabAction("cancel_confirm", "취소 승인 · 배송비 차감(단순 변심)", true)} disabled={acting}
+                    className="text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 bg-orange-500 hover:bg-orange-600">
+                    {acting ? "처리 중..." : `취소 승인 · 배송비 차감 (${selected.size}건)`}
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => handleTabAction(tabAction.action, tabAction.label)} disabled={acting}
+                  className={`text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 ${tabAction.color}`}>
+                  {acting ? "처리 중..." : `${tabAction.label} (${selected.size}건)`}
+                </button>
+              )}
             </div>
           )}
           <OrderTable orders={orders} loading={loading} selected={selected} onToggleGroup={toggleGroup}
