@@ -69,6 +69,11 @@ const ORDER_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
   shop:     { label: "상품",     cls: "bg-slate-100 text-slate-600" },
 };
 
+// 공동구매 판별 — 지금 공구는 상품 상세(?inf= 링크·쿠키 귀속)로 팔려 order_type이 'shop'으로
+// 저장되므로, 인플루언서가 귀속된 주문은 전부 공동구매로 분류한다 (옛 캠페인 링크 주문 포함)
+const isCampaign = (o: { order_type: string; influencer_name: string | null }) =>
+  o.order_type === "campaign" || !!o.influencer_name;
+
 const COLUMNS = [
   "주문일시", "주문일자", "주문시간", "주문번호", "구매자", "구매자번호",
   "수령인", "수령인번호", "수령인주소", "우편번호",
@@ -126,14 +131,17 @@ export default function OrdersClient() {
   useEffect(() => { load(statusFilter); }, [statusFilter]);
 
   const visibleOrders = useMemo(
-    () => (typeFilter ? orders.filter((o) => o.order_type === typeFilter) : orders),
+    () =>
+      typeFilter === "campaign" ? orders.filter(isCampaign)
+      : typeFilter === "shop" ? orders.filter((o) => !isCampaign(o))
+      : orders,
     [orders, typeFilter]
   );
 
   const typeCounts = useMemo(() => {
     let shop = 0, campaign = 0;
     for (const o of orders) {
-      if (o.order_type === "campaign") campaign++;
+      if (isCampaign(o)) campaign++;
       else shop++;
     }
     return { all: orders.length, shop, campaign };
@@ -374,7 +382,7 @@ export default function OrdersClient() {
             const groupSelected = groupOrders.every((o) => selected.has(o.id));
             const groupPartial = groupOrders.some((o) => selected.has(o.id)) && !groupSelected;
             const productCode = groupOrders[0]?.items[0]?.product_code;
-            const typeBadge = ORDER_TYPE_BADGE[groupOrders[0]?.order_type] ?? ORDER_TYPE_BADGE.shop;
+            const typeBadge = groupOrders[0] && isCampaign(groupOrders[0]) ? ORDER_TYPE_BADGE.campaign : ORDER_TYPE_BADGE.shop;
 
             return (
               <div key={productName} className="bg-white rounded-none border border-gray-100 overflow-hidden">
