@@ -102,6 +102,11 @@ export async function GET(req: Request) {
   }
   const where = `WHERE ${conds.join(" AND ")}`;
 
+  // 공급가 미입력 상품이 담긴 주문은 손익에서 통째로 제외 — 원가 0원으로 잡혀
+  // 순이익이 부풀려 보이는 것을 막는다. 제외 건수는 별도 집계해 행에 표시.
+  const hasMissingSupply = `EXISTS (SELECT 1 FROM order_items mi WHERE mi.order_id = o.id AND mi.supply_price IS NULL)`;
+  const whereComplete = `${where} AND NOT ${hasMissingSupply}`;
+
   // 1) 주문 단위 집계: 매출 + PG수수료 (settlements 1:1 조인이라 안전)
   //    미정산 건 수수료 추정: 계좌이체 1.65%, 그 외 카드 3.63% (settlements 생성 로직과 동일 기준)
   const ordersQ = shopPool.query(
@@ -116,19 +121,27 @@ export async function GET(req: Request) {
             BOOL_OR(s.id IS NULL) AS fee_estimated
      FROM orders o
      LEFT JOIN settlements s ON s.order_id = o.id
-     ${where}
+     ${whereComplete}
      GROUP BY o.campaign_id`,
     params
   );
 
-  // 2) 아이템 단위 집계: 공급가 (수량 곱), 공급가 미입력 아이템 수
+  // 2) 아이템 단위 집계: 공급가 (수량 곱) — 공급가 완비 주문만
   const itemsQ = shopPool.query(
     `SELECT o.campaign_id,
             COALESCE(SUM(oi.supply_price * oi.quantity), 0) AS supply_cost,
-            COUNT(*) FILTER (WHERE oi.supply_price IS NULL) AS missing_supply,
             COALESCE(SUM(oi.quantity), 0) AS qty
      FROM orders o JOIN order_items oi ON oi.order_id = o.id
-     ${where}
+     ${whereComplete}
+     GROUP BY o.campaign_id`,
+    params
+  );
+
+  // 2-1) 공급가 미입력으로 제외된 주문 수 (행에 안내용)
+  const excludedQ = shopPool.query(
+    `SELECT o.campaign_id, COUNT(*) AS excluded
+     FROM orders o
+     ${where} AND ${hasMissingSupply}
      GROUP BY o.campaign_id`,
     params
   );
@@ -150,15 +163,16 @@ export async function GET(req: Request) {
   const shopCommQ = shopPool.query(
     `SELECT COALESCE(SUM(ROUND((o.total_amount - o.shipping_fee) * o.commission_rate / 100)), 0) AS comm
      FROM orders o
-     ${where} AND o.campaign_id IS NULL AND o.influencer_id IS NOT NULL AND o.commission_rate IS NOT NULL`,
+     ${whereComplete} AND o.campaign_id IS NULL AND o.influencer_id IS NOT NULL AND o.commission_rate IS NOT NULL`,
     params
   );
 
-  const [orders, items, costs, hotel, shopComm] = await Promise.all([ordersQ, itemsQ, costsQ, channel ? Promise.resolve([]) : hotelRows(), shopCommQ]);
+  const [orders, items, costs, hotel, shopComm, excluded] = await Promise.all([ordersQ, itemsQ, costsQ, channel ? Promise.resolve([]) : hotelRows(), shopCommQ, excludedQ]);
   if (orders.rows.length === 0) return NextResponse.json(hotel);
 
   const itemMap = new Map(items.rows.map((r) => [r.campaign_id, r]));
   const costMap = new Map(costs.rows.map((r) => [r.campaign_id, r]));
+  const excludedMap = new Map(excluded.rows.map((r) => [r.campaign_id, Number(r.excluded)]));
 
   // 4) OS: 공구/인플루언서 정보
   const campaignIds = orders.rows.map((r) => r.campaign_id).filter(Boolean);
@@ -209,7 +223,7 @@ export async function GET(req: Request) {
       gross,
       sales_vat: salesVat,
       supply_cost: supplyCost,
-      missing_supply: Number(item?.missing_supply ?? 0),
+      missing_supply: excludedMap.get(o.campaign_id) ?? 0, // 공급가 미입력으로 제외된 주문 수
       shipping_cost: shippingCost,
       pg_fee: pgFee,
       fee_estimated: o.fee_estimated,

@@ -187,7 +187,7 @@ export default function ProfitClient() {
                   <td className={`${td} text-right text-gray-500`}>
                     −{WON(r.supply_cost)}
                     {r.missing_supply > 0 && (
-                      <span className="text-red-400 ml-1" title={`공급가 미입력 ${r.missing_supply}건`}>⚠</span>
+                      <span className="text-red-400 ml-1" title={`공급가 미입력 주문 ${r.missing_supply}건 제외됨`}>⚠</span>
                     )}
                   </td>
                   <td className={`${td} text-right text-gray-500`}>−{WON(r.shipping_cost)}</td>
@@ -230,7 +230,7 @@ export default function ProfitClient() {
 
       <p className="text-xs text-gray-400 mt-4">
         · PG수수료 "예상" = 아직 배송완료(정산 생성) 전 주문이 포함되어 요율(카드 3.63% / 이체 1.65%)로 추정한 금액입니다.
-        <br />· ⚠ = 공급가 미입력 주문 포함 또는 수수료율 미설정 — 상품/공구 관리에서 입력하면 정확해집니다.
+        <br />· ⚠(공급가) = 공급가 미입력 상품이 담긴 주문은 손익에서 제외됩니다 — 상품 관리에서 공급가를 입력하면 자동 포함돼요. ⚠(수수료) = 수수료율 미설정.
         <br />· 기간 필터는 주문(결제일) 기준이며, 공구별 배송비/기타비용은 공구 단위 입력값이 그대로 반영됩니다.
         <br />· 호텔 공구: 대행 모델 — 공급가(호텔 정산분) 88%. 부가세는 순납부 예상액(매출부가세 − 인플·토스 매입세액공제). 순이익 = 12% − 부가세(순납부) − 인플루언서 정산 5%(귀속 주문만) − 토스 1.7% ≈ 매출의 4.82% (세후 실질). 인플루언서 지급은 [공구 정산]에서 실행됩니다.
       </p>
