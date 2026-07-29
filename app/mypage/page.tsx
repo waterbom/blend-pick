@@ -43,6 +43,8 @@ async function getOrders(userId: string) {
       `SELECT
         o.id, o.order_number, o.total_amount, o.status, o.paid_at,
         o.tracking_company, o.tracking_number,
+        to_char(o.shipped_at   AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS shipped_kst,
+        to_char(o.delivered_at AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS delivered_kst,
         json_agg(
           json_build_object(
             'product_id', oi.product_id,
@@ -254,9 +256,9 @@ export default async function MyPage() {
                       ))}
                     </div>
 
-                    {/* 상태 타임라인 — 결제 완료 → 상품 준비 → 배송 중 → 배송 완료 */}
+                    {/* 상태 타임라인 — 결제 완료 → 상품 준비 → 배송 중 → 배송 완료 (발송·완료일 병기) */}
                     {["paid", "confirmed", "preparing", "shipped", "delivered"].includes(order.status) && (
-                      <div className="flex items-center px-5 pb-3">
+                      <div className="flex flex-wrap items-center gap-y-1 px-5 pb-3">
                         {(() => {
                           const stepIdx = order.status === "delivered" ? 3 : order.status === "shipped" ? 2 : order.status === "preparing" ? 1 : 0;
                           return ["결제 완료", "상품 준비", "배송 중", "배송 완료"].map((label, i) => (
@@ -266,6 +268,13 @@ export default async function MyPage() {
                             </span>
                           ));
                         })()}
+                        {(order.shipped_kst || order.delivered_kst) && (
+                          <span className="ds-mono text-[10.5px] ml-3" style={{ color: "#8B927F" }}>
+                            {order.shipped_kst && `발송 ${order.shipped_kst}`}
+                            {order.shipped_kst && order.delivered_kst && " · "}
+                            {order.delivered_kst && `완료 ${order.delivered_kst}`}
+                          </span>
+                        )}
                       </div>
                     )}
 

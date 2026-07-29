@@ -12,6 +12,8 @@ interface LookupOrder {
   total_amount: number;
   tracking_company: string | null;
   tracking_number: string | null;
+  shipped_kst: string | null;
+  delivered_kst: string | null;
   paid_date: string | null;
   check_in: string | null;
   check_out: string | null;
@@ -107,6 +109,11 @@ export default function OrderLookupClient() {
                   ))}
                   {isHotel && o.check_in && (
                     <p className="text-xs mt-1" style={{ color: "#8B927F" }}>{o.check_in} 입실 ~ {o.check_out} 퇴실</p>
+                  )}
+                  {(o.shipped_kst || o.delivered_kst) && (
+                    <p className="ds-mono text-[11px] mt-1" style={{ color: "#8B927F" }}>
+                      {o.shipped_kst ? `발송 ${o.shipped_kst}` : ""}{o.shipped_kst && o.delivered_kst ? " · " : ""}{o.delivered_kst ? `배송완료 ${o.delivered_kst}` : ""}
+                    </p>
                   )}
                   <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: "1px solid #E4E1D6" }}>
                     <span className="ds-mono text-sm font-semibold" style={{ color: "#1C2418" }}>

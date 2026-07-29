@@ -84,6 +84,8 @@ export async function PATCH(
     const { rows } = await client.query(
       `UPDATE orders
        SET status = $1,
+           shipped_at   = CASE WHEN $1 = 'shipped'   THEN COALESCE(shipped_at, NOW())   ELSE shipped_at END,
+           delivered_at = CASE WHEN $1 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
            tracking_company = COALESCE($3, tracking_company),
            tracking_number  = COALESCE($4, tracking_number)
        WHERE id = $2

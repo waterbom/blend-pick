@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
   const r = await shopPool.query(
     `SELECT o.id, o.order_number, o.order_type, o.status, o.total_amount,
             o.tracking_company, o.tracking_number,
+            to_char(o.shipped_at   AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS shipped_kst,
+            to_char(o.delivered_at AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS delivered_kst,
             to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS paid_date,
             to_char(o.stay_check_in, 'YYYY-MM-DD') AS check_in,
             to_char(o.stay_check_out, 'YYYY-MM-DD') AS check_out,

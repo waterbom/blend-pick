@@ -42,6 +42,7 @@ export async function POST(req: Request) {
       const { rowCount } = await client.query(
         `UPDATE orders
          SET status = 'shipped',
+             shipped_at = COALESCE(shipped_at, NOW()),
              tracking_company = $2,
              tracking_number  = $3
          WHERE order_number = $1

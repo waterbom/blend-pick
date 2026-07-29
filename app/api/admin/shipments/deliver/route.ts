@@ -32,7 +32,7 @@ export async function PATCH(req: Request) {
     await client.query("BEGIN");
 
     const { rows: orders } = await client.query(
-      `UPDATE orders SET status = 'delivered'
+      `UPDATE orders SET status = 'delivered', delivered_at = COALESCE(delivered_at, NOW())
        WHERE id = ANY($1::uuid[]) AND status = 'shipped'
        RETURNING id, order_number, total_amount, payment_method, payment_key`,
       [orderIds]
