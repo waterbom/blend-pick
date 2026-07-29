@@ -50,3 +50,6 @@ scripts/backup-orders-*.json
 
 # 인플루언서 민감 서류 (public 밖, 절대 커밋 금지)
 private-uploads/
+
+# 고객 업로드 파일 (리뷰·교환반품 사진 — 런타임 생성, 커밋 금지)
+/public/uploads/
