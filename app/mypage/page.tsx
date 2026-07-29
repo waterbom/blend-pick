@@ -8,6 +8,7 @@ import WithdrawButton from "@/components/WithdrawButton";
 import CancelOrderButton from "@/components/CancelOrderButton";
 import Link from "next/link";
 import { carrierName, trackingUrl } from "@/lib/carriers";
+import { RETURN_KIND_LABEL } from "@/lib/returns";
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   customer: { label: "일반 고객", color: "bg-gray-100 text-gray-600" },
@@ -45,6 +46,14 @@ async function getOrders(userId: string) {
         o.tracking_company, o.tracking_number,
         to_char(o.shipped_at   AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS shipped_kst,
         to_char(o.delivered_at AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS delivered_kst,
+        (SELECT json_build_object('kind', r.kind, 'status', r.status,
+                'created_kst', to_char(r.created_at AT TIME ZONE 'Asia/Seoul', 'MM/DD'))
+           FROM order_returns r WHERE r.order_id = o.id
+          ORDER BY r.created_at DESC LIMIT 1) AS latest_return,
+        (SELECT e.note FROM order_return_events e
+           JOIN order_returns r2 ON r2.id = e.return_id
+          WHERE r2.order_id = o.id AND e.status = 'rejected'
+          ORDER BY e.created_at DESC LIMIT 1) AS return_reject_note,
         json_agg(
           json_build_object(
             'product_id', oi.product_id,
@@ -278,6 +287,36 @@ export default async function MyPage() {
                       </div>
                     )}
 
+                    {/* 교환·반품 진행 타임라인 — 신청 접수 → 수거·처리 중 → 완료 */}
+                    {order.latest_return && order.latest_return.status !== "rejected" && (
+                      <div className="flex flex-wrap items-center gap-y-1 px-5 pb-3">
+                        {(() => {
+                          const r = order.latest_return;
+                          const kindLabel = RETURN_KIND_LABEL[r.kind] ?? r.kind;
+                          const stepIdx = r.status === "done" ? 2 : r.status === "collecting" ? 1 : 0;
+                          return (
+                            <>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 mr-2 shrink-0"
+                                style={{ color: "#6D28D9", background: "#F3EFFB" }}>{kindLabel}</span>
+                              {["신청 접수", "수거·처리 중", `${kindLabel} 완료`].map((label, i) => (
+                                <span key={label} className="flex items-center">
+                                  <span className="text-[10.5px] font-bold" style={{ color: i <= stepIdx ? "#6D28D9" : "#B4B0A2" }}>{label}</span>
+                                  {i < 2 && <span className="inline-block w-6 sm:w-8 h-px mx-1.5" style={{ background: i < stepIdx ? "#6D28D9" : "#E4E1D6" }} />}
+                                </span>
+                              ))}
+                              <span className="ds-mono text-[10.5px] ml-3" style={{ color: "#8B927F" }}>신청 {r.created_kst}</span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    {order.latest_return?.status === "rejected" && (
+                      <p className="px-5 pb-3 text-[11px] m-0" style={{ color: "#B08968" }}>
+                        교환·반품 신청이 거절되었어요.
+                        {order.return_reject_note ? ` 사유: ${order.return_reject_note}` : " 자세한 내용은 카카오 채널로 문의해주세요."}
+                      </p>
+                    )}
+
                     {/* 총액 + 버튼 */}
                     <div
                       className="flex items-center justify-between px-5 py-3.5"
@@ -301,6 +340,16 @@ export default async function MyPage() {
                         )}
                         {(order.status === "paid" || order.status === "confirmed") && (
                           <CancelOrderButton orderId={order.id} status={order.status} />
+                        )}
+                        {["shipped", "delivered"].includes(order.status) &&
+                          !(order.latest_return && ["requested", "collecting"].includes(order.latest_return.status)) && (
+                          <Link
+                            href={`/mypage/returns/new?order=${order.id}`}
+                            className="text-xs px-3.5 py-2 transition-colors"
+                            style={{ border: "1px solid #E4E1D6", color: "#4A5442" }}
+                          >
+                            교환·반품
+                          </Link>
                         )}
                         {order.status === "delivered" && (
                           order.items[0]?.reviewed ? (

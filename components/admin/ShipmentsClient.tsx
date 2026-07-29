@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { CORE_CARRIERS, carrierName as libCarrierName } from "@/lib/carriers";
 import { downloadXlsx } from "@/lib/xlsx-download";
+import ReturnsPanel from "@/components/admin/ReturnsPanel";
 
 interface OrderItem {
   product_name: string;
@@ -89,10 +90,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "cancelled",          label: "취소완료" },
 ];
 
-// 각 탭의 일괄처리 액션 정의
+// 각 탭의 일괄처리 액션 정의 — 교환·반품신청 탭은 건별 상세 패널(ReturnsPanel)로 처리
 const TAB_ACTION: Partial<Record<Tab, { action: string; label: string; color: string }>> = {
-  exchange_requested: { action: "exchange_complete", label: "교환완료 처리", color: "bg-violet-600 hover:bg-violet-700" },
-  return_requested:   { action: "return_complete",   label: "반품완료 처리", color: "bg-[#2D5A27] hover:bg-[#244B1F]" },
   cancel_requested:   { action: "cancel_confirm",    label: "취소 확인",     color: "bg-red-500 hover:bg-red-600" },
 };
 
@@ -461,7 +460,12 @@ export default function ShipmentsClient() {
         </>
       )}
 
-      {/* ── 액션 탭 (교환신청/반품신청/취소요청) ── */}
+      {/* ── 교환·반품 신청 탭 — 신청 상세(사유·사진·수거지) 보고 건별 처리 ── */}
+      {(tab === "exchange_requested" || tab === "return_requested") && (
+        <ReturnsPanel kind={tab === "exchange_requested" ? "exchange" : "return"} />
+      )}
+
+      {/* ── 액션 탭 (취소요청) ── */}
       {tabAction && (
         <>
           {selected.size > 0 && (
@@ -493,7 +497,7 @@ export default function ShipmentsClient() {
       )}
 
       {/* ── 조회 전용 탭 (배송완료/교환완료/반품완료/취소완료) ── */}
-      {!tabAction && tab !== "preparing" && tab !== "shipped" && (
+      {!tabAction && !["preparing", "shipped", "exchange_requested", "return_requested"].includes(tab) && (
         <OrderTable orders={orders} loading={loading} selected={new Set()}
           onToggleAll={() => {}} onToggle={() => {}} showTracking={tab === "delivered"}
           emptyText={`${TABS.find(t => t.key === tab)?.label} 주문이 없습니다`} />
