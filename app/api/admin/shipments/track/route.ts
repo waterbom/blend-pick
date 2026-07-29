@@ -21,7 +21,7 @@ async function fetchTrackingStatus(
   apiKey: string,
   trackingNumber: string,
   carrierCode: string
-): Promise<{ delivered: boolean; statusText: string } | null> {
+): Promise<{ delivered: boolean; statusText: string } | { error: string }> {
   try {
     const url = new URL("https://info.sweettracker.co.kr/api/v1/trackingInfo");
     url.searchParams.set("t_key", apiKey);
@@ -29,10 +29,11 @@ async function fetchTrackingStatus(
     url.searchParams.set("t_invoice", trackingNumber);
 
     const res = await fetch(url.toString(), { next: { revalidate: 0 } });
-    if (!res.ok) return null;
+    if (!res.ok) return { error: `HTTP ${res.status}` };
 
     const data = await res.json();
-    if (!data || data.status === false) return null;
+    // 스마트택배는 실패도 200으로 주고 msg에 사유를 담는다 (사용량 초과, 잘못된 운송장 등)
+    if (!data || data.status === false) return { error: data?.msg || "조회 실패" };
 
     // 배송완료 여부: level 6 = 배송완료
     const lastLevel = data.lastStateDetail?.level ?? 0;
@@ -41,7 +42,7 @@ async function fetchTrackingStatus(
       statusText: data.lastStateDetail?.text ?? "",
     };
   } catch {
-    return null;
+    return { error: "네트워크 오류" };
   }
 }
 
@@ -74,6 +75,8 @@ export async function POST() {
 
   const deliveredIds: string[] = [];
   const results: { order_number: string; status: string }[] = [];
+  let attempted = 0, failed = 0;
+  let firstError: string | null = null;
 
   for (const order of shippedOrders) {
     const code = toCarrierCode(order.tracking_company);
@@ -81,9 +84,12 @@ export async function POST() {
       results.push({ order_number: order.order_number, status: `택배사 미인식 (${order.tracking_company ?? "없음"}) — 운송장 다시 등록 필요` });
       continue;
     }
+    attempted++;
     const info = await fetchTrackingStatus(apiKey, order.tracking_number, code);
-    if (!info) {
-      results.push({ order_number: order.order_number, status: "조회 실패" });
+    if ("error" in info) {
+      failed++;
+      if (!firstError) firstError = info.error;
+      results.push({ order_number: order.order_number, status: `조회 실패 — ${info.error}` });
       continue;
     }
     results.push({ order_number: order.order_number, status: info.statusText || (info.delivered ? "배송완료" : "배송중") });
@@ -136,6 +142,9 @@ export async function POST() {
     ok: true,
     checked: shippedOrders.length,
     delivered: deliveredIds.length,
+    failed,
+    // 시도한 조회가 전부 같은 이유로 실패하면 API 자체 문제 (사용량 초과 등) — 화면에서 알림
+    apiError: attempted > 0 && failed === attempted ? firstError : null,
     results,
   });
 }

@@ -130,7 +130,7 @@ export default function ShipmentsClient() {
 
   const [delivering, setDelivering] = useState(false);
   const [tracking, setTracking] = useState(false);
-  const [trackResult, setTrackResult] = useState<{ checked: number; delivered: number } | null>(null);
+  const [trackResult, setTrackResult] = useState<{ checked: number; delivered: number; failed: number } | null>(null);
   const [acting, setActing] = useState(false);
 
   // 선택 주문 운송장 입력 모달
@@ -235,16 +235,24 @@ export default function ShipmentsClient() {
   async function handleTrack() {
     setTracking(true);
     setTrackResult(null);
-    const res = await fetch("/api/admin/shipments/track", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.error || "배송추적에 실패했습니다.");
+    try {
+      const res = await fetch("/api/admin/shipments/track", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || "배송추적에 실패했습니다.");
+        return;
+      }
+      setTrackResult({ checked: data.checked, delivered: data.delivered, failed: Number(data.failed) || 0 });
+      // 시도한 조회가 전부 실패 = 키·사용량 문제 — 조용히 넘어가지 않고 사유를 띄운다
+      if (data.apiError) {
+        alert(`배송추적 조회가 모두 실패했어요.\n\n사유: ${data.apiError}\n\nAPI 사용량(무료 한도) 초과가 흔한 원인이에요 — 스마트택배 플랜/키를 확인해주세요.`);
+      }
+      if (data.delivered > 0) await load("shipped");
+    } catch {
+      alert("네트워크 문제로 배송추적 요청이 전달되지 않았어요. 다시 시도해주세요.");
+    } finally {
       setTracking(false);
-      return;
     }
-    setTrackResult({ checked: data.checked, delivered: data.delivered });
-    if (data.delivered > 0) await load("shipped");
-    setTracking(false);
   }
 
   async function handleBulkDeliver() {
@@ -429,6 +437,9 @@ export default function ShipmentsClient() {
                 <span className={trackResult.delivered > 0 ? "text-green-600 font-bold" : "text-gray-400"}>
                   {trackResult.delivered}건 배송완료 처리됨
                 </span>
+                {trackResult.failed > 0 && (
+                  <span className="text-red-400 font-semibold"> · 조회 실패 {trackResult.failed}건</span>
+                )}
               </span>
             )}
             {selected.size > 0 && (
