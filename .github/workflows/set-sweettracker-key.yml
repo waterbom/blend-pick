@@ -1,0 +1,42 @@
+name: Set SweetTracker Key
+
+# GitHub Secret(SWEETTRACKER_API_KEY)에 등록된 키를 EC2 .env.local에 주입하고 서비스 재시작.
+# 키는 Secret으로만 전달되어 로그에 남지 않는다 (GitHub이 자동 마스킹).
+# 주입 후 스마트택배 택배사 목록 API를 호출해 키가 유효한지까지 확인한다.
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inject on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          ST_KEY: ${{ secrets.SWEETTRACKER_API_KEY }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ST_KEY
+          script: |
+            set -e
+            cd ${{ secrets.EC2_APP_DIR }}
+            if [ -z "$ST_KEY" ]; then
+              echo "✗ SWEETTRACKER_API_KEY Secret이 비어 있습니다 — 저장소 Settings > Secrets에 먼저 등록하세요."
+              exit 1
+            fi
+            # 기존 줄 제거 후 추가 (멱등 — 재실행 시 값 교체)
+            sed -i '/^SWEETTRACKER_API_KEY=/d' .env.local
+            printf 'SWEETTRACKER_API_KEY=%s\n' "$ST_KEY" >> .env.local
+            echo "키 등록 완료 (길이 ${#ST_KEY}자)"
+            # 키 유효성 확인 — 택배사 목록 API (성공/실패만 출력)
+            CODE=$(curl -s -o /tmp/st_check.json -w "%{http_code}" "http://info.sweettracker.co.kr/api/v1/companylist?t_key=$ST_KEY")
+            if [ "$CODE" = "200" ] && grep -q '"Company"' /tmp/st_check.json; then
+              echo "✅ 스마트택배 API 키 유효 — 택배사 목록 조회 성공"
+            else
+              echo "⚠ 키 검증 실패 (HTTP $CODE) — 키 값을 다시 확인하세요"; head -c 200 /tmp/st_check.json; echo
+            fi
+            rm -f /tmp/st_check.json
+            sudo systemctl restart blend-pick
+            echo "서비스 재시작 완료 — 배송 추적 기능 활성화"
