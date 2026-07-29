@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 /**
  * 호텔 작업지시서 발행 — 지난 발행 이후 변경분만 "지시문" 형태의 엑셀로 만든다.
@@ -14,6 +14,8 @@ interface Row {
   room: string; pkg: string; request: string;
   check_in: string | null; check_out: string | null; nights: number | null;
   cancelled_kst: string | null;
+  influencer: string | null;
+  change_label: string | null;
 }
 interface Data {
   baseline: string | null; lastIssuedAt: string | null; issueNo: number; now: string;
@@ -31,8 +33,10 @@ export default function HotelWorksheetClient() {
   const [busy, setBusy] = useState(false);
   const [data, setData] = useState<Data | null>(null);
   const [sinceInput, setSinceInput] = useState("");
+  const [infSel, setInfSel] = useState(""); // "" = 전체, 이름 = 해당 인플루언서 예약만
   const [error, setError] = useState("");
   const [issued, setIssued] = useState<number | null>(null);
+  const [stamped, setStamped] = useState(0);
 
   async function load(since?: string) {
     setBusy(true); setError(""); setIssued(null);
@@ -51,10 +55,31 @@ export default function HotelWorksheetClient() {
   }
   useEffect(() => { load(); }, []);
 
-  const total = data ? data.added.length + data.replaced.length + data.changed.length + data.cancelled.length : 0;
+  // 인플루언서 필터 — 지시서·전체현황 모두에 적용 (대체 쌍은 새 예약 기준)
+  const view = useMemo(() => {
+    if (!data) return null;
+    const hit = (r: Row) => !infSel || r.influencer === infSel;
+    return {
+      ...data,
+      added: data.added.filter(hit),
+      replaced: data.replaced.filter((p) => hit(p.next)),
+      changed: data.changed.filter(hit),
+      cancelled: data.cancelled.filter(hit),
+      roster: data.roster.filter(hit),
+    };
+  }, [data, infSel]);
+  const influencerOptions = useMemo(() => {
+    if (!data) return [];
+    const s = new Set<string>();
+    [...data.added, ...data.changed, ...data.cancelled, ...data.roster, ...data.replaced.map((p) => p.next)]
+      .forEach((r) => { if (r.influencer) s.add(r.influencer); });
+    return [...s].sort();
+  }, [data]);
+  const total = view ? view.added.length + view.replaced.length + view.changed.length + view.cancelled.length : 0;
 
   async function download() {
-    if (!data) return;
+    if (!data || !view) return;
+    const d = view;
     setBusy(true);
     try {
       const ExcelJS = (await import("exceljs")).default;
@@ -86,22 +111,25 @@ export default function HotelWorksheetClient() {
       };
       const base = (r: Row) => [r.order_number, r.buyer_name, r.buyer_phone, r.room, r.pkg, r.check_in, r.check_out, r.nights];
 
-      for (const r of data.added)
+      for (const r of d.added)
         addRow(["신규 등록", ...base(r), `새로 등록해주세요${r.request ? ` · 요청: ${r.request}` : ""}`], COLORS.added);
-      for (const { old, next } of data.replaced)
+      for (const { old, next } of d.replaced)
         addRow(
           ["대체(재예약)", ...base(next),
             `기존 ${old.order_number} (${md(old.check_in)}~${md(old.check_out)}) 취소하고 이 예약으로 대체 — 동일 투숙객, 취소로 처리하지 마세요`],
           COLORS.replaced
         );
-      for (const r of data.changed)
-        addRow(["날짜 변경", ...base(r), "예약번호 유지 — 투숙일을 왼쪽 날짜로 수정해주세요"], COLORS.changed);
-      for (const r of data.cancelled)
+      for (const r of d.changed)
+        addRow(["날짜 변경", ...base(r),
+          r.change_label
+            ? `예약번호 유지 — 투숙일 변경: ${r.change_label}`
+            : "예약번호 유지 — 투숙일을 왼쪽 날짜로 수정해주세요"], COLORS.changed);
+      for (const r of d.cancelled)
         addRow(["취소", ...base(r), `객실 해제해주세요${r.cancelled_kst ? ` (취소 ${r.cancelled_kst})` : ""}`], COLORS.cancelled);
 
       ws.addRow([]);
       const sum = ws.addRow([
-        `합계: 신규 ${data.added.length} · 대체 ${data.replaced.length} · 날짜변경 ${data.changed.length} · 취소 ${data.cancelled.length}`,
+        `합계: 신규 ${d.added.length} · 대체 ${d.replaced.length} · 날짜변경 ${d.changed.length} · 취소 ${d.cancelled.length}`,
       ]);
       sum.font = { bold: true };
       [13, 24, 10, 14, 12, 18, 11, 11, 6, 56].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
@@ -110,7 +138,7 @@ export default function HotelWorksheetClient() {
       const ws2 = wb.addWorksheet("전체 현황(참고용)");
       const h2 = ws2.addRow(["예약번호", "예약자", "연락처", "객실", "패키지", "체크인", "체크아웃", "박수"]);
       h2.font = { bold: true };
-      for (const r of data.roster) {
+      for (const r of d.roster) {
         const row = ws2.addRow([r.order_number, r.buyer_name, r.buyer_phone, r.room, r.pkg, r.check_in, r.check_out, r.nights]);
         row.getCell(3).numFmt = "@";
       }
@@ -129,13 +157,20 @@ export default function HotelWorksheetClient() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           baseline: data.baseline,
-          new_count: data.added.length, replaced_count: data.replaced.length,
-          changed_count: data.changed.length, cancelled_count: data.cancelled.length,
+          new_count: d.added.length, replaced_count: d.replaced.length,
+          changed_count: d.changed.length, cancelled_count: d.cancelled.length,
+          // 지시서에 담긴 주문들 — 서버가 호텔 전달 도장(hotel_sent_at)을 찍는다
+          order_numbers: [
+            ...d.added.map((r) => r.order_number),
+            ...d.changed.map((r) => r.order_number),
+            ...d.cancelled.map((r) => r.order_number),
+            ...d.replaced.flatMap((p) => [p.old.order_number, p.next.order_number]),
+          ],
         }),
       });
-      const d = await res.json().catch(() => ({}));
-      if (res.ok && d.ok) setIssued(d.issueNo);
-      else setError("엑셀은 받았지만 발행 기록에 실패했어요 — 다시 시도해주세요.");
+      const resp = await res.json().catch(() => ({}));
+      if (res.ok && resp.ok) { setIssued(resp.issueNo); setStamped(Number(resp.stamped) || 0); }
+      if (!res.ok || !resp.ok) setError("엑셀은 받았지만 발행 기록에 실패했어요 — 다시 시도해주세요.");
     } catch {
       setError("지시서 생성 중 오류가 발생했어요.");
     } finally {
@@ -158,6 +193,14 @@ export default function HotelWorksheetClient() {
             onChange={(e) => setSinceInput(e.target.value)}
             className="block mt-1 px-2 py-1.5 text-sm" style={{ border: "1px solid #D6D6CF" }} />
         </label>
+        <label className="text-xs" style={{ color: "#5C6156" }}>
+          인플루언서
+          <select value={infSel} onChange={(e) => setInfSel(e.target.value)}
+            className="block mt-1 px-2 py-1.5 text-sm" style={{ border: "1px solid #D6D6CF" }}>
+            <option value="">전체</option>
+            {influencerOptions.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
         <button onClick={() => load(localToIso(sinceInput))} disabled={busy}
           className="px-4 py-2 text-sm font-semibold"
           style={{ border: "1px solid #D6D6CF", color: "#3D4238", background: "#fff" }}>
@@ -165,14 +208,14 @@ export default function HotelWorksheetClient() {
         </button>
       </div>
 
-      {data && (
+      {data && view && (
         <div className="text-sm mb-4 space-y-1" style={{ color: "#3D4238" }}>
           <p>
             제{data.issueNo}차 · 기준 {data.baseline ? kst(data.baseline) : "전체(첫 발행)"} →{" "}
-            <b>신규 {data.added.length}</b> · <b style={{ color: "#B8860B" }}>대체 {data.replaced.length}</b> ·{" "}
-            <b style={{ color: "#8B8000" }}>날짜변경 {data.changed.length}</b> ·{" "}
-            <b style={{ color: "#A6412F" }}>취소 {data.cancelled.length}</b>
-            {" "}(현재 유효 예약 {data.roster.length}건)
+            <b>신규 {view.added.length}</b> · <b style={{ color: "#B8860B" }}>대체 {view.replaced.length}</b> ·{" "}
+            <b style={{ color: "#8B8000" }}>날짜변경 {view.changed.length}</b> ·{" "}
+            <b style={{ color: "#A6412F" }}>취소 {view.cancelled.length}</b>
+            {" "}(현재 유효 예약 {view.roster.length}건{infSel ? ` · ${infSel}만` : ""})
           </p>
           {total === 0 && <p style={{ color: "#8F948A" }}>변경분이 없어요 — 발행할 필요 없음.</p>}
         </div>
@@ -185,7 +228,7 @@ export default function HotelWorksheetClient() {
       </button>
       {issued && (
         <p className="text-xs mt-3 font-semibold" style={{ color: "#2D5A27" }}>
-          ✓ 제{issued}차 발행 완료 — 다음 발행은 이 시각 이후 변경분만 잡혀요.
+          ✓ 제{issued}차 발행 완료 — 예약 {stamped}건에 호텔 전달 도장이 찍혔어요. 다음 발행은 이 시각 이후 변경분만 잡혀요.
         </p>
       )}
       {error && <p className="text-xs mt-3" style={{ color: "#A6412F" }}>{error}</p>}

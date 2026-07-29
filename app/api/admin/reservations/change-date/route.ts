@@ -191,6 +191,19 @@ export async function POST(req: Request) {
 
     await client.query("COMMIT");
 
+    // 변경 이력 기록 — 변경 전→후, 처리 관리자, 시각 (실패해도 변경 자체는 유지)
+    try {
+      await shopPool.query(
+        `INSERT INTO hotel_stay_changes
+           (order_id, prev_check_in, prev_check_out, new_check_in, new_check_out, prev_label, new_label, changed_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [id, ord.old_in, ord.old_out, q.checkIn, q.checkOut,
+         ord.product_name, `${hotelName} · ${PACKAGES[pkg].label} · ${room}`, admin.name || admin.email]
+      );
+    } catch (e) {
+      console.error("[change-date] 변경 이력 기록 실패:", e);
+    }
+
     // 4) 추가 차액 결제링크 — 관리자가 복사해서 고객에게 전달 (금액 서명 포함, URL 조작 불가)
     // 고객에게 가는 링크라 프록시 뒤 origin 대신 공개 도메인을 사용
     let payLink: string | null = null;

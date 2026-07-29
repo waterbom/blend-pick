@@ -22,6 +22,14 @@ interface Reservation {
   paid_at_kst: string | null;
   cancelled_at_kst: string | null; // 취소 요청이 처리된 시각 (KST)
   product_name: string | null;
+  // 호텔 전달 상태 — 도장 시각 (원본은 비교용, kst는 표시용)
+  hotel_sent_at: string | null;
+  hotel_confirmed_at: string | null;
+  stay_changed_at: string | null;
+  cancelled_at: string | null;
+  hotel_sent_kst: string | null;
+  hotel_confirmed_kst: string | null;
+  last_change: string | null; // 최근 변경 이력 "8/10~8/11 → 8/20~8/21 (07/29 14:00, 관리자)"
 }
 
 interface Inv {
@@ -31,6 +39,28 @@ interface Inv {
   booked: number;
   remaining: number;
 }
+
+// 호텔 전달 상태 — hotel_sent_at(호텔이 아는 마지막 시점) 기준으로 미전달분을 계산
+type DeliveryState = "new_pending" | "change_pending" | "cancel_pending" | "await_confirm" | "confirmed" | null;
+function deliveryState(r: Reservation): DeliveryState {
+  const sent = r.hotel_sent_at ? Date.parse(r.hotel_sent_at) : null;
+  if (r.status === "cancelled") {
+    if (!sent) return null; // 전달 전에 취소 → 호텔은 몰라도 되는 예약
+    return r.cancelled_at && Date.parse(r.cancelled_at) > sent ? "cancel_pending" : "confirmed";
+  }
+  if (r.status === "awaiting") return null; // 승인 전 — 호텔 전달 대상 아님
+  if (!sent) return "new_pending";
+  if (r.stay_changed_at && Date.parse(r.stay_changed_at) > sent) return "change_pending";
+  if (!r.hotel_confirmed_at || Date.parse(r.hotel_confirmed_at) < sent) return "await_confirm";
+  return "confirmed";
+}
+const DELIVERY_BADGE: Record<Exclude<DeliveryState, null>, { label: string; cls: string }> = {
+  new_pending:    { label: "신규 미전달", cls: "bg-red-50 text-red-500" },
+  change_pending: { label: "변경 미전달", cls: "bg-amber-50 text-amber-600" },
+  cancel_pending: { label: "취소 미전달", cls: "bg-red-50 text-red-500" },
+  await_confirm:  { label: "호텔 확인 대기", cls: "bg-blue-50 text-blue-500" },
+  confirmed:      { label: "호텔 확인 완료", cls: "bg-green-50 text-green-600" },
+};
 
 // 체크인/노쇼는 호텔이 관리 — 우리는 예약확정/취소만 다룸 (레거시 상태는 표시만)
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -257,11 +287,20 @@ export default function ReservationsClient() {
         revenue += (Number(r.total_amount) || 0) + (Number(r.extra_paid) || 0);
       }
     }
-    return { confirmed, checkedIn, cancelled, revenue };
+    let dNew = 0, dChange = 0, dCancel = 0, dAwait = 0;
+    for (const r of rows) {
+      const ds = deliveryState(r);
+      if (ds === "new_pending") dNew++;
+      else if (ds === "change_pending") dChange++;
+      else if (ds === "cancel_pending") dCancel++;
+      else if (ds === "await_confirm") dAwait++;
+    }
+    return { confirmed, checkedIn, cancelled, revenue, dNew, dChange, dCancel, dAwait };
   }, [rows]);
 
   const [query, setQuery] = useState("");
   const [infSel, setInfSel] = useState(""); // "" 전체 / 인플루언서 이름
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryState | "">(""); // 전달 카운터 클릭 필터
 
   // 필터 옵션 — 예약 데이터에 등장하는 인플루언서 목록
   const influencerOptions = useMemo(() => {
@@ -278,6 +317,7 @@ export default function ReservationsClient() {
           ? rows.filter((r) => r.status === tab)
           : rows;
     if (infSel) list = list.filter((r) => r.influencer_name === infSel);
+    if (deliveryFilter) list = list.filter((r) => deliveryState(r) === deliveryFilter);
     const q = query.trim().toLowerCase();
     if (q) {
       const qDigits = q.replace(/[^0-9]/g, "");
@@ -288,12 +328,12 @@ export default function ReservationsClient() {
       );
     }
     return list;
-  }, [rows, tab, query, infSel]);
+  }, [rows, tab, query, infSel, deliveryFilter]);
 
   // 페이지네이션 — 탭/검색이 바뀌면 1페이지로 (명단 다운로드는 전체 visible 기준 유지)
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [tab, query, infSel]);
+  useEffect(() => { setPage(1); }, [tab, query, infSel, deliveryFilter]);
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paged = useMemo(
@@ -352,6 +392,17 @@ export default function ReservationsClient() {
     }
   }
 
+  // 호텔 전달/확인 도장 — 도장 후 목록 새로고침
+  async function markDelivery(id: string, action: "sent" | "confirmed") {
+    const res = await fetch("/api/admin/reservations/delivery", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id], action }),
+    });
+    if (!res.ok) { alert("처리에 실패했어요."); return; }
+    const rr = await fetch("/api/admin/reservations").then((r) => r.json());
+    setRows(Array.isArray(rr) ? rr : []);
+  }
+
   const cards = [
     { label: "예약 확정 (입실 전)", value: `${stats.confirmed}건` },
     { label: "체크인 완료", value: `${stats.checkedIn}건` },
@@ -404,6 +455,26 @@ export default function ReservationsClient() {
             <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2 tnum">{c.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* 호텔 전달 현황 카운터 — 누르면 해당 건만 필터 */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {([
+          ["new_pending", `신규 미전달 ${stats.dNew}건`],
+          ["change_pending", `변경 미전달 ${stats.dChange}건`],
+          ["cancel_pending", `취소 미전달 ${stats.dCancel}건`],
+          ["await_confirm", `호텔 확인 대기 ${stats.dAwait}건`],
+        ] as [Exclude<DeliveryState, null>, string][]).map(([key, label]) => (
+          <button key={key}
+            onClick={() => setDeliveryFilter(deliveryFilter === key ? "" : key)}
+            className={`text-xs font-semibold rounded-full px-3 py-1.5 border transition-colors ${
+              deliveryFilter === key ? "bg-gray-900 text-white border-gray-900" : `${DELIVERY_BADGE[key].cls} border-transparent hover:border-gray-300`}`}>
+            {label}
+          </button>
+        ))}
+        <span className="text-[11px] text-gray-400 ml-1">
+          작업지시서를 발행하면 담긴 예약에 전달 도장이 자동으로 찍혀요
+        </span>
       </div>
 
       {/* 필터 탭 + 명단 내보내기 */}
@@ -488,7 +559,34 @@ export default function ReservationsClient() {
             const st = STATUS[r.status] ?? { label: r.status, cls: "bg-gray-100 text-gray-500" };
             return (
               <div key={r.id} className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-4 border-b border-gray-50 last:border-0 items-center hover:bg-gray-50/60 transition-colors min-w-[760px]">
-                <span className="font-mono text-xs font-semibold" style={{ color: "var(--accent)" }}>{r.order_number}</span>
+                <div className="min-w-0">
+                  <span className="font-mono text-xs font-semibold" style={{ color: "var(--accent)" }}>{r.order_number}</span>
+                  {(() => {
+                    const ds = deliveryState(r);
+                    if (!ds) return null;
+                    const b = DELIVERY_BADGE[ds];
+                    return (
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <span className={`text-[10.5px] font-semibold rounded-full px-2 py-0.5 ${b.cls}`}
+                          title={`${r.hotel_sent_kst ? `전달 ${r.hotel_sent_kst}` : "아직 전달 안 됨"}${r.hotel_confirmed_kst ? ` · 확인 ${r.hotel_confirmed_kst}` : ""}`}>
+                          {b.label}
+                        </span>
+                        {(ds === "new_pending" || ds === "change_pending" || ds === "cancel_pending") && (
+                          <button onClick={() => markDelivery(r.id, "sent")}
+                            className="text-[10.5px] text-blue-500 hover:underline" title="호텔에 전달했음을 기록 (전달 일시 도장)">
+                            📨 전달 완료
+                          </button>
+                        )}
+                        {ds === "await_confirm" && (
+                          <button onClick={() => markDelivery(r.id, "confirmed")}
+                            className="text-[10.5px] text-green-600 hover:underline" title="호텔이 확인했음을 기록">
+                            ✔ 호텔 확인
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
                 <div className="text-sm text-gray-700">
                   <div className="font-medium text-gray-800">{r.buyer_name}</div>
                   <div className="text-xs text-gray-400">{r.buyer_phone}</div>
@@ -515,6 +613,11 @@ export default function ReservationsClient() {
                       title={`${r.stay_changed ? "투숙일 변경 이력 있음. " : ""}${r.repaid_after_cancel ? "같은 연락처로 먼저 취소된 예약이 있는 재결제 건." : ""}`}>
                       🔁 {changeMark(r)}
                     </span>
+                  )}
+                  {r.last_change && (
+                    <div className="text-[10.5px] mt-0.5 text-amber-700" title={`변경 이력: ${r.last_change}`}>
+                      🔀 {r.last_change}
+                    </div>
                   )}
                   {r.status === "paid" && (
                     <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 예약변경</button>

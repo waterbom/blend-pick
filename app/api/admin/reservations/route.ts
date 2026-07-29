@@ -49,6 +49,17 @@ export async function GET(req: Request) {
        )) AS repaid_after_cancel,
        to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS paid_at_kst,
        to_char(o.cancelled_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS cancelled_at_kst,
+       -- 호텔 전달 상태 — 도장 시각(비교용 원본 + 표시용 KST)
+       o.hotel_sent_at, o.hotel_confirmed_at, o.stay_changed_at, o.cancelled_at,
+       to_char(o.hotel_sent_at AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS hotel_sent_kst,
+       to_char(o.hotel_confirmed_at AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS hotel_confirmed_kst,
+       -- 최근 변경 이력 한 줄 (변경 전→후 비교 표시용)
+       (SELECT to_char(h.prev_check_in, 'MM/DD') || '~' || to_char(h.prev_check_out, 'MM/DD')
+               || ' → ' || to_char(h.new_check_in, 'MM/DD') || '~' || to_char(h.new_check_out, 'MM/DD')
+               || ' (' || to_char(h.changed_at AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI')
+               || COALESCE(', ' || h.changed_by, '') || ')'
+          FROM hotel_stay_changes h WHERE h.order_id = o.id
+         ORDER BY h.changed_at DESC LIMIT 1) AS last_change,
        (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name,
        -- 예약 변경 차액 등 이 예약번호로 결제된 추가 결제 합계 (extra 주문의 품명이 "예약번호 …" 형식)
        COALESCE((

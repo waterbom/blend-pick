@@ -44,6 +44,8 @@ interface HotelOrderRow {
   cancelled_kst: string | null;
   product_name: string | null;
   option_label: string | null;
+  influencer_name: string | null;
+  change_label: string | null;
   memo: string | null;
 }
 
@@ -66,6 +68,8 @@ function publicRow(o: HotelOrderRow) {
     room, pkg, request: req,
     check_in: o.check_in, check_out: o.check_out, nights,
     cancelled_kst: o.cancelled_kst,
+    influencer: o.influencer_name,
+    change_label: o.change_label,
   };
 }
 
@@ -78,6 +82,11 @@ async function compute(baseline: string | null) {
             to_char(o.cancelled_at AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS cancelled_kst,
             (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name,
             (SELECT option_label FROM order_items WHERE order_id = o.id LIMIT 1) AS option_label,
+            o.influencer_name,
+            (SELECT to_char(h.prev_check_in, 'MM/DD') || '~' || to_char(h.prev_check_out, 'MM/DD')
+                    || '→' || to_char(h.new_check_in, 'MM/DD') || '~' || to_char(h.new_check_out, 'MM/DD')
+               FROM hotel_stay_changes h WHERE h.order_id = o.id
+              ORDER BY h.changed_at DESC LIMIT 1) AS change_label,
             o.addr_memo AS memo
        FROM orders o
       WHERE o.order_type = 'hotel'
@@ -144,6 +153,20 @@ export async function POST(req: Request) {
   await ensureTable();
 
   const body = await req.json().catch(() => ({}));
+
+  // 지시서에 담긴 주문들에 호텔 전달 도장 — 이 시각 이후의 변경·취소가 "미전달"로 잡힌다
+  const nums = Array.isArray(body.order_numbers)
+    ? body.order_numbers.map((v: unknown) => String(v)).filter(Boolean)
+    : [];
+  let stamped = 0;
+  if (nums.length) {
+    const u = await shopPool.query(
+      `UPDATE orders SET hotel_sent_at = NOW() WHERE order_number = ANY($1) AND order_type = 'hotel'`,
+      [nums]
+    );
+    stamped = u.rowCount ?? 0;
+  }
+
   const r = await shopPool.query(
     `INSERT INTO hotel_roster_issues (baseline_at, new_count, replaced_count, changed_count, cancelled_count)
      VALUES ($1,$2,$3,$4,$5) RETURNING id, issued_at`,
@@ -155,5 +178,5 @@ export async function POST(req: Request) {
       Number(body.cancelled_count) || 0,
     ]
   );
-  return NextResponse.json({ ok: true, issueNo: r.rows[0].id, issuedAt: r.rows[0].issued_at });
+  return NextResponse.json({ ok: true, issueNo: r.rows[0].id, issuedAt: r.rows[0].issued_at, stamped });
 }
