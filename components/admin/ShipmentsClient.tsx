@@ -125,7 +125,7 @@ export default function ShipmentsClient() {
 
   const [csvRows, setCsvRows] = useState<{ order_number: string; tracking_number: string; carrier_raw?: string }[]>([]);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ succeeded: number; failed: { order_number: string; reason?: string }[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ succeeded: number; failed: { order_number: string; reason?: string }[]; smsSent?: number; smsFailed?: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [delivering, setDelivering] = useState(false);
@@ -392,6 +392,8 @@ export default function ShipmentsClient() {
                 <p className="font-semibold text-gray-800">
                   처리 완료 — 성공 {importResult.succeeded}건
                   {importResult.failed.length > 0 && `, 실패 ${importResult.failed.length}건`}
+                  {(importResult.smsSent ?? 0) > 0 && ` · 발송 안내 문자 ${importResult.smsSent}건`}
+                  {(importResult.smsFailed ?? 0) > 0 && ` (문자 실패 ${importResult.smsFailed}건)`}
                 </p>
                 {importResult.failed.map((f, i) => (
                   <p key={i} className="text-xs text-red-500 mt-1">{f.order_number}: {f.reason}</p>
