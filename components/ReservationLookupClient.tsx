@@ -195,16 +195,19 @@ export default function ReservationLookupClient() {
                           {cancelBusy ? "발송 중..." : "인증번호 받기"}
                         </button>
                       ) : (
-                        <div className="flex gap-2">
-                          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="인증번호 6자리"
-                            inputMode="numeric" className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none"
+                        /* 버튼을 입력칸 아래 전체 폭으로 — 큰 글씨 설정 기기에서 가로 배치가
+                           넘쳐 버튼이 화면 밖으로 밀리던 문제 방지. form이라 키보드 '이동'으로도 제출됨 */
+                        <form onSubmit={(e) => { e.preventDefault(); confirmSelfCancel(); }} className="space-y-2">
+                          <input value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+                            placeholder="인증번호 6자리" inputMode="numeric" maxLength={6} enterKeyHint="go"
+                            className="w-full min-w-0 rounded-lg px-3 py-2.5 text-sm focus:outline-none"
                             style={{ border: "1px solid #E8C4BC", background: "#fff" }} />
-                          <button onClick={confirmSelfCancel} disabled={cancelBusy}
-                            className="shrink-0 px-4 py-2.5 rounded-lg text-sm font-bold text-white disabled:opacity-50"
+                          <button type="submit" disabled={cancelBusy}
+                            className="w-full py-3 rounded-lg text-sm font-bold text-white disabled:opacity-50"
                             style={{ background: "#8A3D2E" }}>
-                            {cancelBusy ? "처리 중..." : "인증 후 취소"}
+                            {cancelBusy ? "처리 중..." : "인증 확인 후 예약 취소"}
                           </button>
-                        </div>
+                        </form>
                       )}
                       <button onClick={() => { setCancelOpen(false); setCodeSent(false); setCode(""); }}
                         className="w-full text-xs underline" style={{ color: "var(--text-muted)" }}>
