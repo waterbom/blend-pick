@@ -48,6 +48,7 @@ export default function CheckoutClient({
     shippingMemo: "",
     sameAsBuyer: false,
   });
+  const [memoCustom, setMemoCustom] = useState(false); // 배송 메모 "직접 입력" 모드
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
@@ -212,12 +213,23 @@ export default function CheckoutClient({
           </div>
           <div>
             <label className="ds-label">배송 메모</label>
-            <select name="shippingMemo" value={form.shippingMemo} onChange={handleChange} className={inputClass} style={{ ...inputStyle, appearance: "auto" }}>
+            <select value={memoCustom ? "__custom__" : form.shippingMemo}
+              onChange={(e) => {
+                if (e.target.value === "__custom__") { setMemoCustom(true); setForm((p) => ({ ...p, shippingMemo: "" })); }
+                else { setMemoCustom(false); setForm((p) => ({ ...p, shippingMemo: e.target.value })); }
+              }}
+              className={inputClass} style={{ ...inputStyle, appearance: "auto" }}>
               <option value="">선택 안함</option>
               <option value="문 앞에 놔주세요">문 앞에 놔주세요</option>
               <option value="경비실에 맡겨주세요">경비실에 맡겨주세요</option>
               <option value="배송 전 연락 부탁드려요">배송 전 연락 부탁드려요</option>
+              <option value="__custom__">직접 입력...</option>
             </select>
+            {memoCustom && (
+              <input name="shippingMemo" value={form.shippingMemo} onChange={handleChange}
+                placeholder="배송 메모를 입력해주세요 (예: 부재 시 문 앞)" maxLength={100}
+                className={`${inputClass} mt-2`} style={inputStyle} />
+            )}
           </div>
         </div>
       </section>

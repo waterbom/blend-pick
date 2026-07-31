@@ -76,7 +76,7 @@ const isCampaign = (o: { order_type: string; influencer_name: string | null }) =
 
 const COLUMNS = [
   "주문일시", "주문일자", "주문시간", "주문번호", "구매자", "구매자번호",
-  "수령인", "수령인번호", "수령인주소", "우편번호",
+  "수령인", "수령인번호", "수령인주소", "우편번호", "배송메모",
   "상품명", "선택옵션", "선택수량", "결제금액", "총 결제 금액",
 ];
 
@@ -99,6 +99,7 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
         o.recipient_phone ?? o.buyer_phone,
         addr,
         o.addr_zipcode ?? "",
+        o.addr_memo ?? "",
         item.product_name,
         item.option_label ?? "",
         item.quantity,

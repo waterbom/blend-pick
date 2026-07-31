@@ -20,6 +20,7 @@ interface Order {
   buyer_phone: string;
   addr_address: string;
   addr_detail: string | null;
+  addr_memo: string | null;
   total_amount: number;
   tracking_company: string | null;
   tracking_number: string | null;
@@ -627,6 +628,9 @@ function OrderTable({
               <td className="px-4 py-3">
                 <div className="text-xs font-medium text-gray-800">{o.recipient_name ?? o.buyer_name}</div>
                 <div className="text-xs text-gray-400">{o.recipient_phone ?? o.buyer_phone}</div>
+                {o.addr_memo && (
+                  <div className="text-[11px] mt-0.5 text-orange-600">📦 {o.addr_memo}</div>
+                )}
               </td>
               <td className="px-4 py-3">
                 {o.items.map((item, i) => (
