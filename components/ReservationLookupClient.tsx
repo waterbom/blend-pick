@@ -39,52 +39,6 @@ export default function ReservationLookupClient() {
   const [error, setError] = useState("");
   const [rv, setRv] = useState<Reservation | null>(null);
 
-  // 셀프 취소 (문자 인증)
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
-  const [code, setCode] = useState("");
-  const [cancelBusy, setCancelBusy] = useState(false);
-
-  async function sendCancelCode() {
-    setCancelBusy(true);
-    try {
-      const res = await fetch("/api/verify/phone", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.ok) { alert(d.error || "인증번호 발송에 실패했어요."); return; }
-      setCodeSent(true); setCode("");
-    } finally { setCancelBusy(false); }
-  }
-
-  async function confirmSelfCancel() {
-    if (!rv) return;
-    if (code.trim().length < 4) { alert("인증번호를 입력해주세요."); return; }
-    const policy = refundRateFor(rv.check_in);
-    const refund = Math.round((Number(rv.total_amount) * policy.rate) / 100);
-    if (!confirm(`예약을 취소할까요? (되돌릴 수 없어요)\n\n${policy.label}\n환불 예정액: ${refund.toLocaleString()}원`)) return;
-    setCancelBusy(true);
-    try {
-      const v = await fetch("/api/verify/phone/confirm", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code: code.trim() }),
-      });
-      const vd = await v.json().catch(() => ({}));
-      if (!v.ok || !vd.ok) { alert(vd.error || "인증에 실패했어요."); return; }
-
-      const res = await fetch("/api/hotel/cancel", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_number: rv.order_number, phone }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(d.error || "취소에 실패했어요. 카카오톡 채널로 문의해주세요."); return; }
-      setRv({ ...rv, status: "cancelled" });
-      setCancelOpen(false);
-      alert(`예약이 취소되었습니다.\n환불 금액: ${Number(d.refundAmount).toLocaleString()}원 (${d.refundNote})\n카드사에 따라 3~5 영업일 소요될 수 있어요.`);
-    } finally { setCancelBusy(false); }
-  }
-
   // 예약완료 화면에서 넘어오면 예약번호 자동 입력
   useEffect(() => {
     const on = new URLSearchParams(window.location.search).get("on");
@@ -171,54 +125,13 @@ export default function ReservationLookupClient() {
                   <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>호텔 프런트에 보여주시면 입장 가능합니다</p>
                 </div>
 
-                {/* 셀프 예약 취소 (paid + 환불 가능 기간만) */}
-                {rv.status === "paid" && refundRateFor(rv.check_in).rate > 0 && (
-                  !cancelOpen ? (
-                    <button onClick={() => setCancelOpen(true)}
-                      className="w-full rounded-xl px-4 py-3.5 mt-3 text-sm font-bold"
-                      style={{ border: "1.5px solid #E8C4BC", color: "#8A3D2E", background: "#FDF3F1" }}>
-                      예약 취소하기
-                    </button>
-                  ) : (
-                    <div className="rounded-xl p-4 mt-3 space-y-3" style={{ border: "1.5px solid #E8C4BC", background: "#FDF3F1" }}>
-                      <p className="text-sm font-bold" style={{ color: "#8A3D2E" }}>
-                        {refundRateFor(rv.check_in).label} · 환불 예정액{" "}
-                        {Math.round((Number(rv.total_amount) * refundRateFor(rv.check_in).rate) / 100).toLocaleString()}원
-                      </p>
-                      <p className="text-xs" style={{ color: "#8A3D2E" }}>
-                        본인 확인을 위해 예약자 휴대폰으로 인증번호를 보내드려요.
-                      </p>
-                      {!codeSent ? (
-                        <button onClick={sendCancelCode} disabled={cancelBusy}
-                          className="w-full py-3 rounded-lg text-sm font-bold text-white disabled:opacity-50"
-                          style={{ background: "#8A3D2E" }}>
-                          {cancelBusy ? "발송 중..." : "인증번호 받기"}
-                        </button>
-                      ) : (
-                        /* 버튼을 입력칸 아래 전체 폭으로 — 큰 글씨 설정 기기에서 가로 배치가
-                           넘쳐 버튼이 화면 밖으로 밀리던 문제 방지. form이라 키보드 '이동'으로도 제출됨 */
-                        <form onSubmit={(e) => { e.preventDefault(); confirmSelfCancel(); }} className="space-y-2">
-                          <input value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
-                            placeholder="인증번호 6자리" inputMode="numeric" maxLength={6} enterKeyHint="go"
-                            className="w-full min-w-0 rounded-lg px-3 py-2.5 text-sm focus:outline-none"
-                            style={{ border: "1px solid #E8C4BC", background: "#fff" }} />
-                          <button type="submit" disabled={cancelBusy}
-                            className="w-full py-3 rounded-lg text-sm font-bold text-white disabled:opacity-50"
-                            style={{ background: "#8A3D2E" }}>
-                            {cancelBusy ? "처리 중..." : "인증 확인 후 예약 취소"}
-                          </button>
-                        </form>
-                      )}
-                      <button onClick={() => { setCancelOpen(false); setCodeSent(false); setCode(""); }}
-                        className="w-full text-xs underline" style={{ color: "var(--text-muted)" }}>
-                        취소하지 않기
-                      </button>
-                    </div>
-                  )
-                )}
-                {rv.status === "paid" && refundRateFor(rv.check_in).rate === 0 && (
+                {/* 예약 취소 안내 — 셀프 취소 중단: 카카오 채널 문의 → 관리자 처리 */}
+                {rv.status === "paid" && (
                   <p className="text-xs text-center mt-3 rounded-xl px-4 py-3" style={{ background: "var(--surface-soft)", color: "var(--text-secondary)" }}>
-                    체크인 당일/경과 예약은 온라인 취소가 불가해요 — 아래 카카오톡 채널로 문의해주세요.
+                    예약 취소를 원하시면 아래 카카오톡 채널로 문의해주세요 — 확인 후 환불 규정에 따라 처리해드려요.
+                    {refundRateFor(rv.check_in).rate > 0 && (
+                      <> (지금 기준: {refundRateFor(rv.check_in).label})</>
+                    )}
                   </p>
                 )}
 

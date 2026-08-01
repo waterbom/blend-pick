@@ -10,7 +10,17 @@ import { isPhoneVerified, normPhone } from "@/lib/phone-verify";
  * 3중 확인: ① 예약번호+전화번호 일치 ② 해당 번호로 문자 인증 완료(phone_verified 쿠키)
  *          ③ 환불 규정은 서버 계산 (당일/경과 0%는 셀프 취소 불가 → 카카오 문의 유도)
  */
+// 셀프 취소 운영 스위치 — 현재 중단: 취소는 카카오 채널 문의 → 관리자 예약 관리에서 처리
+// (호텔 측 객실 반납 조율이 필요해 고객 단독 취소를 막음. 재개하려면 true로)
+const SELF_CANCEL_ENABLED = false;
+
 export async function POST(req: NextRequest) {
+  if (!SELF_CANCEL_ENABLED) {
+    return NextResponse.json(
+      { error: "온라인 예약 취소가 중단되었습니다. 카카오톡 채널로 문의해주시면 확인 후 처리해드려요." },
+      { status: 403 }
+    );
+  }
   const { order_number, phone } = await req.json();
   if (!order_number || !phone) {
     return NextResponse.json({ error: "예약번호와 연락처가 필요합니다." }, { status: 400 });
