@@ -67,10 +67,11 @@ interface Review {
   helpful_count?: number;
 }
 
-// 선택한 옵션 한 줄(네이버식 옵션 조합) — 옵션마다 독립 수량
+// 선택한 옵션 한 줄(네이버식 옵션 조합) — 옵션마다 독립 수량 + 라인별 추가옵션(수량)
 interface SelectedLine {
   optionId: string;
   qty: number;
+  addons: Record<string, number>; // 추가옵션 id → 수량 (이 옵션 라인에 붙는 추가상품)
 }
 
 // 추가옵션(추가상품)
@@ -112,7 +113,7 @@ export default function ProductDetail({
   const router = useRouter();
   const [lines, setLines] = useState<SelectedLine[]>([]);
   const [quantity, setQuantity] = useState(1); // 옵션 없는 상품용
-  const [selAddons, setSelAddons] = useState<Set<string>>(new Set()); // 선택된 추가옵션 id
+  const [soloAddons, setSoloAddons] = useState<Record<string, number>>({}); // 옵션 없는 상품용 추가옵션 (id → 수량)
   const [cartLoading, setCartLoading] = useState(false);
   const [cartDone, setCartDone] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
@@ -169,24 +170,35 @@ export default function ProductDetail({
   const itemsTotal = hasOptions ? linesTotal : product.price * quantity;
   const totalCount = hasOptions ? lines.reduce((s, l) => s + l.qty, 0) : quantity;
 
-  // 추가옵션: 메인(옵션 선택 or 옵션없는 상품)이 정해져야 담을 수 있음
+  // 추가옵션: 옵션 상품은 라인(옵션)마다 따로, 옵션 없는 상품은 상품 전체에 담는다
   const hasAddons = addons.length > 0;
   const mainSelected = hasOptions ? lines.length > 0 : true;
-  const selectedAddons = mainSelected ? addons.filter((a) => selAddons.has(a.id)) : [];
-  const addonsTotal = selectedAddons.reduce((s, a) => s + a.extra_price, 0);
+  const addonById = (id: string) => addons.find((a) => a.id === id);
+  const picked = (m: Record<string, number>) => Object.entries(m).filter(([, q]) => q > 0);
+  const addonSum = (m: Record<string, number>) =>
+    picked(m).reduce((s, [id, q]) => s + (addonById(id)?.extra_price ?? 0) * q, 0);
+  const addonQtySum = (m: Record<string, number>) => picked(m).reduce((s, [, q]) => s + q, 0);
+  const addonsTotal = hasOptions
+    ? lines.reduce((s, l) => s + addonSum(l.addons), 0)
+    : addonSum(soloAddons);
+  const addonCount = hasOptions
+    ? lines.reduce((s, l) => s + addonQtySum(l.addons), 0)
+    : addonQtySum(soloAddons);
   const grandTotal = itemsTotal + addonsTotal;
 
-  function toggleAddon(id: string) {
-    setSelAddons((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        if (!addonMulti) next.clear(); // 단일 선택 모드면 기존 선택 해제
-        next.add(id);
-      }
-      return next;
-    });
+  // 추가옵션 수량 변경 (0 = 해제) — 단일 선택 모드면 같은 묶음의 다른 추가옵션 해제
+  const nextAddonMap = (prev: Record<string, number>, addonId: string, qty: number) => {
+    const next = !addonMulti && qty > 0 ? { [addonId]: qty } : { ...prev, [addonId]: qty };
+    if (qty <= 0) delete next[addonId];
+    return next;
+  };
+  function setLineAddon(optionId: string, addonId: string, qty: number) {
+    setLines((prev) =>
+      prev.map((l) => (l.optionId === optionId ? { ...l, addons: nextAddonMap(l.addons, addonId, qty) } : l))
+    );
+  }
+  function setSoloAddon(addonId: string, qty: number) {
+    setSoloAddons((prev) => nextAddonMap(prev, addonId, qty));
   }
 
   const anySelectedSoldout = lines.some((l) => {
@@ -201,7 +213,7 @@ export default function ProductDetail({
   function addLine(optionId: string) {
     if (!optionId) return;
     setLines((prev) =>
-      prev.some((l) => l.optionId === optionId) ? prev : [...prev, { optionId, qty: 1 }]
+      prev.some((l) => l.optionId === optionId) ? prev : [...prev, { optionId, qty: 1, addons: {} }]
     );
   }
   function setLineQty(optionId: string, qty: number) {
@@ -242,7 +254,7 @@ export default function ProductDetail({
     if (!canBuy) return;
 
     // 추가옵션이 선택되지 않았고 옵션도 없는 단일상품 → 기존 단일 결제 흐름
-    if (selectedAddons.length === 0 && !hasOptions) {
+    if (addonCount === 0 && !hasOptions) {
       router.push(buildCheckoutUrl(product.id, null, quantity, influencerId));
       return;
     }
@@ -287,12 +299,21 @@ export default function ProductDetail({
           extra_price: null,
           quantity,
         }];
-    // 추가옵션 items (product_id 없음, 고정가)
-    const addonItems = selectedAddons.map((a) => ({
+    // 추가옵션 items (product_id 없음, 고정가) — 옵션 상품은 어느 옵션에 붙는지 이름에 표기
+    const addonEntries: { addon: ProductAddon; qty: number; optionValue: string | null }[] = hasOptions
+      ? lines.flatMap((l) =>
+          picked(l.addons).map(([id, qty]) => ({
+            addon: addonById(id)!,
+            qty,
+            optionValue: optById(l.optionId)?.value ?? null,
+          }))
+        )
+      : picked(soloAddons).map(([id, qty]) => ({ addon: addonById(id)!, qty, optionValue: null }));
+    const addonItems = addonEntries.map(({ addon: a, qty, optionValue }) => ({
       id: crypto.randomUUID(),
       product_id: null,
       is_addon: true,
-      name: `[추가] ${a.name}`,
+      name: `[추가] ${a.name}${optionValue ? ` — ${optionValue}` : ""}`,
       price: a.extra_price,
       ...base,
       stock: 9999,
@@ -300,7 +321,7 @@ export default function ProductDetail({
       option_name: null,
       option_value: null,
       extra_price: null,
-      quantity: 1,
+      quantity: qty,
     }));
     const items = [...mainItems, ...addonItems];
     sessionStorage.setItem(
@@ -435,8 +456,40 @@ export default function ProductDetail({
                             <span className="w-9 text-center text-sm font-medium tnum" style={{ color: "var(--text-primary)" }}>{l.qty}</span>
                             <button onClick={() => setLineQty(l.optionId, l.qty + 1)} className="w-8 h-8 flex items-center justify-center text-base transition-colors hover:bg-gray-50" style={{ color: "var(--text-secondary)" }}>+</button>
                           </div>
-                          <span className="text-sm font-bold tnum" style={{ color: "var(--text-primary)" }}>{(lineUnit * l.qty).toLocaleString()}원</span>
+                          <span className="text-sm font-bold tnum" style={{ color: "var(--text-primary)" }}>{(lineUnit * l.qty + addonSum(l.addons)).toLocaleString()}원</span>
                         </div>
+
+                        {/* 이 옵션에 붙는 추가옵션 — 옵션(라인)마다 따로 담고 수량도 각자 */}
+                        {hasAddons && (
+                          <div className="mt-2.5 pt-2.5 space-y-1.5" style={{ borderTop: "1px dashed var(--line)" }}>
+                            <p className="text-[11px] font-semibold m-0" style={{ color: "var(--text-muted)" }}>
+                              추가옵션{!addonMulti && " (1종만 선택 가능)"}
+                            </p>
+                            {addons.map((a) => {
+                              const q = l.addons[a.id] ?? 0;
+                              return (
+                                <div key={a.id} className="flex items-center gap-2">
+                                  <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
+                                    <input type="checkbox" checked={q > 0}
+                                      onChange={() => setLineAddon(l.optionId, a.id, q > 0 ? 0 : 1)}
+                                      className="w-4 h-4 shrink-0" style={{ accentColor: "var(--accent)" }} />
+                                    <span className="text-xs truncate" style={{ color: "var(--text-primary)" }}>{a.name}</span>
+                                  </label>
+                                  {q > 0 && (
+                                    <div className="flex items-center rounded-md overflow-hidden shrink-0" style={{ border: "1px solid var(--line)", background: "#fff" }}>
+                                      <button onClick={() => setLineAddon(l.optionId, a.id, q - 1)} className="w-6 h-6 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>−</button>
+                                      <span className="w-6 text-center text-xs font-medium tnum" style={{ color: "var(--text-primary)" }}>{q}</span>
+                                      <button onClick={() => setLineAddon(l.optionId, a.id, q + 1)} className="w-6 h-6 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>+</button>
+                                    </div>
+                                  )}
+                                  <span className="text-xs font-semibold tnum shrink-0" style={{ color: "var(--text-secondary)" }}>
+                                    +{(a.extra_price * Math.max(q, 1)).toLocaleString()}원
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -457,32 +510,40 @@ export default function ProductDetail({
             </div>
           )}
 
-          {/* 추가옵션(추가상품) */}
-          {hasAddons && !isSoldout && (
+          {/* 추가옵션(추가상품) — 옵션 없는 상품 전용 (옵션 상품은 각 옵션 카드 안에서 담음) */}
+          {hasAddons && !isSoldout && !hasOptions && (
             <div className="mb-4">
               <p className="text-sm font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
-                추가옵션 {!addonMulti && <span className="text-xs font-normal text-gray-400">(1개만 선택 가능)</span>}
+                추가옵션 {!addonMulti && <span className="text-xs font-normal text-gray-400">(1종만 선택 가능)</span>}
               </p>
-              {!mainSelected && (
-                <p className="text-xs text-gray-400 mb-2">먼저 위에서 옵션을 선택하면 추가옵션을 담을 수 있어요.</p>
-              )}
-              <div className={`space-y-1.5 ${!mainSelected ? "opacity-40 pointer-events-none" : ""}`}>
-                {addons.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 cursor-pointer py-1">
-                    <input
-                      type="checkbox"
-                      checked={selAddons.has(a.id)}
-                      onChange={() => toggleAddon(a.id)}
-                      disabled={!mainSelected}
-                      className="w-4 h-4"
-                      style={{ accentColor: "var(--accent)" }}
-                    />
-                    <span className="text-sm flex-1" style={{ color: "var(--text-primary)" }}>{a.name}</span>
-                    <span className="text-sm font-semibold tnum" style={{ color: "var(--text-secondary)" }}>
-                      +{a.extra_price.toLocaleString()}원
-                    </span>
-                  </label>
-                ))}
+              <div className="space-y-1.5">
+                {addons.map((a) => {
+                  const q = soloAddons[a.id] ?? 0;
+                  return (
+                    <div key={a.id} className="flex items-center gap-2 py-1">
+                      <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={q > 0}
+                          onChange={() => setSoloAddon(a.id, q > 0 ? 0 : 1)}
+                          className="w-4 h-4 shrink-0"
+                          style={{ accentColor: "var(--accent)" }}
+                        />
+                        <span className="text-sm truncate" style={{ color: "var(--text-primary)" }}>{a.name}</span>
+                      </label>
+                      {q > 0 && (
+                        <div className="flex items-center rounded-md overflow-hidden shrink-0" style={{ border: "1px solid var(--line)", background: "#fff" }}>
+                          <button onClick={() => setSoloAddon(a.id, q - 1)} className="w-7 h-7 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>−</button>
+                          <span className="w-7 text-center text-xs font-medium tnum" style={{ color: "var(--text-primary)" }}>{q}</span>
+                          <button onClick={() => setSoloAddon(a.id, q + 1)} className="w-7 h-7 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>+</button>
+                        </div>
+                      )}
+                      <span className="text-sm font-semibold tnum shrink-0" style={{ color: "var(--text-secondary)" }}>
+                        +{(a.extra_price * Math.max(q, 1)).toLocaleString()}원
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -491,7 +552,7 @@ export default function ProductDetail({
           {(itemsTotal > 0 && (hasOptions ? lines.length > 0 : true)) && (
             <div className="flex items-baseline justify-between mb-5 pt-1">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                총 {totalCount}개{addonsTotal > 0 ? ` + 추가옵션 ${selectedAddons.length}개` : ""}
+                총 {totalCount}개{addonCount > 0 ? ` + 추가옵션 ${addonCount}개` : ""}
               </span>
               <span className="text-2xl font-extrabold tnum" style={{ color: "var(--accent)" }}>
                 {grandTotal.toLocaleString()}원
