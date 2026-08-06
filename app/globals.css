@@ -155,6 +155,20 @@ body {
   border-radius: 12px;
 }
 
+/* 외부 에디터에서 붙여넣은 상세는 img만이 아니라 래퍼 div·문단·표에도
+   고정 폭(width:860px 등)이 인라인으로 박혀 온다 — 모바일에서 페이지가
+   옆으로 늘어나 헤더가 반쪽으로 깨지는 원인. 상세 안의 모든 요소를 화면 폭에 가둔다. */
+.product-desc * {
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+.product-desc table {
+  width: 100% !important;
+}
+.product-desc {
+  overflow-x: hidden; /* 그래도 남는 넘침(긴 URL 등)은 상세 영역 안에서만 잘리게 — 마지막 안전망 */
+}
+
 /* 상세 붙여넣기에 딸려 온 영상·iframe은 표시하지 않음 (인앱 브라우저에서 검은 박스로만 보임) */
 .product-desc video,
 .product-desc iframe,
