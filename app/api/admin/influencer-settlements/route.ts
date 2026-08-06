@@ -60,18 +60,21 @@ export async function GET() {
       [statuses]
     ),
     // 상품공구(Shop 상품): 상품 × 인플루언서 단위 귀속 매출 (버킷 id = product_id)
+    // (주문, 상품) 단위로 먼저 접는다 — 옵션 여러 줄 주문에서 주문 금액이 중복 합산되는 것 방지
     shopPool.query(
-      `SELECT oi.product_id, o.influencer_id,
-              COUNT(DISTINCT o.id) AS orders,
-              COALESCE(SUM(oi.quantity), 0) AS qty,
+      `SELECT op.product_id, o.influencer_id,
+              COUNT(*) AS orders,
+              COALESCE(SUM(op.qty), 0) AS qty,
               COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross,
               ps.name AS product_name, ps.influencer_rate
        FROM orders o
-       JOIN order_items oi ON oi.order_id = o.id AND oi.product_id IS NOT NULL
-       JOIN products_shop ps ON ps.id = oi.product_id
+       JOIN (SELECT order_id, product_id, SUM(quantity) AS qty
+               FROM order_items WHERE product_id IS NOT NULL
+              GROUP BY order_id, product_id) op ON op.order_id = o.id
+       JOIN products_shop ps ON ps.id = op.product_id
        WHERE o.order_type = 'shop' AND o.influencer_id IS NOT NULL
          AND o.campaign_id IS NULL AND o.status = ANY($1)
-       GROUP BY oi.product_id, o.influencer_id, ps.name, ps.influencer_rate`,
+       GROUP BY op.product_id, o.influencer_id, ps.name, ps.influencer_rate`,
       [statuses]
     ),
     shopPool.query(`SELECT * FROM influencer_payouts`),

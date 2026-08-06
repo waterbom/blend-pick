@@ -92,13 +92,17 @@ export default async function InfluencerPage() {
   const shopProducts = shopProductsRes.rows as { id: string; name: string; influencer_rate: number }[];
 
   // 상품공구 내 귀속 매출 (상품별)
+  // 주의: order_items를 그냥 JOIN하면 옵션 여러 줄 주문에서 주문 금액이 줄 수만큼
+  // 중복 합산된다 — (주문, 상품) 1행으로 접은 뒤 집계해야 한다
   const shopSalesRes = await shopPool.query(
-    `SELECT oi.product_id, COUNT(DISTINCT o.id) AS orders,
+    `SELECT op.product_id, COUNT(*) AS orders,
             COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
-       FROM orders o JOIN order_items oi ON oi.order_id = o.id
+       FROM orders o
+       JOIN (SELECT DISTINCT order_id, product_id FROM order_items WHERE product_id IS NOT NULL) op
+         ON op.order_id = o.id
       WHERE o.order_type = 'shop' AND o.influencer_id = $1 AND o.campaign_id IS NULL
-        AND o.status = ANY($2) AND oi.product_id IS NOT NULL
-      GROUP BY oi.product_id`,
+        AND o.status = ANY($2)
+      GROUP BY op.product_id`,
     [inf.id, [...COUNTABLE_ORDER_STATUSES]]
   );
   const shopSalesMap = new Map(shopSalesRes.rows.map((r) => [r.product_id, r]));
@@ -137,11 +141,10 @@ export default async function InfluencerPage() {
     const [sales, payouts] = await Promise.all([
       shopPool.query(
         `SELECT o.campaign_id,
-                COUNT(DISTINCT o.id) AS orders,
-                COALESCE(SUM(oi.quantity), 0) AS qty,
+                COUNT(*) AS orders,
+                COALESCE(SUM((SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.id)), 0) AS qty,
                 COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
          FROM orders o
-         LEFT JOIN order_items oi ON oi.order_id = o.id
          WHERE o.campaign_id = ANY($1) AND o.status = ANY($2)
          GROUP BY o.campaign_id`,
         [ids, [...COUNTABLE_ORDER_STATUSES]]

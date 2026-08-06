@@ -77,11 +77,12 @@ export async function POST(req: Request) {
         )
       : bucket === "product"
       ? await shopPool.query(
+          // EXISTS로 대상 주문만 고른다 — order_items JOIN은 옵션 줄 수만큼 금액이 중복 합산됨
           `SELECT COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
            FROM orders o
-           JOIN order_items oi ON oi.order_id = o.id AND oi.product_id = $1
            WHERE o.order_type = 'shop' AND o.influencer_id = $2
-             AND o.campaign_id IS NULL AND o.status = ANY($3)`,
+             AND o.campaign_id IS NULL AND o.status = ANY($3)
+             AND EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.product_id = $1)`,
           [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES]]
         )
       : await shopPool.query(
