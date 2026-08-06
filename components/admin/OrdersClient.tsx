@@ -77,7 +77,7 @@ const isCampaign = (o: { order_type: string; influencer_name: string | null }) =
 const COLUMNS = [
   "주문일시", "주문일자", "주문시간", "주문번호", "구매자", "구매자번호",
   "수령인", "수령인번호", "수령인주소", "우편번호", "배송메모",
-  "상품명", "선택옵션", "선택수량", "결제금액", "총 결제 금액",
+  "상품명", "선택옵션", "선택수량", "판매금액", "배송비", "총 결제 금액",
 ];
 
 // 발주용 엑셀(.xlsx) 행 데이터 — 수량·금액은 숫자 셀
@@ -103,7 +103,10 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
         item.product_name,
         item.option_label ?? "",
         item.quantity,
-        Number(item.unit_price) * item.quantity,
+        // 금액 3종은 주문 첫 행에만 — 상품 줄마다 반복하면 컬럼 합계가 실제보다 커진다
+        // (판매금액 = 총결제 − 배송비. 각 컬럼 SUM이 그대로 전체 판매금액/배송비/결제액)
+        idx === 0 ? Number(o.total_amount) - Number(o.shipping_fee ?? 0) : "",
+        idx === 0 ? Number(o.shipping_fee ?? 0) : "",
         idx === 0 ? Number(o.total_amount) : "",
       ]);
     });
