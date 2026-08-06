@@ -61,7 +61,7 @@ async function getOrders(userId: string) {
             'unit_price', oi.unit_price,
             'quantity', oi.quantity,
             'reviewed', EXISTS (SELECT 1 FROM reviews rv WHERE rv.order_id = o.id AND rv.product_id = oi.product_id)
-          ) ORDER BY oi.id
+          ) ORDER BY (oi.product_id IS NULL), oi.id
         ) AS items
       FROM orders o
       JOIN order_items oi ON oi.order_id = o.id

@@ -6,6 +6,7 @@ import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
 
 interface OrderItem {
+  product_id: string | null; // 추가옵션 행은 null
   product_name: string;
   option_label: string | null;
   quantity: number;
@@ -595,7 +596,8 @@ function OrderTable({
           {/* 상품별 그룹 — 같은 상품 주문을 묶어서 보고, 그룹 체크박스로 한 번에 선택 */}
           {Array.from(
             orders.reduce((m, o) => {
-              const key = o.items[0]?.product_name ?? "기타";
+              // 그룹 이름은 본상품 기준 — 추가옵션 행이 첫 줄이어도 그룹이 쪼개지지 않게
+              const key = (o.items.find((i) => i.product_id) ?? o.items[0])?.product_name ?? "기타";
               if (!m.has(key)) m.set(key, [] as Order[]);
               m.get(key)!.push(o);
               return m;

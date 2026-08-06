@@ -154,7 +154,9 @@ export default function OrdersClient() {
   const groups = useMemo(() => {
     const map = new Map<string, Order[]>();
     for (const o of visibleOrders) {
-      const key = o.items[0]?.product_name ?? "기타";
+      // 그룹 이름은 본상품 기준 — 추가옵션 행(product_id 없음)이 첫 줄이어도 그룹이 쪼개지지 않게
+      const main = o.items.find((i) => i.product_id) ?? o.items[0];
+      const key = main?.product_name ?? "기타";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(o);
     }
@@ -385,7 +387,7 @@ export default function OrdersClient() {
             const isExpanded = expandedGroups.has(productName);
             const groupSelected = groupOrders.every((o) => selected.has(o.id));
             const groupPartial = groupOrders.some((o) => selected.has(o.id)) && !groupSelected;
-            const productCode = groupOrders[0]?.items[0]?.product_code;
+            const productCode = groupOrders[0]?.items.find((i) => i.product_id)?.product_code;
             const typeBadge = groupOrders[0] && isCampaign(groupOrders[0]) ? ORDER_TYPE_BADGE.campaign : ORDER_TYPE_BADGE.shop;
 
             return (

@@ -62,7 +62,7 @@ export async function GET(req: Request) {
           'option_label', COALESCE(oi.option_label, po.value),
           'unit_price', oi.unit_price,
           'quantity', oi.quantity
-        ) ORDER BY oi.id
+        ) ORDER BY (oi.product_id IS NULL), oi.id
       ) AS items
     FROM orders o
     JOIN order_items oi ON oi.order_id = o.id
