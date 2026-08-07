@@ -1,0 +1,39 @@
+name: Migrate Members
+
+# shop_users.created_at(가입일) 추가 — 기존 회원은 NULL(가입일 미상, 화면에선 첫 주문일로 대체 표시),
+# 이후 가입자부터 자동 기록. 멱등(IF NOT EXISTS).
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Migrate on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const os = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            (async () => {
+              // 기본값 없이 추가(기존 회원 NULL 유지) 후 앞으로의 가입만 자동 기록
+              await os.query("ALTER TABLE shop_users ADD COLUMN IF NOT EXISTS created_at timestamptz");
+              await os.query("ALTER TABLE shop_users ALTER COLUMN created_at SET DEFAULT NOW()");
+              const c = await os.query(`SELECT COUNT(*)::int AS n FROM information_schema.columns
+                WHERE table_name = \x27shop_users\x27 AND column_name = \x27created_at\x27`);
+              console.log(c.rows[0].n === 1 ? "✅ 회원 가입일 컬럼 준비 완료" : "✗ 컬럼 확인 실패");
+              await os.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
