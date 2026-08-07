@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -209,6 +209,26 @@ export default function ProductDetail({
   const canBuy =
     !saleClosed && !isSoldout && (hasOptions ? lines.length > 0 && !anySelectedSoldout : true);
 
+  // iOS(웹킷)는 뒤로가기로 돌아올 때 change 이벤트 없이 셀렉트 표시값만 복원한다 —
+  // 화면엔 옵션이 골라져 있는데 상태는 비어 "옵션을 선택해주세요"에 갇히는 원인.
+  // 복원된 값이 감지되면 그 옵션을 실제로 담아주고 셀렉트를 비운다.
+  const optSelRef = useRef<HTMLSelectElement>(null);
+  useEffect(() => {
+    const absorb = () => {
+      const el = optSelRef.current;
+      const v = el?.value;
+      if (!el || !v) return;
+      setLines((prev) =>
+        prev.some((l) => l.optionId === v) ? prev : [...prev, { optionId: v, qty: 1, addons: {} }]
+      );
+      el.value = "";
+    };
+    const t1 = setTimeout(absorb, 0);
+    const t2 = setTimeout(absorb, 600); // 웹킷 복원이 로드 직후 늦게 오는 경우까지
+    window.addEventListener("pageshow", absorb);
+    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener("pageshow", absorb); };
+  }, []);
+
   // 드롭다운에서 옵션 추가 (이미 담긴 옵션은 무시)
   function addLine(optionId: string) {
     if (!optionId) return;
@@ -407,7 +427,8 @@ export default function ProductDetail({
                 옵션 선택 <span style={{ color: "var(--sale)" }}>(필수) *</span>
               </label>
               <select
-                value=""
+                ref={optSelRef}
+                defaultValue=""
                 onChange={(e) => {
                   addLine(e.target.value);
                   e.target.value = "";
