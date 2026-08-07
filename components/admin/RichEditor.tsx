@@ -40,6 +40,26 @@ export default function RichEditor({
 
   const sync = () => { clean(); onChange(ref.current?.innerHTML || ""); };
 
+  // 이미지 파일들 업로드 후 커서 위치에 삽입 (붙여넣기·드래그 공통)
+  async function uploadAndInsert(files: File[]) {
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) continue;
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const res = await fetch(uploadUrl, { method: "POST", body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.url) {
+          ref.current?.focus();
+          document.execCommand("insertHTML", false, `<img src="${data.url}" style="max-width:100%;" />`);
+          sync();
+        }
+      } catch {
+        /* 업로드 실패 시 무시 */
+      }
+    }
+  }
+
   async function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
     const cd = e.clipboardData;
     const html = cd.getData("text/html");
@@ -49,26 +69,29 @@ export default function RichEditor({
       return;
     }
     // 순수 이미지만 → 업로드 후 삽입
-    for (const item of Array.from(cd.items)) {
-      if (item.type.startsWith("image/")) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (!file) return;
-        const fd = new FormData();
-        fd.append("file", file);
-        try {
-          const res = await fetch(uploadUrl, { method: "POST", body: fd });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.url) {
-            document.execCommand("insertHTML", false, `<img src="${data.url}" style="max-width:100%;" />`);
-            sync();
-          }
-        } catch {
-          /* 업로드 실패 시 무시 */
-        }
-        return;
-      }
+    const files = Array.from(cd.items)
+      .filter((it) => it.type.startsWith("image/"))
+      .map((it) => it.getAsFile())
+      .filter((f): f is File => !!f);
+    if (files.length) {
+      e.preventDefault();
+      await uploadAndInsert(files);
     }
+  }
+
+  // 탐색기에서 사진 파일을 끌어다 놓으면 업로드 후 놓은 자리에 삽입
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    const files = Array.from(e.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
+    if (!files.length) return; // 텍스트 드래그 등은 브라우저 기본 동작 유지
+    e.preventDefault();
+    // 놓은 좌표에 커서를 옮겨 그 자리에 들어가게 (미지원 브라우저는 기존 커서 위치)
+    const range = document.caretRangeFromPoint?.(e.clientX, e.clientY);
+    if (range) {
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+    uploadAndInsert(files);
   }
 
   return (
@@ -79,6 +102,8 @@ export default function RichEditor({
       onInput={sync}
       onBlur={sync}
       onPaste={handlePaste}
+      onDrop={handleDrop}
+      onDragOver={(e) => { if (e.dataTransfer?.types.includes("Files")) e.preventDefault(); }}
       className={className}
       style={style}
       data-placeholder={placeholder}

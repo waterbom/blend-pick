@@ -1072,7 +1072,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
             전체화면 편집 ↗
           </button>
         }>
-          <p className="text-xs text-gray-400">스마트스토어 등에서 글씨·이미지를 복사해 붙여넣으면 서식·이미지가 그대로 들어가요 (Ctrl+V)</p>
+          <p className="text-xs text-gray-400">스마트스토어 등에서 글씨·이미지를 복사해 붙여넣거나(Ctrl+V), 사진 파일을 끌어다 놓으면 업로드돼 들어가요</p>
           <RichEditor
             value={form.detail_html}
             onChange={v => set("detail_html", v)}
@@ -1109,7 +1109,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 shrink-0">
             <div>
               <p className="text-sm font-bold text-gray-800">상세 페이지 편집</p>
-              <p className="text-xs text-gray-400 mt-0.5">스마트스토어 등에서 복사해 붙여넣으면 서식·이미지가 그대로 들어가요</p>
+              <p className="text-xs text-gray-400 mt-0.5">복사해 붙여넣거나(Ctrl+V) 사진 파일을 끌어다 놓으면 들어가요</p>
             </div>
             <button type="button" onClick={() => setDetailFullscreen(false)}
               className="bg-gray-900 text-white text-sm font-bold px-5 py-2 rounded-none hover:bg-gray-700 transition-colors">

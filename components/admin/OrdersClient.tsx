@@ -6,7 +6,7 @@ import { downloadXlsx } from "@/lib/xlsx-download";
 
 interface OrderItem {
   id: string;
-  product_id: string;
+  product_id: string | null; // 추가옵션 행은 null
   product_name: string;
   product_code: string | null;
   option_label: string | null;
@@ -85,7 +85,11 @@ const COLUMNS = [
 function toOrderRows(orders: Order[]): (string | number)[][] {
   const rows: (string | number)[][] = [];
   for (const o of orders) {
+    // 추가옵션 행도 상품명은 공구명(본상품)으로 통일하고, 추가상품 이름은 선택옵션 칸에
+    // ("[추가] 손잡이 — 라벤더 440ml" → 선택옵션 "텀블러 실리콘 손잡이") — 업체 발주 양식 요청
+    const main = o.items.find((i) => i.product_id) ?? o.items[0];
     o.items.forEach((item, idx) => {
+      const isAddon = !item.product_id;
       const addr = [o.addr_address, o.addr_detail].filter(Boolean).join(" ");
       const d = new Date(o.created_at);
       rows.push([
@@ -100,8 +104,10 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
         addr,
         o.addr_zipcode ?? "",
         o.addr_memo ?? "",
-        item.product_name,
-        item.option_label ?? "",
+        isAddon ? (main?.product_name ?? item.product_name) : item.product_name,
+        isAddon
+          ? item.product_name.replace(/^\[추가\]\s*/, "").replace(/\s*—[^—]*$/, "")
+          : (item.option_label ?? ""),
         item.quantity,
         // 금액 3종은 주문 첫 행에만 — 상품 줄마다 반복하면 컬럼 합계가 실제보다 커진다
         // (판매금액 = 총결제 − 배송비. 각 컬럼 SUM이 그대로 전체 판매금액/배송비/결제액)
