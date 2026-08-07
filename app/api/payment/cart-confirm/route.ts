@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
     extra_price: number | null;
     quantity: number;
     option_id: string | null;
+    option_value?: string | null; // 화면이 들고 온 옵션명 (라벨 스냅샷 폴백용)
     is_addon?: boolean;
   }> = checkoutData.items;
 
@@ -154,7 +155,9 @@ export async function POST(req: NextRequest) {
           [item.product_id, item.option_id ?? null]
         );
         supplyPrice = spRes.rows[0]?.supply_price ?? null;
-        optionLabel = spRes.rows[0]?.option_label ?? null;
+        // 옵션 행을 못 찾아도(수정으로 id가 바뀐 옛 페이지 등) 화면이 들고 온 옵션명으로 폴백 —
+        // 주문서에 색상이 비어 나가는 것 방지
+        optionLabel = spRes.rows[0]?.option_label ?? (item.option_value ? String(item.option_value).slice(0, 200) : null);
       }
       await client.query(
         `INSERT INTO order_items (order_id, product_id, option_id, product_name, option_label, unit_price, quantity, supply_price)

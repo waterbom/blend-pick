@@ -127,17 +127,35 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
     }
 
-    await client.query("DELETE FROM product_options WHERE product_id = $1", [id]);
-    if (Array.isArray(options)) {
-      for (let i = 0; i < options.length; i++) {
-        const opt = options[i];
-        if (opt.name) {
-          await client.query(
-            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active, supply_price)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null]
-          );
-        }
+    // 옵션은 지웠다 다시 만들지 않는다 — id가 바뀌면 수정 전에 열려 있던 상품 페이지·장바구니가
+    // 옛 id로 결제하면서 옵션명 스냅샷이 비고 옵션 재고 차감도 빗나간다. 옵션명으로 맞춰 제자리 갱신.
+    const incoming = (Array.isArray(options) ? options : []).filter((o) => o?.name);
+    // 목록에서 빠진 옵션만 삭제 (신규 INSERT 전에 — 뒤에서 지우면 방금 넣은 옵션까지 지워짐)
+    await client.query(
+      `DELETE FROM product_options WHERE product_id = $1 AND NOT (value = ANY($2::text[]))`,
+      [id, incoming.map((o) => o.name)]
+    );
+    const existingOpts = await client.query(
+      `SELECT id, value FROM product_options WHERE product_id = $1`,
+      [id]
+    );
+    const optIdByValue = new Map<string, string>(existingOpts.rows.map((r) => [r.value, r.id]));
+    for (let i = 0; i < incoming.length; i++) {
+      const opt = incoming[i];
+      const exId = optIdByValue.get(opt.name);
+      if (exId) {
+        await client.query(
+          `UPDATE product_options
+              SET name = $2, value = $3, extra_price = $4, stock = $5, sort_order = $6, is_active = $7, supply_price = $8
+            WHERE id = $1`,
+          [exId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active, supply_price)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null]
+        );
       }
     }
 

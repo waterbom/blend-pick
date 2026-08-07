@@ -1,0 +1,50 @@
+name: Audit Missing Option Labels
+
+# 옵션 라벨이 비어 저장된 주문 점검 (읽기 전용) — 상품 수정으로 옵션 id가 바뀐 사이 결제된 건 탐지.
+# 출력은 주문번호·건수만 (개인정보 없음).
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            (async () => {
+              // 옵션이 있는 상품인데 옵션 라벨 없이 저장된 주문 항목
+              const r = await shop.query(`
+                SELECT o.order_number, COUNT(*)::int AS blank_rows
+                  FROM orders o JOIN order_items oi ON oi.order_id = o.id
+                 WHERE o.order_type = \x27shop\x27 AND o.status <> \x27cancelled\x27
+                   AND oi.product_id IS NOT NULL AND oi.option_label IS NULL
+                   AND EXISTS (SELECT 1 FROM product_options po WHERE po.product_id = oi.product_id)
+                 GROUP BY o.order_number ORDER BY o.order_number`);
+              console.log(`옵션 라벨 누락 주문: ${r.rows.length}건`);
+              for (const row of r.rows) console.log(` - ${row.order_number} (누락 ${row.blank_rows}줄)`);
+              // 옛 옵션 id로 결제돼 옵션 재고 차감이 빗나갔을 수 있는 항목 수
+              const s = await shop.query(`
+                SELECT COUNT(*)::int AS n
+                  FROM order_items oi
+                 WHERE oi.option_id IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM product_options po WHERE po.id = oi.option_id)`);
+              console.log(`고아 옵션 id 항목(옵션 재고 차감 누락 가능): ${s.rows[0].n}건`);
+              await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
