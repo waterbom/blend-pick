@@ -59,6 +59,7 @@ async function getOrders(userId: string) {
           json_build_object(
             'product_id', oi.product_id,
             'product_name', oi.product_name,
+            'option_label', oi.option_label,
             'unit_price', oi.unit_price,
             'quantity', oi.quantity,
             'reviewed', EXISTS (SELECT 1 FROM reviews rv WHERE rv.order_id = o.id AND rv.product_id = oi.product_id)
@@ -250,7 +251,7 @@ export default async function MyPage() {
 
                     {/* 아이템 목록 */}
                     <div className="space-y-1.5 px-5 pt-4 mb-3">
-                      {order.items.map((item: { product_id: string; product_name: string; unit_price: number; quantity: number }, idx: number) => (
+                      {order.items.map((item: { product_id: string; product_name: string; option_label: string | null; unit_price: number; quantity: number }, idx: number) => (
                         <div key={idx} className="flex items-center justify-between">
                           <Link
                             href={`/products/${item.product_id}`}
@@ -258,6 +259,9 @@ export default async function MyPage() {
                             style={{ color: "var(--text-primary)" }}
                           >
                             {item.product_name}
+                            {item.option_label && (
+                              <span className="font-normal" style={{ color: "#8B927F" }}> / {item.option_label}</span>
+                            )}
                           </Link>
                           <span className="text-xs shrink-0 ml-3" style={{ color: "var(--text-muted)" }}>
                             {item.unit_price.toLocaleString()}원 × {item.quantity}

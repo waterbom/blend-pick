@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
             to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS paid_date,
             to_char(o.stay_check_in, 'YYYY-MM-DD') AS check_in,
             to_char(o.stay_check_out, 'YYYY-MM-DD') AS check_out,
-            (SELECT json_agg(json_build_object('name', oi.product_name, 'qty', oi.quantity) ORDER BY (oi.product_id IS NULL), oi.id)
+            (SELECT json_agg(json_build_object('name', oi.product_name, 'option', oi.option_label, 'qty', oi.quantity) ORDER BY (oi.product_id IS NULL), oi.id)
                FROM order_items oi WHERE oi.order_id = o.id) AS items
        FROM orders o
       WHERE regexp_replace(COALESCE(o.buyer_phone, ''), '[^0-9]', '', 'g') = $1

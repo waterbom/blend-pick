@@ -20,7 +20,7 @@ interface LookupOrder {
   paid_date: string | null;
   check_in: string | null;
   check_out: string | null;
-  items: { name: string; qty: number }[] | null;
+  items: { name: string; option: string | null; qty: number }[] | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -107,7 +107,9 @@ export default function OrderLookupClient() {
                 <div className="px-5 py-4">
                   {(o.items ?? []).map((it, i) => (
                     <p key={i} className="text-sm font-medium" style={{ color: "#1C2418" }}>
-                      {it.name}{it.qty > 1 ? ` × ${it.qty}` : ""}
+                      {it.name}
+                      {it.option && <span style={{ color: "#8B927F" }}> / {it.option}</span>}
+                      {it.qty > 1 ? ` × ${it.qty}` : ""}
                     </p>
                   ))}
                   {isHotel && o.check_in && (
