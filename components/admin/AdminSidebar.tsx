@@ -14,6 +14,7 @@ const NAV_GROUPS: { caption: string; items: { label: string; href: string }[] }[
       { label: "판매 관리", href: "/admin/orders" },
       { label: "배송 관리", href: "/admin/shipments" },
       { label: "리뷰 관리", href: "/admin/reviews" },
+      { label: "회원 관리", href: "/admin/members" },
     ],
   },
   {

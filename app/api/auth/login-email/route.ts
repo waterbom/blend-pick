@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await pool.query(
-    "SELECT id, role, name, password_hash, is_verified FROM shop_users WHERE email = $1",
+    "SELECT id, role, name, password_hash, is_verified, is_active FROM shop_users WHERE email = $1",
     [email]
   );
 
@@ -56,6 +56,14 @@ export async function POST(req: NextRequest) {
   }
 
   const user = result.rows[0];
+
+  // 관리자가 비활성화한 계정은 로그인 차단
+  if (user.is_active === false) {
+    return NextResponse.json(
+      { ok: false, error: "이용이 제한된 계정입니다. 카카오톡 채널로 문의해주세요." },
+      { status: 403 }
+    );
+  }
 
   if (!user.is_verified) {
     return NextResponse.json(

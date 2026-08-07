@@ -42,9 +42,13 @@ export async function GET(req: NextRequest) {
 
   // 3. DB에서 기존 유저 확인 → 없으면 자동 가입
   const existing = await pool.query(
-    "SELECT id, role FROM shop_users WHERE kakao_id = $1",
+    "SELECT id, role, is_active FROM shop_users WHERE kakao_id = $1",
     [kakaoId]
   );
+  // 관리자가 비활성화한 계정은 로그인 차단
+  if (existing.rows.length > 0 && existing.rows[0].is_active === false) {
+    return NextResponse.redirect(new URL("/login?error=inactive", req.url));
+  }
 
   let userId: string;
   let role: string;
