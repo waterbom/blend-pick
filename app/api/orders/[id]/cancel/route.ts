@@ -39,9 +39,9 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return NextResponse.json({ error: "이미 배송이 완료되어 취소할 수 없습니다. 교환·반품 신청을 이용해주세요." }, { status: 400 });
   }
 
-  // paid → 즉시 취소 (토스 전액 환불 + 재고 복원까지 — 환불 실패 시 상태 유지)
-  // confirmed/preparing → 취소요청 (어드민 확인 시 환불 처리)
-  if (order.status === "paid") {
+  // 발송 전(운송장 등록 전) → 즉시 취소 (토스 전액 환불 + 재고 복원 — 환불 실패 시 상태 유지)
+  // shipped(운송장 등록됨) → 취소요청 (어드민이 출고 여부 확인 후 승인/반려)
+  if (["paid", "confirmed", "preparing"].includes(order.status)) {
     const r = await cancelShopOrder(id, "고객 주문 취소");
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.httpStatus });
     return NextResponse.json({
