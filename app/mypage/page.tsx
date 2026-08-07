@@ -44,6 +44,7 @@ async function getOrders(userId: string) {
       `SELECT
         o.id, o.order_number, o.total_amount, o.status, o.paid_at,
         o.tracking_company, o.tracking_number,
+        o.recipient_name, o.buyer_name, o.addr_address, o.addr_detail,
         to_char(o.shipped_at   AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS shipped_kst,
         to_char(o.delivered_at AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS delivered_kst,
         (SELECT json_build_object('kind', r.kind, 'status', r.status,
@@ -265,6 +266,13 @@ export default async function MyPage() {
                       ))}
                     </div>
 
+                    {/* 배송지 */}
+                    {order.addr_address && (
+                      <p className="px-5 pb-2 m-0 text-xs" style={{ color: "#8B927F" }}>
+                        배송지 · {order.recipient_name ?? order.buyer_name} · {order.addr_address}{order.addr_detail ? ` ${order.addr_detail}` : ""}
+                      </p>
+                    )}
+
                     {/* 상태 타임라인 — 결제 완료 → 상품 준비 → 배송 중 → 배송 완료 (발송·완료일 병기) */}
                     {["paid", "confirmed", "preparing", "shipped", "delivered"].includes(order.status) && (
                       <div className="flex flex-wrap items-center gap-y-1 px-5 pb-3">
@@ -338,7 +346,7 @@ export default async function MyPage() {
                             {carrierName(order.tracking_company)} 조회
                           </a>
                         )}
-                        {(order.status === "paid" || order.status === "confirmed") && (
+                        {["paid", "confirmed", "preparing", "shipped"].includes(order.status) && (
                           <CancelOrderButton orderId={order.id} status={order.status} />
                         )}
                         {["shipped", "delivered"].includes(order.status) &&

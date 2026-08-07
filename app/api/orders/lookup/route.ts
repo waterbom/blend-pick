@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
   const r = await shopPool.query(
     `SELECT o.id, o.order_number, o.order_type, o.status, o.total_amount,
             o.tracking_company, o.tracking_number,
+            COALESCE(o.recipient_name, o.buyer_name) AS recipient_name,
+            o.addr_address, o.addr_detail,
             to_char(o.shipped_at   AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS shipped_kst,
             to_char(o.delivered_at AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS delivered_kst,
             to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS paid_date,

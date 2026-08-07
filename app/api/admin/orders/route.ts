@@ -96,6 +96,18 @@ export async function PATCH(req: Request) {
     cancel_confirm:   { from: "cancel_requested",   to: "cancelled" },
   };
 
+  // 취소요청 반려 — 환불 없이 주문을 원래 흐름으로 복귀 (운송장이 있으면 배송중, 없으면 주문확인)
+  if (action === "cancel_reject") {
+    const r = await shopPool.query(
+      `UPDATE orders
+          SET status = CASE WHEN tracking_number IS NOT NULL THEN 'shipped' ELSE 'confirmed' END,
+              updated_at = NOW()
+        WHERE id = ANY($1::uuid[]) AND status = 'cancel_requested'`,
+      [orderIds]
+    );
+    return NextResponse.json({ ok: true, updated: r.rowCount });
+  }
+
   const t = TRANSITIONS[action];
   if (!t) return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 

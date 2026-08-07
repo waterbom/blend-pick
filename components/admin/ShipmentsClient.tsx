@@ -482,6 +482,11 @@ export default function ShipmentsClient() {
                     className="text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 bg-orange-500 hover:bg-orange-600">
                     {acting ? "처리 중..." : `취소 승인 · 배송비 차감 (${selected.size}건)`}
                   </button>
+                  {/* 반려 = 환불 없이 원래 상태로 복귀 (이미 출고된 발송 후 취소요청 등) */}
+                  <button onClick={() => handleTabAction("cancel_reject", "취소요청 반려 (주문 유지, 환불 없음)")} disabled={acting}
+                    className="text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 border border-gray-300 text-gray-600 hover:bg-gray-50 bg-white">
+                    {acting ? "처리 중..." : `요청 반려 (${selected.size}건)`}
+                  </button>
                 </>
               ) : (
                 <button onClick={() => handleTabAction(tabAction.action, tabAction.label)} disabled={acting}

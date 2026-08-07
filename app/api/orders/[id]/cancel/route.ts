@@ -31,11 +31,12 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
   }
 
-  const UNCANCELLABLE = ["shipped", "delivered", "cancelled", "exchange_requested",
+  // shipped(운송장 등록됨)까지는 취소 "요청" 가능 — 실제 출고 여부는 관리자가 확인 후 승인/반려
+  const UNCANCELLABLE = ["delivered", "cancelled", "exchange_requested",
     "exchange_completed", "return_requested", "return_completed", "cancel_requested"];
 
   if (UNCANCELLABLE.includes(order.status)) {
-    return NextResponse.json({ error: "이미 배송이 시작되어 취소할 수 없습니다" }, { status: 400 });
+    return NextResponse.json({ error: "이미 배송이 완료되어 취소할 수 없습니다. 교환·반품 신청을 이용해주세요." }, { status: 400 });
   }
 
   // paid → 즉시 취소 (토스 전액 환불 + 재고 복원까지 — 환불 실패 시 상태 유지)
