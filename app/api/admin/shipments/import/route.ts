@@ -41,6 +41,11 @@ export async function POST(req: Request) {
         results.push({ order_number: order_number ?? "", success: false, reason: "주문번호 또는 운송장번호 누락" });
         continue;
       }
+      // 엑셀 지수 표기(6.99528E+11)가 들어오면 뒷자리가 유실된 번호 — 저장하면 문자·조회가 다 깨진다
+      if (/[eE][+-]?\d/.test(tracking_number) || /[^0-9-]/.test(tracking_number)) {
+        results.push({ order_number, success: false, reason: `운송장번호 형식 오류(${tracking_number}) — 엑셀 셀 서식을 텍스트로 바꿔 다시 업로드해주세요` });
+        continue;
+      }
 
       // 결제완료~상품준비중 어느 단계든 운송장이 등록되면 배송중으로 전환
       const { rowCount, rows: updated } = await client.query(

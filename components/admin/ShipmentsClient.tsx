@@ -60,8 +60,12 @@ async function parseTrackingXlsx(buf: ArrayBuffer) {
   const XLSX = await import("xlsx");
   const wb = XLSX.read(buf, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const grid: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
-  return parseTrackingRows(grid.map((r) => r.map((c) => String(c ?? "").trim())));
+  // raw: true — 표시값이 아닌 원본 값으로 읽는다. 12자리 운송장을 엑셀이 숫자로 인식하면
+  // 표시값은 "6.99528E+11"(지수 표기, 뒷자리 유실)이라 그걸 읽으면 번호가 망가진다.
+  const grid: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+  return parseTrackingRows(
+    grid.map((r) => r.map((c) => (typeof c === "number" ? String(Math.round(c)) : String(c ?? "").trim())))
+  );
 }
 
 function downloadTemplate() {
