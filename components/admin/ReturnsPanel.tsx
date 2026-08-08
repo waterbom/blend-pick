@@ -22,6 +22,7 @@ interface ReturnRow {
   pickup_address: string | null;
   pickup_detail: string | null;
   fee_agreed: boolean;
+  return_cost_roundtrip: number;
   created_kst: string;
   order_number: string;
   buyer_name: string;
@@ -69,9 +70,14 @@ export default function ReturnsPanel({ kind }: { kind: "exchange" | "return" }) 
     } else if (action === "complete") {
       if (r.kind === "return") {
         const itemsSum = r.items.reduce((s, it) => s + Number(it.unit_price) * it.quantity, 0);
+        // 단순변심(배송비 고객 부담 동의) 반품이면 상품에 등록된 반품 왕복비를 기본값에서 자동 차감
+        const deduct = r.fee_agreed ? Math.min(Number(r.return_cost_roundtrip) || 0, itemsSum) : 0;
+        const suggested = Math.max(0, Math.min(itemsSum - deduct, Number(r.total_amount)));
         const input = prompt(
-          `환불 금액을 입력해주세요 (원)\n\n신청 상품 합계 ${itemsSum.toLocaleString()}원 · 결제 금액 ${Number(r.total_amount).toLocaleString()}원\n고객 사유면 반송 배송비를 빼고 입력하세요. 0 입력 시 환불 없이 완료 처리됩니다.`,
-          String(itemsSum)
+          `환불 금액을 입력해주세요 (원)\n\n신청 상품 합계 ${itemsSum.toLocaleString()}원` +
+            (deduct > 0 ? ` − 반품 왕복비 ${deduct.toLocaleString()}원 = ${suggested.toLocaleString()}원 (단순변심 자동 차감)` : "") +
+            `\n결제 금액 ${Number(r.total_amount).toLocaleString()}원 · 0 입력 시 환불 없이 완료 처리됩니다.`,
+          String(suggested)
         );
         if (input === null) return;
         refundAmount = Math.floor(Number(input.replace(/[^0-9]/g, "")));

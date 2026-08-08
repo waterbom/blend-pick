@@ -32,6 +32,10 @@ export async function GET(req: Request) {
             to_char(r.created_at AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS created_kst,
             o.order_number, o.buyer_name, o.buyer_phone, o.recipient_name, o.recipient_phone,
             o.total_amount, COALESCE(o.shipping_fee, 0) AS shipping_fee, o.status AS order_status,
+            -- 주문 상품에 등록된 반품 왕복비 (단순변심 환불 기본값 계산용 — 상품별로 다르면 큰 값)
+            (SELECT COALESCE(MAX(ps.return_cost_roundtrip), 0)
+               FROM order_items oi JOIN products_shop ps ON ps.id = oi.product_id
+              WHERE oi.order_id = r.order_id) AS return_cost_roundtrip,
             (SELECT json_agg(json_build_object(
                       'status', e.status, 'note', e.note, 'admin_name', e.admin_name,
                       'at_kst', to_char(e.created_at AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI'))
