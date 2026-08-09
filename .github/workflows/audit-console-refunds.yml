@@ -1,0 +1,60 @@
+name: Audit Console Refunds
+
+# 역방향 환불 감사 (읽기 전용) — 우리 장부엔 살아있는데 토스에선 이미 전액 환불된 결제 탐지.
+# 토스 콘솔에서 직접 취소하면 우리 DB가 모르는 채 남는 케이스를 잡는다. 출력은 주문번호·금액만.
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const auth = "Basic " + Buffer.from(process.env.TOSS_SECRET_KEY + ":").toString("base64");
+            (async () => {
+              // 살아있는(취소 아님) 실결제 주문 전부 — 호텔·상품·차액
+              const r = await shop.query(`
+                SELECT order_number, order_type, status, payment_key, total_amount
+                  FROM orders
+                 WHERE status NOT IN (\x27cancelled\x27)
+                   AND payment_key IS NOT NULL AND payment_key NOT LIKE \x27SIM_%\x27
+                 ORDER BY paid_at DESC NULLS LAST`);
+              console.log(`점검 대상(살아있는 실결제 주문): ${r.rows.length}건`);
+              let flagged = 0, errors = 0;
+              for (const o of r.rows) {
+                try {
+                  const res = await fetch(`https://api.tosspayments.com/v1/payments/${o.payment_key}`, { headers: { Authorization: auth } });
+                  if (!res.ok) { errors++; continue; }
+                  const p = await res.json();
+                  // balanceAmount = 아직 토스가 들고 있는 돈. 0이거나 결제 상태가 CANCELED면 이미 환불된 것
+                  if (p.status === "CANCELED" || Number(p.balanceAmount) === 0) {
+                    flagged++;
+                    console.log(` ⚠ ${o.order_number} [${o.order_type}/${o.status}] 장부 ${Number(o.total_amount).toLocaleString()}원 / 토스 잔액 ${Number(p.balanceAmount).toLocaleString()}원 (토스 상태 ${p.status})`);
+                  } else if (Number(p.balanceAmount) < Number(o.total_amount)) {
+                    console.log(` △ ${o.order_number} [${o.order_type}/${o.status}] 부분 환불됨 — 장부 ${Number(o.total_amount).toLocaleString()}원 / 토스 잔액 ${Number(p.balanceAmount).toLocaleString()}원`);
+                  }
+                  await new Promise((ok) => setTimeout(ok, 120)); // 토스 API 예의상 간격
+                } catch { errors++; }
+              }
+              console.log(`결과: 전액 환불됐는데 장부에 살아있는 건 ${flagged}건, 조회 오류 ${errors}건`);
+              await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
