@@ -469,11 +469,19 @@ export default function ReservationsClient() {
             onClick={() => setDeliveryFilter(deliveryFilter === key ? "" : key)}
             className={`text-xs font-semibold rounded-full px-3 py-1.5 border transition-colors ${
               deliveryFilter === key ? "bg-gray-900 text-white border-gray-900" : `${DELIVERY_BADGE[key].cls} border-transparent hover:border-gray-300`}`}>
-            {label}
+            {label}{deliveryFilter === key && " ✕"}
           </button>
         ))}
+        {deliveryFilter && (
+          <button onClick={() => setDeliveryFilter("")}
+            className="text-xs font-semibold rounded-full px-3 py-1.5 border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors">
+            필터 해제 · 전체 보기
+          </button>
+        )}
         <span className="text-[11px] text-gray-400 ml-1">
-          작업지시서를 발행하면 담긴 예약에 전달 도장이 자동으로 찍혀요
+          {deliveryFilter
+            ? "해당 건만 보는 중 — 한 번 더 누르거나 필터 해제를 누르면 전체로 돌아가요"
+            : "작업지시서를 발행하면 담긴 예약에 전달 도장이 자동으로 찍혀요"}
         </span>
       </div>
 
