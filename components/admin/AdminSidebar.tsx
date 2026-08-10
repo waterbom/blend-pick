@@ -21,7 +21,8 @@ const NAV_GROUPS: { caption: string; items: { label: string; href: string }[] }[
     caption: "공구 운영",
     items: [
       { label: "인플루언서", href: "/admin/influencers" },
-      { label: "공구 관리", href: "/admin/campaigns" },
+      // 공구 관리(campaigns 축)는 실사용 0건(주문·정산 이력 없음)이라 메뉴 숨김 — 코드·데이터는 유지
+
       { label: "예약 관리", href: "/admin/reservations" },
       // 호텔 명단 업데이트(/hotel-roster)는 메뉴에서 임시 제거 — 페이지·기능은 유지 (다른 방식으로 교체 검토 중)
     ],
