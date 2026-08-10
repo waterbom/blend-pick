@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { downloadXlsx } from "@/lib/xlsx-download";
+import ReturnsPanel from "@/components/admin/ReturnsPanel";
 
 interface OrderItem {
   id: string;
@@ -170,7 +171,11 @@ export default function OrdersClient() {
   }, [visibleOrders]);
 
   const counts = useMemo(() => {
-    const c = { paid: 0, confirmed: 0, preparing: 0, delivered: 0, total: orders.length };
+    const c = {
+      paid: 0, confirmed: 0, preparing: 0, delivered: 0,
+      cancel_requested: 0, exchange_requested: 0, return_requested: 0,
+      total: orders.length,
+    };
     for (const o of orders) {
       if (o.status in c) (c as Record<string, number>)[o.status]++;
     }
@@ -214,9 +219,14 @@ export default function OrdersClient() {
     });
   }
 
-  async function handleBatchAction(action: string, label: string, withCSV = false) {
+  async function handleBatchAction(action: string, label: string, withCSV = false, deductShipping = false) {
     if (selected.size === 0) return;
-    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?`)) return;
+    const extra = action === "cancel_confirm"
+      ? deductShipping
+        ? "\n각 주문의 배송비를 뺀 금액이 토스로 환불됩니다."
+        : "\n결제 금액이 토스로 전액 환불됩니다."
+      : "";
+    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?${extra}`)) return;
     setActing(true);
 
     if (withCSV) {
@@ -225,11 +235,13 @@ export default function OrdersClient() {
       await downloadXlsx(`발주_${date}.xlsx`, COLUMNS, toOrderRows(selectedOrders), "발주");
     }
 
-    await fetch("/api/admin/orders", {
+    const res = await fetch("/api/admin/orders", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderIds: [...selected], action }),
+      body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping }),
     });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || d.error) alert(d.error || "처리에 실패했어요.");
 
     await load(statusFilter);
     setActing(false);
@@ -245,7 +257,12 @@ export default function OrdersClient() {
   const filterTabs = [
     { key: "", label: "전체", count: counts.total },
     ...dashTabs,
+    // 고객 신청 건 — 취소요청은 이 화면에서 바로 승인/차감/반려, 교환·반품은 상세 패널로
+    { key: "cancel_requested",   label: "취소요청", count: counts.cancel_requested },
+    { key: "exchange_requested", label: "교환신청", count: counts.exchange_requested },
+    { key: "return_requested",   label: "반품신청", count: counts.return_requested },
   ];
+  const isReturnsTab = statusFilter === "exchange_requested" || statusFilter === "return_requested";
 
   // 개별 주문 취소 — 토스 전액 환불 + 상태 취소 + 재고 복원까지 서버가 한 번에 처리
   const CANCELLABLE = ["paid", "confirmed", "preparing", "cancel_requested"];
@@ -297,6 +314,23 @@ export default function OrdersClient() {
         </svg>
         발주처리 + 엑셀 ({selected.size}건)
       </button>
+    );
+    // 취소요청 탭 — 배송관리와 같은 3버튼 (전액 환불 / 배송비 차감 / 반려)
+    if (statusFilter === "cancel_requested") return (
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => handleBatchAction("cancel_confirm", "취소 승인 · 전액 환불", false, false)} disabled={acting}
+          className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">
+          {acting ? "처리 중..." : `승인 · 전액 환불 (${selected.size}건)`}
+        </button>
+        <button onClick={() => handleBatchAction("cancel_confirm", "취소 승인 · 배송비 차감(단순 변심)", false, true)} disabled={acting}
+          className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">
+          승인 · 배송비 차감
+        </button>
+        <button onClick={() => handleBatchAction("cancel_reject", "취소요청 반려 (주문 유지, 환불 없음)")} disabled={acting}
+          className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">
+          반려
+        </button>
+      </div>
     );
     return null;
   };
@@ -373,8 +407,10 @@ export default function OrdersClient() {
         )}
       </div>
 
-      {/* 주문 테이블 */}
-      {loading ? (
+      {/* 주문 테이블 — 교환·반품 신청 탭은 사유·사진·수거지를 보고 건별 처리하는 상세 패널로 */}
+      {isReturnsTab ? (
+        <ReturnsPanel kind={statusFilter === "exchange_requested" ? "exchange" : "return"} />
+      ) : loading ? (
         <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>
       ) : visibleOrders.length === 0 ? (
         <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">주문이 없습니다</div>
