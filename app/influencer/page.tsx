@@ -83,15 +83,17 @@ export default async function InfluencerPage() {
   // 상품공구(Shop 상품) — 수수료율이 설정된 판매 중 상품 중 내 소속(또는 공용)만 전용 링크 발급
   // 판매중 상품 + (품절·판매종료여도) 내 귀속 판매가 있는 상품 —
   // 공구 마감 후 품절 처리해도 인플루언서의 실적·금액 표시가 사라지지 않게
+  // 주의: products_shop.influencer_id는 text, orders.influencer_id는 uuid —
+  // 같은 $1을 양쪽에 그냥 비교하면 "uuid = text" 타입 충돌로 쿼리가 죽는다 (::text로 통일)
   const shopProductsRes = await shopPool.query(
     `SELECT p.id, p.name, p.influencer_rate, p.status
        FROM products_shop p
       WHERE p.influencer_rate IS NOT NULL
-        AND (p.influencer_id IS NULL OR p.influencer_id = $1)
+        AND (p.influencer_id IS NULL OR p.influencer_id::text = $1)
         AND (p.status = 'active'
              OR EXISTS (SELECT 1 FROM orders o
                           JOIN order_items oi ON oi.order_id = o.id AND oi.product_id = p.id
-                         WHERE o.influencer_id = $1 AND o.campaign_id IS NULL))
+                         WHERE o.influencer_id::text = $1 AND o.campaign_id IS NULL))
       ORDER BY (p.status <> 'active'), p.created_at DESC`,
     [inf.id]
   );
