@@ -81,15 +81,21 @@ export default async function InfluencerPage() {
   const campaigns = campaignsRes.rows;
 
   // 상품공구(Shop 상품) — 수수료율이 설정된 판매 중 상품 중 내 소속(또는 공용)만 전용 링크 발급
+  // 판매중 상품 + (품절·판매종료여도) 내 귀속 판매가 있는 상품 —
+  // 공구 마감 후 품절 처리해도 인플루언서의 실적·금액 표시가 사라지지 않게
   const shopProductsRes = await shopPool.query(
-    `SELECT id, name, influencer_rate
-       FROM products_shop
-      WHERE status = 'active' AND influencer_rate IS NOT NULL
-        AND (influencer_id IS NULL OR influencer_id = $1)
-      ORDER BY created_at DESC`,
+    `SELECT p.id, p.name, p.influencer_rate, p.status
+       FROM products_shop p
+      WHERE p.influencer_rate IS NOT NULL
+        AND (p.influencer_id IS NULL OR p.influencer_id = $1)
+        AND (p.status = 'active'
+             OR EXISTS (SELECT 1 FROM orders o
+                          JOIN order_items oi ON oi.order_id = o.id AND oi.product_id = p.id
+                         WHERE o.influencer_id = $1 AND o.campaign_id IS NULL))
+      ORDER BY (p.status <> 'active'), p.created_at DESC`,
     [inf.id]
   );
-  const shopProducts = shopProductsRes.rows as { id: string; name: string; influencer_rate: number }[];
+  const shopProducts = shopProductsRes.rows as { id: string; name: string; influencer_rate: number; status: string }[];
 
   // 상품공구 내 귀속 매출 (상품별)
   // 주의: order_items를 그냥 JOIN하면 옵션 여러 줄 주문에서 주문 금액이 줄 수만큼
@@ -285,13 +291,21 @@ export default async function InfluencerPage() {
                   <div key={p.id} className="text-sm rounded-xl px-3 py-2.5" style={{ border: "1px solid var(--line)" }}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{p.name}</p>
+                        <p className="font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                          {p.name}
+                          {p.status !== "active" && (
+                            <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 align-middle"
+                              style={{ background: "#F3F4F6", color: "#6B7280", borderRadius: "4px" }}>
+                              판매 종료
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs mt-0.5 tnum" style={{ color: "var(--text-muted)" }}>
                           수수료 {Number(p.influencer_rate)}%
                           {sale && ` · 내 판매 ${sale.orders}건 / ${WON(Number(sale.gross))}`}
                         </p>
                       </div>
-                      <CopyLinkButton path={`/products/${p.id}?inf=${inf.id}`} />
+                      {p.status === "active" && <CopyLinkButton path={`/products/${p.id}?inf=${inf.id}`} />}
                     </div>
                     {/* 선착순 구매자 — 내 링크 유효 결제만, 번호 중복 제거, 승인시간 순 */}
                     <FirstBuyersClient productId={p.id} />
