@@ -23,7 +23,7 @@ const NAV_GROUPS: { caption: string; items: { label: string; href: string }[] }[
       { label: "인플루언서", href: "/admin/influencers" },
       { label: "공구 관리", href: "/admin/campaigns" },
       { label: "예약 관리", href: "/admin/reservations" },
-      { label: "호텔 명단 업데이트", href: "/hotel-roster" },
+      // 호텔 명단 업데이트(/hotel-roster)는 메뉴에서 임시 제거 — 페이지·기능은 유지 (다른 방식으로 교체 검토 중)
     ],
   },
   {
