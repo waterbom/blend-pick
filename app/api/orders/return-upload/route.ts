@@ -4,14 +4,16 @@ import { verifyToken } from "@/lib/auth";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { verifiedPhoneOf } from "@/lib/phone-verify";
 
-// 교환·반품 신청 사진 업로드 — 마이페이지 전용이라 로그인 회원만
+// 교환·반품 신청 사진 업로드 — 로그인 회원 또는 휴대폰 인증(phone_verified)된 비회원
 export async function POST(req: Request) {
   const store = await cookies();
   const token = store.get("shop_token")?.value;
   const logged = token ? await verifyToken(token) : null;
-  if (!logged) {
-    return NextResponse.json({ error: "로그인 후 업로드할 수 있어요." }, { status: 401 });
+  const guestPhone = logged ? null : await verifiedPhoneOf(store.get("phone_verified")?.value);
+  if (!logged && !guestPhone) {
+    return NextResponse.json({ error: "로그인 또는 휴대폰 인증 후 업로드할 수 있어요." }, { status: 401 });
   }
 
   const formData = await req.formData();

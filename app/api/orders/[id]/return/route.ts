@@ -3,15 +3,16 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { RETURN_REASONS, SELLER_FAULT_REASONS } from "@/lib/returns";
+import { isPhoneVerified } from "@/lib/phone-verify";
 
-// POST /api/orders/[id]/return — 교환·반품 신청 (마이페이지, 배송중·배송완료 주문만)
+// POST /api/orders/[id]/return — 교환·반품 신청 (배송중·배송완료 주문만)
+// 권한: 로그인 회원(주문 소유자) 또는 휴대폰 인증(phone_verified 쿠키)된 비회원(결제 휴대폰 일치)
 // 신청과 동시에 orders.status를 exchange_requested / return_requested로 바꾸고,
 // 원래 상태(prev_status)를 기억해 거절 시 되돌린다. 진행 중 신청이 있으면 중복 차단.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies();
   const token = cookieStore.get("shop_token")?.value;
   const payload = token ? await verifyToken(token) : null;
-  if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
@@ -44,14 +45,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .slice(0, 5);
 
   const { rows } = await shopPool.query(
-    `SELECT o.id, o.status, o.user_id, o.order_type, o.addr_address, o.addr_detail
+    `SELECT o.id, o.status, o.user_id, o.buyer_phone, o.order_type, o.addr_address, o.addr_detail
        FROM orders o WHERE o.id = $1`,
     [id]
   );
   const order = rows[0];
   if (!order) return NextResponse.json({ error: "주문을 찾을 수 없습니다" }, { status: 404 });
-  if (order.user_id !== payload.id) {
-    return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
+  const isOwner = !!payload && order.user_id === payload.id;
+  const isGuestOwner =
+    !isOwner &&
+    !!order.buyer_phone &&
+    (await isPhoneVerified(cookieStore.get("phone_verified")?.value, order.buyer_phone));
+  if (!isOwner && !isGuestOwner) {
+    return NextResponse.json(
+      { error: payload ? "권한이 없습니다" : "휴대폰 인증 후 이용할 수 있어요." },
+      { status: payload ? 403 : 401 }
+    );
   }
   if (!["shop", "campaign"].includes(order.order_type)) {
     return NextResponse.json({ error: "교환·반품 신청 대상 주문이 아니에요." }, { status: 400 });

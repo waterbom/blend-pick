@@ -10,11 +10,13 @@ export default function ReturnRequestForm({
   items,
   defaultAddress,
   defaultAddressDetail,
+  doneHref = "/mypage",
 }: {
   orderId: string;
   items: ReturnItem[];
   defaultAddress: string;
   defaultAddressDetail: string;
+  doneHref?: string;
 }) {
   const router = useRouter();
   const [kind, setKind] = useState<"exchange" | "return">("exchange");
@@ -88,7 +90,7 @@ export default function ReturnRequestForm({
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { alert(d.error || "신청에 실패했어요. 잠시 후 다시 시도해주세요."); return; }
       alert(d.message || "신청이 접수되었습니다.");
-      router.push("/mypage");
+      router.push(doneHref);
       router.refresh();
     } catch {
       alert("네트워크 문제로 신청이 전달되지 않았어요. 다시 시도해주세요.");

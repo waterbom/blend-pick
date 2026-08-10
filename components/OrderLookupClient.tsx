@@ -38,6 +38,7 @@ export default function OrderLookupClient() {
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<LookupOrder[] | null>(null);
   const [error, setError] = useState("");
+  const [cancelling, setCancelling] = useState<string | null>(null); // 취소 처리 중인 주문 id
 
   async function load(p: string) {
     setLoading(true); setError("");
@@ -50,6 +51,27 @@ export default function OrderLookupClient() {
       if (!res.ok || !d.ok) { setError(d.error || "조회에 실패했어요."); return; }
       setOrders(d.orders);
     } finally { setLoading(false); }
+  }
+
+  // 비회원 주문 취소 — 발송 전엔 즉시 전액 환불, 운송장 등록 후엔 취소 요청 접수
+  async function handleCancel(o: LookupOrder) {
+    const instant = ["paid", "confirmed", "preparing"].includes(o.status);
+    const msg = instant
+      ? "주문을 취소할까요?\n결제하신 금액이 전액 환불됩니다."
+      : "취소 요청을 보낼까요?\n\n이미 운송장이 등록된 주문이라, 택배가 이미 출고된 경우에는 취소가 불가할 수 있어요. 확인 후 처리해 드려요.\n단순 변심에 의한 취소는 배송비를 제외한 금액이 환불됩니다.";
+    if (!confirm(msg)) return;
+    setCancelling(o.id);
+    try {
+      const res = await fetch(`/api/orders/${o.id}/cancel`, { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(d.error || "취소 처리에 실패했어요. 잠시 후 다시 시도해주세요."); return; }
+      alert(d.message || "처리되었습니다.");
+      await load(phone); // 목록 새로고침 (인증 쿠키 30분 유효)
+    } catch {
+      alert("네트워크 문제로 요청이 전달되지 않았어요. 연결 상태를 확인하고 다시 시도해주세요.");
+    } finally {
+      setCancelling(null);
+    }
   }
 
   return (
@@ -125,16 +147,37 @@ export default function OrderLookupClient() {
                       {o.shipped_kst ? `발송 ${o.shipped_kst}` : ""}{o.shipped_kst && o.delivered_kst ? " · " : ""}{o.delivered_kst ? `배송완료 ${o.delivered_kst}` : ""}
                     </p>
                   )}
-                  <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: "1px solid #E4E1D6" }}>
+                  <div className="flex items-center justify-between pt-3 mt-3 flex-wrap gap-2" style={{ borderTop: "1px solid #E4E1D6" }}>
                     <span className="ds-mono text-sm font-semibold" style={{ color: "#1C2418" }}>
                       {Number(o.total_amount).toLocaleString()}원
                     </span>
-                    {o.tracking_company && o.tracking_number && (
-                      <a href={trackingUrl(o.tracking_company, o.tracking_number)} target="_blank" rel="noopener noreferrer"
-                        className="text-xs px-3.5 py-2" style={{ border: "1px solid #E4E1D6", color: "#4A5442" }}>
-                        {carrierName(o.tracking_company)} 배송 조회
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {o.tracking_company && o.tracking_number && (
+                        <a href={trackingUrl(o.tracking_company, o.tracking_number)} target="_blank" rel="noopener noreferrer"
+                          className="text-xs px-3.5 py-2" style={{ border: "1px solid #E4E1D6", color: "#4A5442" }}>
+                          {carrierName(o.tracking_company)} 배송 조회
+                        </a>
+                      )}
+                      {/* 발송 전엔 즉시 취소, 운송장 등록 후엔 취소 요청 — 회원 마이페이지와 같은 정책 */}
+                      {!isHotel && ["paid", "confirmed", "preparing", "shipped"].includes(o.status) && (
+                        <button onClick={() => handleCancel(o)} disabled={cancelling === o.id}
+                          className="text-xs px-3.5 py-2 disabled:opacity-50"
+                          style={{ border: "1px solid #E8C9C9", color: "#B4423C", background: "#FDF7F7" }}>
+                          {cancelling === o.id ? "처리 중..." : ["shipped"].includes(o.status) ? "취소 요청" : "주문 취소"}
+                        </button>
+                      )}
+                      {!isHotel && ["shipped", "delivered"].includes(o.status) && (
+                        <a href={`/orders/returns/new?order=${o.id}`}
+                          className="text-xs px-3.5 py-2" style={{ border: "1px solid #E4E1D6", color: "#4A5442" }}>
+                          교환·반품 신청
+                        </a>
+                      )}
+                      {["exchange_requested", "return_requested"].includes(o.status) && (
+                        <span className="text-xs px-3.5 py-2" style={{ color: "#8B927F", background: "#F5F3EA" }}>
+                          접수 확인 중이에요
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

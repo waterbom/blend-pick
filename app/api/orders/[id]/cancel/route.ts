@@ -3,23 +3,21 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { cancelShopOrder } from "@/lib/order-cancel";
+import { isPhoneVerified } from "@/lib/phone-verify";
 
 // POST /api/orders/[id]/cancel
-// paid 상태 → 즉시 cancelled (어드민 확인 불필요)
-// confirmed/preparing 상태 → cancel_requested (어드민 확인 필요)
-// shipped 이후 → 취소 불가
+// 발송 전(paid/confirmed/preparing) → 즉시 cancelled + 전액 환불
+// shipped(운송장 등록됨) → cancel_requested (어드민 확인 필요)
+// 권한: 로그인 회원(주문 소유자) 또는 휴대폰 인증(phone_verified 쿠키)된 비회원(주문 번호의 결제 휴대폰과 일치)
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies();
   const token = cookieStore.get("shop_token")?.value;
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const payload = await verifyToken(token);
-  if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const payload = token ? await verifyToken(token) : null;
 
   const { id } = await params;
 
   const { rows } = await shopPool.query(
-    `SELECT id, status, user_id FROM orders WHERE id = $1`,
+    `SELECT id, status, user_id, buyer_phone FROM orders WHERE id = $1`,
     [id]
   );
 
@@ -27,8 +25,16 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
   const order = rows[0];
 
-  if (order.user_id !== payload.id) {
-    return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
+  const isOwner = !!payload && order.user_id === payload.id;
+  const isGuestOwner =
+    !isOwner &&
+    !!order.buyer_phone &&
+    (await isPhoneVerified(cookieStore.get("phone_verified")?.value, order.buyer_phone));
+  if (!isOwner && !isGuestOwner) {
+    return NextResponse.json(
+      { error: payload ? "권한이 없습니다" : "휴대폰 인증 후 이용할 수 있어요." },
+      { status: payload ? 403 : 401 }
+    );
   }
 
   // shipped(운송장 등록됨)까지는 취소 "요청" 가능 — 실제 출고 여부는 관리자가 확인 후 승인/반려
