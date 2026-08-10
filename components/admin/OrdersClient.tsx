@@ -130,6 +130,19 @@ export default function OrdersClient() {
   const [acting, setActing] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  // 고객 신청(취소·교환·반품) 대기 건수 — 어떤 탭을 보고 있든 항상 최신으로 유지해 배너·배지에 표시
+  const [reqCounts, setReqCounts] = useState({ cancel_requested: 0, exchange_requested: 0, return_requested: 0 });
+  async function loadReqCounts() {
+    try {
+      const res = await fetch("/api/admin/orders?status=cancel_requested,exchange_requested,return_requested");
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
+      const c = { cancel_requested: 0, exchange_requested: 0, return_requested: 0 };
+      for (const o of data) if (o.status in c) (c as Record<string, number>)[o.status]++;
+      setReqCounts(c);
+    } catch { /* 배지 갱신 실패는 무시 — 다음 로드에서 다시 시도 */ }
+  }
+
   async function load(status = "") {
     setLoading(true);
     const res = await fetch(`/api/admin/orders${status ? `?status=${status}` : ""}`);
@@ -137,6 +150,7 @@ export default function OrdersClient() {
     setOrders(data);
     setSelected(new Set());
     setLoading(false);
+    loadReqCounts();
   }
 
   useEffect(() => { load(statusFilter); }, [statusFilter]);
@@ -257,11 +271,15 @@ export default function OrdersClient() {
   const filterTabs = [
     { key: "", label: "전체", count: counts.total },
     ...dashTabs,
-    // 고객 신청 건 — 취소요청은 이 화면에서 바로 승인/차감/반려, 교환·반품은 상세 패널로
-    { key: "cancel_requested",   label: "취소요청", count: counts.cancel_requested },
-    { key: "exchange_requested", label: "교환신청", count: counts.exchange_requested },
-    { key: "return_requested",   label: "반품신청", count: counts.return_requested },
   ];
+  // 고객 신청 탭 — 취소요청은 이 화면에서 바로 승인/차감/반려, 교환·반품은 상세 패널로.
+  // 건수는 항상 전체 기준(reqCounts) — 다른 탭을 보고 있어도 대기 건이 보이게
+  const requestTabs = [
+    { key: "cancel_requested",   label: "취소요청", count: reqCounts.cancel_requested },
+    { key: "exchange_requested", label: "교환신청", count: reqCounts.exchange_requested },
+    { key: "return_requested",   label: "반품신청", count: reqCounts.return_requested },
+  ];
+  const pendingTotal = reqCounts.cancel_requested + reqCounts.exchange_requested + reqCounts.return_requested;
   const isReturnsTab = statusFilter === "exchange_requested" || statusFilter === "return_requested";
 
   // 개별 주문 취소 — 토스 전액 환불 + 상태 취소 + 재고 복원까지 서버가 한 번에 처리
@@ -355,6 +373,30 @@ export default function OrdersClient() {
         </div>
       </div>
 
+      {/* 고객 신청 대기 알림 — 취소·교환·반품 신청이 있으면 눈에 띄게 */}
+      {pendingTotal > 0 && (
+        <div className="flex items-center gap-3 flex-wrap px-4 py-3 mb-4"
+          style={{ background: "#FDF2F2", border: "1px solid #F0C9C9", borderLeft: "4px solid #DC2626" }}>
+          <span className="flex items-center gap-2 text-sm font-bold" style={{ color: "#B91C1C" }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            고객 신청 {pendingTotal}건이 처리를 기다리고 있어요
+          </span>
+          {requestTabs.filter((t) => t.count > 0).map((t) => (
+            <button key={t.key} onClick={() => setStatusFilter(t.key)}
+              className="text-xs font-bold px-3 py-1.5 transition-colors"
+              style={{
+                background: statusFilter === t.key ? "#B91C1C" : "#fff",
+                color: statusFilter === t.key ? "#fff" : "#B91C1C",
+                border: "1px solid #E5A5A5",
+              }}>
+              {t.label} {t.count}건 →
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 판매 유형 필터 */}
       <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 mb-3 w-fit">
         {[
@@ -394,6 +436,29 @@ export default function OrdersClient() {
               }`}>{tab.count}</span>
             </button>
           ))}
+          {/* 고객 신청 탭 — 대기 건이 있으면 빨간 강조로 구분 */}
+          {requestTabs.map((tab) => {
+            const hot = tab.count > 0;
+            const active = statusFilter === tab.key;
+            return (
+              <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold transition-colors"
+                style={{
+                  border: "1px solid",
+                  marginLeft: "-1px",
+                  background: active ? (hot ? "#B91C1C" : "#1A1D18") : hot ? "#FDF2F2" : "#fff",
+                  color: active ? "#fff" : hot ? "#B91C1C" : "#5C6156",
+                  borderColor: active ? (hot ? "#B91C1C" : "#1A1D18") : hot ? "#E5A5A5" : "#D6D6CF",
+                }}>
+                {tab.label}
+                <span className="text-xs px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: active ? "rgba(255,255,255,0.25)" : hot ? "#DC2626" : "#F3F4F6",
+                    color: active ? "#fff" : hot ? "#fff" : "#4B5563",
+                  }}>{tab.count}</span>
+              </button>
+            );
+          })}
         </div>
         {actionButton()}
         {selected.size > 0 && (
@@ -409,7 +474,7 @@ export default function OrdersClient() {
 
       {/* 주문 테이블 — 교환·반품 신청 탭은 사유·사진·수거지를 보고 건별 처리하는 상세 패널로 */}
       {isReturnsTab ? (
-        <ReturnsPanel kind={statusFilter === "exchange_requested" ? "exchange" : "return"} />
+        <ReturnsPanel kind={statusFilter === "exchange_requested" ? "exchange" : "return"} onChanged={loadReqCounts} />
       ) : loading ? (
         <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>
       ) : visibleOrders.length === 0 ? (

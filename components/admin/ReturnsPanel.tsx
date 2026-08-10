@@ -36,7 +36,7 @@ interface ReturnRow {
 
 // 교환·반품 신청 처리 패널 — 신청 상세(사유·사진·수거지)를 보고
 // 수거 접수 → 완료(반품은 토스 환불) / 거절을 건별로 처리한다
-export default function ReturnsPanel({ kind }: { kind: "exchange" | "return" }) {
+export default function ReturnsPanel({ kind, onChanged }: { kind: "exchange" | "return"; onChanged?: () => void }) {
   const [rows, setRows] = useState<ReturnRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -104,6 +104,7 @@ export default function ReturnsPanel({ kind }: { kind: "exchange" | "return" }) 
         alert(`반품 완료 — ${Number(d.refunded).toLocaleString()}원 환불됐어요.`);
       }
       await load();
+      onChanged?.(); // 처리 후 부모 화면의 신청 건수 배지 갱신용
     } catch {
       alert("네트워크 문제로 요청이 전달되지 않았어요. 목록을 새로고침해 확인해주세요.");
     } finally {
