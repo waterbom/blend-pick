@@ -256,6 +256,11 @@ export default async function ShopPage({
                 </Link>
               );
             })}
+            {/* 마지막 줄이 덜 차면 빈 칸에 그리드 바탕색(헤어라인)이 드러남 — 흰 카드로 채운다
+                (4의 배수까지 채우면 2열·4열 어느 배치에서도 빈 칸이 안 생김) */}
+            {Array.from({ length: (4 - (products.length % 4)) % 4 }, (_, i) => (
+              <div key={`fill-${i}`} aria-hidden className="bg-white" />
+            ))}
           </div>
         )}
 
