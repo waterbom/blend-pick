@@ -1,0 +1,48 @@
+name: Audit Campaigns Usage
+
+# 공구 관리(campaigns) 축 실사용 점검 (읽기 전용) — 재정비 범위 결정용. 건수·집계만 출력.
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node -e '
+            const fs = require("fs");
+            for (const line of fs.readFileSync(".env.local", "utf8").split("\n")) {
+              const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+              if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["\x27]|["\x27]$/g, "");
+            }
+            const { Pool } = require("pg");
+            const os = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            const shop = new Pool({ connectionString: process.env.SHOP_DATABASE_URL, ssl: { rejectUnauthorized: false } });
+            (async () => {
+              const c = await os.query(`SELECT COUNT(*)::int AS n,
+                       COUNT(*) FILTER (WHERE is_archived)::int AS archived,
+                       MIN(start_date)::date AS first, MAX(end_date)::date AS last
+                  FROM campaigns`);
+              console.log(`campaigns 행: ${c.rows[0].n}건 (보관 ${c.rows[0].archived}건, 기간 ${c.rows[0].first ?? "-"} ~ ${c.rows[0].last ?? "-"})`);
+              const o = await shop.query(`SELECT
+                       COUNT(*) FILTER (WHERE campaign_id IS NOT NULL)::int AS campaign_orders,
+                       COALESCE(SUM(total_amount) FILTER (WHERE campaign_id IS NOT NULL), 0) AS campaign_gross,
+                       MAX(paid_at) FILTER (WHERE campaign_id IS NOT NULL) AS last_campaign_order
+                  FROM orders`);
+              console.log(`campaign 귀속 주문: ${o.rows[0].campaign_orders}건 / 누적 ${Number(o.rows[0].campaign_gross).toLocaleString()}원 / 마지막 주문 ${o.rows[0].last_campaign_order ?? "-"}`);
+              const p = await shop.query(`SELECT COUNT(*)::int AS n,
+                       COUNT(*) FILTER (WHERE campaign_id IS NOT NULL AND campaign_id::text <> \x27\x27)::int AS with_campaign
+                  FROM influencer_payouts`).catch(() => ({ rows: [{ n: 0, with_campaign: 0 }] }));
+              console.log(`정산 확정 이력: ${p.rows[0].n}건 (campaign 연결 ${p.rows[0].with_campaign}건)`);
+              await os.end(); await shop.end();
+            })().catch(e => { console.error(e.message); process.exit(1); });
+            '
