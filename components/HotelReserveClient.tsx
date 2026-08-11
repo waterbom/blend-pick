@@ -216,6 +216,58 @@ export default function HotelReserveClient({
   const linkOnly = !influencerId;
   const ctaOn = complete && sale === "open" && !linkOnly;
 
+  // 예약 진행 CTA — 데스크톱 지갑 아래 / 모바일 하단 고정 바가 같은 버튼을 공유 (상태 분기 한 벌 유지)
+  const summaryCta =
+    linkOnly && activeOptions.length === 0 && upcomingOptions.length > 0 ? (
+      // 진행 중은 없고 오픈 예정만 있으면 — 커밍순 버튼 (전용 링크의 오픈 카운트다운으로 이동)
+      <button type="button"
+        onClick={() => gotoInfluencer(upcomingOptions[0].id)}
+        className="w-full py-[15px] text-[14px] font-bold text-center cursor-pointer transition-all duration-150 hover:brightness-105"
+        style={{ background: C.gold, color: C.green900, letterSpacing: ".04em", border: "none" }}
+      >
+        ◷ COMING SOON — {upcomingOptions[0].name} 공구 {fmtOpenAt(upcomingOptions[0].start)} 오픈
+      </button>
+    ) : linkOnly && activeOptions.length > 0 ? (
+      // 직접 유입인데 진행 중 공구가 있으면 — 비활성 버튼 대신 공구 선택 select
+      <select
+        defaultValue=""
+        onChange={(e) => gotoInfluencer(e.target.value)}
+        className="w-full py-[15px] text-[14px] font-bold text-center cursor-pointer"
+        style={{ background: C.green800, color: "#fff", letterSpacing: ".04em", border: "none" }}
+      >
+        <option value="" disabled>진행 중인 공구 선택 → 예약하러 가기</option>
+        {activeOptions.map((o) => (
+          <option key={o.id} value={o.id}>{o.name} 공구로 이동</option>
+        ))}
+      </select>
+    ) : (
+      <button
+        disabled={!ctaOn}
+        onClick={() => {
+          if (!ctaOn) return;
+          const infParam = influencerId ? `&inf=${influencerId}` : "";
+          router.push(`/hotel/reserve/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}${infParam}`);
+        }}
+        className="w-full py-[15px] text-[14px] font-bold text-center transition-colors duration-150"
+        style={{
+          background: ctaOn ? C.green800 : C.ctaOff,
+          color: ctaOn ? "#fff" : C.muted3,
+          letterSpacing: ".04em",
+          cursor: ctaOn ? "pointer" : "default",
+        }}
+        suppressHydrationWarning
+      >
+        {linkOnly
+          ? "인플루언서 전용 링크로만 예약 가능"
+          : sale === "before"
+          ? remain
+            ? `오픈까지 ${remain.d > 0 ? `${remain.d}일 ` : ""}${pad(remain.h)}:${pad(remain.m)}:${pad(remain.s)}`
+            : "잠시 후 오픈"
+          : sale === "closed" ? "판매가 마감되었어요"
+          : complete ? `예약 진행 · ${WON(total)}` : "예약 진행"}
+      </button>
+    );
+
   return (
     <div style={{ background: "#FFFFFF", color: C.green900 }}>
       {/* ── 히어로 (화이트 — 페이지와 이어지게 배경·경계 없음) ── */}
@@ -564,8 +616,9 @@ export default function HotelReserveClient({
         </div>
       </div>
 
-      {/* ── 지갑 요약 (달력 아래) — 카드 3장(일정·구성·할인)이 꽂힌 지갑, 가운데 총 금액 ── */}
-      <div className="max-w-[560px] mx-auto px-5 pb-14 lg:pb-20">
+      {/* ── 지갑 요약 (달력 아래, 데스크톱 전용) — 카드 3장(일정·구성·할인)이 꽂힌 지갑, 가운데 총 금액.
+           모바일은 아래 하단 고정 바 사용 ── */}
+      <div className="hidden lg:block max-w-[560px] mx-auto px-5 pb-14 lg:pb-20">
         <div className="relative" style={{ height: "318px" }}>
           {/* 꽂혀 있는 카드들 — 위로 살짝씩 보이는 부분에 정보 표시 */}
           {[
@@ -634,56 +687,30 @@ export default function HotelReserveClient({
           </div>
         </div>
 
-        <div className="mt-5">
-          {linkOnly && activeOptions.length === 0 && upcomingOptions.length > 0 ? (
-            // 진행 중은 없고 오픈 예정만 있으면 — 커밍순 버튼 (전용 링크의 오픈 카운트다운으로 이동)
-            <button type="button"
-              onClick={() => gotoInfluencer(upcomingOptions[0].id)}
-              className="w-full py-[15px] text-[14px] font-bold text-center cursor-pointer transition-all duration-150 hover:brightness-105"
-              style={{ background: C.gold, color: C.green900, letterSpacing: ".04em", border: "none" }}
-            >
-              ◷ COMING SOON — {upcomingOptions[0].name} 공구 {fmtOpenAt(upcomingOptions[0].start)} 오픈
-            </button>
-          ) : linkOnly && activeOptions.length > 0 ? (
-            // 직접 유입인데 진행 중 공구가 있으면 — 비활성 버튼 대신 공구 선택 select
-            <select
-              defaultValue=""
-              onChange={(e) => gotoInfluencer(e.target.value)}
-              className="w-full py-[15px] text-[14px] font-bold text-center cursor-pointer"
-              style={{ background: C.green800, color: "#fff", letterSpacing: ".04em", border: "none" }}
-            >
-              <option value="" disabled>진행 중인 공구 선택 → 예약하러 가기</option>
-              {activeOptions.map((o) => (
-                <option key={o.id} value={o.id}>{o.name} 공구로 이동</option>
-              ))}
-            </select>
-          ) : (
-          <button
-            disabled={!ctaOn}
-            onClick={() => {
-              if (!ctaOn) return;
-              const infParam = influencerId ? `&inf=${influencerId}` : "";
-              router.push(`/hotel/reserve/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}${infParam}`);
-            }}
-            className="w-full py-[15px] text-[14px] font-bold text-center transition-colors duration-150"
-            style={{
-              background: ctaOn ? C.green800 : C.ctaOff,
-              color: ctaOn ? "#fff" : C.muted3,
-              letterSpacing: ".04em",
-              cursor: ctaOn ? "pointer" : "default",
-            }}
-            suppressHydrationWarning
-          >
-            {linkOnly
-              ? "인플루언서 전용 링크로만 예약 가능"
-              : sale === "before"
-              ? remain
-                ? `오픈까지 ${remain.d > 0 ? `${remain.d}일 ` : ""}${pad(remain.h)}:${pad(remain.m)}:${pad(remain.s)}`
-                : "잠시 후 오픈"
-              : sale === "closed" ? "판매가 마감되었어요"
-              : complete ? `예약 진행 · ${WON(total)}` : "예약 진행"}
-          </button>
-          )}
+        <div className="mt-5">{summaryCta}</div>
+      </div>
+
+      {/* ── 요약 바 (모바일 전용, 하단 고정) ── */}
+      <div className="lg:hidden sticky bottom-0 z-20" style={{ background: C.surfaceSoft, borderTop: `2px solid ${C.green800}` }}>
+        <div className="px-5 py-3.5 flex flex-col gap-3">
+          <div className="min-w-0">
+            <div className="text-[10px] mb-0.5" style={{ letterSpacing: ".16em", color: C.sage }}>
+              {complete ? "선택한 일정" : checkIn ? "퇴실 날짜" : "입실 날짜"}
+            </div>
+            <div className="font-bold text-[14px] truncate" style={{ color: C.green900 }} suppressHydrationWarning>
+              {complete
+                ? `${fmtDate(checkIn!)} — ${fmtDate(checkOut!)} · ${nights}박 · ${WON(total)}`
+                : checkIn ? "퇴실 날짜를 선택하세요" : "달력에서 입실 날짜를 선택하세요"}
+            </div>
+            {complete && discountPct > 0 && (
+              <div className="text-[11px] tnum mt-0.5" style={{ color: C.muted3 }}>
+                <span className="line-through">{WON(listTotal)}</span>
+                <span className="ml-1.5 font-bold" style={{ color: C.green700 }}>{discountPct}% 할인</span>
+                <span className="ml-1.5">{pack.label} · {room}</span>
+              </div>
+            )}
+          </div>
+          {summaryCta}
         </div>
       </div>
     </div>
