@@ -7,6 +7,7 @@ import {
   BOOKABLE_FROM, BOOKABLE_TO, minBookableCheckIn, saleScheduleFor, WON,
   type PkgKey, type RoomType, type Tier,
 } from "@/lib/hotel";
+import NeonCountdown from "@/components/NeonCountdown";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const MONTHS = [7, 8, 9, 10]; // 2026 시즌
@@ -214,15 +215,24 @@ export default function HotelReserveClient({
   // 인플루언서 전용 링크로만 구매 가능 — 직접 유입(링크 없음)은 결제 진입 차단
   const linkOnly = !influencerId;
   const ctaOn = complete && sale === "open" && !linkOnly;
-  const countdownText = remain
-    ? `${remain.d}일 ${pad(remain.h)}:${pad(remain.m)}:${pad(remain.s)}`
-    : sale === "before" ? "잠시 후 오픈" : "마감되었습니다";
 
   return (
     <div style={{ background: "#FFFFFF", color: C.green900 }}>
       {/* ── 히어로 (다크 그린) ── */}
       <section style={{ background: C.green800, color: "#EAF0E6" }}>
         <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-8 lg:pt-16">
+          {/* 네온 카운트다운 — 오픈 전엔 오픈까지, 진행 중엔 마감까지. 히어로와 같은 배경이라 경계선 없음 */}
+          {!linkOnly && (
+            <div className="text-center pb-8 lg:pb-14" suppressHydrationWarning>
+              <div className="text-[10px] lg:text-[11px] mb-4 lg:mb-6"
+                style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sageLight }}>
+                {sale === "before" ? "OPEN — 오픈까지" : sale === "open" ? "CLOSING — 마감까지" : "CLOSED — 판매 마감"}
+              </div>
+              <div className="text-[34px] lg:text-[64px]" style={{ color: sale === "closed" ? "rgba(199,214,192,.4)" : C.mintOnDark }}>
+                <NeonCountdown remain={remain} />
+              </div>
+            </div>
+          )}
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end">
             <div>
               <div className="text-[10px] lg:text-[11px] mb-3 lg:mb-[18px]"
@@ -237,33 +247,14 @@ export default function HotelReserveClient({
                 오션뷰 객실 · 조식 · 인피니티풀 · 레이트 체크아웃까지, 한 번에.
               </p>
             </div>
-            {/* 카운트다운 — 데스크톱 우하단 / 모바일 별도 행 (직접 방문은 타이머 없이 예약 조회만) */}
-            {!linkOnly ? (
-              <div className="mt-6 lg:mt-0 pt-4 lg:pt-0 pb-0 lg:pb-1 flex justify-between items-center lg:block lg:text-right border-t lg:border-t-0"
-                style={{ borderColor: "rgba(234,240,230,.18)" }}>
-                <div className="text-[10px] lg:text-[11px] lg:mb-2" style={{ letterSpacing: ".2em", color: C.sageLight }}>
-                  {sale === "before" ? "판매 시작까지" : "판매 종료까지"}
-                </div>
-                <div className="text-[24px] lg:text-[40px]" suppressHydrationWarning
-                  style={{ fontFamily: MONO, fontWeight: 600, color: C.gold }}>
-                  {countdownText}
-                </div>
-                {/* 예약 조회 — 귀속 링크로 들어와도 항상 접근 가능 */}
-                <a href="/hotel/lookup"
-                  className="hidden lg:inline-block mt-3 px-5 py-2.5 text-[11px] font-bold transition-colors duration-150"
-                  style={{ background: C.gold, color: C.green900, letterSpacing: ".12em" }}>
-                  예약 조회 →
-                </a>
-              </div>
-            ) : (
-              <div className="hidden lg:block lg:pb-1 lg:text-right">
-                <a href="/hotel/lookup"
-                  className="inline-block px-5 py-2.5 text-[11px] font-bold transition-colors duration-150"
-                  style={{ background: C.gold, color: C.green900, letterSpacing: ".12em" }}>
-                  예약 조회 →
-                </a>
-              </div>
-            )}
+            {/* 예약 조회 — 카운트다운 숫자는 상단 네온 시계로 이동, 여기엔 버튼만 */}
+            <div className="hidden lg:block lg:pb-1 lg:text-right">
+              <a href="/hotel/lookup"
+                className="inline-block px-5 py-2.5 text-[11px] font-bold transition-colors duration-150"
+                style={{ background: C.gold, color: C.green900, letterSpacing: ".12em" }}>
+                예약 조회 →
+              </a>
+            </div>
           </div>
 
           {/* 예약 조회 (모바일) */}
