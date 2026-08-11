@@ -218,17 +218,17 @@ export default function HotelReserveClient({
 
   return (
     <div style={{ background: "#FFFFFF", color: C.green900 }}>
-      {/* ── 히어로 (다크 그린) ── */}
-      <section style={{ background: C.green800, color: "#EAF0E6" }}>
-        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-8 lg:pt-16">
-          {/* 네온 카운트다운 — 오픈 전엔 오픈까지, 진행 중엔 마감까지. 히어로와 같은 배경이라 경계선 없음 */}
+      {/* ── 히어로 (화이트 — 페이지와 이어지게 배경·경계 없음) ── */}
+      <section style={{ background: "#FFFFFF", color: C.green900 }}>
+        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-8 lg:pt-14">
+          {/* 네온 카운트다운 — 오픈 전엔 오픈까지, 진행 중엔 마감까지 */}
           {!linkOnly && (
             <div className="text-center pb-8 lg:pb-14" suppressHydrationWarning>
               <div className="text-[10px] lg:text-[11px] mb-4 lg:mb-6"
-                style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sageLight }}>
+                style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sage }}>
                 {sale === "before" ? "OPEN — 오픈까지" : sale === "open" ? "CLOSING — 마감까지" : "CLOSED — 판매 마감"}
               </div>
-              <div className="text-[34px] lg:text-[64px]" style={{ color: sale === "closed" ? "rgba(199,214,192,.4)" : C.mintOnDark }}>
+              <div className="text-[34px] lg:text-[64px]" style={{ color: sale === "closed" ? "rgba(122,139,111,.35)" : C.sageLight }}>
                 <NeonCountdown remain={remain} />
               </div>
             </div>
@@ -236,14 +236,14 @@ export default function HotelReserveClient({
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end">
             <div>
               <div className="text-[10px] lg:text-[11px] mb-3 lg:mb-[18px]"
-                style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".28em", color: C.sageLight }}>
+                style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".28em", color: C.sage }}>
                 HOTEL 공동구매 — 오직 블렌드픽에서만
               </div>
               <h1 className="m-0 text-[27px] lg:text-[48px] leading-[1.3] lg:leading-[1.2]"
-                style={{ fontFamily: SERIF, fontWeight: 600, color: "#fff" }}>
+                style={{ fontFamily: SERIF, fontWeight: 600, color: C.green900 }}>
                 여수 UTOP 마리나 호텔
               </h1>
-              <p className="mt-3 lg:mt-[18px] mb-0 text-[13px] lg:text-[15px] leading-relaxed" style={{ color: C.mintOnDark }}>
+              <p className="mt-3 lg:mt-[18px] mb-0 text-[13px] lg:text-[15px] leading-relaxed" style={{ color: C.muted }}>
                 오션뷰 객실 · 조식 · 인피니티풀 · 레이트 체크아웃까지, 한 번에.
               </p>
             </div>
@@ -266,23 +266,20 @@ export default function HotelReserveClient({
 
           {/* 인포 스트립 */}
           <div className="mt-6 lg:mt-10 pt-4 lg:pt-9 pb-6 lg:pb-8 grid grid-cols-2 gap-3 lg:flex lg:gap-12 text-[12px] lg:text-[13px]"
-            style={{ borderTop: "1px solid rgba(234,240,230,.18)", color: C.mintOnDark }}>
+            style={{ borderTop: `1px solid ${C.hairline}`, color: C.muted2 }}>
             <div>
-              <span className="block mb-1 text-[10px] lg:text-[11px]" style={{ letterSpacing: ".1em", color: C.sageLight }}>판매기간</span>
+              <span className="block mb-1 text-[10px] lg:text-[11px]" style={{ letterSpacing: ".1em", color: C.sage }}>판매기간</span>
               <span className="hidden lg:inline">{fmtDot(saleFromISO)} — {fmtDot(saleToISO, false)}</span>
               <span className="lg:hidden">{fmtDot(saleFromISO, false)} — {fmtDot(saleToISO, false)}</span>
             </div>
             <div>
-              <span className="block mb-1 text-[10px] lg:text-[11px]" style={{ letterSpacing: ".1em", color: C.sageLight }}>투숙기간</span>
+              <span className="block mb-1 text-[10px] lg:text-[11px]" style={{ letterSpacing: ".1em", color: C.sage }}>투숙기간</span>
               <span className="hidden lg:inline">{fmtDot(BOOKABLE_FROM)} — {fmtDot(BOOKABLE_TO, false)}</span>
               <span className="lg:hidden">{fmtDot(BOOKABLE_FROM, false)} — {fmtDot(BOOKABLE_TO, false)}</span>
             </div>
             <div className="hidden lg:block">
-              <span className="block mb-1 text-[11px]" style={{ letterSpacing: ".1em", color: C.sageLight }}>연휴기간</span>
+              <span className="block mb-1 text-[11px]" style={{ letterSpacing: ".1em", color: C.sage }}>연휴기간</span>
               하단 시즌 구분 참조
-            </div>
-            <div className="col-span-2 lg:col-span-1 lg:ml-auto lg:self-end">
-              <span style={{ color: "#fff", fontWeight: 600 }}>룸온리 요금으로 풀 패키지</span> — 이 구성은 이번 공구에서만.
             </div>
           </div>
         </div>
