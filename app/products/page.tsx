@@ -2,7 +2,6 @@ import shopPool from "@/lib/db-shop";
 import Header from "@/components/Header";
 import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
-import HotelPromoBand from "@/components/HotelPromoBand";
 import ProductCarousel from "@/components/ProductCarousel";
 
 export const metadata = { title: "Products · BLEND PICK" };
@@ -265,7 +264,7 @@ export default async function ShopPage({
         )}
 
         {/* ── 곧 오픈하는 공구 (UPCOMING) ── */}
-        <div className="mt-10 lg:mt-12">
+        <div className="mt-10 lg:mt-12 mb-12 lg:mb-14">
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-baseline gap-2 mb-4 lg:mb-5">
             <div>
               <div className="text-[10px] lg:text-[11px] mb-2 lg:mb-2.5"
@@ -334,10 +333,6 @@ export default async function ShopPage({
           )}
         </div>
 
-        {/* ── 진행 중 공구 밴드 ── */}
-        <div className="mt-10 lg:mt-12 mb-12 lg:mb-14">
-          <HotelPromoBand />
-        </div>
       </div>
     </main>
   );
