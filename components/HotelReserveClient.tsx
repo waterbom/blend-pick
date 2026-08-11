@@ -613,12 +613,10 @@ export default function HotelReserveClient({
               💬 취소·환불 문의 — 카카오톡 채널 →
             </a>
           </div>
-        </div>
-      </div>
 
-      {/* ── 지갑 요약 (달력 아래, 데스크톱 전용) — 카드 3장(일정·구성·할인)이 꽂힌 지갑, 가운데 총 금액.
-           모바일은 아래 하단 고정 바 사용 ── */}
-      <div className="hidden lg:block max-w-[560px] mx-auto px-5 pb-14 lg:pb-20">
+          {/* ── 지갑 요약 (달력 아래 우측 정렬, 데스크톱 전용) — 카드 3장(일정·구성·할인)이 꽂힌 지갑,
+               가운데 총 금액. 달력 오른쪽 라인에 맞춰 떨어지게 ml-auto. 모바일은 하단 고정 바 사용 ── */}
+          <div className="hidden lg:block max-w-[560px] ml-auto mt-12">
         <div className="relative" style={{ height: "318px" }}>
           {/* 꽂혀 있는 카드들 — 위로 살짝씩 보이는 부분에 정보 표시 */}
           {[
@@ -688,6 +686,8 @@ export default function HotelReserveClient({
         </div>
 
         <div className="mt-5">{summaryCta}</div>
+          </div>
+        </div>
       </div>
 
       {/* ── 요약 바 (모바일 전용, 하단 고정) ── */}
