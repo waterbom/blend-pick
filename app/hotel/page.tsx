@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import HotelHeroBanner from "@/components/HotelHeroBanner";
+import StayDealsSection from "@/components/StayDealsSection";
 
 export const metadata = {
   title: "숙박공구 · BLEND PICK",
@@ -14,8 +15,8 @@ export default function HotelPage() {
       {/* 히어로 (예약조회는 /hotel/reserve 히어로로 이동) */}
       <HotelHeroBanner />
 
-      {/* 이후 섹션(공구 목록 등)은 이어서 추가 예정 */}
-      <div id="hotel-deals" />
+      {/* 숙소 카드 목록 — 새 호텔·펜션은 lib/stays.ts에 항목만 추가 */}
+      <StayDealsSection />
     </main>
   );
 }
