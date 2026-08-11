@@ -83,7 +83,7 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
         style={{
           scrollSnapType: "x mandatory",
           // 첫·마지막 카드도 정중앙에 올 수 있게 좌우 패딩 확보
-          paddingInline: "max(16px, calc((100% - min(78vw, 880px)) / 2))",
+          paddingInline: "max(16px, calc((100% - min(72vw, 640px)) / 2))",
         }}
       >
         {products.map((p) => (
@@ -92,18 +92,26 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
             href={`/products/${p.id}`}
             className="pc-slide relative shrink-0 overflow-hidden"
             style={{
-              width: "min(78vw, 880px)",
-              aspectRatio: "16 / 9",
-              minHeight: "300px",
-              maxHeight: "480px",
+              width: "min(72vw, 640px)",
+              aspectRatio: "4 / 3",
+              minHeight: "280px",
+              maxHeight: "500px",
               scrollSnapAlign: "center",
               background: "#F6F4EE",
               boxShadow: "0 18px 44px rgba(28,36,24,.18)",
             }}
           >
-            {/* 패럴랙스 이미지 — 살짝 확대해 두고 스크롤 따라 좌우로 이동 */}
-            <div className="pc-img absolute inset-0 will-change-transform">
-              <FallbackImg src={p.main_image} alt={p.name} className="w-full h-full object-cover" />
+            {/* 배경: 같은 사진을 흐리게 채워 여백을 메움 — 패럴랙스는 이 층에만 */}
+            <div className="pc-img absolute inset-0 will-change-transform" aria-hidden>
+              {p.main_image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.main_image} alt="" className="w-full h-full object-cover"
+                  style={{ filter: "blur(22px) brightness(.82) saturate(1.05)" }} />
+              )}
+            </div>
+            {/* 전경: 원본 비율 그대로 (자르지 않음) — 아래 정보 오버레이 영역만큼 여백 */}
+            <div className="absolute inset-0" style={{ padding: "12px 12px 88px" }}>
+              <FallbackImg src={p.main_image} alt={p.name} className="w-full h-full object-contain" />
             </div>
 
             {/* 하단 정보 오버레이 */}
