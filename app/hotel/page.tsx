@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import HotelHeroBanner from "@/components/HotelHeroBanner";
 
 export const metadata = {
-  title: "호텔공구 · BLEND PICK",
+  title: "숙박공구 · BLEND PICK",
   description: "인플루언서와 함께하는 호텔·리조트 공동구매",
 };
 

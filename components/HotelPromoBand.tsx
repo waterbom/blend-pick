@@ -80,11 +80,11 @@ export default function HotelPromoBand({
           ) : soon ? (
             "◷ COMING SOON — 오픈 예정"
           ) : (
-            "HOTEL 공동구매"
+            "STAY 공동구매"
           )}
         </div>
         <div className="text-[17px] lg:text-[20px]" style={{ fontFamily: SERIF, fontWeight: 700, color: "#1C2418" }}>
-          호텔공구 × 여수 UTOP 마리나 호텔
+          숙박공구 — 호텔부터 펜션까지
         </div>
         <div className="mt-1.5 text-[12px] lg:text-[13px]" style={{ color: "#5C6153" }} suppressHydrationWarning>
           {open ? (

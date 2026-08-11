@@ -32,7 +32,8 @@ function CartCount() {
  * - hot: true면 액센트 컬러로 강조 (기존 animate-pulse는 제거 — 깜빡이는 건 촌스러움)
  */
 const NAV_ITEMS = [
-  { label: "호텔공구 × 여수 UTOP 마리나 호텔", href: "/hotel", hot: true },
+  // 호텔·펜션을 아우르는 숙박 카테고리 — 특정 호텔명 대신 카테고리명으로 (공구마다 이름 안 바꿔도 되게)
+  { label: "숙박공구 · 호텔 & 펜션", href: "/hotel", hot: true },
   { label: "PRODUCTS", href: "/products", hot: false },
   { label: "CONTACT", href: "/blend-picked" },
 ];
