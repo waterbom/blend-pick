@@ -564,33 +564,82 @@ export default function HotelReserveClient({
         </div>
       </div>
 
-      {/* ── 요약 바 (하단 고정 유지) ── */}
-      <div className="sticky bottom-0 z-20" style={{ background: C.surfaceSoft, borderTop: `2px solid ${C.green800}` }}>
-        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 py-3.5 lg:py-4 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6">
-          <div className="flex items-center justify-between gap-3 flex-1 min-w-0">
-            <div className="min-w-0">
-              <div className="text-[10px] lg:text-[11px] mb-0.5 lg:mb-1" style={{ letterSpacing: ".16em", color: C.sage }}>
-                {complete ? "선택한 일정" : checkIn ? "퇴실 날짜" : "입실 날짜"}
+      {/* ── 지갑 요약 (달력 아래) — 카드 3장(일정·구성·할인)이 꽂힌 지갑, 가운데 총 금액 ── */}
+      <div className="max-w-[560px] mx-auto px-5 pb-14 lg:pb-20">
+        <div className="relative" style={{ height: "318px" }}>
+          {/* 꽂혀 있는 카드들 — 위로 살짝씩 보이는 부분에 정보 표시 */}
+          {[
+            {
+              label: "일정",
+              value: complete
+                ? `${fmtDate(checkIn!)} — ${fmtDate(checkOut!)}`
+                : checkIn ? "퇴실 날짜를 선택하세요" : "달력에서 입실 날짜를 선택하세요",
+              bg: C.green800, inset: "6%",
+            },
+            {
+              label: "구성",
+              value: complete ? `${nights}박 · ${pack.label} · ${room}` : `${pack.label} · ${room}`,
+              bg: "#3D6136", inset: "3%",
+            },
+            {
+              label: "할인",
+              value: complete && discountPct > 0
+                ? `정가 ${WON(listTotal)} → ${discountPct}% 할인`
+                : "날짜 선택 시 계산돼요",
+              bg: "#57744E", inset: "0%",
+            },
+          ].map((card, i) => (
+            <div key={card.label} className="absolute"
+              style={{
+                top: `${i * 46}px`, left: card.inset, right: card.inset, height: "220px",
+                background: card.bg, borderRadius: "16px", zIndex: i + 1,
+                boxShadow: "0 -4px 14px rgba(28,36,24,.18)",
+              }}>
+              <div className="flex items-center justify-between gap-3 px-5" style={{ height: "46px" }}>
+                <span className="text-[10px] font-bold shrink-0"
+                  style={{ fontFamily: MONO, letterSpacing: ".22em", color: "rgba(255,255,255,.66)" }}>
+                  {card.label}
+                </span>
+                <span className="text-[12.5px] lg:text-[13.5px] font-bold truncate tnum text-white" suppressHydrationWarning>
+                  {card.value}
+                </span>
               </div>
-              <div className="font-bold text-[14px] lg:text-[17px] truncate" style={{ color: C.green900 }}>
+            </div>
+          ))}
+
+          {/* 지갑 몸통 — 스티치(점선) 포켓, 가운데 총 금액 */}
+          <div className="absolute inset-x-0 bottom-0" style={{
+            height: "180px", zIndex: 5, background: C.green900,
+            borderRadius: "22px 22px 40px 40px",
+            boxShadow: "inset 0 22px 30px rgba(0,0,0,.4), inset 0 4px 12px rgba(0,0,0,.3), 0 16px 34px rgba(28,36,24,.28)",
+          }}>
+            <div className="absolute flex flex-col items-center justify-center text-center"
+              style={{
+                inset: "12px", borderRadius: "14px 14px 32px 32px",
+                border: "2px dashed rgba(233,196,106,.38)",
+              }}>
+              <div className="text-[10px] mb-2" style={{ fontFamily: MONO, letterSpacing: ".3em", color: C.sageLight }}>
+                TOTAL — 총 결제 금액
+              </div>
+              <div className="text-[30px] lg:text-[36px] font-bold leading-none tnum" suppressHydrationWarning
+                style={{ fontFamily: MONO, color: C.gold }}>
+                {complete ? WON(total) : "—"}
+              </div>
+              <div className="mt-2 text-[11px]" style={{ color: "rgba(199,214,192,.65)" }} suppressHydrationWarning>
                 {complete
-                  ? `${fmtDate(checkIn!)} — ${fmtDate(checkOut!)} · ${nights}박 · ${WON(total)}`
-                  : checkIn ? "퇴실 날짜를 선택하세요" : "달력에서 입실 날짜를 선택하세요"}
+                  ? `${fmtDate(checkIn!)} — ${fmtDate(checkOut!)} · ${nights}박`
+                  : "달력에서 날짜를 선택하면 금액이 표시돼요"}
               </div>
-              {complete && discountPct > 0 && (
-                <div className="text-[11px] tnum mt-0.5" style={{ color: C.muted3 }}>
-                  <span className="line-through">{WON(listTotal)}</span>
-                  <span className="ml-1.5 font-bold" style={{ color: C.green700 }}>{discountPct}% 할인</span>
-                  <span className="ml-1.5">{pack.label} · {room}</span>
-                </div>
-              )}
             </div>
           </div>
+        </div>
+
+        <div className="mt-5">
           {linkOnly && activeOptions.length === 0 && upcomingOptions.length > 0 ? (
             // 진행 중은 없고 오픈 예정만 있으면 — 커밍순 버튼 (전용 링크의 오픈 카운트다운으로 이동)
             <button type="button"
               onClick={() => gotoInfluencer(upcomingOptions[0].id)}
-              className="w-full lg:w-auto lg:flex-none py-[15px] lg:px-9 text-[14px] font-bold text-center cursor-pointer transition-all duration-150 hover:brightness-105"
+              className="w-full py-[15px] text-[14px] font-bold text-center cursor-pointer transition-all duration-150 hover:brightness-105"
               style={{ background: C.gold, color: C.green900, letterSpacing: ".04em", border: "none" }}
             >
               ◷ COMING SOON — {upcomingOptions[0].name} 공구 {fmtOpenAt(upcomingOptions[0].start)} 오픈
@@ -600,7 +649,7 @@ export default function HotelReserveClient({
             <select
               defaultValue=""
               onChange={(e) => gotoInfluencer(e.target.value)}
-              className="w-full lg:w-auto lg:flex-none py-[15px] lg:px-9 text-[14px] font-bold text-center cursor-pointer"
+              className="w-full py-[15px] text-[14px] font-bold text-center cursor-pointer"
               style={{ background: C.green800, color: "#fff", letterSpacing: ".04em", border: "none" }}
             >
               <option value="" disabled>진행 중인 공구 선택 → 예약하러 가기</option>
@@ -616,7 +665,7 @@ export default function HotelReserveClient({
               const infParam = influencerId ? `&inf=${influencerId}` : "";
               router.push(`/hotel/reserve/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}${infParam}`);
             }}
-            className="w-full lg:w-auto lg:flex-none py-[15px] lg:px-9 text-[14px] font-bold text-center transition-colors duration-150"
+            className="w-full py-[15px] text-[14px] font-bold text-center transition-colors duration-150"
             style={{
               background: ctaOn ? C.green800 : C.ctaOff,
               color: ctaOn ? "#fff" : C.muted3,
