@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
 import HotelPromoBand from "@/components/HotelPromoBand";
+import ProductCarousel from "@/components/ProductCarousel";
 
 export const metadata = { title: "Products · BLEND PICK" };
 
@@ -134,26 +135,25 @@ export default async function ShopPage({
       />
       <Header />
 
-      {/* ── 타이틀 밴드 (다크 그린) ── */}
-      <section style={{ background: C.green800, color: "#EAF0E6" }}>
-        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-8 lg:pt-12 pb-7 lg:pb-10 flex flex-col lg:flex-row lg:justify-between lg:items-end gap-4">
-          <div>
-            <div className="text-[10px] lg:text-[11px] mb-3 lg:mb-3.5"
-              style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sageLight }}>
-              BLEND PICK SHOP
-            </div>
-            <h1 className="m-0 text-[27px] lg:text-[38px] leading-[1.25]" style={{ fontFamily: SERIF, fontWeight: 600, color: "#fff" }}>
-              Products
-            </h1>
-          </div>
-          <p className="m-0 text-[13px] lg:text-[14px] leading-relaxed lg:text-right" style={{ color: C.mintOnDark }}>
-            지금 판매 중인 공구 상품과<br className="hidden lg:block" /> 곧 오픈할 공구를 한눈에.
-          </p>
+      {/* ── 상품 패럴랙스 캐러셀 — 헤더 바로 아래에서 상품이 바로 보이게 (타이틀 밴드 제거) ── */}
+      {products.length > 0 && (
+        <div className="pt-5 lg:pt-8">
+          <ProductCarousel
+            products={products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              brand: p.brand,
+              price: p.price,
+              original_price: p.original_price,
+              main_image: p.main_image,
+              sold_out: p.stock === 0 || p.status === "soldout",
+            }))}
+          />
         </div>
-      </section>
+      )}
 
       {/* ── 필터 바 ── */}
-      <div style={{ borderBottom: `1px solid ${C.hairline}` }}>
+      <div className="mt-6 lg:mt-9" style={{ borderBottom: `1px solid ${C.hairline}`, borderTop: `1px solid ${C.hairline}` }}>
         <div className="max-w-[1240px] mx-auto px-5 lg:px-12 py-4 lg:py-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap">
             <CategoryTab href="/products" label="전체" active={!category} />
