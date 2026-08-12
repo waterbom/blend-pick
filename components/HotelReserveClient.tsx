@@ -35,6 +35,7 @@ const C = {
   disabledBg: "#FBFAF6",
   disabledText: "#CFCABB",
   ctaOff: "#DDD9CC",
+  strike: "#B4B0A2",     // 정가 취소선
 } as const;
 
 // 시즌별 톤 온 톤 달력 틴트 (셀 배경 / 범례 보더)
@@ -340,51 +341,46 @@ export default function HotelReserveClient({
             </div>
           </div>
 
-          {/* 정책 3줄 스트립 (데스크톱) — 달력 아래 문구를 상단으로 올려 먼저 보이게 */}
-          <div className="hidden lg:grid grid-cols-3 mb-2" style={{ border: `1px solid ${C.hairline}`, background: "#fff" }}>
-            {[
-              { n: "01 — 환불", body: <>체크인 <b style={{ color: C.green800 }}>6일 전</b>까지 100% 환불</> },
-              { n: "02 — 아동", body: <><b style={{ color: C.green800 }}>36개월 미만</b> 무료 투숙</> },
-              { n: "03 — 예약", body: <>인플루언서 <b style={{ color: C.green800 }}>전용 링크</b>로만 예약</> },
-            ].map((x, i) => (
-              <div key={x.n} className="px-[22px] py-[18px]"
-                style={i < 2 ? { borderRight: `1px solid ${C.hairline}` } : undefined}>
-                <div className="text-[10px] mb-[7px]" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".22em", color: C.sage }}>{x.n}</div>
-                <div className="text-[13px]" style={{ color: C.muted2 }}>{x.body}</div>
-              </div>
-            ))}
-          </div>
+          {/* 정책 스트립은 달력 아래 3칸 스트립 한 곳만 (가이드 체크리스트 — 양쪽 중복 금지) */}
         </div>
       </section>
 
-      {/* 직접 유입 안내 — 전용 링크로만 구매 가능 (진행 중 공구가 있으면 select로 이동 지원) */}
+      {/* 직접 유입 안내 — LINK ONLY 라벨 + 본문 2단 (진행 중 공구가 있으면 select로 이동 지원) */}
       {linkOnly && (
         <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-5">
-          <div className="px-4 py-3.5 text-[13px] leading-relaxed" style={{ background: C.surfaceSoft, border: `1px solid ${C.hairline}`, color: C.muted2 }}>
-            🔒 이 공동구매는 <b style={{ color: C.green800 }}>인플루언서 전용 링크를 통해서만</b> 예약할 수 있어요.
-            {activeOptions.length > 0
-              ? " 아래에서 진행 중인 공구를 선택하면 해당 예약 페이지로 이동해요."
-              : upcomingOptions.length > 0
-              ? ` 다음 공구가 곧 열려요 — ${upcomingOptions[0].name} 공구 ${fmtOpenAt(upcomingOptions[0].start)} 오픈 예정.`
-              : " 공유받은 링크로 다시 접속해주세요."}{" "}
-            이미 예약하신 분은 상단 <b>예약 조회</b>를 이용하시면 돼요.
+          <div className="px-5 py-4" style={{ background: C.surfaceSoft, border: `1px solid ${C.hairline}` }}>
+            <div className="flex items-start gap-4">
+              <span className="shrink-0 px-[9px] py-1 text-[10px]"
+                style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".18em", background: C.green800, color: "#fff" }}>
+                LINK ONLY
+              </span>
+              <p className="m-0 text-[13px] leading-[1.75]" style={{ color: C.muted2 }}>
+                이 공동구매는 인플루언서 전용 링크로만 예약할 수 있어요.{" "}
+                {activeOptions.length > 0
+                  ? "아래에서 진행 중인 공구를 선택하면 해당 예약 페이지로 이동해요."
+                  : upcomingOptions.length > 0
+                  ? `다음 공구가 곧 열려요 — ${upcomingOptions[0].name} 공구 ${fmtOpenAt(upcomingOptions[0].start)} 오픈 예정.`
+                  : "공유받은 링크로 다시 접속해 주세요."}{" "}
+                이미 예약하셨다면 상단 <span style={{ color: C.green800, fontWeight: 600 }}>예약 조회</span>에서 확인하실 수 있어요.
+              </p>
+            </div>
             {activeOptions.length === 0 && upcomingOptions.length > 0 && (
-              <span className="block mt-3">
+              <div className="mt-3">
                 {upcomingOptions.map((u) => (
                   <button key={u.id} type="button" onClick={() => gotoInfluencer(u.id)}
                     className="inline-block mr-2 px-3.5 py-2.5 text-[13px] font-bold cursor-pointer"
-                    style={{ background: C.gold, color: C.green900, borderRadius: 8, border: "none" }}>
+                    style={{ background: C.gold, color: C.green900, borderRadius: 0, border: "none" }}>
                     ◷ COMING SOON — {u.name} 공구 {fmtOpenAt(u.start)} 오픈 →
                   </button>
                 ))}
-              </span>
+              </div>
             )}
             {activeOptions.length > 0 && (
               <select
                 defaultValue=""
                 onChange={(e) => gotoInfluencer(e.target.value)}
                 className="mt-3 block w-full lg:w-auto px-3.5 py-2.5 text-[13px] font-bold cursor-pointer"
-                style={{ border: `1.5px solid ${C.green800}`, color: C.green800, background: "#fff", borderRadius: 8 }}
+                style={{ border: `1.5px solid ${C.green800}`, color: C.green800, background: "#fff", borderRadius: 0 }}
               >
                 <option value="" disabled>▾ 진행 중인 공구 선택 — 예약하러 가기</option>
                 {activeOptions.map((o) => (
@@ -441,21 +437,22 @@ export default function HotelReserveClient({
               ))}
             </div>
             <div className="mt-3 pt-3 text-[11.5px] lg:text-[12px] leading-[1.7]"
-              style={{ borderTop: "1px solid #E0DCD0", color: C.terracotta }}>
-              인원 추가비는 <b>3·4인 패키지 무료</b>, 2인 패키지 <b>1인당 10,000원</b>입니다. 침구 추가는 어렵습니다.
-              <span style={{ color: C.muted }}> 연박 시 조식·인피니티풀은 매일 제공됩니다.</span>
+              style={{ borderTop: "1px solid #E0DCD0", color: C.muted }}>
+              인원 추가비는 <b style={{ color: C.green800 }}>3·4인 패키지 무료</b>, 2인 패키지 <b style={{ color: C.green800 }}>1인당 10,000원</b>입니다. 침구 추가는 어렵습니다.
+              연박 시 조식·인피니티풀은 매일 제공됩니다.
             </div>
           </div>
 
-          {/* 투숙객 전용 제휴 혜택 — 버튼 클릭 시 안내 이미지 모달 */}
+          {/* 투숙객 전용 제휴 혜택 — 라벨·제목·부제 3줄 정렬, 클릭 시 안내 이미지 모달 */}
           <button onClick={() => setBenefitsOpen(true)}
-            className="mt-[1px] w-full flex items-center justify-between px-4 lg:px-5 py-3.5 text-left transition-colors duration-150 hover:brightness-[1.03]"
+            className="mt-[1px] w-full flex items-center justify-between gap-4 px-5 py-4 text-left transition-colors duration-150 hover:brightness-[1.03]"
             style={{ background: C.green800 }}>
-            <span className="text-[13px] font-semibold text-white">
-              🎁 투숙객 전용 혜택 · 그 외 즐길거리
-              <span className="hidden lg:inline ml-2 font-normal text-[11.5px]" style={{ color: C.mintOnDark }}>요트투어 · 아쿠아플라넷 · 포차 할인</span>
+            <span className="min-w-0">
+              <span className="block text-[10px] mb-[5px]" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".22em", color: C.sageLight }}>PARTNER BENEFITS</span>
+              <span className="block text-[13.5px] font-semibold text-white">투숙객 전용 혜택 · 즐길거리</span>
+              <span className="block mt-1 text-[11.5px]" style={{ color: C.mintOnDark }}>요트투어 · 아쿠아플라넷 · 포차 할인</span>
             </span>
-            <span className="text-[12px] shrink-0" style={{ fontFamily: MONO, color: C.gold }}>보기 →</span>
+            <span className="shrink-0 text-[11px]" style={{ fontFamily: MONO, letterSpacing: ".16em", color: C.gold }}>보기 →</span>
           </button>
 
           {/* 혜택 안내 이미지 모달 */}
@@ -599,8 +596,9 @@ export default function HotelReserveClient({
                   className="h-[56px] lg:h-[74px] flex flex-col items-center justify-center gap-0.5 transition-colors duration-150"
                   style={{ background: bg, border: `1px solid ${border}`, cursor: canPick ? "pointer" : "default" }}
                 >
+                  {/* 마감·예약마감은 진한 성수기 틴트 위에서도 읽히게 반투명 잉크로 (연회색은 뭉개짐) */}
                   <span className="text-[13px] lg:text-[15px] font-bold leading-none"
-                    style={{ color: endpoint ? "#fff" : !inRange ? C.disabledText : sold && !canPick ? C.disabledText : C.green900 }}>
+                    style={{ color: endpoint ? "#fff" : !inRange ? C.disabledText : (sold || iso < minCI) && !canPick ? "rgba(28,36,24,.42)" : C.green900 }}>
                     {d}
                   </span>
                   {inRange && (
@@ -609,9 +607,9 @@ export default function HotelReserveClient({
                         {isIn ? "입실" : "퇴실"}
                       </span>
                     ) : sold ? (
-                      <span className="text-[9.5px] lg:text-[11px] font-bold" style={{ color: C.sunday }}>마감</span>
+                      <span className="text-[9.5px] lg:text-[11px] font-bold" style={{ color: "rgba(28,36,24,.38)" }}>마감</span>
                     ) : iso < minCI ? (
-                      <span className="text-[9.5px] lg:text-[11px] font-semibold" style={{ color: C.disabledText }}>예약마감</span>
+                      <span className="text-[9.5px] lg:text-[11px] font-semibold" style={{ color: "rgba(28,36,24,.38)" }}>예약마감</span>
                     ) : canPick ? (
                       <span className="text-[9.5px] lg:text-[11px] tnum" style={{ color: C.muted2 }}>
                         {manLabel(nightlyWon(pkg, iso))}
@@ -623,89 +621,65 @@ export default function HotelReserveClient({
             })}
           </div>
 
-          {/* 정책 라인 — 데스크톱은 상단 3줄 스트립과 중복이라 카카오 버튼만, 모바일은 전체 표시 */}
-          <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-6 mt-3.5 lg:mt-[18px] text-[11.5px] lg:text-[12.5px]" style={{ color: C.muted2 }}>
-            <div className="lg:hidden"><span className="font-bold" style={{ color: C.green800 }}>36개월 미만</span> 무료 투숙</div>
-            <div className="lg:hidden"><span className="font-bold" style={{ color: C.green800 }}>체크인 6일 전</span>까지 100% 환불</div>
-            <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 font-bold transition-transform active:scale-[0.98]"
-              style={{ background: "#FAE100", color: "#3C1E1E" }}>
-              💬 취소·환불 문의 — 카카오톡 채널 →
-            </a>
+          {/* 정책 3칸 스트립 — 아동·환불·문의 (노랑 카카오 버튼 대신 링크형) */}
+          <div className="mt-5 grid grid-cols-1 lg:grid-cols-3" style={{ border: `1px solid ${C.hairline}`, background: "#fff" }}>
+            {[
+              { n: "01 — 아동", body: <><b style={{ color: C.green800 }}>36개월 미만</b> 무료 투숙</> },
+              { n: "02 — 환불", body: <>체크인 <b style={{ color: C.green800 }}>6일 전</b>까지 100% 환불</> },
+              { n: "03 — 문의", body: (
+                <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
+                  style={{ color: C.green800, fontWeight: 600, borderBottom: "1px solid #C9D6BC", paddingBottom: 2 }}>
+                  취소 · 환불 문의 →
+                </a>
+              ) },
+            ].map((x, i) => (
+              <div key={x.n} className={`px-5 py-4 ${i < 2 ? "border-b lg:border-b-0 lg:border-r" : ""}`}
+                style={{ borderColor: C.hairline }}>
+                <div className="text-[10px] mb-1.5" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".22em", color: C.sage }}>{x.n}</div>
+                <div className="text-[13px]" style={{ color: C.muted2 }}>{x.body}</div>
+              </div>
+            ))}
           </div>
 
-          {/* ── 지갑 요약 (달력 아래 우측 정렬, 데스크톱 전용) — 카드 3장(일정·구성·할인)이 꽂힌 지갑,
-               가운데 총 금액. 달력 오른쪽 라인에 맞춰 떨어지게 ml-auto. 모바일은 하단 고정 바 사용 ── */}
-          <div className="hidden lg:block max-w-[560px] ml-auto mt-12">
-        <div className="relative" style={{ height: "318px" }}>
-          {/* 꽂혀 있는 카드들 — 위로 살짝씩 보이는 부분에 정보 표시 */}
-          {[
-            {
-              label: "일정",
-              value: complete
-                ? `${fmtDate(checkIn!)} — ${fmtDate(checkOut!)}`
-                : checkIn ? "퇴실 날짜를 선택하세요" : "달력에서 입실 날짜를 선택하세요",
-              bg: C.green800, inset: "6%",
-            },
-            {
-              label: "구성",
-              value: complete ? `${nights}박 · ${pack.label} · ${room}` : `${pack.label} · ${room}`,
-              bg: "#3D6136", inset: "3%",
-            },
-            {
-              label: "할인",
-              value: complete && discountPct > 0
-                ? `정가 ${WON(listTotal)} → ${discountPct}% 할인`
-                : "날짜 선택 시 계산돼요",
-              bg: "#57744E", inset: "0%",
-            },
-          ].map((card, i) => (
-            <div key={card.label} className="absolute"
-              style={{
-                top: `${i * 46}px`, left: card.inset, right: card.inset, height: "220px",
-                background: card.bg, borderRadius: "16px", zIndex: i + 1,
-                boxShadow: "0 -4px 14px rgba(28,36,24,.18)",
-              }}>
-              <div className="flex items-center justify-between gap-3 px-5" style={{ height: "46px" }}>
-                <span className="text-[10px] font-bold shrink-0"
-                  style={{ fontFamily: MONO, letterSpacing: ".22em", color: "rgba(255,255,255,.66)" }}>
-                  {card.label}
-                </span>
-                <span className="text-[12.5px] lg:text-[13.5px] font-bold truncate tnum text-white" suppressHydrationWarning>
-                  {card.value}
+          {/* ── 요약 패널 (달력 폭과 동일, 데스크톱 전용) — 좌: 일정·구성·할인 행 / 우: TOTAL 다크 셀.
+               모바일은 하단 고정 바 사용 ── */}
+          <div className="hidden lg:block mt-7" style={{ border: `1px solid ${C.hairline}`, background: "#fff" }}>
+            <div className="grid" style={{ gridTemplateColumns: "1fr 380px" }}>
+              <div style={{ borderRight: `1px solid ${C.hairline}` }}>
+                {[
+                  { label: "일정", value: complete ? `${fmtDate(checkIn!)} — ${fmtDate(checkOut!)} · ${nights}박`
+                      : checkIn ? "퇴실 날짜를 선택하세요" : "달력에서 입실 날짜를 선택하세요" },
+                  { label: "구성", value: `${pack.label} · ${room}` },
+                ].map((r) => (
+                  <div key={r.label} className="flex items-baseline justify-between gap-4 px-[22px] py-4"
+                    style={{ borderBottom: "1px solid #F0EDE4" }}>
+                    <span className="text-[10px]" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".22em", color: C.sage }}>{r.label}</span>
+                    <span className="text-[13.5px] font-semibold tnum" style={{ color: C.green900 }} suppressHydrationWarning>{r.value}</span>
+                  </div>
+                ))}
+                <div className="flex items-baseline justify-between gap-4 px-[22px] py-4">
+                  <span className="text-[10px]" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".22em", color: C.sage }}>할인</span>
+                  <span className="text-[13.5px] tnum" style={{ color: C.muted2 }} suppressHydrationWarning>
+                    {complete && discountPct > 0 ? (
+                      <>
+                        <span style={{ textDecoration: "line-through", color: C.strike }}>{WON(listTotal)}</span>
+                        <b className="ml-2" style={{ color: C.green800 }}>{discountPct}% 할인</b>
+                      </>
+                    ) : "날짜 선택 시 계산돼요"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-center gap-2 px-[26px] py-6" style={{ background: C.green900 }}>
+                <span className="text-[10px]" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sageLight }}>TOTAL — 총 결제 금액</span>
+                <span className="text-[34px] leading-none tnum" suppressHydrationWarning
+                  style={{ fontFamily: MONO, fontWeight: 600, color: C.gold }}>{complete ? WON(total) : "—"}</span>
+                <span className="text-[11.5px]" style={{ color: "rgba(199,214,192,.7)" }} suppressHydrationWarning>
+                  {complete ? "세금·수수료 포함 · 현장 추가 결제 없음" : "달력에서 날짜를 선택하면 금액이 표시돼요"}
                 </span>
               </div>
             </div>
-          ))}
-
-          {/* 지갑 몸통 — 스티치(점선) 포켓, 가운데 총 금액 */}
-          <div className="absolute inset-x-0 bottom-0" style={{
-            height: "180px", zIndex: 5, background: C.green900,
-            borderRadius: "22px 22px 40px 40px",
-            boxShadow: "inset 0 22px 30px rgba(0,0,0,.4), inset 0 4px 12px rgba(0,0,0,.3), 0 16px 34px rgba(28,36,24,.28)",
-          }}>
-            <div className="absolute flex flex-col items-center justify-center text-center"
-              style={{
-                inset: "12px", borderRadius: "14px 14px 32px 32px",
-                border: "2px dashed rgba(233,196,106,.38)",
-              }}>
-              <div className="text-[10px] mb-2" style={{ fontFamily: MONO, letterSpacing: ".3em", color: C.sageLight }}>
-                TOTAL — 총 결제 금액
-              </div>
-              <div className="text-[30px] lg:text-[36px] font-bold leading-none tnum" suppressHydrationWarning
-                style={{ fontFamily: MONO, color: C.gold }}>
-                {complete ? WON(total) : "—"}
-              </div>
-              <div className="mt-2 text-[11px]" style={{ color: "rgba(199,214,192,.65)" }} suppressHydrationWarning>
-                {complete
-                  ? `${fmtDate(checkIn!)} — ${fmtDate(checkOut!)} · ${nights}박`
-                  : "달력에서 날짜를 선택하면 금액이 표시돼요"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5">{summaryCta}</div>
+            {summaryCta}
           </div>
         </div>
       </div>
