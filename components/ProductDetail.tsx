@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shopUnitPrice } from "@/lib/shop-price";
 import ReviewSection, { type ReviewSummary } from "@/components/ReviewSection";
+import DsSelect from "@/components/DsSelect";
+import RollingWon from "@/components/RollingWon";
 
 function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number, influencerId?: string | null) {
   const params = new URLSearchParams({ quantity: String(quantity) });
@@ -209,25 +211,8 @@ export default function ProductDetail({
   const canBuy =
     !saleClosed && !isSoldout && (hasOptions ? lines.length > 0 && !anySelectedSoldout : true);
 
-  // iOS(웹킷)는 뒤로가기로 돌아올 때 change 이벤트 없이 셀렉트 표시값만 복원한다 —
-  // 화면엔 옵션이 골라져 있는데 상태는 비어 "옵션을 선택해주세요"에 갇히는 원인.
-  // 복원된 값이 감지되면 그 옵션을 실제로 담아주고 셀렉트를 비운다.
-  const optSelRef = useRef<HTMLSelectElement>(null);
-  useEffect(() => {
-    const absorb = () => {
-      const el = optSelRef.current;
-      const v = el?.value;
-      if (!el || !v) return;
-      setLines((prev) =>
-        prev.some((l) => l.optionId === v) ? prev : [...prev, { optionId: v, qty: 1, addons: {} }]
-      );
-      el.value = "";
-    };
-    const t1 = setTimeout(absorb, 0);
-    const t2 = setTimeout(absorb, 600); // 웹킷 복원이 로드 직후 늦게 오는 경우까지
-    window.addEventListener("pageshow", absorb);
-    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener("pageshow", absorb); };
-  }, []);
+  // 옵션 셀렉트는 커스텀 DsSelect(버튼+상태 기반) — 기본 <select> 전용이던
+  // iOS 뒤로가기 폼 복원(absorb) 대응이 원천적으로 불필요해져 함께 제거했다.
 
   // 드롭다운에서 옵션 추가 (이미 담긴 옵션은 무시)
   function addLine(optionId: string) {
@@ -367,8 +352,8 @@ export default function ProductDetail({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
         {/* 대표 이미지 */}
         <div
-          className="relative w-full aspect-square rounded-2xl overflow-hidden"
-          style={{ background: "var(--cream-dark)" }}
+          className="relative w-full aspect-square overflow-hidden"
+          style={{ background: "var(--cream-dark)", border: "1px solid #E4E1D6" }}
         >
           <FallbackImg
             src={images[0]?.url}
@@ -376,12 +361,13 @@ export default function ProductDetail({
             className="w-full h-full object-cover"
           />
           {isSoldout && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-2xl" style={{ background: "rgba(0,0,0,0.45)" }}>
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }}>
               <span className="text-white text-lg font-bold">품절</span>
             </div>
           )}
           {discount && !isSoldout && (
-            <span className="absolute top-3 left-3 text-white text-xs font-extrabold px-2.5 py-1 rounded-full" style={{ background: "var(--sale)" }}>
+            <span className="absolute top-0 left-0 text-white text-xs"
+              style={{ background: "#244B1F", padding: "8px 14px", fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>
               -{discount}%
             </span>
           )}
@@ -390,14 +376,14 @@ export default function ProductDetail({
         {/* 정보 영역 */}
         <div className="flex flex-col">
           <p className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>{product.brand}</p>
-          <h1 className="text-xl font-bold leading-snug mb-4" style={{ color: "var(--text-primary)" }}>
+          <h1 className="mb-4" style={{ color: "var(--text-primary)", font: "600 26px/1.45 'Noto Serif KR', serif" }}>
             {product.name}
           </h1>
 
-          {/* 가격 (기본가) */}
+          {/* 가격 (기본가) — 할인율은 상품 목록과 같은 딥 그린 */}
           <div className="flex items-end gap-2.5 mb-4 tnum">
             {discount && (
-              <span className="text-xl font-extrabold mb-0.5" style={{ color: "var(--sale)" }}>
+              <span className="text-xl font-extrabold mb-0.5" style={{ color: "#244B1F" }}>
                 {discount}%
               </span>
             )}
@@ -426,30 +412,24 @@ export default function ProductDetail({
               <label className="text-xs font-medium block mb-1.5" style={{ color: "var(--text-secondary)" }}>
                 옵션 선택 <span style={{ color: "var(--sale)" }}>(필수) *</span>
               </label>
-              <select
-                ref={optSelRef}
-                defaultValue=""
-                onChange={(e) => {
-                  addLine(e.target.value);
-                  e.target.value = "";
-                }}
-                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                style={{ border: "1px solid var(--line)", background: "#fff", appearance: "auto", color: "var(--text-primary)" }}
-              >
-                <option value="" disabled>옵션</option>
-                {/* 상품이 품절/오픈 전이어도 옵션·가격은 확인 가능 — 구매만 canBuy 로 차단 */}
-                {options.map((o) => (
-                  <option key={o.id} value={o.id} disabled={optUnavailable(o)}>
-                    {o.value}
-                    {/* 옵션가는 그 자체가 판매 단가 — 기본가 대비 증감으로 표시해야 오해가 없다 */}
-                    {(() => {
-                      const diff = o.extra_price - product.price;
-                      return diff === 0 ? "" : diff > 0 ? ` (+${diff.toLocaleString()}원)` : ` (−${(-diff).toLocaleString()}원)`;
-                    })()}
-                    {optLabel(o, isSoldout)}
-                  </option>
-                ))}
-              </select>
+              {/* 상품이 품절/오픈 전이어도 옵션·가격은 확인 가능 — 구매만 canBuy 로 차단.
+                  옵션가는 그 자체가 판매 단가 — 기본가 대비 증감은 라벨, 실제 단가는 우측 힌트로 */}
+              <DsSelect
+                options={options.map((o) => {
+                  const diff = o.extra_price - product.price;
+                  const diffLabel = diff === 0 ? "" : diff > 0 ? ` (+${diff.toLocaleString()}원)` : ` (−${(-diff).toLocaleString()}원)`;
+                  return {
+                    value: o.id,
+                    label: `${o.value}${diffLabel}`,
+                    hint: optUnavailable(o)
+                      ? (!o.is_active ? "판매중지" : "품절")
+                      : `${shopUnitPrice(product.price, o.extra_price, true).toLocaleString()}원`,
+                    disabled: optUnavailable(o),
+                  };
+                })}
+                placeholder="옵션을 선택하세요"
+                onChange={addLine}
+              />
 
               {/* 선택된 옵션 라인 */}
               {lines.length > 0 && (
@@ -459,20 +439,20 @@ export default function ProductDetail({
                     if (!o) return null;
                     const lineUnit = shopUnitPrice(product.price, o.extra_price, true);
                     return (
-                      <div key={l.optionId} className="rounded-xl p-3" style={{ background: "var(--surface-soft)", border: "1px solid var(--line)" }}>
+                      <div key={l.optionId} className="p-3" style={{ background: "#F6F4EE", border: "1px solid #E4E1D6" }}>
                         <div className="flex items-start justify-between gap-2 mb-2.5">
                           <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{o.value}</span>
                           <button
                             onClick={() => removeLine(l.optionId)}
-                            className="shrink-0 text-sm leading-none transition-colors hover:text-black"
-                            style={{ color: "var(--text-muted)" }}
+                            className="shrink-0 leading-none transition-colors hover:text-black"
+                            style={{ color: "#8B927F", fontFamily: "'IBM Plex Mono', monospace", fontSize: "10px", letterSpacing: ".16em" }}
                             aria-label="옵션 삭제"
                           >
-                            ✕
+                            REMOVE
                           </button>
                         </div>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)", background: "#fff" }}>
+                          <div className="flex items-center overflow-hidden" style={{ border: "1px solid #E4E1D6", background: "#fff" }}>
                             <button onClick={() => setLineQty(l.optionId, l.qty - 1)} className="w-8 h-8 flex items-center justify-center text-base transition-colors hover:bg-gray-50" style={{ color: "var(--text-secondary)" }}>−</button>
                             <span className="w-9 text-center text-sm font-medium tnum" style={{ color: "var(--text-primary)" }}>{l.qty}</span>
                             <button onClick={() => setLineQty(l.optionId, l.qty + 1)} className="w-8 h-8 flex items-center justify-center text-base transition-colors hover:bg-gray-50" style={{ color: "var(--text-secondary)" }}>+</button>
@@ -497,7 +477,7 @@ export default function ProductDetail({
                                     <span className="text-xs truncate" style={{ color: "var(--text-primary)" }}>{a.name}</span>
                                   </label>
                                   {q > 0 && (
-                                    <div className="flex items-center rounded-md overflow-hidden shrink-0" style={{ border: "1px solid var(--line)", background: "#fff" }}>
+                                    <div className="flex items-center overflow-hidden shrink-0" style={{ border: "1px solid #E4E1D6", background: "#fff" }}>
                                       <button onClick={() => setLineAddon(l.optionId, a.id, q - 1)} className="w-6 h-6 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>−</button>
                                       <span className="w-6 text-center text-xs font-medium tnum" style={{ color: "var(--text-primary)" }}>{q}</span>
                                       <button onClick={() => setLineAddon(l.optionId, a.id, q + 1)} className="w-6 h-6 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>+</button>
@@ -523,7 +503,7 @@ export default function ProductDetail({
           {!hasOptions && !isSoldout && (
             <div className="flex items-center gap-3 mb-4">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>수량</span>
-              <div className="flex items-center rounded-xl overflow-hidden" style={{ border: "1px solid var(--line)" }}>
+              <div className="flex items-center overflow-hidden" style={{ border: "1px solid #E4E1D6" }}>
                 <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className={stepBtn} style={{ color: "var(--text-secondary)" }}>−</button>
                 <span className="w-10 text-center text-sm font-medium" style={{ color: "var(--text-primary)" }}>{quantity}</span>
                 <button onClick={() => setQuantity((q) => q + 1)} className={stepBtn} style={{ color: "var(--text-secondary)" }}>+</button>
@@ -553,7 +533,7 @@ export default function ProductDetail({
                         <span className="text-sm truncate" style={{ color: "var(--text-primary)" }}>{a.name}</span>
                       </label>
                       {q > 0 && (
-                        <div className="flex items-center rounded-md overflow-hidden shrink-0" style={{ border: "1px solid var(--line)", background: "#fff" }}>
+                        <div className="flex items-center overflow-hidden shrink-0" style={{ border: "1px solid #E4E1D6", background: "#fff" }}>
                           <button onClick={() => setSoloAddon(a.id, q - 1)} className="w-7 h-7 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>−</button>
                           <span className="w-7 text-center text-xs font-medium tnum" style={{ color: "var(--text-primary)" }}>{q}</span>
                           <button onClick={() => setSoloAddon(a.id, q + 1)} className="w-7 h-7 flex items-center justify-center text-sm" style={{ color: "var(--text-secondary)" }}>+</button>
@@ -575,9 +555,7 @@ export default function ProductDetail({
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 총 {totalCount}개{addonCount > 0 ? ` + 추가옵션 ${addonCount}개` : ""}
               </span>
-              <span className="text-2xl font-extrabold tnum" style={{ color: "var(--accent)" }}>
-                {grandTotal.toLocaleString()}원
-              </span>
+              <RollingWon value={grandTotal} size={28} color="#1C2418" />
             </div>
           )}
 
@@ -586,28 +564,30 @@ export default function ProductDetail({
             <button
               onClick={handleAddCart}
               disabled={!canBuy || cartLoading}
-              className="flex-1 py-3.5 rounded-xl text-sm font-medium transition-all"
+              className="flex-1 py-3.5 text-sm font-medium transition-all"
               style={{
                 border: "1.5px solid",
-                color: canBuy ? "var(--accent)" : "var(--text-muted)",
-                borderColor: canBuy ? "var(--accent)" : "var(--line)",
+                color: canBuy ? "var(--accent)" : "#8B927F",
+                borderColor: canBuy ? "var(--accent)" : "#E4E1D6",
                 background: "#fff",
                 cursor: !canBuy ? "not-allowed" : "pointer",
               }}
             >
-              {saleState === "upcoming" ? "오픈 전" : saleState === "ended" ? "공구 종료" : cartDone ? "담겼어요 ✓" : cartLoading ? "처리중..." : isSoldout ? "품절" : "장바구니"}
+              {saleState === "upcoming" ? "오픈 전" : saleState === "ended" ? "공구 종료" : cartDone ? "장바구니에 담김" : cartLoading ? "처리중..." : isSoldout ? "품절" : "장바구니"}
             </button>
             <button
               onClick={handleBuyNow}
               disabled={!canBuy || buyLoading}
-              className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white text-center transition-all"
+              className="flex-1 py-3.5 text-sm font-bold text-center transition-all"
               style={{
-                background: canBuy ? "var(--accent)" : "var(--warm-gray)",
+                background: canBuy ? "var(--accent)" : "#DDD9CC",
+                color: canBuy ? "#fff" : "#8B927F",
                 cursor: !canBuy ? "not-allowed" : "pointer",
+                ...(saleState === "upcoming" ? { fontFamily: "'IBM Plex Mono', monospace", letterSpacing: ".16em" } : {}),
               }}
             >
               {saleState === "upcoming"
-                ? `⏰ 오픈 예정${openLabel ? ` · ${openLabel}` : ""}`
+                ? `OPEN${openLabel ? ` ${openLabel}` : ""}`
                 : saleState === "ended" ? "공구가 종료됐어요"
                 : buyLoading ? "이동중..." : isSoldout ? "품절" : "바로 구매"}
             </button>
@@ -647,7 +627,7 @@ export default function ProductDetail({
               key={img.id ?? i}
               src={img.url}
               alt={`상세 이미지 ${i + 1}`}
-              className="w-full rounded-xl object-contain"
+              className="w-full object-contain"
             />
           ))}
         </div>
@@ -670,8 +650,8 @@ export default function ProductDetail({
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label="맨 위로"
-          className="fixed right-6 z-40 w-11 h-11 rounded-full shadow-lg text-lg font-bold transition-opacity"
-          style={{ bottom: "150px", background: "#fff", border: "1.5px solid var(--line)", color: "var(--text-primary)" }}
+          className="fixed right-6 z-40 w-10 h-10 text-lg font-bold transition-opacity"
+          style={{ bottom: "150px", background: "#fff", border: "1px solid #E4E1D6", color: "var(--text-primary)" }}
         >
           ↑
         </button>

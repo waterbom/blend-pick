@@ -8,6 +8,7 @@ import {
   type PkgKey, type RoomType, type Tier,
 } from "@/lib/hotel";
 import NeonCountdown from "@/components/NeonCountdown";
+import RollingWon from "@/components/RollingWon";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const MONTHS = [7, 8, 9, 10]; // 2026 시즌
@@ -249,12 +250,13 @@ export default function HotelReserveClient({
           const infParam = influencerId ? `&inf=${influencerId}` : "";
           router.push(`/hotel/reserve/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}${infParam}`);
         }}
-        className="w-full py-[15px] text-[14px] font-bold text-center transition-colors duration-150"
+        className="w-full py-[15px] text-[14px] font-bold text-center"
         style={{
           background: ctaOn ? C.green800 : C.ctaOff,
           color: ctaOn ? "#fff" : C.muted3,
           letterSpacing: ".04em",
           cursor: ctaOn ? "pointer" : "default",
+          transition: "background-color .4s ease, color .4s ease",
         }}
         suppressHydrationWarning
       >
@@ -594,12 +596,20 @@ export default function HotelReserveClient({
                   key={iso}
                   disabled={!canPick}
                   onClick={() => onDateClick(iso)}
-                  className="h-[56px] lg:h-[74px] flex flex-col items-center justify-center gap-0.5 transition-colors duration-150"
-                  style={{ background: bg, border: `1px solid ${border}`, cursor: canPick ? "pointer" : "default" }}
+                  className="h-[56px] lg:h-[74px] flex flex-col items-center justify-center gap-0.5"
+                  style={{
+                    background: bg,
+                    border: `1px solid ${border}`,
+                    cursor: canPick ? "pointer" : "default",
+                    // 선택된 입실·퇴실 셀은 살짝 떠오르고, 색 전환은 부드럽게
+                    transform: endpoint ? "translateY(-2px)" : "none",
+                    boxShadow: endpoint ? "0 8px 18px rgba(28,36,24,.22)" : "none",
+                    transition: "background-color .34s cubic-bezier(.4,0,.2,1), border-color .34s cubic-bezier(.4,0,.2,1), transform .28s cubic-bezier(.16,1,.3,1), box-shadow .28s ease",
+                  }}
                 >
                   {/* 마감·예약마감은 진한 성수기 틴트 위에서도 읽히게 반투명 잉크로 (연회색은 뭉개짐) */}
                   <span className="text-[13px] lg:text-[15px] font-bold leading-none"
-                    style={{ color: endpoint ? "#fff" : !inRange ? C.disabledText : (sold || iso < minCI) && !canPick ? "rgba(28,36,24,.42)" : C.green900 }}>
+                    style={{ transition: "color .28s ease", color: endpoint ? "#fff" : !inRange ? C.disabledText : (sold || iso < minCI) && !canPick ? "rgba(28,36,24,.42)" : C.green900 }}>
                     {d}
                   </span>
                   {inRange && (
@@ -673,8 +683,7 @@ export default function HotelReserveClient({
 
               <div className="flex flex-col justify-center gap-2 px-[26px] py-6" style={{ background: C.green900 }}>
                 <span className="text-[10px]" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sageLight }}>TOTAL — 총 결제 금액</span>
-                <span className="text-[34px] leading-none tnum" suppressHydrationWarning
-                  style={{ fontFamily: MONO, fontWeight: 600, color: C.gold }}>{complete ? WON(total) : "—"}</span>
+                <RollingWon value={complete ? total : 0} size={34} color={C.gold} />
                 <span className="text-[11.5px]" style={{ color: "rgba(199,214,192,.7)" }} suppressHydrationWarning>
                   {complete ? "세금·수수료 포함 · 현장 추가 결제 없음" : "달력에서 날짜를 선택하면 금액이 표시돼요"}
                 </span>

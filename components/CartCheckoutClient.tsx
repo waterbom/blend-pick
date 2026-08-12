@@ -9,6 +9,8 @@ import AddressSearchButton from "@/components/AddressSearchButton";
 import PhoneVerifyField from "@/components/PhoneVerifyField";
 import PrivacyConsent from "@/components/PrivacyConsent";
 import { shopUnitPrice } from "@/lib/shop-price";
+import DsSelect from "@/components/DsSelect";
+import RollingWon from "@/components/RollingWon";
 
 interface CartItem {
   id: string;
@@ -193,12 +195,12 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
             return (
               <div key={item.id} className="flex gap-3 items-center">
                 <div
-                  className="w-12 h-12 rounded-xl overflow-hidden shrink-0"
-                  style={{ background: "var(--cream-dark)" }}
+                  className="w-12 h-12 overflow-hidden shrink-0"
+                  style={{ border: "1px solid #E4E1D6", background: "var(--cream-dark)" }}
                 >
                   {item.main_image
                     ? <img src={item.main_image} alt={item.name} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-lg">📦</div>}
+                    : <div className="w-full h-full" style={{ background: "repeating-linear-gradient(45deg,#F6F4EE 0 8px,#EDEAE0 8px 16px)" }} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   {item.is_addon ? (
@@ -306,18 +308,20 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
           </div>
           <div>
             <label className="ds-label">배송 메모</label>
-            <select value={memoCustom ? "__custom__" : form.shippingMemo}
-              onChange={(e) => {
-                if (e.target.value === "__custom__") { setMemoCustom(true); setForm((p) => ({ ...p, shippingMemo: "" })); }
-                else { setMemoCustom(false); setForm((p) => ({ ...p, shippingMemo: e.target.value })); }
+            <DsSelect
+              value={memoCustom ? "__custom__" : form.shippingMemo}
+              options={[
+                { value: "", label: "선택 안함" },
+                { value: "문 앞에 놔주세요", label: "문 앞에 놔주세요" },
+                { value: "경비실에 맡겨주세요", label: "경비실에 맡겨주세요" },
+                { value: "배송 전 연락 부탁드려요", label: "배송 전 연락 부탁드려요" },
+                { value: "__custom__", label: "직접 입력" },
+              ]}
+              onChange={(v) => {
+                if (v === "__custom__") { setMemoCustom(true); setForm((p) => ({ ...p, shippingMemo: "" })); }
+                else { setMemoCustom(false); setForm((p) => ({ ...p, shippingMemo: v })); }
               }}
-              className={inputClass} style={{ ...inputStyle, appearance: "auto" }}>
-              <option value="">선택 안함</option>
-              <option value="문 앞에 놔주세요">문 앞에 놔주세요</option>
-              <option value="경비실에 맡겨주세요">경비실에 맡겨주세요</option>
-              <option value="배송 전 연락 부탁드려요">배송 전 연락 부탁드려요</option>
-              <option value="__custom__">직접 입력...</option>
-            </select>
+            />
             {memoCustom && (
               <input name="shippingMemo" value={form.shippingMemo} onChange={handleChange}
                 placeholder="배송 메모를 입력해주세요 (예: 부재 시 문 앞)" maxLength={100}
@@ -343,9 +347,10 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
             <span className="ds-mono font-semibold">{checkoutData.shippingCost === 0 ? "무료" : `${checkoutData.shippingCost.toLocaleString()}원`}</span>
           </div>
           </div>
-          <div className="flex justify-between items-baseline px-6 py-4" style={{ background: "#F6F4EE", borderTop: "2px solid #244B1F" }}>
-            <span className="text-xs" style={{ letterSpacing: "0.14em", color: "#7A8B6F" }}>총 결제 금액</span>
-            <span className="font-bold text-2xl" style={{ color: "#1C2418" }}>{grandTotal.toLocaleString()}원</span>
+          <div className="flex items-center justify-between px-6 py-5" style={{ background: "#1C2418" }}>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 500,
+              letterSpacing: "0.3em", color: "#9FBF93" }}>TOTAL — 총 결제 금액</span>
+            <RollingWon value={grandTotal} size={28} />
           </div>
         </div>
         <div className="mt-3.5">

@@ -217,3 +217,8 @@ textarea.ds-input { height: auto; min-height: 48px; padding: 13px 16px; }
 .bp-gutter-l { left: 34px; transform: translateY(-50%) rotate(180deg); }
 .bp-gutter-r { right: 34px; transform: translateY(-50%); }
 @media (max-width: 1279px) { .bp-gutter { display: none; } } /* 여백이 없으면 숨김 */
+
+/* 금액 롤링 — 축소 모션 설정이면 즉시 표시 */
+@media (prefers-reduced-motion: reduce) {
+  .roll-col { transition: none !important; }
+}
