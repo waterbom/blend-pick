@@ -555,11 +555,12 @@ export default function HotelReserveClient({
             ))}
           </div>
 
-          {!complete && (
-            <p className="text-[11px] lg:text-[12px] mb-2 font-medium" style={{ color: C.green700 }}>
-              {checkIn ? "퇴실 날짜를 선택하세요" : "달력에서 입실 날짜를 선택하세요"}
-            </p>
-          )}
+          {/* 선택 안내 — 상태와 무관하게 항상 같은 높이를 차지해 달력이 들썩이지 않게 */}
+          <p className="text-[11px] lg:text-[12px] mb-2 font-medium" style={{ color: C.green700, minHeight: "1.5em" }} suppressHydrationWarning>
+            {complete
+              ? `${fmtDate(checkIn!)} — ${fmtDate(checkOut!)} · ${nights}박 선택됨 (날짜를 누르면 다시 선택)`
+              : checkIn ? "퇴실 날짜를 선택하세요" : "달력에서 입실 날짜를 선택하세요"}
+          </p>
 
           {/* 요일 행 */}
           <div className="grid grid-cols-7 mb-1 lg:mb-1.5">
