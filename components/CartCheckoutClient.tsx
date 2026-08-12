@@ -61,6 +61,16 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
     sameAsBuyer: false,
   });
   const [memoCustom, setMemoCustom] = useState(false); // 배송 메모 "직접 입력" 모드
+  // 필드별 인라인 에러 — alert 대신 해당 입력 아래 표시하고 첫 에러로 스크롤
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  function clearError(key: string) {
+    setErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
 
   // sessionStorage에서 장바구니 데이터 복원
   useEffect(() => {
@@ -80,6 +90,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+    clearError(name);
     setForm((prev) => {
       const next = { ...prev, [name]: type === "checkbox" ? checked : value };
       if (name === "sameAsBuyer" && checked) {
@@ -92,22 +103,23 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
 
   async function handlePay() {
     if (!checkoutData) return;
-    if (!privacyAgreed) {
-      alert("개인정보 수집·이용에 동의해주세요.");
-      return;
-    }
-    if (phoneVerifyRequired && !phoneVerified) {
-      alert("비회원 주문은 휴대폰 인증 후 결제할 수 있어요.");
-      return;
-    }
-    if (!form.customerName || !form.customerPhone) {
-      alert("구매자 이름과 연락처를 입력해주세요.");
-      return;
-    }
+
+    // 검증 — alert 대신 필드별 인라인 에러로 모아 보여주고 첫 에러로 스크롤
+    const errs: Record<string, string> = {};
+    if (!form.customerName) errs.customerName = "이름을 입력해주세요.";
+    else {
       const nameError = validateBuyerName(form.customerName);
-      if (nameError) { alert(nameError); return; }
-    if (!form.shippingAddress || !form.shippingZipcode) {
-      alert("배송지를 입력해주세요.");
+      if (nameError) errs.customerName = nameError;
+    }
+    if (!form.customerPhone) errs.customerPhone = "연락처를 입력해주세요.";
+    if (phoneVerifyRequired && !phoneVerified) errs.phoneVerify = "비회원 주문은 휴대폰 인증 후 결제할 수 있어요.";
+    if (!form.shippingAddress || !form.shippingZipcode) errs.shippingAddress = "주소 검색으로 배송지를 입력해주세요.";
+    if (!privacyAgreed) errs.privacy = "개인정보 수집·이용에 동의해주세요.";
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      requestAnimationFrame(() => {
+        document.querySelector("[data-field-error]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
       return;
     }
     setLoading(true);
@@ -154,10 +166,10 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
         customerMobilePhone: tossMobilePhone(form.customerPhone),
       });
     } catch (e) {
-      // 결제창을 못 연 이유를 사용자에게 알림 (창 닫기 취소는 조용히 무시)
+      // 결제창을 못 연 이유를 버튼 아래에 표시 (창 닫기 취소는 조용히 무시)
       console.error(e);
       const msg = payErrorMessage(e);
-      if (msg) alert(msg);
+      if (msg) setErrors((prev) => ({ ...prev, pay: msg }));
       setLoading(false);
     }
   }
@@ -248,8 +260,17 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
                 onFocus={focusOn}
                 onBlur={focusOff}
               />
+              {errors[name] && (
+                <p data-field-error className="mt-1.5 text-xs" style={{ color: "#B4423C" }}>{errors[name]}</p>
+              )}
               {name === "customerPhone" && phoneVerifyRequired && (
-                <PhoneVerifyField phone={form.customerPhone} verified={phoneVerified} onVerified={() => setPhoneVerified(true)} />
+                <>
+                  <PhoneVerifyField phone={form.customerPhone} verified={phoneVerified}
+                    onVerified={() => { setPhoneVerified(true); clearError("phoneVerify"); }} />
+                  {errors.phoneVerify && (
+                    <p data-field-error className="mt-1.5 text-xs" style={{ color: "#B4423C" }}>{errors.phoneVerify}</p>
+                  )}
+                </>
               )}
             </div>
           ))}
@@ -288,14 +309,18 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
           </div>
           <div>
             <AddressSearchButton
-              onSelect={(zip, addr) =>
-                setForm((prev) => ({ ...prev, shippingZipcode: zip, shippingAddress: addr }))
-              }
+              onSelect={(zip, addr) => {
+                clearError("shippingAddress");
+                setForm((prev) => ({ ...prev, shippingZipcode: zip, shippingAddress: addr }));
+              }}
             />
             {form.shippingZipcode && (
               <p className="text-xs mt-1.5 tnum" style={{ color: "var(--text-muted)" }}>
                 [{form.shippingZipcode}] {form.shippingAddress}
               </p>
+            )}
+            {errors.shippingAddress && (
+              <p data-field-error className="mt-1.5 text-xs" style={{ color: "#B4423C" }}>{errors.shippingAddress}</p>
             )}
           </div>
           <div style={{ display: "none" }}>
@@ -354,7 +379,10 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
           </div>
         </div>
         <div className="mt-3.5">
-          <PrivacyConsent checked={privacyAgreed} onChange={setPrivacyAgreed} />
+          <PrivacyConsent checked={privacyAgreed} onChange={(v) => { setPrivacyAgreed(v); if (v) clearError("privacy"); }} />
+          {errors.privacy && (
+            <p data-field-error className="mt-1.5 text-xs" style={{ color: "#B4423C" }}>{errors.privacy}</p>
+          )}
         </div>
         <button
           onClick={handlePay}
@@ -364,6 +392,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
         >
           {loading ? "처리 중..." : `${grandTotal.toLocaleString()}원 결제하기`}
         </button>
+        {errors.pay && (
+          <p className="mt-2 text-xs text-center" style={{ color: "#B4423C" }}>{errors.pay}</p>
+        )}
       </section>
     </div>
   );

@@ -684,8 +684,9 @@ export default function HotelReserveClient({
               <div className="flex flex-col justify-center gap-2 px-[26px] py-6" style={{ background: C.green900 }}>
                 <span className="text-[10px]" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sageLight }}>TOTAL — 총 결제 금액</span>
                 <RollingWon value={complete ? total : 0} size={34} color={C.gold} />
+                {/* "현장 추가 결제 없음" 같은 보장 문구는 금지 — 인원 추가비 등은 별도 안내(포함 사항 박스) */}
                 <span className="text-[11.5px]" style={{ color: "rgba(199,214,192,.7)" }} suppressHydrationWarning>
-                  {complete ? "세금·수수료 포함 · 현장 추가 결제 없음" : "달력에서 날짜를 선택하면 금액이 표시돼요"}
+                  {complete ? "객실 요금 총액 · 세금 포함" : "달력에서 날짜를 선택하면 금액이 표시돼요"}
                 </span>
               </div>
             </div>
