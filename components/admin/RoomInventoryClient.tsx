@@ -61,14 +61,16 @@ export default function RoomInventoryClient() {
     const months = Array.from(new Set(allDates.map((d) => d.slice(0, 7)))).sort();
     const dates = month ? allDates.filter((d) => d.startsWith(month)) : allDates;
 
-    // 선택 월 요약 — 객실별 잔여 합 / 마감 일수 / 임박 일수
-    const totals: Record<string, { remaining: number; soldOutDays: number; tightDays: number }> = {};
+    // 선택 월 요약 — 객실별 잔여/배정/예약 합, 마감 일수, 임박 일수
+    const totals: Record<string, { remaining: number; allocated: number; booked: number; soldOutDays: number; tightDays: number }> = {};
     for (const d of dates) {
       for (const rm of rooms) {
         const c = byDate.get(d)![rm];
         if (!c) continue;
-        const t = (totals[rm] ??= { remaining: 0, soldOutDays: 0, tightDays: 0 });
+        const t = (totals[rm] ??= { remaining: 0, allocated: 0, booked: 0, soldOutDays: 0, tightDays: 0 });
         t.remaining += c.remaining;
+        t.allocated += c.allocated;
+        t.booked += c.booked;
         if (c.allocated > 0 && c.remaining <= 0) t.soldOutDays++;
         else if (c.allocated > 0 && c.remaining <= 2) t.tightDays++;
       }
@@ -138,12 +140,23 @@ export default function RoomInventoryClient() {
         {view.rooms.map((rm) => {
           const t = view.totals[rm];
           if (!t) return null;
+          const pct = t.allocated > 0 ? Math.round((t.booked / t.allocated) * 100) : 0;
           return (
-            <div key={rm} className="bg-white rounded-none border border-gray-100 px-4 py-2.5 text-xs text-gray-500 flex items-center gap-3">
-              <b className="text-gray-800">{rm}</b>
-              <span>잔여 <b className="text-gray-800 tnum">{t.remaining}</b>실</span>
-              <span className="text-red-600">마감 <b className="tnum">{t.soldOutDays}</b>일</span>
-              <span className="text-amber-600">임박(1~2) <b className="tnum">{t.tightDays}</b>일</span>
+            <div key={rm} className="bg-white rounded-none border border-gray-100 px-4 py-2.5 text-xs text-gray-500">
+              <div className="flex items-center gap-3">
+                <b className="text-gray-800">{rm}</b>
+                <span>잔여 <b className="text-gray-800 tnum">{t.remaining}</b>실</span>
+                <span className="text-red-600">마감 <b className="tnum">{t.soldOutDays}</b>일</span>
+                <span className="text-amber-600">임박(1~2) <b className="tnum">{t.tightDays}</b>일</span>
+              </div>
+              {/* 이 달 전체 예약률 게이지 */}
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${pct >= 90 ? "bg-red-400" : pct >= 70 ? "bg-amber-400" : "bg-emerald-400"}`}
+                    style={{ width: `${pct}%` }} />
+                </div>
+                <span className="tnum text-[11px] text-gray-400">예약률 <b className="text-gray-600">{pct}%</b></span>
+              </div>
             </div>
           );
         })}
@@ -219,9 +232,9 @@ export default function RoomInventoryClient() {
             ))}
           </div>
           <div className="bg-white rounded-none border border-gray-100 overflow-hidden">
-            <div className="grid px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400" style={{ gridTemplateColumns: `1.2fr repeat(${view.rooms.length}, 1fr)` }}>
+            <div className="grid gap-6 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400" style={{ gridTemplateColumns: `0.6fr repeat(${view.rooms.length}, 1fr)` }}>
               <span>투숙일</span>
-              {view.rooms.map((rm) => <span key={rm} className="text-center">{rm} (남음/배정)</span>)}
+              {view.rooms.map((rm) => <span key={rm}>{rm}</span>)}
             </div>
             <div className="max-h-[32rem] overflow-auto">
               {listDates.length === 0 ? (
@@ -229,23 +242,43 @@ export default function RoomInventoryClient() {
               ) : (
                 listDates.map((d) => {
                   const dow = new Date(d).getDay();
+                  // 하루라도 마감 객실이 있으면 행 전체를 붉게 틴트해서 바로 눈에 띄게
+                  const anySoldOut = view.rooms.some((rm) => {
+                    const c = view.byDate.get(d)?.[rm];
+                    return c && c.allocated > 0 && c.remaining <= 0;
+                  });
                   return (
-                    <div key={d} className={`grid px-6 py-2.5 border-b border-gray-50 last:border-0 items-center text-sm ${dow === 0 || dow === 6 ? "bg-amber-50/40" : ""}`}
-                      style={{ gridTemplateColumns: `1.2fr repeat(${view.rooms.length}, 1fr)` }}>
-                      <span className={`tnum font-medium ${dow === 0 ? "text-red-600" : dow === 6 ? "text-blue-600" : "text-gray-600"}`}>
+                    <div key={d}
+                      className={`grid gap-6 px-6 py-2.5 border-b border-gray-50 last:border-0 items-center text-sm ${
+                        anySoldOut ? "bg-red-50/40" : dow === 0 || dow === 6 ? "bg-amber-50/40" : ""}`}
+                      style={{ gridTemplateColumns: `0.6fr repeat(${view.rooms.length}, 1fr)` }}>
+                      <span className={`tnum font-semibold ${dow === 0 ? "text-red-600" : dow === 6 ? "text-blue-600" : "text-gray-600"}`}>
                         {md(d)}
                       </span>
                       {view.rooms.map((rm) => {
                         const c = view.byDate.get(d)?.[rm];
-                        if (!c || c.allocated === 0) return <span key={rm} className="text-center text-gray-300">배정 없음</span>;
+                        if (!c || c.allocated === 0) {
+                          return <span key={rm} className="text-xs text-gray-300">배정 없음</span>;
+                        }
+                        const tone = cellTone(c);
                         const soldOut = c.remaining <= 0;
-                        const low = c.remaining > 0 && c.remaining <= 2;
+                        const low = !soldOut && c.remaining <= 2;
+                        const pct = Math.min(100, Math.round((c.booked / c.allocated) * 100));
                         return (
-                          <span key={rm} className={`text-center tnum font-semibold ${soldOut ? "text-red-600" : low ? "text-amber-600" : "text-gray-700"}`}>
-                            {soldOut ? "마감" : `${c.remaining}실`}
-                            <span className="text-gray-300 font-normal"> / {c.allocated}</span>
-                            {c.booked > 0 && <span className="text-gray-400 font-normal text-xs"> (예약 {c.booked})</span>}
-                          </span>
+                          <div key={rm} className="flex items-center gap-2.5"
+                            title={`${rm} — 남음 ${c.remaining} / 배정 ${c.allocated} · 예약 ${c.booked}`}>
+                            <span className={`shrink-0 w-12 text-center rounded-sm px-1 py-0.5 text-[11px] font-bold tnum ${tone.cls}`}>
+                              {soldOut ? "마감" : `${c.remaining}실`}
+                            </span>
+                            {/* 예약률 게이지 — 채워질수록 방이 빠지는 중, 색으로 위험도 표시 */}
+                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${soldOut ? "bg-red-400" : low ? "bg-amber-400" : "bg-emerald-400"}`}
+                                style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="shrink-0 w-16 text-right text-[11px] text-gray-400 tnum">
+                              예약 {c.booked}<span className="text-gray-300"> / {c.allocated}</span>
+                            </span>
+                          </div>
                         );
                       })}
                     </div>
