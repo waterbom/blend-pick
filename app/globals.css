@@ -60,6 +60,11 @@
 
 body {
   background: var(--background);
+  /* 종이 그레인 — 미세한 사선 두 겹 (사진·그리드 없음, B안) */
+  background-image:
+    repeating-linear-gradient(37deg, rgba(28, 36, 24, 0.013) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-53deg, rgba(28, 36, 24, 0.011) 0 1px, transparent 1px 3px);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: "Wanted Sans Variable", "Wanted Sans", "Pretendard",
     "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -202,3 +207,13 @@ textarea.ds-input { height: auto; min-height: 48px; padding: 13px 16px; }
   border-bottom: 2px solid #1c2418; padding-bottom: 12px;
   font: 600 18px "Noto Serif KR", serif; color: #1c2418;
 }
+
+/* ── B안: 톤 밴드 + 여백 캡션 ── */
+.bp-band { background: #f4f2ea; border-bottom: 1px solid #e4e1d6; }
+.bp-gutter {
+  position: absolute; top: 50%; writing-mode: vertical-rl;
+  font: 500 10px "IBM Plex Mono", monospace; letter-spacing: 0.34em; color: #bfc4b4;
+}
+.bp-gutter-l { left: 34px; transform: translateY(-50%) rotate(180deg); }
+.bp-gutter-r { right: 34px; transform: translateY(-50%); }
+@media (max-width: 1279px) { .bp-gutter { display: none; } } /* 여백이 없으면 숨김 */

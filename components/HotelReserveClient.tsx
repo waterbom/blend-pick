@@ -269,22 +269,27 @@ export default function HotelReserveClient({
     );
 
   return (
-    <div style={{ background: "#FFFFFF", color: C.green900 }}>
-      {/* ── 히어로 (화이트 — 페이지와 이어지게 배경·경계 없음) ── */}
-      <section style={{ background: "#FFFFFF", color: C.green900 }}>
-        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-8 lg:pt-14">
-          {/* 네온 카운트다운 — 오픈 전엔 오픈까지, 진행 중엔 마감까지 */}
-          {!linkOnly && (
-            <div className="text-center pb-8 lg:pb-14" suppressHydrationWarning>
-              <div className="text-[10px] lg:text-[11px] mb-4 lg:mb-6"
-                style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sage }}>
-                {sale === "before" ? "OPEN — 오픈까지" : sale === "open" ? "CLOSING — 마감까지" : "CLOSED — 판매 마감"}
-              </div>
-              <div className="text-[34px] lg:text-[64px]" style={{ color: sale === "closed" ? "rgba(122,139,111,.35)" : C.sageLight }}>
-                <NeonCountdown remain={remain} />
-              </div>
+    <div style={{ background: "var(--background)", color: C.green900 }}>
+      {/* ── 네온 카운트다운 밴드 (풀블리드 톤 밴드, B안) — 좌우 여백엔 세로 캡션 ── */}
+      {!linkOnly && (
+        <div className="bp-band relative py-12 lg:py-[48px]" suppressHydrationWarning>
+          <span className="bp-gutter bp-gutter-l">YEOSU UTOP MARINA HOTEL</span>
+          <span className="bp-gutter bp-gutter-r">GROUP BUY 2026 — SEASON 01</span>
+          <div className="text-center">
+            <div className="text-[10px] lg:text-[11px] mb-4 lg:mb-6"
+              style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sage }}>
+              {sale === "before" ? "OPEN — 오픈까지" : sale === "open" ? "CLOSING — 마감까지" : "CLOSED — 판매 마감"}
             </div>
-          )}
+            <div className="text-[34px] lg:text-[64px]" style={{ color: sale === "closed" ? "rgba(122,139,111,.35)" : C.sageLight }}>
+              <NeonCountdown remain={remain} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 히어로 — 종이 바탕 위에 배경·경계 없이 ── */}
+      <section style={{ color: C.green900 }}>
+        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-8 lg:pt-14">
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end">
             <div>
               <div className="text-[10px] lg:text-[11px] mb-3 lg:mb-[18px]"
@@ -333,6 +338,21 @@ export default function HotelReserveClient({
               <span className="block mb-1 text-[11px]" style={{ letterSpacing: ".1em", color: C.sage }}>연휴기간</span>
               하단 시즌 구분 참조
             </div>
+          </div>
+
+          {/* 정책 3줄 스트립 (데스크톱) — 달력 아래 문구를 상단으로 올려 먼저 보이게 */}
+          <div className="hidden lg:grid grid-cols-3 mb-2" style={{ border: `1px solid ${C.hairline}`, background: "#fff" }}>
+            {[
+              { n: "01 — 환불", body: <>체크인 <b style={{ color: C.green800 }}>6일 전</b>까지 100% 환불</> },
+              { n: "02 — 아동", body: <><b style={{ color: C.green800 }}>36개월 미만</b> 무료 투숙</> },
+              { n: "03 — 예약", body: <>인플루언서 <b style={{ color: C.green800 }}>전용 링크</b>로만 예약</> },
+            ].map((x, i) => (
+              <div key={x.n} className="px-[22px] py-[18px]"
+                style={i < 2 ? { borderRight: `1px solid ${C.hairline}` } : undefined}>
+                <div className="text-[10px] mb-[7px]" style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".22em", color: C.sage }}>{x.n}</div>
+                <div className="text-[13px]" style={{ color: C.muted2 }}>{x.body}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -603,10 +623,10 @@ export default function HotelReserveClient({
             })}
           </div>
 
-          {/* 정책 라인 */}
+          {/* 정책 라인 — 데스크톱은 상단 3줄 스트립과 중복이라 카카오 버튼만, 모바일은 전체 표시 */}
           <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-6 mt-3.5 lg:mt-[18px] text-[11.5px] lg:text-[12.5px]" style={{ color: C.muted2 }}>
-            <div><span className="font-bold" style={{ color: C.green800 }}>36개월 미만</span> 무료 투숙</div>
-            <div><span className="font-bold" style={{ color: C.green800 }}>체크인 6일 전</span>까지 100% 환불</div>
+            <div className="lg:hidden"><span className="font-bold" style={{ color: C.green800 }}>36개월 미만</span> 무료 투숙</div>
+            <div className="lg:hidden"><span className="font-bold" style={{ color: C.green800 }}>체크인 6일 전</span>까지 100% 환불</div>
             <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 font-bold transition-transform active:scale-[0.98]"
               style={{ background: "#FAE100", color: "#3C1E1E" }}>

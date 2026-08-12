@@ -124,7 +124,7 @@ export default async function ShopPage({
   const compact = products.length >= 4;
 
   return (
-    <main className="min-h-screen" style={{ background: "#FFFFFF", color: C.green900 }}>
+    <main className="min-h-screen" style={{ background: "var(--background)", color: C.green900 }}>
       {/* 딥 포레스트 전용 폰트 */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -134,9 +134,11 @@ export default async function ShopPage({
       />
       <Header />
 
-      {/* ── 상품 패럴랙스 캐러셀 — 헤더 바로 아래에서 상품이 바로 보이게 (타이틀 밴드 제거) ── */}
+      {/* ── 상품 패럴랙스 캐러셀 — 톤 밴드(B안) 위에, 좌우 여백엔 세로 캡션 ── */}
       {products.length > 0 && (
-        <div className="pt-5 lg:pt-8">
+        <div className="bp-band relative pt-5 lg:pt-8 pb-5 lg:pb-6">
+          <span className="bp-gutter bp-gutter-l">BLEND PICK — GROUP BUY</span>
+          <span className="bp-gutter bp-gutter-r">NOW ON SALE — {String(products.length).padStart(2, "0")}</span>
           <ProductCarousel
             products={products.map((p) => ({
               id: p.id,
@@ -151,8 +153,8 @@ export default async function ShopPage({
         </div>
       )}
 
-      {/* ── 필터 바 ── */}
-      <div className="mt-6 lg:mt-9" style={{ borderBottom: `1px solid ${C.hairline}`, borderTop: `1px solid ${C.hairline}` }}>
+      {/* ── 필터 바 — 캐러셀 밴드의 border-bottom과 겹치지 않게 위 여백·보더 없음 ── */}
+      <div style={{ borderBottom: `1px solid ${C.hairline}` }}>
         <div className="max-w-[1240px] mx-auto px-5 lg:px-12 py-4 lg:py-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap">
             <CategoryTab href="/products" label="전체" active={!category} />

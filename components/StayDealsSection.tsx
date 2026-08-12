@@ -11,7 +11,10 @@ export default function StayDealsSection() {
   if (stays.length === 0) return null;
 
   return (
-    <section id="hotel-deals" className="max-w-6xl mx-auto px-4 sm:px-6 py-14 lg:py-20">
+    <section id="hotel-deals" className="bp-band relative py-14 lg:py-20">
+      <span className="bp-gutter bp-gutter-l">STAY DEALS — {String(stays.length).padStart(2, "0")} LISTED</span>
+      <span className="bp-gutter bp-gutter-r">BLEND PICK 직접 계약</span>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
       <style>{`
         @keyframes stay-card-reveal {
           from {
@@ -39,14 +42,20 @@ export default function StayDealsSection() {
         .stay-img { transition: transform .5s ease; }
       `}</style>
 
-      <div className="mb-8 lg:mb-10">
-        <div className="ds-caption mb-2">STAY DEALS</div>
-        <h2 className="ds-serif text-2xl lg:text-[28px] font-semibold m-0" style={{ color: "#1C2418" }}>
-          지금 만날 수 있는 숙소
-        </h2>
-        <p className="text-[13px] mt-2" style={{ color: "#6B7263" }}>
-          호텔부터 펜션까지 — 블렌드픽이 직접 계약한 숙소만 올라와요.
-        </p>
+      {/* 헤딩 행 — 우측 인덱스 + 하단 헤어라인 */}
+      <div className="flex items-end justify-between gap-6 pb-5 mb-8 lg:mb-10" style={{ borderBottom: "1px solid #E4E1D6" }}>
+        <div>
+          <div className="ds-caption mb-2">STAY DEALS</div>
+          <h2 className="ds-serif text-2xl lg:text-[28px] font-semibold m-0" style={{ color: "#1C2418" }}>
+            지금 만날 수 있는 숙소
+          </h2>
+          <p className="text-[13px] mt-2" style={{ color: "#6B7263" }}>
+            호텔부터 펜션까지 — 블렌드픽이 직접 계약한 숙소만 올라와요.
+          </p>
+        </div>
+        <span className="hidden sm:block text-[11px]" style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 500, letterSpacing: ".2em", color: "#9AA391" }}>
+          {String(stays.length).padStart(2, "0")} STAYS · {String(stays.filter((s) => s.status === "open").length).padStart(2, "0")} OPEN
+        </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
@@ -98,6 +107,7 @@ export default function StayDealsSection() {
             <div key={s.key} className="h-full">{card}</div>
           );
         })}
+      </div>
       </div>
     </section>
   );

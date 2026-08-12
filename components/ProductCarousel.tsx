@@ -171,9 +171,9 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
         </>
       )}
 
-      {/* 점 페이지네이션 */}
+      {/* 점 페이지네이션 + 현재 위치 인덱스 */}
       {products.length > 1 && (
-        <div className="flex justify-center gap-2 mt-4">
+        <div className="flex justify-center items-center gap-2 mt-4">
           {products.map((p, i) => (
             <button key={p.id} aria-label={`${i + 1}번째 상품으로`} onClick={() => goto(i)}
               className="transition-all duration-200"
@@ -184,6 +184,9 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
                 background: i === idx ? "#244B1F" : "#D6D6CF",
               }} />
           ))}
+          <span className="ml-3.5 text-[11px]" style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: ".18em", color: "#9AA391" }}>
+            {String(idx + 1).padStart(2, "0")} / {String(products.length).padStart(2, "0")}
+          </span>
         </div>
       )}
     </section>
