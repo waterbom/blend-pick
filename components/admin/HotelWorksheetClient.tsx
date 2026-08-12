@@ -87,14 +87,14 @@ export default function HotelWorksheetClient() {
       const ws = wb.addWorksheet("작업지시서");
       const HEAD = ["액션", "예약번호", "예약자", "연락처", "객실", "패키지", "체크인", "체크아웃", "박수", "지시 내용"];
 
-      const title = ws.addRow([`■ 여수 UTOP 마리나 — 블렌드픽 작업지시서 (제${data.issueNo}차)`]);
+      const title = ws.addRow([`■ 여수 UTOP 마리나 — 블랜드픽 작업지시서 (제${data.issueNo}차)`]);
       title.font = { bold: true, size: 13 };
       ws.addRow([
         data.baseline
           ? `기준: ${kst(data.baseline)} ~ ${kst(data.now)} 사이 변경분만 포함`
           : `기준: 전체 (첫 발행) ~ ${kst(data.now)}`,
       ]);
-      const warn = ws.addRow(["※ 아래 목록에 없는 예약은 변동 없음 — 수정하지 마세요. 문의: 블렌드픽"]);
+      const warn = ws.addRow(["※ 아래 목록에 없는 예약은 변동 없음 — 수정하지 마세요. 문의: 블랜드픽"]);
       warn.font = { bold: true, color: { argb: "FF9C0006" } };
       ws.addRow([]);
 

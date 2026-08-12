@@ -8,8 +8,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const info = t ? await verifyPayLink(t) : null;
   const title = "추가 결제 · BLEND PICK";
   const description = info
-    ? `${info.label} · ${info.amount.toLocaleString()}원 — 블렌드픽 공식 결제 페이지에서 카드로 안전하게 결제하실 수 있어요.`
-    : "블렌드픽 공식 결제 페이지 — 금액 확인 후 카드로 안전하게 결제하실 수 있어요.";
+    ? `${info.label} · ${info.amount.toLocaleString()}원 — 블랜드픽 공식 결제 페이지에서 카드로 안전하게 결제하실 수 있어요.`
+    : "블랜드픽 공식 결제 페이지 — 금액 확인 후 카드로 안전하게 결제하실 수 있어요.";
   return {
     title,
     description,
@@ -20,7 +20,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
       siteName: "BLEND PICK",
       type: "website",
       locale: "ko_KR",
-      images: [{ url: "https://shop.blendpunch.com/og-pay.png", width: 1200, height: 630, alt: "블렌드픽 안전한 추가 결제 페이지" }],
+      images: [{ url: "https://shop.blendpunch.com/og-pay.png", width: 1200, height: 630, alt: "블랜드픽 안전한 추가 결제 페이지" }],
     },
   };
 }

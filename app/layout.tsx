@@ -6,7 +6,7 @@ import InfRefCookie from "@/components/InfRefCookie";
 
 export const metadata: Metadata = {
   title: "BLEND PICK — 인플루언서 공구 플랫폼",
-  description: "블렌드픽에서 트렌디한 제품을 만나보세요",
+  description: "블랜드픽에서 트렌디한 제품을 만나보세요",
 };
 
 export default function RootLayout({

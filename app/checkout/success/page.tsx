@@ -68,7 +68,7 @@ function SuccessContent() {
       ? `${window.location.origin}/c/${result.campaignId}`
       : `${window.location.origin}/campaigns/${result.productId}`;
     const shareData = {
-      title: "블렌드픽 공동구매",
+      title: "블랜드픽 공동구매",
       text: `${result.productName} 공동구매 같이 참여해요!`,
       url,
     };

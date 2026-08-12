@@ -3,7 +3,7 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-white">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">개인정보처리방침</h1>
-        <p className="text-xs text-gray-400 mb-10">블렌드픽은 「개인정보 보호법」 제30조에 따라 이용자의 개인정보를 보호하기 위하여 다음과 같이 개인정보처리방침을 수립·공개합니다.</p>
+        <p className="text-xs text-gray-400 mb-10">블랜드픽은 「개인정보 보호법」 제30조에 따라 이용자의 개인정보를 보호하기 위하여 다음과 같이 개인정보처리방침을 수립·공개합니다.</p>
 
         <div className="space-y-8 text-sm text-gray-700 leading-relaxed">
 

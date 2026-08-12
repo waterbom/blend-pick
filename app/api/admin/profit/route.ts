@@ -34,8 +34,8 @@ export async function GET(req: Request) {
   const to = searchParams.get("to");
   const channel = searchParams.get("channel"); // 'shop' | 'campaign' | 'hotel' | null
 
-  // ── 호텔 공구 — 대행 모델 배분: 호텔(공급가) 88% · 인플루언서 5%(귀속 주문만) · 블렌드픽 7% ──
-  // 블렌드픽 순수익 = 7% − 토스 수수료 1.7% = 매출의 5.3% (직접 유입 주문은 인플 몫 5%가 우리에게 남음)
+  // ── 호텔 공구 — 대행 모델 배분: 호텔(공급가) 88% · 인플루언서 5%(귀속 주문만) · 블랜드픽 7% ──
+  // 블랜드픽 순수익 = 7% − 토스 수수료 1.7% = 매출의 5.3% (직접 유입 주문은 인플 몫 5%가 우리에게 남음)
   // 매출에는 예약(hotel)과 예약 변경 차액(extra)을 포함.
   const HOTEL_SUPPLY_RATE = 0.88;
   const HOTEL_INF_RATE = 0.05;

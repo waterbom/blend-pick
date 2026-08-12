@@ -50,7 +50,7 @@ export default function StayDealsSection() {
             지금 만날 수 있는 숙소
           </h2>
           <p className="text-[13px] mt-2" style={{ color: "#6B7263" }}>
-            호텔부터 펜션까지 — 블렌드픽이 직접 계약한 숙소만 올라와요.
+            호텔부터 펜션까지 — 블랜드픽이 직접 계약한 숙소만 올라와요.
           </p>
         </div>
         <span className="hidden sm:block text-[11px]" style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 500, letterSpacing: ".2em", color: "#9AA391" }}>

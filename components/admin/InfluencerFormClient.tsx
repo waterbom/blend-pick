@@ -242,7 +242,7 @@ export default function InfluencerFormClient({
   async function copyCredentials() {
     const creds = issued ?? (accountEmail && portalPassword ? { login_id: accountEmail, password: portalPassword } : null);
     if (!creds) return;
-    const text = `블렌드픽 인플루언서 계정\n아이디: ${creds.login_id}\n비밀번호: ${creds.password}\n로그인: ${window.location.origin}/login`;
+    const text = `블랜드픽 인플루언서 계정\n아이디: ${creds.login_id}\n비밀번호: ${creds.password}\n로그인: ${window.location.origin}/login`;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
