@@ -155,13 +155,33 @@ export default function OrdersClient() {
 
   useEffect(() => { load(statusFilter); }, [statusFilter]);
 
-  const visibleOrders = useMemo(
-    () =>
+  // 검색 — 주문번호·구매자·수령인·연락처·상품명·옵션·인플루언서 통합
+  const [query, setQuery] = useState("");
+  const visibleOrders = useMemo(() => {
+    let list =
       typeFilter === "campaign" ? orders.filter(isCampaign)
       : typeFilter === "shop" ? orders.filter((o) => !isCampaign(o))
-      : orders,
-    [orders, typeFilter]
-  );
+      : orders;
+    const q = query.trim().toLowerCase();
+    if (q) {
+      const qDigits = q.replace(/[^0-9]/g, "");
+      list = list.filter((o) =>
+        (o.order_number ?? "").toLowerCase().includes(q) ||
+        (o.buyer_name ?? "").toLowerCase().includes(q) ||
+        (o.recipient_name ?? "").toLowerCase().includes(q) ||
+        (o.influencer_name ?? "").toLowerCase().includes(q) ||
+        o.items.some((it) =>
+          (it.product_name ?? "").toLowerCase().includes(q) ||
+          (it.option_label ?? "").toLowerCase().includes(q)
+        ) ||
+        (qDigits.length >= 3 && (
+          (o.buyer_phone ?? "").replace(/[^0-9]/g, "").includes(qDigits) ||
+          (o.recipient_phone ?? "").replace(/[^0-9]/g, "").includes(qDigits)
+        ))
+      );
+    }
+    return list;
+  }, [orders, typeFilter, query]);
 
   const typeCounts = useMemo(() => {
     let shop = 0, campaign = 0;
@@ -397,23 +417,46 @@ export default function OrdersClient() {
         </div>
       )}
 
-      {/* 판매 유형 필터 */}
-      <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 mb-3 w-fit">
-        {[
-          { key: "", label: "전체", count: typeCounts.all },
-          { key: "shop", label: "상품판매", count: typeCounts.shop },
-          { key: "campaign", label: "공동구매", count: typeCounts.campaign },
-        ].map((t) => (
-          <button key={t.key} onClick={() => setTypeFilter(t.key)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-none text-sm font-medium transition-colors ${
-              typeFilter === t.key ? "bg-emerald-600 text-white" : "text-gray-500 hover:bg-gray-50"
-            }`}>
-            {t.label}
-            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-              typeFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
-            }`}>{t.count}</span>
-          </button>
-        ))}
+      {/* 판매 유형 필터 + 검색 */}
+      <div className="flex items-center gap-3 flex-wrap mb-3">
+        <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 w-fit">
+          {[
+            { key: "", label: "전체", count: typeCounts.all },
+            { key: "shop", label: "상품판매", count: typeCounts.shop },
+            { key: "campaign", label: "공동구매", count: typeCounts.campaign },
+          ].map((t) => (
+            <button key={t.key} onClick={() => setTypeFilter(t.key)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-none text-sm font-medium transition-colors ${
+                typeFilter === t.key ? "bg-emerald-600 text-white" : "text-gray-500 hover:bg-gray-50"
+              }`}>
+              {t.label}
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                typeFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+              }`}>{t.count}</span>
+            </button>
+          ))}
+        </div>
+        {/* 주문 검색 — 현재 탭(상태·유형) 안에서 필터링 */}
+        <div className="relative">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="주문번호 · 이름 · 연락처 · 상품명 검색"
+            className="w-64 sm:w-72 border border-gray-200 rounded-full pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-gray-400 bg-white"
+          />
+          <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+          </svg>
+          {query && (
+            <button onClick={() => setQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-sm leading-none">
+              ✕
+            </button>
+          )}
+        </div>
+        {query && (
+          <span className="text-xs text-gray-400">{visibleOrders.length}건 검색됨</span>
+        )}
       </div>
 
       {/* 상태 필터 탭 + 액션 */}
@@ -491,7 +534,8 @@ export default function OrdersClient() {
           </div>
 
           {[...groups.entries()].map(([productName, groupOrders]) => {
-            const isExpanded = expandedGroups.has(productName);
+            // 검색 중엔 결과가 접힌 그룹에 숨지 않게 전부 펼침
+            const isExpanded = query.trim() !== "" || expandedGroups.has(productName);
             const groupSelected = groupOrders.every((o) => selected.has(o.id));
             const groupPartial = groupOrders.some((o) => selected.has(o.id)) && !groupSelected;
             const productCode = groupOrders[0]?.items.find((i) => i.product_id)?.product_code;
