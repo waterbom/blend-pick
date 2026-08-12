@@ -170,53 +170,52 @@ export default function RoomInventoryClient() {
       </div>
 
       {mode === "calendar" && calendar ? (
-        <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
-          <div className="min-w-[640px]">
-            {/* 요일 헤더 */}
-            <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
-              {WEEK.map((w, i) => (
-                <div key={w} className={`py-2 text-center text-xs font-semibold ${
-                  i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-400"}`}>
-                  {w}
-                </div>
-              ))}
-            </div>
-            {/* 날짜 셀 */}
-            <div className="grid grid-cols-7">
-              {calendar.map((d, i) => {
-                if (!d) return <div key={`e${i}`} className="border-b border-r border-gray-50 bg-gray-50/40 min-h-[76px]" />;
-                const dow = i % 7;
-                const dayInv = view.byDate.get(d);
-                const isToday = d === todayISO;
-                return (
-                  <div key={d}
-                    className={`border-b border-r border-gray-50 min-h-[76px] p-1.5 ${dow === 0 || dow === 6 ? "bg-amber-50/30" : ""} ${isToday ? "ring-2 ring-inset ring-gray-800" : ""}`}>
-                    <div className={`text-[11px] font-semibold tnum mb-1 ${
-                      dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : "text-gray-500"}`}>
-                      {Number(d.slice(8))}{isToday && <span className="ml-1 text-[9px] text-gray-800">오늘</span>}
-                    </div>
-                    {dayInv ? (
-                      <div className="space-y-1">
-                        {view.rooms.map((rm) => {
-                          const c = dayInv[rm];
-                          const tone = cellTone(c);
-                          return (
-                            <div key={rm}
-                              className={`flex items-center justify-between rounded-sm px-1.5 py-0.5 text-[11px] font-semibold tnum ${tone.cls}`}
-                              title={c ? `${rm} — 남음 ${c.remaining} / 배정 ${c.allocated} · 예약 ${c.booked}` : `${rm} — 배정 없음`}>
-                              <span className="font-medium">{shortRoom(rm)}</span>
-                              <span>{tone.label}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-gray-300">–</div>
-                    )}
+        // 모바일에서도 7일이 한 화면에 들어가도록 셀 폭·글자 크기를 반응형으로 압축
+        <div className="bg-white rounded-none border border-gray-100">
+          {/* 요일 헤더 */}
+          <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
+            {WEEK.map((w, i) => (
+              <div key={w} className={`py-2 text-center text-xs font-semibold ${
+                i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-400"}`}>
+                {w}
+              </div>
+            ))}
+          </div>
+          {/* 날짜 셀 */}
+          <div className="grid grid-cols-7">
+            {calendar.map((d, i) => {
+              if (!d) return <div key={`e${i}`} className="border-b border-r border-gray-50 bg-gray-50/40 min-h-[64px] sm:min-h-[76px]" />;
+              const dow = i % 7;
+              const dayInv = view.byDate.get(d);
+              const isToday = d === todayISO;
+              return (
+                <div key={d}
+                  className={`border-b border-r border-gray-50 min-h-[64px] sm:min-h-[76px] p-1 sm:p-1.5 min-w-0 ${dow === 0 || dow === 6 ? "bg-amber-50/30" : ""} ${isToday ? "ring-2 ring-inset ring-gray-800" : ""}`}>
+                  <div className={`text-[10px] sm:text-[11px] font-semibold tnum mb-1 ${
+                    dow === 0 ? "text-red-500" : dow === 6 ? "text-blue-500" : "text-gray-500"}`}>
+                    {Number(d.slice(8))}{isToday && <span className="ml-1 text-[9px] text-gray-800">오늘</span>}
                   </div>
-                );
-              })}
-            </div>
+                  {dayInv ? (
+                    <div className="space-y-0.5 sm:space-y-1">
+                      {view.rooms.map((rm) => {
+                        const c = dayInv[rm];
+                        const tone = cellTone(c);
+                        return (
+                          <div key={rm}
+                            className={`flex items-center justify-between gap-0.5 rounded-sm px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold tnum ${tone.cls}`}
+                            title={c ? `${rm} — 남음 ${c.remaining} / 배정 ${c.allocated} · 예약 ${c.booked}` : `${rm} — 배정 없음`}>
+                            <span className="font-medium truncate">{shortRoom(rm)}</span>
+                            <span className="shrink-0">{tone.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-gray-300">–</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : (
@@ -232,7 +231,8 @@ export default function RoomInventoryClient() {
             ))}
           </div>
           <div className="bg-white rounded-none border border-gray-100 overflow-hidden">
-            <div className="grid gap-6 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400" style={{ gridTemplateColumns: `0.6fr repeat(${view.rooms.length}, 1fr)` }}>
+            {/* 열 헤더는 그리드가 되는 sm 이상에서만 — 모바일은 행마다 객실 라벨을 붙임 */}
+            <div className="hidden sm:grid gap-6 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400" style={{ gridTemplateColumns: `0.6fr repeat(${view.rooms.length}, 1fr)` }}>
               <span>투숙일</span>
               {view.rooms.map((rm) => <span key={rm}>{rm}</span>)}
             </div>
@@ -249,7 +249,7 @@ export default function RoomInventoryClient() {
                   });
                   return (
                     <div key={d}
-                      className={`grid gap-6 px-6 py-2.5 border-b border-gray-50 last:border-0 items-center text-sm ${
+                      className={`flex flex-col gap-1.5 sm:grid sm:gap-6 sm:items-center px-4 sm:px-6 py-2.5 border-b border-gray-50 last:border-0 text-sm ${
                         anySoldOut ? "bg-red-50/40" : dow === 0 || dow === 6 ? "bg-amber-50/40" : ""}`}
                       style={{ gridTemplateColumns: `0.6fr repeat(${view.rooms.length}, 1fr)` }}>
                       <span className={`tnum font-semibold ${dow === 0 ? "text-red-600" : dow === 6 ? "text-blue-600" : "text-gray-600"}`}>
@@ -258,15 +258,21 @@ export default function RoomInventoryClient() {
                       {view.rooms.map((rm) => {
                         const c = view.byDate.get(d)?.[rm];
                         if (!c || c.allocated === 0) {
-                          return <span key={rm} className="text-xs text-gray-300">배정 없음</span>;
+                          return (
+                            <span key={rm} className="text-xs text-gray-300">
+                              <span className="sm:hidden w-8 inline-block text-gray-400">{shortRoom(rm)}</span>배정 없음
+                            </span>
+                          );
                         }
                         const tone = cellTone(c);
                         const soldOut = c.remaining <= 0;
                         const low = !soldOut && c.remaining <= 2;
                         const pct = Math.min(100, Math.round((c.booked / c.allocated) * 100));
                         return (
-                          <div key={rm} className="flex items-center gap-2.5"
+                          <div key={rm} className="flex items-center gap-2 sm:gap-2.5"
                             title={`${rm} — 남음 ${c.remaining} / 배정 ${c.allocated} · 예약 ${c.booked}`}>
+                            {/* 모바일 전용 객실 라벨 (열 헤더 대신) */}
+                            <span className="sm:hidden shrink-0 w-8 text-[11px] text-gray-400">{shortRoom(rm)}</span>
                             <span className={`shrink-0 w-12 text-center rounded-sm px-1 py-0.5 text-[11px] font-bold tnum ${tone.cls}`}>
                               {soldOut ? "마감" : `${c.remaining}실`}
                             </span>

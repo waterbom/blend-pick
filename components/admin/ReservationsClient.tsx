@@ -390,6 +390,61 @@ export default function ReservationsClient() {
     setRows(Array.isArray(rr) ? rr : []);
   }
 
+  // 전달 배지 + 도장 버튼 — 데스크톱 행/모바일 카드 공용
+  function renderDelivery(r: Reservation) {
+    const ds = deliveryState(r);
+    if (!ds) return null;
+    const b = DELIVERY_BADGE[ds];
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        <span className={`text-[10.5px] font-semibold rounded-full px-2 py-0.5 ${b.cls}`}
+          title={`${r.hotel_sent_kst ? `전달 ${r.hotel_sent_kst}` : "아직 전달 안 됨"}${r.hotel_confirmed_kst ? ` · 확인 ${r.hotel_confirmed_kst}` : ""}`}>
+          {b.label}
+        </span>
+        {(ds === "new_pending" || ds === "change_pending" || ds === "cancel_pending") && (
+          <button onClick={() => markDelivery(r.id, "sent")}
+            className="text-[10.5px] text-blue-500 hover:underline" title="호텔에 전달했음을 기록 (전달 일시 도장)">
+            📨 전달 완료
+          </button>
+        )}
+        {ds === "await_confirm" && (
+          <button onClick={() => markDelivery(r.id, "confirmed")}
+            className="text-[10.5px] text-green-600 hover:underline" title="호텔이 확인했음을 기록">
+            ✔ 호텔 확인
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // 상태 셀렉트/취소 배지 — 공용 (center: 데스크톱 그리드 셀에서 가운데 정렬)
+  function renderStatus(r: Reservation, center = true) {
+    const st = STATUS[r.status] ?? { label: r.status, cls: "bg-gray-100 text-gray-500" };
+    if (r.status === "cancelled") {
+      return (
+        <span className={`${center ? "justify-self-center " : ""}text-xs font-semibold rounded-full px-3 py-1 ${st.cls}`}
+          title="환불 완료된 예약은 되돌릴 수 없습니다">
+          취소
+        </span>
+      );
+    }
+    return (
+      <select
+        value={r.status}
+        onChange={(e) => updateStatus(r.id, e.target.value)}
+        className={`${center ? "justify-self-center " : ""}text-xs font-semibold rounded-full px-2 py-1 cursor-pointer border-0 focus:outline-none ${st.cls}`}
+        style={{ appearance: "auto" }}
+        title="상태 변경"
+      >
+        {r.status === "awaiting" && <option value="awaiting">예약대기</option>}
+        <option value="paid">{r.status === "awaiting" ? "✅ 승인 (예약확정)" : "예약확정"}</option>
+        {r.status !== "awaiting" && <option value="checked_in">체크인완료</option>}
+        {r.status !== "awaiting" && <option value="no_show">노쇼</option>}
+        <option value="cancelled">취소</option>
+      </select>
+    );
+  }
+
   const cards = [
     { label: "예약 확정 (입실 전)", value: `${stats.confirmed}건` },
     { label: "체크인 완료", value: `${stats.checkedIn}건` },
@@ -459,13 +514,15 @@ export default function ReservationsClient() {
       {/* 필터 탭 + 명단 내보내기 */}
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex w-fit">
-            {TABS.map((t, ti) => (
+          {/* 좁은 화면에서 줄바꿈되도록 flex-wrap + 음수 마진으로 경계선 겹침 유지 */}
+          <div className="flex flex-wrap w-fit pl-px pt-px">
+            {TABS.map((t) => (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className="px-4 py-2 text-xs font-semibold transition-colors"
+                className="px-3.5 sm:px-4 py-2 text-xs font-semibold transition-colors"
                 style={{
                   border: "1px solid",
-                  marginLeft: ti > 0 ? "-1px" : 0,
+                  marginLeft: "-1px",
+                  marginTop: "-1px",
                   background: tab === t.key ? "#1A1D18" : "#fff",
                   color: tab === t.key ? "#fff" : "#5C6156",
                   borderColor: tab === t.key ? "#1A1D18" : "#D6D6CF",
@@ -524,118 +581,143 @@ export default function ReservationsClient() {
         </div>
       </div>
 
-      {/* 예약 테이블 */}
-      <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
-        <div className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 min-w-[760px]">
-          <span>예약번호</span><span>예약자</span><span>호텔 · 객실</span><span>투숙기간</span><span className="text-right">금액</span><span className="text-center">상태</span>
-        </div>
+      {/* 예약 테이블 — 데스크톱은 그리드, 모바일은 카드 */}
+      <div className="bg-white rounded-none border border-gray-100">
         {loading ? (
           <div className="p-16 text-center text-sm text-gray-400">불러오는 중...</div>
         ) : visible.length === 0 ? (
           <div className="p-16 text-center text-sm text-gray-400">예약이 없습니다</div>
         ) : (
-          paged.map((r) => {
-            const st = STATUS[r.status] ?? { label: r.status, cls: "bg-gray-100 text-gray-500" };
-            return (
-              <div key={r.id} className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-4 border-b border-gray-50 last:border-0 items-center hover:bg-gray-50/60 transition-colors min-w-[760px]">
-                <div className="min-w-0">
-                  <span className="font-mono text-xs font-semibold" style={{ color: "var(--accent)" }}>{r.order_number}</span>
-                  {(() => {
-                    const ds = deliveryState(r);
-                    if (!ds) return null;
-                    const b = DELIVERY_BADGE[ds];
-                    return (
-                      <div className="mt-1 flex flex-wrap items-center gap-1">
-                        <span className={`text-[10.5px] font-semibold rounded-full px-2 py-0.5 ${b.cls}`}
-                          title={`${r.hotel_sent_kst ? `전달 ${r.hotel_sent_kst}` : "아직 전달 안 됨"}${r.hotel_confirmed_kst ? ` · 확인 ${r.hotel_confirmed_kst}` : ""}`}>
-                          {b.label}
-                        </span>
-                        {(ds === "new_pending" || ds === "change_pending" || ds === "cancel_pending") && (
-                          <button onClick={() => markDelivery(r.id, "sent")}
-                            className="text-[10.5px] text-blue-500 hover:underline" title="호텔에 전달했음을 기록 (전달 일시 도장)">
-                            📨 전달 완료
-                          </button>
-                        )}
-                        {ds === "await_confirm" && (
-                          <button onClick={() => markDelivery(r.id, "confirmed")}
-                            className="text-[10.5px] text-green-600 hover:underline" title="호텔이 확인했음을 기록">
-                            ✔ 호텔 확인
-                          </button>
+          <>
+            {/* 데스크톱 테이블 (md 이상) */}
+            <div className="hidden md:block overflow-x-auto">
+              <div className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 min-w-[760px]">
+                <span>예약번호</span><span>예약자</span><span>호텔 · 객실</span><span>투숙기간</span><span className="text-right">금액</span><span className="text-center">상태</span>
+              </div>
+              {paged.map((r) => (
+                <div key={r.id} className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-4 border-b border-gray-50 last:border-0 items-center hover:bg-gray-50/60 transition-colors min-w-[760px]">
+                  <div className="min-w-0">
+                    <span className="font-mono text-xs font-semibold" style={{ color: "var(--accent)" }}>{r.order_number}</span>
+                    {renderDelivery(r)}
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    <div className="font-medium text-gray-800">{r.buyer_name}</div>
+                    <div className="text-xs text-gray-400">{r.buyer_phone}</div>
+                    {r.influencer_name ? (
+                      <span className="inline-block mt-1 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-purple-50 text-purple-600" title="이 인플루언서 전용 링크로 들어온 예약">
+                        @{r.influencer_name}
+                      </span>
+                    ) : (
+                      <span className="inline-block mt-1 text-[11px] text-gray-300">직접 유입</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-700 min-w-0">
+                    <div>{hotelRoom(r.product_name)}</div>
+                    {requestMemo(r.addr_memo) && (
+                      <div className="text-xs mt-0.5 truncate" style={{ color: "#c2410c" }} title={requestMemo(r.addr_memo)}>
+                        📝 요청: {requestMemo(r.addr_memo)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 tnum">
+                    <div>{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</div>
+                    {changeMark(r) && (
+                      <span className="inline-block mt-0.5 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-600"
+                        title={`${r.stay_changed ? "투숙일 변경 이력 있음. " : ""}${r.repaid_after_cancel ? "같은 연락처로 먼저 취소된 예약이 있는 재결제 건." : ""}`}>
+                        🔁 {changeMark(r)}
+                      </span>
+                    )}
+                    {r.last_change && (
+                      <div className="text-[10.5px] mt-0.5 text-amber-700" title={`변경 이력: ${r.last_change}`}>
+                        🔀 {r.last_change}
+                      </div>
+                    )}
+                    {r.status === "paid" && (
+                      <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 예약변경</button>
+                    )}
+                  </div>
+                  <div className="text-right tnum">
+                    <div className="text-sm font-semibold text-gray-800">
+                      {(Number(r.total_amount) + Number(r.extra_paid || 0)).toLocaleString()}원
+                    </div>
+                    {Number(r.extra_paid) > 0 && (
+                      <div className="text-[11px] text-[#2D5A27] mt-0.5">차액 +{Number(r.extra_paid).toLocaleString()} 포함</div>
+                    )}
+                    {r.paid_at_kst && <div className="text-[11px] text-gray-400 mt-0.5">💳 {r.paid_at_kst}</div>}
+                    {r.status === "cancelled" && r.cancelled_at_kst && (
+                      <div className="text-[11px] text-red-400 mt-0.5">🚫 취소 {r.cancelled_at_kst}</div>
+                    )}
+                  </div>
+                  {renderStatus(r)}
+                </div>
+              ))}
+            </div>
+
+            {/* 모바일 카드 (md 미만) — 가로 스크롤 없이 모든 정보를 세로로 */}
+            <div className="md:hidden">
+              {paged.map((r) => (
+                <div key={r.id} className="p-4 border-b border-gray-100 last:border-0 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="font-mono text-xs font-semibold" style={{ color: "var(--accent)" }}>{r.order_number}</span>
+                      {renderDelivery(r)}
+                    </div>
+                    <div className="shrink-0">{renderStatus(r, false)}</div>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-800">{r.buyer_name}</span>
+                    <span className="text-xs text-gray-400 ml-2">{r.buyer_phone}</span>
+                    {r.influencer_name ? (
+                      <span className="ml-2 inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 bg-purple-50 text-purple-600" title="이 인플루언서 전용 링크로 들어온 예약">
+                        @{r.influencer_name}
+                      </span>
+                    ) : (
+                      <span className="ml-2 text-[11px] text-gray-300">직접 유입</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {hotelRoom(r.product_name)}
+                    {requestMemo(r.addr_memo) && (
+                      <div className="text-xs mt-0.5" style={{ color: "#c2410c" }}>
+                        📝 요청: {requestMemo(r.addr_memo)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-end justify-between gap-2">
+                    <div className="text-xs text-gray-500 tnum">
+                      <div>
+                        {md(r.stay_check_in)} ~ {md(r.stay_check_out)}
+                        {changeMark(r) && (
+                          <span className="ml-1.5 inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-600"
+                            title={`${r.stay_changed ? "투숙일 변경 이력 있음. " : ""}${r.repaid_after_cancel ? "같은 연락처로 먼저 취소된 예약이 있는 재결제 건." : ""}`}>
+                            🔁 {changeMark(r)}
+                          </span>
                         )}
                       </div>
-                    );
-                  })()}
-                </div>
-                <div className="text-sm text-gray-700">
-                  <div className="font-medium text-gray-800">{r.buyer_name}</div>
-                  <div className="text-xs text-gray-400">{r.buyer_phone}</div>
-                  {r.influencer_name ? (
-                    <span className="inline-block mt-1 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-purple-50 text-purple-600" title="이 인플루언서 전용 링크로 들어온 예약">
-                      @{r.influencer_name}
-                    </span>
-                  ) : (
-                    <span className="inline-block mt-1 text-[11px] text-gray-300">직접 유입</span>
-                  )}
-                </div>
-                <div className="text-sm text-gray-700 min-w-0">
-                  <div>{hotelRoom(r.product_name)}</div>
-                  {requestMemo(r.addr_memo) && (
-                    <div className="text-xs mt-0.5 truncate" style={{ color: "#c2410c" }} title={requestMemo(r.addr_memo)}>
-                      📝 요청: {requestMemo(r.addr_memo)}
+                      {r.last_change && (
+                        <div className="text-[10.5px] mt-0.5 text-amber-700">🔀 {r.last_change}</div>
+                      )}
+                      {r.status === "paid" && (
+                        <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 underline mt-0.5">📅 예약변경</button>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500 tnum">
-                  <div>{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</div>
-                  {changeMark(r) && (
-                    <span className="inline-block mt-0.5 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-600"
-                      title={`${r.stay_changed ? "투숙일 변경 이력 있음. " : ""}${r.repaid_after_cancel ? "같은 연락처로 먼저 취소된 예약이 있는 재결제 건." : ""}`}>
-                      🔁 {changeMark(r)}
-                    </span>
-                  )}
-                  {r.last_change && (
-                    <div className="text-[10.5px] mt-0.5 text-amber-700" title={`변경 이력: ${r.last_change}`}>
-                      🔀 {r.last_change}
+                    <div className="text-right tnum shrink-0">
+                      <div className="text-sm font-semibold text-gray-800">
+                        {(Number(r.total_amount) + Number(r.extra_paid || 0)).toLocaleString()}원
+                      </div>
+                      {Number(r.extra_paid) > 0 && (
+                        <div className="text-[11px] text-[#2D5A27] mt-0.5">차액 +{Number(r.extra_paid).toLocaleString()} 포함</div>
+                      )}
+                      {r.paid_at_kst && <div className="text-[11px] text-gray-400 mt-0.5">💳 {r.paid_at_kst}</div>}
+                      {r.status === "cancelled" && r.cancelled_at_kst && (
+                        <div className="text-[11px] text-red-400 mt-0.5">🚫 취소 {r.cancelled_at_kst}</div>
+                      )}
                     </div>
-                  )}
-                  {r.status === "paid" && (
-                    <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 예약변경</button>
-                  )}
-                </div>
-                <div className="text-right tnum">
-                  <div className="text-sm font-semibold text-gray-800">
-                    {(Number(r.total_amount) + Number(r.extra_paid || 0)).toLocaleString()}원
                   </div>
-                  {Number(r.extra_paid) > 0 && (
-                    <div className="text-[11px] text-[#2D5A27] mt-0.5">차액 +{Number(r.extra_paid).toLocaleString()} 포함</div>
-                  )}
-                  {r.paid_at_kst && <div className="text-[11px] text-gray-400 mt-0.5">💳 {r.paid_at_kst}</div>}
-                  {r.status === "cancelled" && r.cancelled_at_kst && (
-                    <div className="text-[11px] text-red-400 mt-0.5">🚫 취소 {r.cancelled_at_kst}</div>
-                  )}
                 </div>
-                {r.status === "cancelled" ? (
-                  <span className={`justify-self-center text-xs font-semibold rounded-full px-3 py-1 ${st.cls}`} title="환불 완료된 예약은 되돌릴 수 없습니다">
-                    취소
-                  </span>
-                ) : (
-                  <select
-                    value={r.status}
-                    onChange={(e) => updateStatus(r.id, e.target.value)}
-                    className={`justify-self-center text-xs font-semibold rounded-full px-2 py-1 cursor-pointer border-0 focus:outline-none ${st.cls}`}
-                    style={{ appearance: "auto" }}
-                    title="상태 변경"
-                  >
-                    {r.status === "awaiting" && <option value="awaiting">예약대기</option>}
-                    <option value="paid">{r.status === "awaiting" ? "✅ 승인 (예약확정)" : "예약확정"}</option>
-                    {r.status !== "awaiting" && <option value="checked_in">체크인완료</option>}
-                    {r.status !== "awaiting" && <option value="no_show">노쇼</option>}
-                    <option value="cancelled">취소</option>
-                  </select>
-                )}
-              </div>
-            );
-          })
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -669,7 +751,7 @@ export default function ReservationsClient() {
       {dateEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => !changing && setDateEdit(null)}>
-          <div className="bg-white rounded-none w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-none w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100">
               <p className="text-sm font-bold text-gray-800">📅 예약 변경 — 날짜 · 인원 · 객실</p>
               <p className="text-xs text-gray-400 mt-0.5 font-mono">{dateEdit.order_number} · {dateEdit.buyer_name} · {hotelRoom(dateEdit.product_name)}</p>
