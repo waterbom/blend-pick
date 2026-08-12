@@ -284,7 +284,9 @@ export default function HotelReserveClient({
               {sale === "before" ? "OPEN — 오픈까지" : sale === "open" ? "CLOSING — 마감까지" : "CLOSED — 판매 마감"}
             </div>
             <div className="text-[34px] lg:text-[64px]" style={{ color: sale === "closed" ? "rgba(122,139,111,.35)" : C.sageLight }}>
-              <NeonCountdown remain={remain} />
+              {/* 일은 진한 딥그린, 시→분→초로 갈수록 옅어지는 그라데이션 (마감 땐 전체 흐림 유지) */}
+              <NeonCountdown remain={remain}
+                palette={sale === "closed" ? undefined : ["#244B1F", "#57744E", "#82A276", "#AFC7A3"]} />
             </div>
           </div>
         </div>

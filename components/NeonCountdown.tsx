@@ -74,10 +74,21 @@ function Group({ value, label, minDigits = 2 }: { value: number; label: string; 
 
 export default function NeonCountdown({
   remain,
+  palette,
 }: {
   remain: { d: number; h: number; m: number; s: number } | null; // null = 마감
+  // 그룹별 색 4개 [일, 시, 분, 초] — 주면 일이 진하고 초로 갈수록 옅어지는 그라데이션.
+  // 일이 숨겨지면(0일) [일, 분, 초] 색을 시·분·초에 배정해 낙차를 유지한다. 없으면 currentColor 상속.
+  palette?: [string, string, string, string];
 }) {
   const r = remain ?? { d: 0, h: 0, m: 0, s: 0 };
+  const groups: { value: number; label: string; minDigits?: number }[] = [];
+  if (r.d > 0) groups.push({ value: r.d, label: "일", minDigits: r.d >= 10 ? 2 : 1 });
+  groups.push({ value: r.h, label: "시" }, { value: r.m, label: "분" }, { value: r.s, label: "초" });
+  const colors = palette
+    ? (groups.length === 4 ? palette : [palette[0], palette[2], palette[3]])
+    : null;
+
   return (
     <span className="inline-flex items-start select-none" style={{ gap: "0.18em" }} suppressHydrationWarning
       role="timer" aria-label={remain ? `${r.d}일 ${r.h}시간 ${r.m}분 ${r.s}초 남음` : "마감"}>
@@ -86,17 +97,12 @@ export default function NeonCountdown({
         .neon-colon { animation: neonColonBlink 1s steps(1) infinite; }
         @media (prefers-reduced-motion: reduce) { .neon-colon { animation: none } }
       `}</style>
-      {r.d > 0 && (
-        <>
-          <Group value={r.d} label="일" minDigits={r.d >= 10 ? 2 : 1} />
-          <Colon />
-        </>
-      )}
-      <Group value={r.h} label="시" />
-      <Colon />
-      <Group value={r.m} label="분" />
-      <Colon />
-      <Group value={r.s} label="초" />
+      {groups.map((g, i) => (
+        <span key={g.label} className="inline-flex items-start" style={{ gap: "0.18em", ...(colors ? { color: colors[i] } : {}) }}>
+          {i > 0 && <Colon />}
+          <Group value={g.value} label={g.label} minDigits={g.minDigits} />
+        </span>
+      ))}
     </span>
   );
 }
