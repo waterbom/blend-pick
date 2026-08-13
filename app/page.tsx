@@ -168,6 +168,32 @@ export default async function Home() {
         )}
       </section>
 
+      {/* 주문·배송 조회 안내 — 비회원도 휴대폰 번호로 바로 (푸터에만 있던 진입점을 본문에 조용히 노출) */}
+      <section className="container-blend pt-6 pb-2">
+        <Link
+          href="/orders/lookup"
+          className="group flex items-center gap-4 rounded-2xl bg-white px-5 sm:px-6 py-4 sm:py-5 transition-shadow hover:shadow-sm"
+          style={{ border: "1px solid var(--line)" }}
+        >
+          <span className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg"
+            style={{ background: "var(--accent-soft)" }}>
+            📦
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+              주문하신 상품이 궁금하세요?
+            </span>
+            <span className="block text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              비회원도 휴대폰 번호만으로 주문·배송 조회가 가능해요
+            </span>
+          </span>
+          <span className="shrink-0 text-sm font-semibold transition-transform duration-200 group-hover:translate-x-0.5"
+            style={{ color: "var(--accent)" }}>
+            주문 조회 →
+          </span>
+        </Link>
+      </section>
+
       {/* 곧 오픈 — 판매 예약 상품 (있을 때만) */}
       {upcoming.length > 0 && (
         <section className="container-blend pt-8 pb-4">
