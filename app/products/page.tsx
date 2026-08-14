@@ -1,4 +1,5 @@
 import shopPool from "@/lib/db-shop";
+import { getTopSellerIds } from "@/lib/best-sellers";
 import Header from "@/components/Header";
 import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
@@ -113,10 +114,11 @@ export default async function ShopPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const { category } = await searchParams;
-  const [products, categories, upcoming] = await Promise.all([
+  const [products, categories, upcoming, topSellers] = await Promise.all([
     getProducts(category),
     getCategories(),
     getUpcoming(),
+    getTopSellerIds(2),
   ]);
   const placeholderCount = Math.max(0, UPCOMING_MIN_CELLS - upcoming.length);
 
@@ -205,6 +207,12 @@ export default async function ShopPage({
                       <span className="absolute top-0 left-0 px-3 lg:px-3.5 py-1.5 lg:py-2 text-[12px] lg:text-[13px]"
                         style={{ fontFamily: MONO, fontWeight: 600, background: soldOut ? C.muted3 : C.green800, color: "#fff" }}>
                         -{discount}%
+                      </span>
+                    )}
+                    {topSellers.indexOf(p.id) >= 0 && !soldOut && (
+                      <span className="absolute top-0 right-0 px-3 lg:px-3.5 py-1.5 lg:py-2 text-[12px] lg:text-[13px] font-bold"
+                        style={{ background: C.green900, color: "#FDFCF9" }}>
+                        🔥 판매 {topSellers.indexOf(p.id) + 1}위
                       </span>
                     )}
                   </div>

@@ -6,6 +6,7 @@ import TrendByAI from "@/components/TrendByAI";
 import HotelPromoBand from "@/components/HotelPromoBand";
 import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
+import { getTopSellerIds } from "@/lib/best-sellers";
 
 interface ShopProduct {
   id: string;
@@ -96,8 +97,9 @@ async function getUpcomingHotelInfluencers(): Promise<{ id: string; name: string
 }
 
 export default async function Home() {
-  const [selling, upcoming, hotelActive, hotelUpcoming] = await Promise.all([
+  const [selling, upcoming, hotelActive, hotelUpcoming, topSellers] = await Promise.all([
     getSellingProducts(), getUpcomingProducts(), getActiveHotelInfluencers(), getUpcomingHotelInfluencers(),
+    getTopSellerIds(2),
   ]);
 
   return (
@@ -134,6 +136,7 @@ export default async function Home() {
                 ? Math.round((1 - p.price / p.original_price) * 100)
                 : null;
               const soldOut = p.stock === 0 || p.status === "soldout";
+              const rank = topSellers.indexOf(p.id); // 0 = 판매 1위, 1 = 2위, -1 = 해당 없음
               return (
                 <Link key={p.id} href={`/products/${p.id}`} className="group block">
                   <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-3" style={{ background: "var(--surface-soft)" }}>
@@ -142,6 +145,12 @@ export default async function Home() {
                     {discount != null && !soldOut && (
                       <span className="absolute top-2 left-2 text-white text-xs font-extrabold px-2 py-0.5 rounded-full" style={{ background: "var(--sale)" }}>
                         -{discount}%
+                      </span>
+                    )}
+                    {rank >= 0 && !soldOut && (
+                      <span className="absolute top-2 right-2 flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full text-white"
+                        style={{ background: "rgba(26,29,24,.82)", backdropFilter: "blur(4px)" }}>
+                        🔥 판매 {rank + 1}위
                       </span>
                     )}
                     {soldOut && (
