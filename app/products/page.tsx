@@ -210,9 +210,18 @@ export default async function ShopPage({
                       </span>
                     )}
                     {topSellers.indexOf(p.id) >= 0 && !soldOut && (
-                      <span className="absolute top-0 right-0 px-3 lg:px-3.5 py-1.5 lg:py-2 text-[12px] lg:text-[13px] font-bold"
-                        style={{ background: C.green900, color: "#FDFCF9" }}>
-                        🔥 판매 {topSellers.indexOf(p.id) + 1}위
+                      <span className="absolute top-0 right-0 flex items-center gap-2 px-3 lg:px-3.5 py-1.5 lg:py-2 text-[11px] lg:text-[12px]"
+                        style={{
+                          fontFamily: MONO, fontWeight: 600, letterSpacing: ".18em",
+                          background: C.green900, color: "#FDFCF9",
+                          borderBottom: `2px solid ${C.sageLight}`,
+                        }}>
+                        {/* 지금 팔리는 중 느낌의 라이브 펄스 닷 */}
+                        <span className="relative flex w-1.5 h-1.5">
+                          <span className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping" style={{ background: C.sageLight }} />
+                          <span className="relative inline-flex rounded-full w-1.5 h-1.5" style={{ background: C.mintOnDark }} />
+                        </span>
+                        BEST 0{topSellers.indexOf(p.id) + 1}
                       </span>
                     )}
                   </div>

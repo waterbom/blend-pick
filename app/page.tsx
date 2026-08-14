@@ -148,9 +148,18 @@ export default async function Home() {
                       </span>
                     )}
                     {rank >= 0 && !soldOut && (
-                      <span className="absolute top-2 right-2 flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full text-white"
-                        style={{ background: "rgba(26,29,24,.82)", backdropFilter: "blur(4px)" }}>
-                        🔥 판매 {rank + 1}위
+                      <span className="absolute top-2 right-2 flex items-center gap-1.5 text-[11px] font-extrabold px-2.5 py-1 rounded-full text-white"
+                        style={{
+                          background: "linear-gradient(135deg, #1A1D18 0%, #2D5A27 100%)",
+                          boxShadow: "0 2px 8px rgba(26,29,24,.35)",
+                          letterSpacing: ".08em",
+                        }}>
+                        {/* 지금 팔리는 중 느낌의 라이브 펄스 닷 */}
+                        <span className="relative flex w-1.5 h-1.5">
+                          <span className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping" style={{ background: "#9FBF93" }} />
+                          <span className="relative inline-flex rounded-full w-1.5 h-1.5" style={{ background: "#C7D6C0" }} />
+                        </span>
+                        BEST {rank + 1}
                       </span>
                     )}
                     {soldOut && (
