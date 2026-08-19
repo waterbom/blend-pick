@@ -281,7 +281,8 @@ export default async function ShopPage({
           </div>
         )}
 
-        {/* ── 곧 오픈하는 공구 (UPCOMING) ── */}
+        {/* ── 곧 오픈하는 공구 (UPCOMING) — 예정 상품이 없으면 섹션 자체를 숨김 ── */}
+        {upcoming.length > 0 && (
         <div className="mt-10 lg:mt-12 mb-12 lg:mb-14">
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-baseline gap-2 mb-4 lg:mb-5">
             <div>
@@ -302,16 +303,6 @@ export default async function ShopPage({
               에서 받아보세요
             </div>
           </div>
-          {upcoming.length === 0 ? (
-            /* 예정 상품이 없을 때 — 준비 중 안내 */
-            <div className="flex flex-col items-center justify-center gap-2 py-14 lg:py-16"
-              style={{ border: `1px solid ${C.hairline}`, background: `repeating-linear-gradient(45deg,#FFFFFF,#FFFFFF 12px,${C.surfaceSoft} 12px,${C.surfaceSoft} 24px)` }}>
-              <span className="text-[10px]" style={{ fontFamily: MONO, color: C.sage, letterSpacing: ".2em" }}>UPCOMING</span>
-              <span className="text-[15px] lg:text-[17px] font-semibold" style={{ fontFamily: SERIF, color: C.muted2 }}>
-                공구이벤트 준비중입니다
-              </span>
-            </div>
-          ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-[1px]" style={{ background: C.hairline, border: `1px solid ${C.hairline}` }}>
             {/* 실제 오픈 예정 상품 (Shop 등록 기준) */}
             {upcoming.map((u) => (
@@ -348,8 +339,8 @@ export default async function ShopPage({
               </div>
             ))}
           </div>
-          )}
         </div>
+        )}
 
       </div>
     </main>
