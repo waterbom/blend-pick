@@ -178,8 +178,8 @@ export default async function ShopPage({
           </div>
         ) : (
           <div
-            className={`grid gap-[1px] mt-0 ${compact ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-1 lg:grid-cols-2"}`}
-            style={{ background: C.hairline, border: `1px solid ${C.hairline}`, borderTop: "none" }}
+            className={`grid ${compact ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-1 lg:grid-cols-2"}`}
+            style={{ marginTop: "-1px" }}
           >
             {products.map((p) => {
               const discount = p.original_price && p.original_price > p.price
@@ -270,16 +270,14 @@ export default async function ShopPage({
               // 카드 전체가 상세 페이지 링크 (품절 상품도 상세에서 확인 가능)
               return (
                 <Link key={p.id} href={`/products/${p.id}`}
-                  className="flex flex-col bg-white transition-colors duration-150 hover:bg-[#FDFCF9]">
+                  className="flex flex-col bg-white transition-colors duration-150 hover:bg-[#FDFCF9]"
+                  // 카드마다 자기 테두리를 그림 — 인접 카드끼리 겹쳐 1px 선이 되고,
+                  // 마지막 줄이 덜 차도 빈 칸에 그리드 선이 안 생긴다 (필러 불필요)
+                  style={{ outline: `1px solid ${C.hairline}`, outlineOffset: "-0.5px" }}>
                   {cardInner}
                 </Link>
               );
             })}
-            {/* 마지막 줄이 덜 차면 빈 칸에 그리드 바탕색(헤어라인)이 드러남 — 흰 카드로 채운다
-                (4의 배수까지 채우면 2열·4열 어느 배치에서도 빈 칸이 안 생김) */}
-            {Array.from({ length: (4 - (products.length % 4)) % 4 }, (_, i) => (
-              <div key={`fill-${i}`} aria-hidden className="bg-white" />
-            ))}
           </div>
         )}
 
