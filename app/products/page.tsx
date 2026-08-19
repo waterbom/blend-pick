@@ -27,7 +27,6 @@ const C = {
 const SERIF = "'Noto Serif KR', serif";
 const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 const KAKAO_CHANNEL_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
-const UPCOMING_MIN_CELLS = 4; // 그리드가 비어 보이지 않게 최소 4칸 유지 (모자란 칸은 COMING SOON)
 
 interface Product {
   id: string;
@@ -120,7 +119,6 @@ export default async function ShopPage({
     getUpcoming(),
     getTopSellerIds(2),
   ]);
-  const placeholderCount = Math.max(0, UPCOMING_MIN_CELLS - upcoming.length);
 
   // 상품 4개 이상이면 컴팩트 4열, 적으면 대형 에디토리얼 2열 (핸드오프 권장)
   const compact = products.length >= 4;
@@ -303,11 +301,12 @@ export default async function ShopPage({
               에서 받아보세요
             </div>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-[1px]" style={{ background: C.hairline, border: `1px solid ${C.hairline}` }}>
-            {/* 실제 오픈 예정 상품 (Shop 등록 기준) */}
+          {/* 실제 오픈 예정 상품만 — 남는 칸은 카드별 아웃라인이라 빈 칸이 안 생김 (상품 그리드와 동일 방식) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4">
             {upcoming.map((u) => (
               <Link key={u.id} href={`/products/${u.id}`}
-                className="bg-white p-4 lg:p-5 flex flex-col gap-3 transition-colors duration-150 hover:bg-[#FDFCF9]">
+                className="bg-white p-4 lg:p-5 flex flex-col gap-3 transition-colors duration-150 hover:bg-[#FDFCF9]"
+                style={{ outline: `1px solid ${C.hairline}`, outlineOffset: "-0.5px" }}>
                 <div className="h-[110px] lg:h-[140px] overflow-hidden" style={{ background: C.surfaceSoft }}>
                   <FallbackImg src={u.image} alt={u.name} className="w-full h-full object-cover" />
                 </div>
@@ -320,23 +319,6 @@ export default async function ShopPage({
                   </div>
                 </div>
               </Link>
-            ))}
-            {/* 남는 칸은 COMING SOON 플레이스홀더로 채워 그리드 유지 */}
-            {Array.from({ length: placeholderCount }, (_, i) => (
-              <div key={`ph${i}`} className="bg-white p-4 lg:p-5 flex flex-col gap-3">
-                <div className="h-[110px] lg:h-[140px] flex items-center justify-center"
-                  style={{ background: `repeating-linear-gradient(45deg,${C.surfaceSoft},${C.surfaceSoft} 10px,#EDEAE0 10px,#EDEAE0 20px)` }}>
-                  <span className="text-[10px]" style={{ fontFamily: MONO, color: C.sage, letterSpacing: ".14em" }}>
-                    COMING SOON
-                  </span>
-                </div>
-                <div>
-                  <div className="text-[10px] lg:text-[11px] mb-1" style={{ letterSpacing: ".14em", color: C.sage }}>
-                    오픈 예정 {String(upcoming.length + i + 1).padStart(2, "0")}
-                  </div>
-                  <div className="text-[12.5px] lg:text-[13px] font-semibold" style={{ color: C.muted2 }}>공개 전 상품</div>
-                </div>
-              </div>
             ))}
           </div>
         </div>
