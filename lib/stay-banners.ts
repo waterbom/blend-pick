@@ -17,12 +17,14 @@ export interface StaySlide {
 
 export interface StayBannerConfig {
   key: string;
+  name: string; // 배너 사이 구분 밴드에 표시되는 숙소 이름
   slides: StaySlide[];
 }
 
 export const STAY_BANNERS: StayBannerConfig[] = [
   {
     key: "dangung",
+    name: "단궁 펜션",
     slides: [
       {
         images: ["/hotel/dangung1.jpg", "/hotel/dangung2.jpg", "/hotel/dangung3.jpg"],
@@ -46,6 +48,7 @@ export const STAY_BANNERS: StayBannerConfig[] = [
   },
   {
     key: "utop-marina",
+    name: "UTOP 마리나 리조트",
     slides: [
       {
         images: ["/hotel/4.png", "/hotel/4.1.png", "/hotel/4.2.png"],
