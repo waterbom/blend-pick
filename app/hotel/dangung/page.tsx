@@ -31,8 +31,38 @@ export const metadata = {
   },
 };
 
+// 이미지·콘텐츠 자리 표시 — 내용 확정되면 실제 사진/텍스트로 교체
+function Ph({ h = 200, label = "IMAGE" }: { h?: number; label?: string }) {
+  return (
+    <div className="flex items-center justify-center w-full"
+      style={{
+        height: h,
+        background: `repeating-linear-gradient(45deg,#FFFFFF,#FFFFFF 12px,${C.surfaceSoft} 12px,${C.surfaceSoft} 24px)`,
+        border: `1px solid ${C.hairline}`,
+      }}>
+      <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".22em", color: C.sage }}>{label}</span>
+    </div>
+  );
+}
+
+// 섹션 공통 헤더 — 번호 캡션(모노) + 세리프 타이틀 + 리드 문구
+function SectionHead({ no, cap, title, lead }: { no: string; cap: string; title: string; lead?: string }) {
+  return (
+    <div className="text-center mb-7 lg:mb-9">
+      <div className="text-[10px] lg:text-[11px] mb-2.5"
+        style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".3em", color: C.sage }}>
+        {no} — {cap}
+      </div>
+      <h2 className="m-0 text-[22px] lg:text-[30px]" style={{ fontFamily: SERIF, fontWeight: 600, color: C.green900 }}>
+        {title}
+      </h2>
+      {lead && <p className="mt-2.5 mb-0 text-[13px] lg:text-[14px]" style={{ color: C.muted }}>{lead}</p>}
+    </div>
+  );
+}
+
 // 단궁 펜션 공구 — 히어로(사진 + 페이드인 타이틀) 티저.
-// 상세(달력·요금·예약)는 공구 일정 확정 후 이 페이지에 섹션으로 붙는다.
+// 아래 섹션들은 스켈레톤 — 내용 확정되는 대로 채운다. (달력·요금·예약은 공구 일정 확정 후)
 export default function DangungTeaserPage() {
   return (
     <main className="min-h-screen" style={{ background: "#FFFFFF" }}>
@@ -139,8 +169,82 @@ export default function DangungTeaserPage() {
           ))}
         </div>
 
+        {/* ── 01 소개 ── */}
+        <section id="about" className="dg-reveal mt-16 lg:mt-24">
+          <SectionHead no="01" cap="ABOUT" title="단궁 이야기" lead="한옥과 잔디 정원이 있는 공간 — 소개 글이 들어갈 자리예요" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+            <Ph h={260} label="PHOTO — 전경" />
+            <div className="text-left px-1 lg:px-4">
+              {[92, 100, 84, 96, 70].map((w, i) => (
+                <div key={i} className="mb-3 rounded-sm" style={{ height: 12, width: `${w}%`, background: C.surfaceSoft }} />
+              ))}
+              <div className="mt-4 text-[11px]" style={{ fontFamily: MONO, letterSpacing: ".18em", color: C.sage }}>TEXT — 준비 중</div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 02 독채 펜션 ── */}
+        <section id="stay" className="dg-reveal mt-16 lg:mt-24">
+          <SectionHead no="02" cap="PRIVATE STAY" title="독채 펜션" lead="기준 15인 · 최대 24인 — 객실·거실·마당 사진이 들어갈 자리예요" />
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <Ph h={170} label="PHOTO — 거실" />
+            <Ph h={170} label="PHOTO — 침실" />
+            <div className="col-span-2 lg:col-span-1"><Ph h={170} label="PHOTO — 마당" /></div>
+          </div>
+        </section>
+
+        {/* ── 03 파티룸 ── */}
+        <section id="party" className="dg-reveal mt-16 lg:mt-24">
+          <SectionHead no="03" cap="PARTY ROOM" title="파티룸" lead="구성·수용 인원 공개 예정" />
+          <Ph h={240} label="PHOTO — 파티룸" />
+        </section>
+
+        {/* ── 04 바베큐 & 정원 ── */}
+        <section id="outdoor" className="dg-reveal mt-16 lg:mt-24">
+          <SectionHead no="04" cap="OUTDOOR" title="바베큐 & 넓은 정원" lead="비가림막 완비 — 우천에도 바베큐 가능 · 정원 촬영 대여 패키지 예정" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <Ph h={200} label="PHOTO — 바베큐존" />
+            <Ph h={200} label="PHOTO — 정원" />
+          </div>
+        </section>
+
+        {/* ── 05 요금 안내 ── */}
+        <section id="pricing" className="dg-reveal mt-16 lg:mt-24">
+          <SectionHead no="05" cap="PRICING" title="요금 안내" lead="공구 오픈과 함께 공개돼요" />
+          <div style={{ border: `1px solid ${C.hairline}` }}>
+            {["주중 (일–목)", "주말 · 공휴일", "성수기", "인원 추가"].map((label, i) => (
+              <div key={label} className="flex items-center justify-between px-5 py-4"
+                style={{ borderTop: i > 0 ? `1px solid ${C.hairline}` : "none", background: i % 2 ? C.surfaceSoft : "#fff" }}>
+                <span className="text-[13px] font-semibold" style={{ color: C.green900 }}>{label}</span>
+                <span className="text-[11px]" style={{ fontFamily: MONO, letterSpacing: ".18em", color: C.sage }}>OPEN 시 공개</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── 06 이용 안내 ── */}
+        <section id="guide" className="dg-reveal mt-16 lg:mt-24">
+          <SectionHead no="06" cap="NOTICE" title="이용 안내" lead="체크인/아웃 · 취소 규정 · 반려동물 등 — 확정 후 게시" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {["체크인 · 체크아웃", "취소 · 환불 규정", "이용 규칙"].map((t) => (
+              <div key={t} className="px-5 py-6 text-left" style={{ border: `1px solid ${C.hairline}`, background: "#fff" }}>
+                <div className="text-[13px] font-bold mb-3" style={{ color: C.green900 }}>{t}</div>
+                {[100, 82, 64].map((w, i) => (
+                  <div key={i} className="mb-2 rounded-sm" style={{ height: 10, width: `${w}%`, background: C.surfaceSoft }} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── 07 오시는 길 ── */}
+        <section id="location" className="dg-reveal mt-16 lg:mt-24">
+          <SectionHead no="07" cap="LOCATION" title="오시는 길" lead="주소·주차 안내가 들어갈 자리예요" />
+          <Ph h={260} label="MAP" />
+        </section>
+
         {/* 오픈 알림 + 돌아가기 */}
-        <div className="dg-reveal mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="dg-reveal mt-16 lg:mt-20 flex flex-col sm:flex-row items-center justify-center gap-3">
           <a href={KAKAO_CHANNEL_URL} target="_blank" rel="noopener noreferrer"
             className="inline-block text-[13px] font-bold px-7 py-3.5"
             style={{ background: "#FEE500", color: "#191600" }}>
