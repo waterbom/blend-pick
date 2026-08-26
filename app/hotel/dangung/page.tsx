@@ -166,17 +166,17 @@ export default function DangungTeaserPage() {
             공구 오픈 준비 중입니다
           </span>
           <span className="text-[12.5px] lg:text-[13px]" style={{ color: C.muted }}>
-            일정과 가격은 오픈과 함께 공개돼요
+            확정된 구성과 요금을 먼저 만나보세요 — 오픈 일정은 곧 공개돼요
           </span>
         </div>
 
         {/* 확정된 구성 미리보기 */}
         <div className="dg-reveal mt-8 grid grid-cols-2 lg:grid-cols-4 gap-[1px]" style={{ background: C.hairline, border: `1px solid ${C.hairline}` }}>
           {[
-            ["독채 펜션", "기준 15인 · 최대 24인"],
-            ["파티룸", "구성 공개 예정"],
-            ["바베큐", "비가림막 완비 · 우천 OK"],
-            ["넓은 정원", "촬영 대여 패키지 예정"],
+            ["독채 펜션", "기준 6인 · 최대 16인"],
+            ["파티룸", "주중 55만 · 주말 65만"],
+            ["바베큐", "어닝 완비 · 우천 OK"],
+            ["넓은 정원", "촬영 대여 준비 중"],
           ].map(([t, d]) => (
             <div key={t} className="bg-white px-4 py-5">
               <div className="text-[13px] lg:text-[14px] font-bold" style={{ color: C.green900 }}>{t}</div>
@@ -201,7 +201,7 @@ export default function DangungTeaserPage() {
 
         {/* ── 02 독채 펜션 ── */}
         <section id="stay" className="dg-reveal mt-16 lg:mt-24">
-          <SectionHead no="02" cap="PRIVATE STAY" title="독채 펜션" lead="기준 15인 · 최대 24인 — 객실·거실·마당 사진이 들어갈 자리예요" />
+          <SectionHead no="02" cap="PRIVATE STAY" title="독채 펜션" lead="기준 6인 · 최대 16인 — 전 객실 화이트 침구 · 인원 추가 시 침구 1세트 포함" />
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             <Ph h={170} label="PHOTO — 거실" />
             <Ph h={170} label="PHOTO — 침실" />
@@ -211,13 +211,13 @@ export default function DangungTeaserPage() {
 
         {/* ── 03 파티룸 ── */}
         <section id="party" className="dg-reveal mt-16 lg:mt-24">
-          <SectionHead no="03" cap="PARTY ROOM" title="파티룸" lead="구성·수용 인원 공개 예정" />
+          <SectionHead no="03" cap="PARTY ROOM" title="파티룸" lead="단독 대관 — 주중 55만 · 주말 65만 · 상세 구성 공개 예정" />
           <Ph h={240} label="PHOTO — 파티룸" />
         </section>
 
         {/* ── 04 바베큐 & 정원 ── */}
         <section id="outdoor" className="dg-reveal mt-16 lg:mt-24">
-          <SectionHead no="04" cap="OUTDOOR" title="바베큐 & 넓은 정원" lead="비가림막 완비 — 우천에도 바베큐 가능 · 정원 촬영 대여 패키지 예정" />
+          <SectionHead no="04" cap="OUTDOOR" title="바베큐 & 넓은 정원" lead="어닝(비가림막) 완비 — 우천에도 바베큐 가능 · 정원 촬영 대여 준비 중" />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <Ph h={200} label="PHOTO — 바베큐존" />
             <Ph h={200} label="PHOTO — 정원" />
@@ -226,13 +226,55 @@ export default function DangungTeaserPage() {
 
         {/* ── 05 요금 안내 ── */}
         <section id="pricing" className="dg-reveal mt-16 lg:mt-24">
-          <SectionHead no="05" cap="PRICING" title="요금 안내" lead="공구 오픈과 함께 공개돼요" />
-          <div style={{ border: `1px solid ${C.hairline}` }}>
-            {["주중 (일–목)", "주말 · 공휴일", "성수기", "인원 추가"].map((label, i) => (
-              <div key={label} className="flex items-center justify-between px-5 py-4"
-                style={{ borderTop: i > 0 ? `1px solid ${C.hairline}` : "none", background: i % 2 ? C.surfaceSoft : "#fff" }}>
-                <span className="text-[13px] font-semibold" style={{ color: C.green900 }}>{label}</span>
-                <span className="text-[11px]" style={{ fontFamily: MONO, letterSpacing: ".18em", color: C.sage }}>OPEN 시 공개</span>
+          <SectionHead no="05" cap="PRICING" title="요금 안내" lead="1박 기준 — 준성수기·극성수기 적용 날짜는 오픈과 함께 공개돼요" />
+          <div className="grid grid-cols-1 gap-6 text-left">
+            {[
+              {
+                head: "독채 펜션 · 1박",
+                rows: [
+                  ["평시 주중 (일–목)", "450,000원"],
+                  ["평시 주말 · 공휴일", "540,000원"],
+                  ["준성수기 주중", "450,000원"],
+                  ["준성수기 주말", "520,000원"],
+                  ["극성수기", "550,000원"],
+                  ["연말 · 명절", "오픈 시 공개"],
+                ],
+              },
+              {
+                head: "파티룸 · 1박",
+                rows: [
+                  ["주중 (일–목)", "550,000원"],
+                  ["주말 · 공휴일", "650,000원"],
+                ],
+              },
+              {
+                head: "인원 · 옵션",
+                rows: [
+                  ["기준 인원", "6인 · 최대 16인"],
+                  ["인원 추가 (1인)", "20,000원 — 침구 1세트 포함"],
+                  ["유아", "무료 — 정원 미포함"],
+                  ["바베큐 세팅 (6인 기준)", "50,000원 — 그릴 · 집게 · 토치 포함"],
+                  ["숯 추가 (1회)", "20,000원 — 석쇠 포함"],
+                  ["그릴 추가", "30,000원"],
+                ],
+              },
+            ].map((g) => (
+              <div key={g.head}>
+                <div className="px-5 py-3 text-[11px]"
+                  style={{ fontFamily: MONO, fontWeight: 600, letterSpacing: ".22em", color: "#fff", background: C.green900 }}>
+                  {g.head}
+                </div>
+                <div style={{ border: `1px solid ${C.hairline}`, borderTop: "none" }}>
+                  {g.rows.map(([label, value], i) => (
+                    <div key={label} className="flex items-center justify-between gap-4 px-5 py-3.5"
+                      style={{ borderTop: i > 0 ? `1px solid ${C.hairline}` : "none", background: i % 2 ? C.surfaceSoft : "#fff" }}>
+                      <span className="text-[13px] font-semibold shrink-0" style={{ color: C.green900 }}>{label}</span>
+                      <span className="text-[12.5px] lg:text-[13px] text-right" style={{ color: value === "오픈 시 공개" ? C.sage : C.muted, fontFamily: value === "오픈 시 공개" ? MONO : undefined, letterSpacing: value === "오픈 시 공개" ? ".14em" : undefined }}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -240,16 +282,47 @@ export default function DangungTeaserPage() {
 
         {/* ── 06 이용 안내 ── */}
         <section id="guide" className="dg-reveal mt-16 lg:mt-24">
-          <SectionHead no="06" cap="NOTICE" title="이용 안내" lead="체크인/아웃 · 취소 규정 · 반려동물 등 — 확정 후 게시" />
+          <SectionHead no="06" cap="NOTICE" title="이용 안내" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            {["체크인 · 체크아웃", "취소 · 환불 규정", "이용 규칙"].map((t) => (
-              <div key={t} className="px-5 py-6 text-left" style={{ border: `1px solid ${C.hairline}`, background: "#fff" }}>
-                <div className="text-[13px] font-bold mb-3" style={{ color: C.green900 }}>{t}</div>
-                {[100, 82, 64].map((w, i) => (
-                  <div key={i} className="mb-2 rounded-sm" style={{ height: 10, width: `${w}%`, background: C.surfaceSoft }} />
-                ))}
+            {[
+              {
+                t: "체크인 · 체크아웃",
+                items: ["체크인 15:00 · 체크아웃 11:00", "얼리 체크인은 어려워요", "레이트 체크아웃은 사전 문의"],
+              },
+              {
+                t: "취소 · 환불 규정",
+                items: ["체크인 7일 전까지 100% 환불", "이후 일자별 70% → 50% → 30% 차등", "상세 기준은 예약 페이지에 안내"],
+              },
+              {
+                t: "이용 규칙",
+                items: ["반려동물 동반 불가 — 잔디·한옥 보호", "위반 시 즉시 퇴실 · 환불 불가", "보증금 100,000원 — 퇴실 점검 후 환급"],
+              },
+            ].map((card) => (
+              <div key={card.t} className="px-5 py-6 text-left" style={{ border: `1px solid ${C.hairline}`, background: "#fff" }}>
+                <div className="text-[13px] font-bold mb-3" style={{ color: C.green900 }}>{card.t}</div>
+                <ul className="m-0 p-0 list-none">
+                  {card.items.map((it) => (
+                    <li key={it} className="mb-2 pl-3.5 relative text-[12.5px] leading-relaxed" style={{ color: C.muted }}>
+                      <span aria-hidden className="absolute left-0 top-[8px] w-[5px] h-[5px]" style={{ background: C.sage }} />
+                      {it}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
+          </div>
+
+          {/* 투숙객 제휴 혜택 밴드 */}
+          <div className="mt-6 px-6 py-6 text-center" style={{ background: C.surfaceSoft, border: `1px solid ${C.hairline}` }}>
+            <div className="text-[10px] mb-2" style={{ fontFamily: MONO, fontWeight: 600, letterSpacing: ".28em", color: C.sage }}>
+              STAY BENEFIT
+            </div>
+            <div className="text-[14px] lg:text-[15px] font-semibold" style={{ fontFamily: SERIF, color: C.green900 }}>
+              투숙객이라면 — 단궁 곰탕 20% 할인
+            </div>
+            <p className="m-0 mt-1.5 text-[12.5px]" style={{ color: C.muted }}>
+              곰탕 이용 후 카페까지 50% 할인 · 결제 시 영수증으로 인증하면 돼요
+            </p>
           </div>
         </section>
 
