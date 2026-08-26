@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Header from "@/components/Header";
+import DangungHeroBanner from "@/components/DangungHeroBanner";
 
 const KAKAO_CHANNEL_URL = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
 
@@ -111,51 +112,8 @@ export default function DangungTeaserPage() {
         }
       `}</style>
 
-      {/* ── 히어로 — 한옥 정원 사진 + 페이드인 타이틀 ── */}
-      <section className="dg-hero relative overflow-hidden">
-        {/* 사진 (없으면 하늘→잔디 그라데이션이 대신 보임) */}
-        <div className="absolute inset-0"
-          style={{
-            backgroundImage: `url(/hotel/dangung-hero.jpg), linear-gradient(180deg, ${C.sky} 0%, ${C.skyDeep} 46%, ${C.grass} 100%)`,
-            backgroundSize: "cover",
-            backgroundPosition: "center 62%",
-          }} />
-        {/* 텍스트 가독용 얇은 베일 — 사진의 하늘 톤을 해치지 않게 아주 옅게 */}
-        <div className="absolute inset-0"
-          style={{ background: "linear-gradient(180deg, rgba(10,30,50,.22) 0%, rgba(10,30,50,.05) 40%, rgba(16,38,24,.30) 100%)" }} />
-        {/* 미세 그레인 — 스크린샷 원본의 업스케일 뭉개짐을 필름 질감으로 가림 */}
-        <div className="absolute inset-0"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 1px, transparent 1px 3px)," +
-              "repeating-linear-gradient(-45deg, rgba(0,0,0,.025) 0 1px, transparent 1px 3px)",
-            mixBlendMode: "overlay",
-          }} />
-
-        <div className="relative h-full flex flex-col items-center justify-center text-center px-5">
-          <div className="dg-fade dg-d1 text-[10px] lg:text-[12px] mb-4 lg:mb-5"
-            style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".34em", color: "rgba(255,255,255,.92)" }}>
-            PENSION · 공동구매
-          </div>
-          <h1 className="dg-fade dg-d2 m-0 text-[38px] lg:text-[72px] leading-[1.15]"
-            style={{
-              fontFamily: SERIF,
-              fontWeight: 700,
-              // 사진의 하늘·잔디에서 딴 하늘색 → 초록 그라데이션 타이포
-              backgroundImage: "linear-gradient(115deg, #EAF6FF 0%, #BFE3F5 34%, #D9F0DC 62%, #9ED0A8 100%)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              color: "transparent",
-              filter: "drop-shadow(0 2px 14px rgba(12,36,52,.45))",
-            }}>
-            단궁 <span style={{ fontWeight: 400 }}>X</span> 블랜드픽
-          </h1>
-          <p className="dg-fade dg-d3 mt-4 lg:mt-5 text-[13.5px] lg:text-[16px]"
-            style={{ color: "rgba(255,255,255,.9)", textShadow: "0 1px 10px rgba(12,36,52,.4)" }}>
-            한옥과 넓은 잔디 정원 — 독채 & 파티룸 공동구매
-          </p>
-        </div>
-      </section>
+      {/* ── 히어로 — /hotel 방식의 풀블리드 슬라이드 배너 (사진 분할 + 문구) ── */}
+      <DangungHeroBanner />
 
       <div className="max-w-[840px] mx-auto px-5 lg:px-8 py-12 lg:py-16 text-center">
         {/* COMING SOON 밴드 */}
