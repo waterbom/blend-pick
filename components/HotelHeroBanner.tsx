@@ -13,20 +13,44 @@ import Link from "next/link";
  */
 const SLIDES = [
   {
-    // 4png 구성 (객실/스위트 3장 가로) — 1번 슬라이드
+    // 단궁 브랜드 (한옥·정원 3장 가로) — 다음 공구, 맨 앞에
+    images: ["/hotel/dangung1.jpg", "/hotel/dangung2.jpg", "/hotel/dangung3.jpg"],
+    grad: "linear-gradient(180deg,#7EB8DA,#7FB98B)",
+    tag: "단궁 펜션 · 독채 & 파티룸",
+    title: "단궁 X 블랜드픽\n펜션 공동구매",
+    subtitle: "한옥과 넓은 잔디 정원 — 오픈 준비 중",
+    href: "/hotel/dangung",
+    cta: "단궁 공구 미리 보기",
+  },
+  {
+    // 단궁 사계절 (봄/여름/가을/겨울 4장 가로)
+    images: ["/hotel/dangung4.jpg", "/hotel/dangung5.jpg", "/hotel/dangung6.jpg", "/hotel/dangung7.jpg"],
+    grad: "linear-gradient(135deg,#9ED0A8,#4E8F5C)",
+    tag: "사계절의 단궁",
+    title: "봄부터 겨울까지,\n계절이 머무는 정원",
+    subtitle: "꽃 피는 봄, 짙푸른 여름, 물드는 가을, 고요한 겨울",
+    href: "/hotel/dangung",
+    cta: "단궁 공구 미리 보기",
+  },
+  {
+    // 4png 구성 (객실/스위트 3장 가로) — UTOP (공구 마감)
     images: ["/hotel/4.png", "/hotel/4.1.png", "/hotel/4.2.png"],
     grad: "linear-gradient(135deg,#16324f,#2b5f7d)",
     tag: "여수 엑스포 · UTOP 마리나",
     title: "오션뷰 리조트\n단독 공동구매",
-    subtitle: "블랜드픽만의 특가로 만나는 프리미엄 스테이",
+    subtitle: "블랜드픽만의 특가로 만나는 프리미엄 스테이 — 이번 공구는 마감됐어요",
+    href: "/hotel/utop",
+    cta: "공구 상세 보기",
   },
   {
-    // 여수 볼거리 홍보 (요트체험/아쿠아리움/여수야시장 3장 가로) — 2번 슬라이드
+    // 여수 볼거리 홍보 (요트체험/아쿠아리움/여수야시장 3장 가로)
     images: ["/hotel/5.png", "/hotel/5.1.png", "/hotel/5.2.png"],
     grad: "linear-gradient(135deg,#155f4f,#2b7d63)",
     tag: "여수 여행",
     title: "호텔 외에도\n다양한 여수의 볼거리들!",
     subtitle: "요트체험 · 아쿠아리움 · 여수야시장까지, 여수를 통째로",
+    href: "/hotel/utop",
+    cta: "공구 상세 보기",
   },
 ];
 
@@ -94,11 +118,11 @@ export default function HotelHeroBanner() {
                     {slide.subtitle}
                   </p>
                   <Link
-                    href="/hotel/utop"
+                    href={slide.href}
                     className="inline-flex items-center gap-2 mt-7 px-6 py-3.5 rounded-2xl text-sm font-bold transition-all hover:brightness-95"
                     style={{ background: "#fff", color: "var(--accent)" }}
                   >
-                    지금 공동구매 보기
+                    {slide.cta}
                     <span aria-hidden>→</span>
                   </Link>
                 </div>
