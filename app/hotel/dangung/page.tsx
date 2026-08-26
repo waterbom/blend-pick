@@ -115,6 +115,14 @@ export default function DangungTeaserPage() {
         {/* 텍스트 가독용 얇은 베일 — 사진의 하늘 톤을 해치지 않게 아주 옅게 */}
         <div className="absolute inset-0"
           style={{ background: "linear-gradient(180deg, rgba(10,30,50,.22) 0%, rgba(10,30,50,.05) 40%, rgba(16,38,24,.30) 100%)" }} />
+        {/* 미세 그레인 — 스크린샷 원본의 업스케일 뭉개짐을 필름 질감으로 가림 */}
+        <div className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 1px, transparent 1px 3px)," +
+              "repeating-linear-gradient(-45deg, rgba(0,0,0,.025) 0 1px, transparent 1px 3px)",
+            mixBlendMode: "overlay",
+          }} />
 
         <div className="relative h-full flex flex-col items-center justify-center text-center px-5">
           <div className="dg-fade dg-d1 text-[10px] lg:text-[12px] mb-4 lg:mb-5"
