@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
-import HotelHeroBanner from "@/components/HotelHeroBanner";
+import StayBanner from "@/components/StayBanner";
 import StayDealsSection from "@/components/StayDealsSection";
+import { STAY_BANNERS } from "@/lib/stay-banners";
 
 export const metadata = {
   title: "숙박공구 · BLEND PICK",
@@ -12,8 +13,10 @@ export default function HotelPage() {
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
 
-      {/* 히어로 (예약조회는 /hotel/utop 히어로로 이동) */}
-      <HotelHeroBanner />
+      {/* 숙소별 배너 섹션 — 세로로 쌓임. 새 숙소는 lib/stay-banners.ts에 항목만 추가 */}
+      {STAY_BANNERS.map((b) => (
+        <StayBanner key={b.key} slides={b.slides} />
+      ))}
 
       {/* 숙소 카드 목록 — 새 호텔·펜션은 lib/stays.ts에 항목만 추가 */}
       <StayDealsSection />
