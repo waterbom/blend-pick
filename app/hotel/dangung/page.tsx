@@ -101,10 +101,18 @@ export default function DangungTeaserPage() {
         @media (prefers-reduced-motion: reduce) {
           .dg-fade, .dg-reveal { animation: none; opacity: 1; transform: none; }
         }
+        /* 히어로 — 진입 시 화면 꽉 차게 (뷰포트 − 스티키 헤더 높이).
+           svh: 모바일 주소창이 늘었다 줄어도 첫 화면 기준으로 안정 */
+        .dg-hero { height: calc(100vh - 56px); min-height: 460px; }
+        @supports (height: 100svh) { .dg-hero { height: calc(100svh - 56px); } }
+        @media (min-width: 640px) {
+          .dg-hero { height: calc(100vh - 64px); }
+          @supports (height: 100svh) { .dg-hero { height: calc(100svh - 64px); } }
+        }
       `}</style>
 
       {/* ── 히어로 — 한옥 정원 사진 + 페이드인 타이틀 ── */}
-      <section className="relative overflow-hidden" style={{ height: "min(78vh, 720px)", minHeight: 460 }}>
+      <section className="dg-hero relative overflow-hidden">
         {/* 사진 (없으면 하늘→잔디 그라데이션이 대신 보임) */}
         <div className="absolute inset-0"
           style={{
