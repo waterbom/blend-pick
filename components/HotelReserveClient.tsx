@@ -95,6 +95,7 @@ export default function HotelReserveClient({
   influencerName,
   saleStart,
   saleDeadline,
+  forceClosed = false,
   activeOptions = [],
   upcomingOptions = [],
 }: {
@@ -102,12 +103,13 @@ export default function HotelReserveClient({
   influencerName?: string | null;
   saleStart?: string; // 서버에서 계산된 인플루언서별 판매 시작 (없으면 클라이언트 폴백)
   saleDeadline?: string;
+  forceClosed?: boolean; // 공구 종료 — 일정과 무관하게 마감 화면 고정
   activeOptions?: { id: string; name: string }[]; // 직접 유입 시 이동 가능한 진행 중 공구
   upcomingOptions?: { id: string; name: string; start: string }[]; // 진행 중이 없을 때 오픈 예정 공구 (커밍순)
 }) {
   const router = useRouter();
   // 직접 유입 → select로 고른 진행 중 공구의 전용 링크로 이동
-  const gotoInfluencer = (id: string) => { if (id) router.push(`/hotel/reserve?inf=${id}`); };
+  const gotoInfluencer = (id: string) => { if (id) router.push(`/hotel/utop?inf=${id}`); };
   // "2026-07-22T10:00:00+09:00" → "7/22(수) 10:00"
   const fmtOpenAt = (iso: string) => {
     const [y, mo, dd] = iso.slice(0, 10).split("-").map(Number);
@@ -152,7 +154,8 @@ export default function HotelReserveClient({
   const saleFromISO = schedule.start.slice(0, 10);
   const saleToISO = schedule.deadline.slice(0, 10);
   const sale: "before" | "open" | "closed" =
-    now < new Date(schedule.start).getTime() ? "before"
+    forceClosed ? "closed"
+    : now < new Date(schedule.start).getTime() ? "before"
     : now > new Date(schedule.deadline).getTime() ? "closed" : "open";
   const remain = calcRemain(sale === "before" ? schedule.start : schedule.deadline, now);
 
@@ -248,7 +251,7 @@ export default function HotelReserveClient({
         onClick={() => {
           if (!ctaOn) return;
           const infParam = influencerId ? `&inf=${influencerId}` : "";
-          router.push(`/hotel/reserve/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}${infParam}`);
+          router.push(`/hotel/utop/checkout?pkg=${pkg}&room=${encodeURIComponent(room)}&in=${checkIn}&out=${checkOut}${infParam}`);
         }}
         className="w-full py-[15px] text-[14px] font-bold text-center"
         style={{
@@ -260,13 +263,14 @@ export default function HotelReserveClient({
         }}
         suppressHydrationWarning
       >
-        {linkOnly
+        {sale === "closed"
+          ? "공구가 마감되었어요"
+          : linkOnly
           ? "인플루언서 전용 링크로만 예약 가능"
           : sale === "before"
           ? remain
             ? `오픈까지 ${remain.d > 0 ? `${remain.d}일 ` : ""}${pad(remain.h)}:${pad(remain.m)}:${pad(remain.s)}`
             : "잠시 후 오픈"
-          : sale === "closed" ? "판매가 마감되었어요"
           : complete ? `예약 진행 · ${WON(total)}` : "예약 진행"}
       </button>
     );
@@ -274,7 +278,8 @@ export default function HotelReserveClient({
   return (
     <div style={{ background: "var(--background)", color: C.green900 }}>
       {/* ── 네온 카운트다운 밴드 (풀블리드 톤 밴드, B안) — 좌우 여백엔 세로 캡션 ── */}
-      {!linkOnly && (
+      {/* 마감 후엔 직접 유입에게도 CLOSED 밴드를 보여 마감 상태가 첫눈에 읽히게 */}
+      {(!linkOnly || sale === "closed") && (
         <div className="bp-band relative py-12 lg:py-[48px]" suppressHydrationWarning>
           <span className="bp-gutter bp-gutter-l">YEOSU UTOP MARINA HOTEL</span>
           <span className="bp-gutter bp-gutter-r">GROUP BUY 2026 — SEASON 01</span>
@@ -349,8 +354,24 @@ export default function HotelReserveClient({
         </div>
       </section>
 
+      {/* 마감 안내 — 공구 종료 후엔 유입 경로와 무관하게 마감 안내가 우선 */}
+      {sale === "closed" && (
+        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-5">
+          <div className="px-5 py-4 flex items-start gap-4" style={{ background: C.surfaceSoft, border: `1px solid ${C.hairline}` }}>
+            <span className="shrink-0 px-[9px] py-1 text-[10px]"
+              style={{ fontFamily: MONO, fontWeight: 500, letterSpacing: ".18em", background: "#4A5442", color: "#fff" }}>
+              CLOSED
+            </span>
+            <p className="m-0 text-[13px] leading-[1.75]" style={{ color: C.muted2 }}>
+              이번 공동구매가 마감되었어요. 다음 공구 소식은 인플루언서 채널에서 가장 먼저 알려드려요.{" "}
+              이미 예약하셨다면 상단 <span style={{ color: C.green800, fontWeight: 600 }}>예약 조회</span>에서 확인·변경하실 수 있어요.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* 직접 유입 안내 — LINK ONLY 라벨 + 본문 2단 (진행 중 공구가 있으면 select로 이동 지원) */}
-      {linkOnly && (
+      {linkOnly && sale !== "closed" && (
         <div className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-5">
           <div className="px-5 py-4" style={{ background: C.surfaceSoft, border: `1px solid ${C.hairline}` }}>
             <div className="flex items-start gap-4">

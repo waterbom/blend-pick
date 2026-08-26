@@ -110,7 +110,7 @@ export default function HotelPromoBand({
         // 진행 중 인플루언서의 전용 링크로 연결 — 귀속(inf)까지 그대로 이어짐
         <div className="flex flex-col sm:flex-row gap-2.5">
           {active.map((a) => (
-            <Link key={a.id} href={`/hotel/reserve?inf=${a.id}`}
+            <Link key={a.id} href={`/hotel/utop?inf=${a.id}`}
               className="inline-block text-center px-8 py-3 lg:py-[13px] text-[13px] lg:text-[13.5px] font-bold rounded-xl transition-all duration-150 hover:brightness-110"
               style={{ background: "#244B1F", color: "#fff" }}>
               {a.name}{roParticle(a.name)} 이동하기 →
@@ -121,7 +121,7 @@ export default function HotelPromoBand({
         // 오픈 예정 공구의 전용 링크로 — 랜딩에서 오픈 카운트다운 표시
         <div className="flex flex-col sm:flex-row gap-2.5">
           {upcoming.map((u) => (
-            <Link key={u.id} href={`/hotel/reserve?inf=${u.id}`}
+            <Link key={u.id} href={`/hotel/utop?inf=${u.id}`}
               className="inline-block text-center px-8 py-3 lg:py-[13px] text-[13px] lg:text-[13.5px] font-bold rounded-xl transition-all duration-150 hover:brightness-110"
               style={{ background: "#E9C46A", color: "#1C2418" }}>
               COMING SOON — {u.name} 공구 →
@@ -129,7 +129,7 @@ export default function HotelPromoBand({
           ))}
         </div>
       ) : (
-        <Link href="/hotel/reserve"
+        <Link href="/hotel/utop"
           className="inline-block text-center px-8 py-3 lg:py-[13px] text-[13px] lg:text-[13.5px] font-bold rounded-xl transition-all duration-150 hover:brightness-110"
           style={{ background: "#244B1F", color: "#fff" }}>
           예약 조회 →

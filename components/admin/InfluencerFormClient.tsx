@@ -330,13 +330,13 @@ export default function InfluencerFormClient({
                 🔗 전용 링크 — 이 인플루언서 링크로 들어온 예약은 위 일정으로만 열려요 (저장 후 적용)
               </p>
               <div className="flex gap-1.5">
-                <input readOnly value={`/hotel/reserve?inf=${influencerId}`}
+                <input readOnly value={`/hotel/utop?inf=${influencerId}`}
                   className="flex-1 min-w-0 text-xs font-mono bg-white border border-[#C7D6C0] rounded-none px-2 py-2 text-gray-600"
                   onFocus={(e) => e.target.select()} />
                 <button type="button"
                   onClick={async () => {
                     try {
-                      await navigator.clipboard.writeText(`${window.location.origin}/hotel/reserve?inf=${influencerId}`);
+                      await navigator.clipboard.writeText(`${window.location.origin}/hotel/utop?inf=${influencerId}`);
                       setLinkCopied(true);
                       setTimeout(() => setLinkCopied(false), 1500);
                     } catch { alert("복사에 실패했어요. 링크를 직접 선택해 복사해주세요."); }

@@ -12,7 +12,7 @@ export default function HotelPage() {
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
 
-      {/* 히어로 (예약조회는 /hotel/reserve 히어로로 이동) */}
+      {/* 히어로 (예약조회는 /hotel/utop 히어로로 이동) */}
       <HotelHeroBanner />
 
       {/* 숙소 카드 목록 — 새 호텔·펜션은 lib/stays.ts에 항목만 추가 */}

@@ -65,7 +65,7 @@ function SuccessContent() {
         <div className="text-4xl mb-4">⚠️</div>
         <h1 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>결제 오류</h1>
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{error}</p>
-        <Link href="/hotel/reserve" className="block w-full text-white text-sm font-semibold py-3 rounded-2xl" style={{ background: "var(--accent)" }}>다시 예약하기</Link>
+        <Link href="/hotel/utop" className="block w-full text-white text-sm font-semibold py-3 rounded-2xl" style={{ background: "var(--accent)" }}>다시 예약하기</Link>
       </div>
     );
   }

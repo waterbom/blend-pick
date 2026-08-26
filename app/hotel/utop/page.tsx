@@ -1,6 +1,6 @@
 import Header from "@/components/Header";
 import HotelReserveClient from "@/components/HotelReserveClient";
-import { saleScheduleFor } from "@/lib/hotel";
+import { saleScheduleFor, UTOP_CLOSED } from "@/lib/hotel";
 import pool from "@/lib/db";
 
 // 카카오톡 등 공유 시 미리보기 (오픈그래프) — 인플루언서 공유 링크에도 적용
@@ -10,7 +10,7 @@ export const metadata = {
   openGraph: {
     title: "여수 UTOP 마리나 호텔 공동구매 · BLEND PICK",
     description: "오션뷰 객실 · 조식 · 인피니티풀 · 레이트 체크아웃까지, 룸온리 요금으로 한 번에.",
-    url: "https://shop.blendpunch.com/hotel/reserve",
+    url: "https://shop.blendpunch.com/hotel/utop",
     siteName: "BLEND PICK",
     type: "website",
     locale: "ko_KR",
@@ -92,6 +92,7 @@ export default async function HotelReservePage({
         influencerName={influencer?.name}
         saleStart={saleScheduleFor(influencer).start}
         saleDeadline={saleScheduleFor(influencer).deadline}
+        forceClosed={UTOP_CLOSED}
         activeOptions={activeOptions}
         upcomingOptions={upcomingOptions}
       />

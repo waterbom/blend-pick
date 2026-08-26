@@ -249,7 +249,7 @@ export default async function InfluencerPage() {
               </p>
             </div>
             {inf.hotel_open && inf.hotel_close ? (
-              <CopyLinkButton path={`/hotel/reserve?inf=${inf.id}`} />
+              <CopyLinkButton path={`/hotel/utop?inf=${inf.id}`} />
             ) : (
               <span className="text-xs shrink-0 px-3 py-2 rounded-lg" style={{ background: "var(--surface-soft)", color: "var(--text-muted)" }}>
                 공구 일정 설정 후 링크가 발급돼요

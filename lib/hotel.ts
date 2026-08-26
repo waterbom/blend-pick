@@ -17,6 +17,9 @@ export const TIERS: Record<Tier, { label: string; text: string; bg: string; chip
   highpeak: { label: "극성수기",   text: "#dc2626", bg: "#fef2f2", chip: "#fecaca" },
 };
 
+// UTOP 마리나 공구 종료 — true면 인플루언서 일정과 무관하게 전 화면 '공구 마감' + 결제 차단
+export const UTOP_CLOSED = true;
+
 // 공동구매 예약 가능(투숙) 기간
 export const BOOKABLE_FROM = "2026-07-13";
 export const BOOKABLE_TO = "2026-10-31";
@@ -50,6 +53,7 @@ export function saleScheduleFor(
 export function saleStateFor(
   inf?: { id?: string; name?: string; start?: string | null; deadline?: string | null } | null
 ): "before" | "open" | "closed" {
+  if (UTOP_CLOSED) return "closed"; // 공구 종료 — 어떤 일정으로도 열리지 않음
   const { start, deadline } = saleScheduleFor(inf);
   const now = Date.now();
   if (now < new Date(start).getTime()) return "before";

@@ -7,7 +7,7 @@ import { STAYS } from "@/lib/stays";
  * 미지원 브라우저(구형 사파리 등)에선 @supports 밖이라 그냥 정상 표시된다 — JS 없음.
  */
 export default function StayDealsSection() {
-  const stays = STAYS.filter((s) => s.status !== "closed");
+  const stays = STAYS; // 마감 공구도 '공구 마감' 표시로 남긴다 (다녀간 공구의 흔적 = 신뢰)
   if (stays.length === 0) return null;
 
   return (
@@ -61,6 +61,7 @@ export default function StayDealsSection() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
         {stays.map((s) => {
           const open = s.status === "open";
+          const closed = s.status === "closed";
           const card = (
             <article
               className="stay-reveal stay-card overflow-hidden bg-white h-full flex flex-col"
@@ -73,10 +74,10 @@ export default function StayDealsSection() {
                 <span className="absolute top-3 left-3 text-[10px] font-bold px-2 py-1"
                   style={{
                     letterSpacing: "0.14em",
-                    background: open ? "#244B1F" : "#E9C46A",
-                    color: open ? "#fff" : "#1C2418",
+                    background: open ? "#244B1F" : closed ? "#4A5442" : "#E9C46A",
+                    color: open || closed ? "#fff" : "#1C2418",
                   }}>
-                  {open ? "NOW OPEN" : "COMING SOON"}
+                  {open ? "NOW OPEN" : closed ? "공구 마감" : "COMING SOON"}
                 </span>
                 <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-1"
                   style={{ letterSpacing: "0.14em", background: "rgba(255,255,255,.92)", color: "#4A5442" }}>
@@ -92,16 +93,21 @@ export default function StayDealsSection() {
                     <span className="inline-block text-[13px] font-bold px-5 py-2.5" style={{ background: "#244B1F", color: "#fff" }}>
                       예약하러 가기 →
                     </span>
+                  ) : closed ? (
+                    <span className="inline-block text-[13px] font-bold px-5 py-2.5" style={{ background: "#F5F3EA", color: "#9A9482" }}>
+                      공구가 마감되었어요
+                    </span>
                   ) : (
                     <span className="inline-block text-[13px] font-bold px-5 py-2.5" style={{ background: "#F5F3EA", color: "#9A9482" }}>
-                      오픈 준비 중
+                      {s.href ? "미리 보기 →" : "오픈 준비 중"}
                     </span>
                   )}
                 </div>
               </div>
             </article>
           );
-          return s.href && open ? (
+          // 마감 공구는 링크 없이 카드만 — soon은 티저 페이지가 있으면 연결
+          return s.href && !closed ? (
             <Link key={s.key} href={s.href} className="block h-full">{card}</Link>
           ) : (
             <div key={s.key} className="h-full">{card}</div>
