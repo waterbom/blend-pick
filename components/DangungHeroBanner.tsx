@@ -24,7 +24,7 @@ const SLIDES = [
   },
   {
     // 2번 — 사계절: 계절 사진 4장 가로 분할
-    images: ["/hotel/dangung4.png", "/hotel/dangung5.png", "/hotel/dangung6.png", "/hotel/dangung7.png"],
+    images: ["/hotel/dangung4.jpg", "/hotel/dangung5.jpg", "/hotel/dangung6.jpg", "/hotel/dangung7.jpg"],
     grad: "linear-gradient(135deg,#9ED0A8 0%,#4E8F5C 40%,#C98A4B 75%,#BFD8E8 100%)",
     tag: "FOUR SEASONS · 사계절의 단궁",
     title: "봄부터 겨울까지,\n계절이 머무는 정원",
