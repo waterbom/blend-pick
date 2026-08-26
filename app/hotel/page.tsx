@@ -1,6 +1,5 @@
 import Header from "@/components/Header";
 import StayBanner from "@/components/StayBanner";
-import StayDealsSection from "@/components/StayDealsSection";
 import { STAY_BANNERS } from "@/lib/stay-banners";
 
 export const metadata = {
@@ -40,8 +39,6 @@ export default function HotelPage() {
         </div>
       ))}
 
-      {/* 숙소 카드 목록 — 새 호텔·펜션은 lib/stays.ts에 항목만 추가 */}
-      <StayDealsSection />
     </main>
   );
 }
