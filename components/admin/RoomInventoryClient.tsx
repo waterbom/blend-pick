@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { stayOfRoomType, type StayKey } from "@/lib/stay-admin";
 
 interface Inv {
   date: string;
@@ -28,8 +29,8 @@ function md(iso: string) {
   return `${m}/${d}(${WEEK[new Date(y, m - 1, d).getDay()]})`;
 }
 
-export default function RoomInventoryClient() {
-  const [inv, setInv] = useState<Inv[]>([]);
+export default function RoomInventoryClient({ stay = "" }: { stay?: "" | StayKey }) {
+  const [invAll, setInvAll] = useState<Inv[]>([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState<string>(""); // "2026-07"
   const [mode, setMode] = useState<"calendar" | "list">("calendar");
@@ -40,7 +41,7 @@ export default function RoomInventoryClient() {
       .then((r) => r.json())
       .then((d) => {
         const rows: Inv[] = Array.isArray(d) ? d : [];
-        setInv(rows);
+        setInvAll(rows);
         // 기본 선택 월 — 오늘이 포함된 월이 있으면 그 월, 없으면 첫 월
         const months = Array.from(new Set(rows.map((i) => i.date.slice(0, 7)))).sort();
         const today = new Date().toISOString().slice(0, 7);
@@ -49,6 +50,12 @@ export default function RoomInventoryClient() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  // 숙소 필터 — room_type으로 숙소를 판별해 선택 숙소의 재고만 남긴다
+  const inv = useMemo(
+    () => (stay ? invAll.filter((i) => stayOfRoomType(i.room_type) === stay) : invAll),
+    [invAll, stay]
+  );
 
   const view = useMemo(() => {
     const rooms = Array.from(new Set(inv.map((i) => i.room_type)));
@@ -108,7 +115,11 @@ export default function RoomInventoryClient() {
     return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">재고 불러오는 중...</div>;
   }
   if (inv.length === 0) {
-    return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">재고 데이터가 없습니다</div>;
+    return (
+      <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">
+        {stay ? "이 숙소의 객실 재고가 아직 등록되지 않았어요" : "재고 데이터가 없습니다"}
+      </div>
+    );
   }
 
   return (

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BOOKABLE_FROM, BOOKABLE_TO, refundRateFor, PACKAGES, ROOM_META, type PkgKey, type RoomType } from "@/lib/hotel";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import RoomInventoryClient from "./RoomInventoryClient";
+import { STAY_FILTERS, stayOfProduct, type StayKey } from "@/lib/stay-admin";
 
 interface Reservation {
   id: string;
@@ -138,6 +139,7 @@ export default function ReservationsClient() {
   const [pending, setPending] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [section, setSection] = useState<"list" | "inventory">("list"); // 상단 섹션 탭 — 예약 목록 / 객실 재고
+  const [stay, setStay] = useState<"" | StayKey>(""); // 숙소 필터 — 전체 / UTOP / 단궁 (목록·재고 공통)
 
   useEffect(() => {
     fetch("/api/admin/reservations")
@@ -263,9 +265,21 @@ export default function ReservationsClient() {
     }
   }
 
+  // 선택 숙소의 예약만 — 통계·필터·목록 전부 이 기준으로
+  const stayRows = useMemo(
+    () => (stay ? rows.filter((r) => stayOfProduct(r.product_name) === stay) : rows),
+    [rows, stay]
+  );
+  // 숙소 탭 라벨용 건수
+  const stayCounts = useMemo(() => {
+    const c: Record<string, number> = { "": rows.length, utop: 0, dangung: 0 };
+    rows.forEach((r) => { c[stayOfProduct(r.product_name)]++; });
+    return c;
+  }, [rows]);
+
   const stats = useMemo(() => {
     let confirmed = 0, checkedIn = 0, cancelled = 0, revenue = 0;
-    for (const r of rows) {
+    for (const r of stayRows) {
       if (r.status === "paid") confirmed++;
       if (r.status === "checked_in") checkedIn++;
       if (r.status === "cancelled") cancelled++;
@@ -275,7 +289,7 @@ export default function ReservationsClient() {
       }
     }
     let dNew = 0, dChange = 0, dCancel = 0, dAwait = 0;
-    for (const r of rows) {
+    for (const r of stayRows) {
       const ds = deliveryState(r);
       if (ds === "new_pending") dNew++;
       else if (ds === "change_pending") dChange++;
@@ -283,7 +297,7 @@ export default function ReservationsClient() {
       else if (ds === "await_confirm") dAwait++;
     }
     return { confirmed, checkedIn, cancelled, revenue, dNew, dChange, dCancel, dAwait };
-  }, [rows]);
+  }, [stayRows]);
 
   const [query, setQuery] = useState("");
   const [infSel, setInfSel] = useState(""); // "" 전체 / 인플루언서 이름
@@ -292,17 +306,17 @@ export default function ReservationsClient() {
   // 필터 옵션 — 예약 데이터에 등장하는 인플루언서 목록
   const influencerOptions = useMemo(() => {
     const s = new Set<string>();
-    rows.forEach((r) => { if (r.influencer_name) s.add(r.influencer_name); });
+    stayRows.forEach((r) => { if (r.influencer_name) s.add(r.influencer_name); });
     return [...s].sort();
-  }, [rows]);
+  }, [stayRows]);
 
   const visible = useMemo(() => {
     let list =
       tab === "changed"
-        ? rows.filter((r) => r.stay_changed || r.repaid_after_cancel)
+        ? stayRows.filter((r) => r.stay_changed || r.repaid_after_cancel)
         : tab
-          ? rows.filter((r) => r.status === tab)
-          : rows;
+          ? stayRows.filter((r) => r.status === tab)
+          : stayRows;
     if (infSel) list = list.filter((r) => r.influencer_name === infSel);
     if (deliveryFilter) list = list.filter((r) => deliveryState(r) === deliveryFilter);
     const q = query.trim().toLowerCase();
@@ -315,12 +329,12 @@ export default function ReservationsClient() {
       );
     }
     return list;
-  }, [rows, tab, query, infSel, deliveryFilter]);
+  }, [stayRows, tab, query, infSel, deliveryFilter]);
 
   // 페이지네이션 — 탭/검색이 바뀌면 1페이지로 (명단 다운로드는 전체 visible 기준 유지)
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [tab, query, infSel, deliveryFilter]);
+  useEffect(() => { setPage(1); }, [tab, query, infSel, deliveryFilter, stay]);
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paged = useMemo(
@@ -455,8 +469,8 @@ export default function ReservationsClient() {
   return (
     <div>
       {/* 제목 + 섹션 탭 — 예약 목록 / 객실 재고를 분리해서 각각 집중해서 보게 */}
-      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-800">호텔 예약 관리</h1>
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold text-gray-800">숙박 예약 관리</h1>
         <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1">
           {([["list", "📋 예약 목록"], ["inventory", "🛏 객실 재고"]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setSection(k)}
@@ -468,8 +482,22 @@ export default function ReservationsClient() {
         </div>
       </div>
 
+      {/* 숙소 탭 — 목록·재고 공통 필터 (숙소별로 완전히 분리해서 보기) */}
+      <div className="flex flex-wrap gap-1 mb-6 bg-white rounded-none border border-gray-100 p-1 w-fit max-w-full">
+        {STAY_FILTERS.map((s) => (
+          <button key={s.key} onClick={() => setStay(s.key)}
+            className={`px-4 py-2 rounded-none text-sm font-semibold transition-colors ${
+              stay === s.key ? "bg-emerald-700 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
+            {s.label}
+            <span className={`ml-1.5 text-[11px] ${stay === s.key ? "text-emerald-100" : "text-gray-400"}`}>
+              {stayCounts[s.key] ?? 0}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {section === "inventory" ? (
-        <RoomInventoryClient />
+        <RoomInventoryClient stay={stay} />
       ) : (
         <>
       {/* 통계 카드 */}
