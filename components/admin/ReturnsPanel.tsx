@@ -73,10 +73,22 @@ export default function ReturnsPanel({ kind, onChanged }: { kind: "exchange" | "
         // 단순변심(배송비 고객 부담 동의) 반품이면 상품에 등록된 반품 왕복비를 기본값에서 자동 차감
         const deduct = r.fee_agreed ? Math.min(Number(r.return_cost_roundtrip) || 0, itemsSum) : 0;
         const suggested = Math.max(0, Math.min(itemsSum - deduct, Number(r.total_amount)));
+
+        // 토스 취소 가능 잔액 조회 — 이미 취소된 내역이 있으면 입력 전에 알 수 있게
+        let balanceLine = "";
+        try {
+          const b = await fetch(`/api/admin/returns/balance?id=${r.id}`).then((res) => res.json());
+          if (typeof b.balance === "number") {
+            balanceLine = `\n토스 취소 가능 잔액 ${b.balance.toLocaleString()}원`;
+            if (b.canceled > 0) balanceLine += ` (이미 취소된 금액 ${Number(b.canceled).toLocaleString()}원)`;
+          }
+        } catch { /* 조회 실패 시 잔액 표시 없이 진행 — 서버가 최종 검증 */ }
+
         const input = prompt(
           `환불 금액을 입력해주세요 (원)\n\n신청 상품 합계 ${itemsSum.toLocaleString()}원` +
             (deduct > 0 ? ` − 반품 왕복비 ${deduct.toLocaleString()}원 = ${suggested.toLocaleString()}원 (단순변심 자동 차감)` : "") +
-            `\n결제 금액 ${Number(r.total_amount).toLocaleString()}원 · 0 입력 시 환불 없이 완료 처리됩니다.`,
+            `\n결제 금액 ${Number(r.total_amount).toLocaleString()}원` + balanceLine +
+            `\n0 입력 시 환불 없이 완료 처리됩니다.`,
           String(suggested)
         );
         if (input === null) return;
@@ -85,7 +97,7 @@ export default function ReturnsPanel({ kind, onChanged }: { kind: "exchange" | "
           alert("환불 금액이 올바르지 않아요.");
           return;
         }
-        if (!confirm(`${r.order_number} 반품 완료 처리할까요?\n토스로 ${refundAmount.toLocaleString()}원이 환불됩니다.`)) return;
+        if (!confirm(`${r.order_number} 반품 완료 처리할까요?\n토스로 ${refundAmount.toLocaleString()}원이 환불됩니다.\n(완료 시 고객에게 환불 안내 문자가 발송돼요)`)) return;
       } else {
         if (!confirm(`${r.order_number} 교환 완료 처리할까요?`)) return;
       }
@@ -101,7 +113,11 @@ export default function ReturnsPanel({ kind, onChanged }: { kind: "exchange" | "
       const d = await res.json().catch(() => ({}));
       if (!res.ok || d.error) { alert(d.error || "처리에 실패했어요."); return; }
       if (action === "complete" && r.kind === "return" && d.refunded > 0) {
-        alert(`반품 완료 — ${Number(d.refunded).toLocaleString()}원 환불됐어요.`);
+        alert(
+          `반품 완료 — ${Number(d.refunded).toLocaleString()}원 환불됐어요.` +
+            (d.alreadyRefunded ? "\n(이전에 이미 토스 환불이 실행된 건이라 재환불 없이 완료만 처리했어요)" : "") +
+            (d.smsSent ? "\n고객에게 환불 안내 문자를 보냈어요." : "\n(환불 안내 문자는 발송되지 않았어요 — 문자 설정 확인)")
+        );
       }
       await load();
       onChanged?.(); // 처리 후 부모 화면의 신청 건수 배지 갱신용

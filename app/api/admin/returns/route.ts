@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
+import { smsConfigured } from "@/lib/sms";
+import { sendReturnRefundSMS } from "@/lib/return-notify";
 
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
@@ -63,7 +65,8 @@ export async function PATCH(req: Request) {
 
   const { rows } = await shopPool.query(
     `SELECT r.id, r.order_id, r.kind, r.status, r.prev_status, r.reason,
-            o.status AS order_status, o.payment_key, o.total_amount
+            o.status AS order_status, o.payment_key, o.total_amount,
+            o.order_number, o.buyer_name, o.buyer_phone
        FROM order_returns r JOIN orders o ON o.id = r.order_id
       WHERE r.id = $1`,
     [id]
@@ -104,6 +107,7 @@ export async function PATCH(req: Request) {
   if (action === "complete") {
     // 반품 완료 = 환불 실행 시점 — 환불 성공 후에만 상태를 바꾼다 (취소 엔진과 같은 순서)
     let refunded = 0;
+    let alreadyRefunded = false; // 이전 시도에서 토스 환불만 성공하고 완료 처리가 안 된 건
     if (ret.kind === "return") {
       const amount = Math.floor(Number(refund_amount)) || 0;
       if (amount < 0 || amount > Number(ret.total_amount)) {
@@ -111,22 +115,48 @@ export async function PATCH(req: Request) {
       }
       if (amount > 0 && ret.payment_key && !String(ret.payment_key).startsWith("SIM_")) {
         const secretKey = process.env.TOSS_SECRET_KEY;
+        const auth = `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`;
         const body: Record<string, unknown> = { cancelReason: `반품 환불 (${ret.reason})` };
         if (amount < Number(ret.total_amount)) body.cancelAmount = amount;
         const tossRes = await fetch(
           `https://api.tosspayments.com/v1/payments/${ret.payment_key}/cancel`,
           {
             method: "POST",
-            headers: {
-              Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
-              "Content-Type": "application/json",
-            },
+            headers: { Authorization: auth, "Content-Type": "application/json" },
             body: JSON.stringify(body),
           }
         );
         if (!tossRes.ok) {
           const e = await tossRes.json().catch(() => ({}));
-          if (e.code !== "ALREADY_CANCELED_PAYMENT") {
+          if (e.code === "ALREADY_CANCELED_PAYMENT") {
+            alreadyRefunded = true; // 전액 이미 취소된 결제 — 완료 처리만 진행
+          } else if (e.code === "NOT_CANCELABLE_AMOUNT") {
+            // 잔액 부족 — 이전 시도에서 같은 금액이 '반품 환불'로 이미 취소됐는지 확인하고,
+            // 맞으면 이중 환불 없이 완료 처리만 이어서 진행한다
+            const payRes = await fetch(
+              `https://api.tosspayments.com/v1/payments/${ret.payment_key}`,
+              { headers: { Authorization: auth } }
+            );
+            const pay = await payRes.json().catch(() => ({}));
+            const cancels: { cancelAmount: number; cancelReason?: string }[] = Array.isArray(pay.cancels) ? pay.cancels : [];
+            const sameRefund = cancels.some(
+              (c) => Number(c.cancelAmount) === amount && String(c.cancelReason || "").startsWith("반품 환불")
+            );
+            if (sameRefund) {
+              alreadyRefunded = true;
+            } else {
+              const balance = Number(pay.balanceAmount);
+              return NextResponse.json(
+                {
+                  error:
+                    `토스 취소 가능 잔액이 부족해요` +
+                    (Number.isFinite(balance) ? ` (잔액 ${balance.toLocaleString()}원)` : "") +
+                    `. 이미 취소된 내역이 있는 결제예요 — 잔액 이하 금액으로 다시 입력하거나, 0원으로 완료 처리하세요.`,
+                },
+                { status: 400 }
+              );
+            }
+          } else {
             return NextResponse.json(
               { error: e.message || "토스 환불에 실패했어요. 신청 상태는 그대로예요." },
               { status: 400 }
@@ -144,7 +174,13 @@ export async function PATCH(req: Request) {
       await client.query(`UPDATE order_returns SET status = 'done' WHERE id = $1`, [id]);
       await client.query(
         `INSERT INTO order_return_events (return_id, status, note, admin_name) VALUES ($1, 'done', $2, $3)`,
-        [id, refunded > 0 ? `${refunded.toLocaleString()}원 환불${noteText ? ` — ${noteText}` : ""}` : noteText, adminName]
+        [
+          id,
+          refunded > 0
+            ? `${refunded.toLocaleString()}원 환불${alreadyRefunded ? " (기존 토스 취소 확인 — 재환불 없음)" : ""}${noteText ? ` — ${noteText}` : ""}`
+            : noteText,
+          adminName,
+        ]
       );
       await client.query(
         `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2`,
@@ -158,7 +194,23 @@ export async function PATCH(req: Request) {
     } finally {
       client.release();
     }
-    return NextResponse.json({ ok: true, status: "done", refunded });
+
+    // 반품 환불 안내 문자 — 완료 처리 후 발송 (실패해도 완료 자체는 유지)
+    let smsSent = false;
+    if (ret.kind === "return" && refunded > 0 && ret.buyer_phone && smsConfigured()) {
+      try {
+        const r = await sendReturnRefundSMS(ret.buyer_phone, {
+          buyerName: ret.buyer_name,
+          orderNumber: ret.order_number,
+          refundAmount: refunded,
+        });
+        smsSent = r.ok === true;
+      } catch (e) {
+        console.error("[returns] 환불 안내 문자 발송 실패:", e);
+      }
+    }
+
+    return NextResponse.json({ ok: true, status: "done", refunded, smsSent, alreadyRefunded });
   }
 
   // reject — 주문 상태를 신청 전으로 되돌려 재신청 가능하게
