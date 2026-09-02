@@ -1,0 +1,27 @@
+name: Audit Shipping Fees
+
+# 배송비 미적용 감사 (읽기 전용) — 건별/조건부 배송비가 덜 청구된 주문과 차액 합계를 출력
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "조회 시작일 (YYYY-MM-DD)"
+        required: true
+        default: "2026-01-01"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            git pull -q
+            node scripts/audit-shipping.cjs "${{ github.event.inputs.since }}"
