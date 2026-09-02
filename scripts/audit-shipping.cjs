@@ -84,6 +84,29 @@ function cartShippingFee(groups) {
     console.log(`   받은 배송비 ${o.charged.toLocaleString()}원 → 받았어야 ${o.expected.toLocaleString()}원 (차액 ${o.gap.toLocaleString()}원)`);
   }
 
+  // 정산용 CSV — private-uploads/<uuid>.csv 로 저장하면 관리자 로그인 상태에서 다운로드 가능
+  if (under.length > 0) {
+    const path = require("path");
+    const crypto = require("crypto");
+    const dir = path.join(process.cwd(), "private-uploads");
+    fs.mkdirSync(dir, { recursive: true });
+    const name = `${crypto.randomUUID()}.csv`;
+    const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = ["주문번호", "주문일시", "이름", "연락처", "인플루언서", "상태", "상품", "수량", "배송비유형", "받은배송비", "받았어야할배송비", "차액"];
+    const lines = under.map((o) => {
+      const main = o.groups[0];
+      const qty = o.groups.reduce((s, g) => s + g.qty, 0);
+      return [
+        o.order_number, o.at_kst, o.buyer_name, o.buyer_phone, o.influencer_name ?? "", o.status,
+        o.groups.map((g) => g.name).join(" + "), qty, main?.rule.shipping_type ?? "",
+        o.charged, o.expected, o.gap,
+      ].map(esc).join(",");
+    });
+    lines.push(["합계", "", "", "", "", "", "", "", "", "", "", totalGap].map(esc).join(","));
+    fs.writeFileSync(path.join(dir, name), "﻿" + [header.map(esc).join(","), ...lines].join("\r\n"));
+    console.log(`\n=== CSV 저장: /api/admin/private-files/${name} (관리자 로그인 후 shop.blendpunch.com 뒤에 붙여서 열기) ===`);
+  }
+
   // 상품별 요약 — 어떤 상품에서 얼마나 새고 있었는지
   const byProduct = new Map();
   for (const o of under) for (const g of o.groups) {

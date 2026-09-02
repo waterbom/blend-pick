@@ -12,13 +12,14 @@ async function getAdmin() {
 }
 
 // UUID 파일명만 허용 — 경로 조작(../) 원천 차단
-const NAME_RE = /^[0-9a-f-]{36}\.(pdf|jpe?g|png)$/i;
+const NAME_RE = /^[0-9a-f-]{36}\.(pdf|jpe?g|png|csv)$/i;
 
 const MIME: Record<string, string> = {
   pdf: "application/pdf",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   png: "image/png",
+  csv: "text/csv; charset=utf-8", // 감사·정산 리포트 (scripts/audit-*.cjs 가 생성)
 };
 
 export async function GET(_: Request, { params }: { params: Promise<{ name: string }> }) {
@@ -36,7 +37,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ name: stri
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": MIME[ext] ?? "application/octet-stream",
-        "Content-Disposition": "inline",
+        // CSV는 브라우저에서 바로 다운로드, 이미지·PDF는 미리보기
+        "Content-Disposition": ext === "csv" ? `attachment; filename="${name}"` : "inline",
         "Cache-Control": "private, no-store",
       },
     });
