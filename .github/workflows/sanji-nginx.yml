@@ -1,0 +1,100 @@
+name: Sanji Subdomain (nginx)
+
+# 산지픽 서브도메인 서버 세팅 — Actions 탭에서 수동 실행
+#   inspect : 현재 nginx 설정·인증서 상태만 출력 (아무것도 바꾸지 않음)
+#   apply   : sanji.blendpunch.com 서버 블록 추가 + nginx 검증·리로드 (+ 가능하면 certbot 인증서 발급)
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "inspect(확인만) / apply(적용)"
+        required: true
+        default: inspect
+        type: choice
+        options: [inspect, apply]
+      host:
+        description: "서브도메인"
+        required: true
+        default: sanji.blendpunch.com
+
+jobs:
+  nginx:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run over SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          MODE: ${{ inputs.mode }}
+          SANJI_HOST: ${{ inputs.host }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: MODE,SANJI_HOST
+          script: |
+            set -e
+            echo "=== MODE: $MODE / HOST: $SANJI_HOST ==="
+
+            echo "=== nginx 버전 ==="; nginx -v 2>&1 || true
+            echo "=== sites-enabled ==="; ls -la /etc/nginx/sites-enabled/ 2>/dev/null || true
+            echo "=== conf.d ==="; ls -la /etc/nginx/conf.d/ 2>/dev/null || true
+
+            # shop 서버 블록이 들어있는 파일 찾기
+            SHOP_FILE=$(sudo grep -rl "server_name.*shop\.blendpunch\.com" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)
+            echo "=== shop 설정 파일: ${SHOP_FILE:-없음} ==="
+            if [ -n "$SHOP_FILE" ]; then sudo cat "$SHOP_FILE"; fi
+
+            echo "=== 앱 포트 (listen 중인 node) ==="; (sudo ss -ltnp 2>/dev/null | grep -i node) || true
+            echo "=== certbot 인증서 ==="; (sudo certbot certificates 2>/dev/null) || echo "certbot 없음/인증서 없음"
+            echo "=== 이미 $SANJI_HOST 설정이 있는지 ==="
+            sudo grep -rn "$SANJI_HOST" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null || echo "없음"
+
+            if [ "$MODE" != "apply" ]; then
+              echo "=== inspect 모드 — 변경 없이 종료 ==="; exit 0
+            fi
+
+            # ---------- apply ----------
+            if [ -z "$SHOP_FILE" ]; then
+              echo "!! shop 서버 블록을 찾지 못해 자동 적용을 중단합니다 (inspect 출력을 확인하세요)"; exit 1
+            fi
+            # shop 블록의 proxy_pass 대상(앱 포트)을 그대로 사용
+            UPSTREAM=$(sudo grep -m1 -E "proxy_pass\s+http" "$SHOP_FILE" | sed -E 's/.*proxy_pass\s+([^;]+);.*/\1/')
+            if [ -z "$UPSTREAM" ]; then echo "!! proxy_pass를 찾지 못했습니다"; exit 1; fi
+            echo "=== upstream: $UPSTREAM ==="
+
+            TARGET=/etc/nginx/sites-available/sanji
+            if sudo test -f "$TARGET"; then
+              sudo cp "$TARGET" "$TARGET.bak.$(date +%s)"; echo "기존 $TARGET 백업함"
+            fi
+            sudo tee "$TARGET" > /dev/null <<EOF
+            server {
+                listen 80;
+                server_name $SANJI_HOST;
+
+                location / {
+                    proxy_pass $UPSTREAM;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \$scheme;
+                    proxy_cache_bypass \$http_upgrade;
+                }
+            }
+            EOF
+            sudo mkdir -p /etc/nginx/sites-enabled
+            sudo ln -sf "$TARGET" /etc/nginx/sites-enabled/sanji
+            echo "=== nginx -t ==="; sudo nginx -t
+            sudo systemctl reload nginx && echo "nginx reload 완료"
+
+            # shop이 HTTPS(certbot)를 쓰고 있으면 sanji도 같은 방식으로 발급 시도 — 실패해도 HTTP는 이미 동작
+            if command -v certbot >/dev/null 2>&1 && sudo grep -q "listen 443" "$SHOP_FILE"; then
+              echo "=== certbot 발급 시도 ==="
+              sudo certbot --nginx -d "$SANJI_HOST" --non-interactive --agree-tos --redirect \
+                --register-unsafely-without-email 2>&1 || echo "!! certbot 실패 — DNS 전파 후 다시 apply 하거나, Cloudflare 프록시(주황)면 Flexible/Full 모드로 HTTPS 처리됨"
+            else
+              echo "=== shop이 443을 안 쓰거나 certbot 없음 — HTTP만 설정 (Cloudflare 프록시가 HTTPS 담당) ==="
+            fi
+            echo "=== 완료: http://$SANJI_HOST 확인 ==="
