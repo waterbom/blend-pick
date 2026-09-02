@@ -38,23 +38,42 @@ const NAV_ITEMS = [
   { label: "CONTACT", href: "/blend-picked" },
 ];
 
+// 산지픽 네비 — 농산물 사이트라 숙박 메뉴 없음
+const SANJI_NAV_ITEMS = [
+  { label: "지금 산지 직송", href: "/sanji#fresh", hot: true },
+  { label: "산지픽 이야기", href: "/sanji/about", hot: false },
+  { label: "CONTACT", href: "/blend-picked" },
+];
+
 interface User {
   nickname: string | null;
   name: string | null;
   profile_image: string | null;
 }
 
+// 어느 사이트의 헤더인지 — 로고·네비만 바뀌고 로그인/장바구니는 공용
+export interface HeaderSite {
+  key: "blendpick" | "sanjipick";
+  nameEn: string;
+  basePath: string;
+}
+
 export default function HeaderClient({
   user,
   isAdmin = false,
   isInfluencer = false,
+  site,
 }: {
   user: User | null;
   isAdmin?: boolean;
   isInfluencer?: boolean;
+  site?: HeaderSite;
 }) {
   // 모바일 햄버거 메뉴 — sm 미만에서는 네비가 숨겨지므로 여기로 카테고리 진입
   const [menuOpen, setMenuOpen] = useState(false);
+  const isSanji = site?.key === "sanjipick";
+  const navItems = isSanji ? SANJI_NAV_ITEMS : NAV_ITEMS;
+  const homeHref = isSanji ? site!.basePath || "/" : "/";
 
   return (
     <header
@@ -69,16 +88,23 @@ export default function HeaderClient({
       <div className="container-blend flex items-center justify-between h-14 sm:h-16">
         {/* 좌측: 로고 */}
         <div className="flex items-center">
-          <Link href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
-            BLEND PICK
-          </Link>
+          {isSanji ? (
+            <Link href={homeHref} className="flex items-baseline gap-1.5 text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "#3E2A1E" }}>
+              <span>SANJI</span>
+              <span style={{ color: "#3F6B3A" }}>PICK</span>
+            </Link>
+          ) : (
+            <Link href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
+              BLEND PICK
+            </Link>
+          )}
 
           {/* 구분선 */}
           <div className="hidden sm:block w-px h-4 mx-5 lg:mx-6 rounded-full" style={{ background: "var(--line)" }} />
 
           {/* 네비게이션 */}
           <nav className="hidden sm:flex items-center gap-6">
-            {NAV_ITEMS.map((item) =>
+            {navItems.map((item) =>
               item.href === "/hotel" ? (
                 <Link
                   key={item.label}
@@ -218,7 +244,7 @@ export default function HeaderClient({
       {/* 모바일 펼침 메뉴 */}
       {menuOpen && (
         <nav className="sm:hidden border-t" style={{ borderColor: "var(--line)" }}>
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.label}
               href={item.href}

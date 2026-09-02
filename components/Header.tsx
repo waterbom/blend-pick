@@ -2,11 +2,13 @@ import { cookies } from "next/headers";
 import { verifyToken, verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import HeaderClient from "@/components/HeaderClient";
+import { currentSite } from "@/lib/site-server";
 
 export default async function Header() {
   let user = null;
   let isAdmin = false;
   let isInfluencer = false;
+  const site = await currentSite(); // 블랜드픽 / 산지픽 — 로고·네비 분기
 
   try {
     const cookieStore = await cookies();
@@ -42,5 +44,12 @@ export default async function Header() {
     // 유저 정보 못 가져오면 비로그인 상태로
   }
 
-  return <HeaderClient user={user} isAdmin={isAdmin} isInfluencer={isInfluencer} />;
+  return (
+    <HeaderClient
+      user={user}
+      isAdmin={isAdmin}
+      isInfluencer={isInfluencer}
+      site={{ key: site.key, nameEn: site.nameEn, basePath: site.basePath }}
+    />
+  );
 }
