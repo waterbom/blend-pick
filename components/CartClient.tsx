@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shopUnitPrice } from "@/lib/shop-price";
+import { cartShippingFee } from "@/lib/shipping";
 
 interface CartItem {
   id: string;
@@ -15,6 +16,8 @@ interface CartItem {
   main_image: string | null;
   shipping_type: string;
   shipping_cost: number;
+  free_shipping_threshold: number | null;
+  per_unit_shipping_cost: number | null;
   status: string;
   stock: number;
   option_id: string | null;
@@ -63,7 +66,18 @@ export default function CartClient() {
   const totalAmount = availableItems.reduce((sum, i) => {
     return sum + shopUnitPrice(i.price, i.extra_price, i.option_id != null) * i.quantity;
   }, 0);
-  const shippingCost = availableItems.some((i) => i.shipping_type !== "free") ? 3000 : 0;
+  // 배송비 — 상품별 어드민 설정 반영 (건별 배송비는 같은 상품 수량 합산으로 2개째부터 추가)
+  const shippingCost = cartShippingFee(
+    availableItems.map((i) => ({
+      product_id: i.product_id,
+      quantity: i.quantity,
+      unit_price: shopUnitPrice(i.price, i.extra_price, i.option_id != null),
+      shipping_type: i.shipping_type,
+      shipping_cost: i.shipping_cost,
+      free_shipping_threshold: i.free_shipping_threshold,
+      per_unit_shipping_cost: i.per_unit_shipping_cost,
+    }))
+  );
 
   if (loading) {
     return (

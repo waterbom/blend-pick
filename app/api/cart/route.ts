@@ -19,7 +19,8 @@ export async function GET() {
 
   const result = await shopPool.query(
     `SELECT c.id, c.quantity,
-            p.id AS product_id, p.name, p.brand, p.price, p.main_image, p.shipping_type, p.shipping_cost, p.status, p.stock,
+            p.id AS product_id, p.name, p.brand, p.price, p.main_image, p.shipping_type, p.shipping_cost,
+            p.free_shipping_threshold, p.per_unit_shipping_cost, p.status, p.stock,
             o.id AS option_id, o.name AS option_name, o.value AS option_value, o.extra_price
      FROM cart c
      JOIN products_shop p ON p.id = c.product_id

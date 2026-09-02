@@ -4,13 +4,15 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import ShopCheckoutClient from "@/components/ShopCheckoutClient";
 import { shopUnitPrice } from "@/lib/shop-price";
+import { productShippingFee } from "@/lib/shipping";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { phoneVerifyOn } from "@/lib/sms";
 
 async function getProduct(id: string) {
   const result = await shopPool.query(
-    `SELECT id, name, brand, price, original_price, main_image, shipping_type, shipping_cost, status, stock
+    `SELECT id, name, brand, price, original_price, main_image, shipping_type, shipping_cost,
+            free_shipping_threshold, per_unit_shipping_cost, status, stock
      FROM products_shop WHERE id = $1`,
     [id]
   );
@@ -56,7 +58,8 @@ export default async function ShopCheckoutPage({
   if (!product) notFound();
 
   const unitPrice = shopUnitPrice(product.price, option?.extra_price, !!option);
-  const shippingCost = product.shipping_type === "free" ? 0 : (product.shipping_cost ?? 0);
+  // 배송비 — 어드민 설정(무료/유료/조건부/건별) 전부 반영 (lib/shipping.ts)
+  const shippingCost = productShippingFee(product, quantity, unitPrice * quantity);
   const totalAmount = unitPrice * quantity + shippingCost;
   const clientKey = process.env.TOSS_CLIENT_KEY!;
   // 비회원(로그인 안 함)이면 휴대폰 인증 후 결제

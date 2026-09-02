@@ -73,7 +73,7 @@ interface Review {
 async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
-            stock, status, shipping_type, shipping_cost, free_shipping_threshold, main_image, addon_multi,
+            stock, status, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, main_image, addon_multi,
             influencer_id, sale_start_at, sale_end_at
      FROM products_shop WHERE id = $1`,
     [id]

@@ -5,6 +5,7 @@ import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shopUnitPrice } from "@/lib/shop-price";
+import { productShippingFee, shippingLabel } from "@/lib/shipping";
 import ReviewSection, { type ReviewSummary } from "@/components/ReviewSection";
 import DsSelect from "@/components/DsSelect";
 import RollingWon from "@/components/RollingWon";
@@ -29,6 +30,7 @@ interface Product {
   shipping_type: string;
   shipping_cost: number;
   free_shipping_threshold: number | null;
+  per_unit_shipping_cost?: number | null;
   main_image: string | null;
 }
 
@@ -162,8 +164,6 @@ export default function ProductDetail({
       ? Math.round((1 - product.price / product.original_price) * 100)
       : null;
 
-  const shippingCost = product.shipping_type === "free" ? 0 : product.shipping_cost;
-
   // 옵션 상품: 선택 라인 합계 / 옵션 없는 상품: 기본가 × 수량
   const linesTotal = lines.reduce((sum, l) => {
     const o = optById(l.optionId);
@@ -171,6 +171,9 @@ export default function ProductDetail({
   }, 0);
   const itemsTotal = hasOptions ? linesTotal : product.price * quantity;
   const totalCount = hasOptions ? lines.reduce((s, l) => s + l.qty, 0) : quantity;
+
+  // 배송비 — 어드민 설정(무료/유료/조건부/건별) 전부 반영. 건별은 수량 2개째부터 건당 추가
+  const shippingCost = productShippingFee(product, Math.max(1, totalCount), itemsTotal);
 
   // 추가옵션: 옵션 상품은 라인(옵션)마다 따로, 옵션 없는 상품은 상품 전체에 담는다
   const hasAddons = addons.length > 0;
@@ -271,6 +274,8 @@ export default function ProductDetail({
       main_image: product.main_image,
       shipping_type: product.shipping_type,
       shipping_cost: product.shipping_cost,
+      free_shipping_threshold: product.free_shipping_threshold,
+      per_unit_shipping_cost: product.per_unit_shipping_cost ?? null,
       status: product.status,
     };
     // 메인 상품 items
@@ -399,11 +404,7 @@ export default function ProductDetail({
 
           {/* 배송 */}
           <div className="py-3 mb-4 text-sm" style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", color: "var(--text-secondary)" }}>
-            {product.shipping_type === "free"
-              ? "무료배송"
-              : product.shipping_type === "conditional_free" && product.free_shipping_threshold
-              ? `${product.free_shipping_threshold.toLocaleString()}원 이상 무료배송 (미만 ${product.shipping_cost.toLocaleString()}원)`
-              : `배송비 ${product.shipping_cost.toLocaleString()}원`}
+            {shippingLabel(product)}
           </div>
 
           {/* 옵션 선택 (드롭다운 → 다중 라인) */}
