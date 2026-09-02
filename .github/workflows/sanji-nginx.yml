@@ -39,12 +39,15 @@ jobs:
             echo "=== sites-enabled ==="; ls -la /etc/nginx/sites-enabled/ 2>/dev/null || true
             echo "=== conf.d ==="; ls -la /etc/nginx/conf.d/ 2>/dev/null || true
 
-            # shop 서버 블록이 들어있는 파일 찾기
-            SHOP_FILE=$(sudo grep -rl "server_name.*shop\.blendpunch\.com" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)
+            # shop 서버 블록이 들어있는 파일 찾기 (-R: sites-enabled의 심볼릭 링크를 따라감)
+            SHOP_FILE=$(sudo grep -Rl "server_name.*shop\.blendpunch\.com" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)
+            if [ -z "$SHOP_FILE" ] && sudo test -f /etc/nginx/sites-available/shop.blendpunch.com; then
+              SHOP_FILE=/etc/nginx/sites-available/shop.blendpunch.com
+            fi
             echo "=== shop 설정 파일: ${SHOP_FILE:-없음} ==="
             if [ -n "$SHOP_FILE" ]; then sudo cat "$SHOP_FILE"; fi
 
-            echo "=== 앱 포트 (listen 중인 node) ==="; (sudo ss -ltnp 2>/dev/null | grep -i node) || true
+            echo "=== 앱 포트 (listen 중인 프로세스) ==="; (sudo ss -ltnp 2>/dev/null | grep -iE "node|next") || true
             echo "=== certbot 인증서 ==="; (sudo certbot certificates 2>/dev/null) || echo "certbot 없음/인증서 없음"
             echo "=== 이미 $SANJI_HOST 설정이 있는지 ==="
             sudo grep -rn "$SANJI_HOST" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null || echo "없음"
@@ -62,7 +65,8 @@ jobs:
             if [ -z "$UPSTREAM" ]; then echo "!! proxy_pass를 찾지 못했습니다"; exit 1; fi
             echo "=== upstream: $UPSTREAM ==="
 
-            TARGET=/etc/nginx/sites-available/sanji
+            # 기존 파일 명명 규칙(sites-available/<도메인>)에 맞춤
+            TARGET=/etc/nginx/sites-available/$SANJI_HOST
             if sudo test -f "$TARGET"; then
               sudo cp "$TARGET" "$TARGET.bak.$(date +%s)"; echo "기존 $TARGET 백업함"
             fi
@@ -85,7 +89,7 @@ jobs:
             }
             EOF
             sudo mkdir -p /etc/nginx/sites-enabled
-            sudo ln -sf "$TARGET" /etc/nginx/sites-enabled/sanji
+            sudo ln -sf "$TARGET" "/etc/nginx/sites-enabled/$SANJI_HOST"
             echo "=== nginx -t ==="; sudo nginx -t
             sudo systemctl reload nginx && echo "nginx reload 완료"
 
