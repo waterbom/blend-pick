@@ -1,5 +1,9 @@
 # 산지픽 서브도메인 — 서버·DNS 세팅 가이드
 
+> ✅ 2026-09-02 적용 완료 — Cloudflare A 레코드 + GitHub Actions `Sanji Subdomain (nginx)` 워크플로우(apply)로
+> nginx 서버 블록·Let's Encrypt 인증서(만료 2026-12-01, 자동 갱신)까지 세팅됨.
+> 다른 서브도메인을 또 붙일 땐 같은 워크플로우를 `host` 입력만 바꿔 실행하면 된다 (inspect로 먼저 확인 → apply).
+
 코드 쪽 기초공사는 끝난 상태. 아래 3단계만 서버에서 하면 `sanji.blendpunch.com`이 살아난다.
 (앱은 하나 — 같은 EC2, 같은 Next 프로세스가 호스트를 보고 산지픽 화면을 내보낸다.)
 
