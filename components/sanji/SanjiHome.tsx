@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SanjiCard, SanjiHomeReview } from "@/lib/sanji-data";
+import { SANJI_BANNERS, bannerSrc, bannerTarget } from "@/lib/sanji-banners";
 
 // 산지픽 메인 (sanjipick.blendpunch.com/) — 오늘과일(쿠마) 메인 구성을 산지픽 톤으로.
 // 헤더(로고·검색·장바구니) → 탭(추천/베스트/신상품) → 배너 슬라이드 → 큰 2열 카드 → 한정특가 3열
@@ -70,14 +71,29 @@ export default function SanjiHome({
 
   const [tab, setTab] = useState<0 | 1 | 2>(0);
 
-  // 배너 슬라이드 — 대표 상품 이미지(최대 4장), 현재 페이지 표시
-  const banners = live.slice(0, 4);
+  // 배너 슬라이드 — lib/sanji-banners 의 광고 배너 5장, 3초 자동 넘김, 누르면 상품 상세
+  const banners = useMemo(() => SANJI_BANNERS.map((b) => {
+    const t = bannerTarget(b, products);
+    return { ...b, href: t ? `${linkBase}/p/${t.id}` : live[0] ? href(live[0]) : (linkBase || "/") };
+  }), [products, live, linkBase]); // eslint-disable-line react-hooks/exhaustive-deps
   const sliderRef = useRef<HTMLDivElement>(null);
   const [slide, setSlide] = useState(0);
+  const touching = useRef(false);
   const onSlide = () => {
     const el = sliderRef.current;
     if (el) setSlide(Math.round(el.scrollLeft / el.clientWidth));
   };
+  useEffect(() => {
+    if (banners.length < 2) return;
+    const id = setInterval(() => {
+      const el = sliderRef.current;
+      if (!el || touching.current || document.hidden) return;
+      const cur = Math.round(el.scrollLeft / el.clientWidth);
+      const next = (cur + 1) % banners.length;
+      el.scrollTo({ left: next * el.clientWidth, behavior: next === 0 ? "auto" : "smooth" });
+    }, 3000);
+    return () => clearInterval(id);
+  }, [banners.length]);
 
   const [showTop, setShowTop] = useState(false);
   useEffect(() => {
@@ -117,16 +133,14 @@ export default function SanjiHome({
         .sh-tabs button.on{color:${GREEN}}
         .sh-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:${GREEN}}
         .sh-ban{position:relative;margin-top:14px}
-        .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;aspect-ratio:16/10;background:#E9E4D6}
+        .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;aspect-ratio:1200/760;background:#E9E4D6}
+        .sh-ban__dots{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:6px;pointer-events:none}
+        .sh-ban__dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(0,0,0,.08);transition:width .2s,background .2s}
+        .sh-ban__dots i.on{width:18px;border-radius:3px;background:#fff}
         .sh-ban__track::-webkit-scrollbar{display:none}
         .sh-ban__item{position:relative;flex:0 0 100%;scroll-snap-align:start;overflow:hidden}
         .sh-ban__item img,.sh-ban__item .ph{width:100%;height:100%;object-fit:cover;display:block}
-        .sh-ban__veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.72) 100%)}
-        .sh-ban__txt{position:absolute;left:18px;right:18px;bottom:18px;color:#fff}
-        .sh-ban__txt .k{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:${GREEN};margin-bottom:8px}
-        .sh-ban__txt h2{margin:0;font-size:22px;font-weight:900;line-height:1.25;word-break:keep-all;text-shadow:0 2px 10px rgba(0,0,0,.4)}
-        .sh-ban__txt p{margin:4px 0 0;font-size:13px;opacity:.9}
-        .sh-ban__cnt{position:absolute;right:14px;bottom:14px;color:#fff;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+        .sh-ban__cnt{position:absolute;right:12px;bottom:10px;color:#fff;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(0,0,0,.35);padding:2px 8px;border-radius:999px}
         .sh-sec{padding:28px 16px 8px}
         .sh-sec__h{display:flex;align-items:baseline;justify-content:space-between}
         .sh-sec__h h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.03em}
@@ -220,20 +234,25 @@ export default function SanjiHome({
           {/* 배너 슬라이드 */}
           {banners.length > 0 && (
             <div className="sh-ban">
-              <div className="sh-ban__track" ref={sliderRef} onScroll={onSlide}>
-                {banners.map((p) => (
-                  <a key={p.id} className="sh-ban__item" href={href(p)}>
-                    <Img src={p.main_image} alt={p.name} />
-                    <div className="sh-ban__veil" />
-                    <div className="sh-ban__txt">
-                      <span className="k">지금이 제철</span>
-                      <h2>{p.name}</h2>
-                      <p>{p.brand} · {pct(p) > 0 ? `${pct(p)}% 특가 ` : ""}{won(p.price)}</p>
-                    </div>
+              <div
+                className="sh-ban__track"
+                ref={sliderRef}
+                onScroll={onSlide}
+                onTouchStart={() => { touching.current = true; }}
+                onTouchEnd={() => { setTimeout(() => { touching.current = false; }, 1500); }}
+                onMouseEnter={() => { touching.current = true; }}
+                onMouseLeave={() => { touching.current = false; }}
+              >
+                {banners.map((b) => (
+                  <a key={b.file} className="sh-ban__item" href={b.href} aria-label={b.alt}>
+                    <Img src={bannerSrc(b)} alt={b.alt} />
                   </a>
                 ))}
               </div>
-              {banners.length > 1 && <span className="sh-ban__cnt">{slide + 1}/{banners.length}</span>}
+              <div className="sh-ban__dots" aria-hidden>
+                {banners.map((b, i) => <i key={b.file} className={i === slide ? "on" : ""} />)}
+              </div>
+              <span className="sh-ban__cnt">{slide + 1}/{banners.length}</span>
             </div>
           )}
 
