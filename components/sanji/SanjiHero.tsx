@@ -29,7 +29,8 @@ export default function SanjiHero() {
   return (
     <section className="sj-hero">
       <style>{`
-        .sj-hero{position:relative;width:100%;max-width:390px;height:844px;height:100svh;margin:0 auto;overflow:hidden;background:#0b150e;font-family:'Noto Sans KR',sans-serif;color:#fff}
+        .sj-hero{position:relative;z-index:2;width:100%;max-width:390px;height:844px;height:100svh;margin:0 auto;background:#0b150e;font-family:'Noto Sans KR',sans-serif;color:#fff}
+        .sj-hero__clip{position:absolute;inset:0;overflow:hidden}
         .sj-hero__bg{position:absolute;inset:0;background-repeat:no-repeat;background-size:auto 900px;background-position:50% -40px;filter:saturate(1.1)}
         .sj-hero__fallback{position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 30%,#2f5a33 0%,#183523 45%,#0b150e 100%)}
         .sj-hero__veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,20,12,.55) 0%,rgba(8,20,12,.25) 30%,rgba(8,20,12,.55) 55%,rgba(8,20,12,.94) 78%,#0b150e 100%)}
@@ -74,9 +75,12 @@ export default function SanjiHero() {
         @media (prefers-reduced-motion: reduce){.sj-hero__copy,.sj-phone,.sj-bubble{animation:none}}
       `}</style>
 
-      <div className="sj-hero__fallback" aria-hidden />
-      <div className="sj-hero__bg" aria-hidden style={{ backgroundImage: "url(/sanji/hero-farmer.png)" }} />
-      <div className="sj-hero__veil" aria-hidden />
+      {/* 배경·베일만 클립 — 폰 목업은 클립 밖이라 다음 섹션 위로 200px 걸쳐 내려온다 */}
+      <div className="sj-hero__clip" aria-hidden>
+        <div className="sj-hero__fallback" />
+        <div className="sj-hero__bg" style={{ backgroundImage: "url(/sanji/hero-farmer.png)" }} />
+        <div className="sj-hero__veil" />
+      </div>
 
       <header className="sj-hero__top">
         <div className="sj-brand">산지픽</div>
