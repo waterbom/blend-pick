@@ -1,0 +1,51 @@
+name: Site Check
+
+# 접속 장애 진단 — 외부(GitHub 러너)에서 DNS·HTTP 응답을 찍고, 서버 안에서 앱·nginx 상태를 확인 (읽기 전용)
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "확인할 도메인"
+        required: true
+        default: sanjipick.blendpunch.com
+
+jobs:
+  external:
+    runs-on: ubuntu-latest
+    steps:
+      - name: DNS + HTTP from outside
+        env:
+          H: ${{ inputs.host }}
+        run: |
+          echo "=== DNS ($H) ==="; dig +short "$H" A || true; dig +short "$H" CNAME || true
+          echo "=== DNS (shop.blendpunch.com) ==="; dig +short shop.blendpunch.com A || true
+          for u in "http://$H/" "https://$H/" "https://shop.blendpunch.com/"; do
+            echo; echo "=== curl -I $u ==="
+            curl -sS -o /dev/null -m 20 -w "http_code=%{http_code} redirect=%{redirect_url} ssl_verify=%{ssl_verify_result} remote=%{remote_ip}\n" "$u" || echo "curl 실패"
+            echo "--- 헤더 ---"; curl -sSI -m 20 "$u" 2>&1 | head -15 || true
+          done
+          echo; echo "=== -L 따라가기 (최대 6회) ==="; curl -sS -o /dev/null -L --max-redirs 6 -m 30 -w "final=%{url_effective} code=%{http_code} redirs=%{num_redirects}\n" "https://$H/" || echo "리다이렉트 추적 실패"
+          echo; echo "=== TLS 인증서 ==="; echo | openssl s_client -servername "$H" -connect "$H:443" 2>/dev/null | openssl x509 -noout -subject -issuer -dates || echo "TLS 핸드셰이크 실패"
+
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: App + nginx on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          H: ${{ inputs.host }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: H
+          script: |
+            echo "=== 앱 서비스 ==="; systemctl is-active blend-pick; sudo systemctl status blend-pick --no-pager -l 2>/dev/null | head -12
+            echo "=== 최근 앱 로그 ==="; sudo journalctl -u blend-pick -n 25 --no-pager 2>/dev/null | tail -25
+            echo "=== 앱 직접 (Host=$H) ==="; curl -s -o /dev/null -m 10 -w "code=%{http_code}\n" -H "Host: $H" http://127.0.0.1:3000/ || echo "앱 응답 없음"
+            echo "=== 앱 직접 (Host=shop) ==="; curl -s -o /dev/null -m 10 -w "code=%{http_code}\n" -H "Host: shop.blendpunch.com" http://127.0.0.1:3000/ || echo "앱 응답 없음"
+            echo "=== nginx ==="; systemctl is-active nginx; sudo nginx -t 2>&1
+            echo "=== nginx 경유 (localhost:443, Host=$H) ==="; curl -sk -o /dev/null -m 10 -w "code=%{http_code} redirect=%{redirect_url}\n" -H "Host: $H" --resolve "$H:443:127.0.0.1" "https://$H/" || echo "nginx 443 응답 없음"
+            echo "=== nginx 경유 (localhost:80) ==="; curl -s -o /dev/null -m 10 -w "code=%{http_code} redirect=%{redirect_url}\n" -H "Host: $H" http://127.0.0.1/ || echo "nginx 80 응답 없음"
+            echo "=== $H 서버 블록 ==="; sudo cat "/etc/nginx/sites-enabled/$H" 2>/dev/null || echo "없음"
+            echo "=== nginx 에러 로그 ==="; sudo tail -n 15 /var/log/nginx/error.log 2>/dev/null || true
