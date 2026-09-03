@@ -1,5 +1,6 @@
 import SanjiHome from "@/components/sanji/SanjiHome";
-import { getSanjiHomeReviews, getSanjiProducts, SANJI_DEMO_CARDS, SANJI_DEMO_REVIEWS } from "@/lib/sanji-data";
+import { getSanjiHomeReviews, getSanjiProducts } from "@/lib/sanji-data";
+import { SANJI_DEMO_CARDS, SANJI_DEMO_REVIEWS } from "@/lib/sanji-demo";
 import { sanjiLinkBase } from "@/lib/sanji-link";
 import { SITES } from "@/lib/sites";
 

@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import SanjiSalesPage from "@/components/sanji/SanjiSalesPage";
-import { getSanjiProduct, loadSanjiSalesPage, SANJI_DEMO, SANJI_DEMO_CARDS, SANJI_DEMO_IMAGES } from "@/lib/sanji-data";
+import { getSanjiProduct, loadSanjiSalesPage } from "@/lib/sanji-data";
+import { SANJI_DEMO_CARDS, demoById } from "@/lib/sanji-demo";
 import { sanjiLinkBase } from "@/lib/sanji-link";
 import { SITES } from "@/lib/sites";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 // 산지픽 개별 상품 판매 페이지 — sanjipick.blendpunch.com/p/<id> (shop 도메인에선 /sanji/p/<id>)
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  if (id.startsWith("demo")) return { title: "예시 상품" };
+  if (id.startsWith("demo")) return { title: demoById(id).product.name };
   const p = await getSanjiProduct(id).catch(() => null);
   if (!p) return {};
   const S = SITES.sanjipick;
@@ -36,8 +37,16 @@ export default async function SanjiProductPage({
   const { inf } = await searchParams;
   // 메인 예시 카드(demo-*)에서 들어온 경우 — 예시 판매 페이지 (구매 잠김)
   if (id.startsWith("demo")) {
-    const card = SANJI_DEMO_CARDS.find((c) => c.id === id) ?? SANJI_DEMO_CARDS[0];
-    const data = { ...SANJI_DEMO, product: { ...SANJI_DEMO.product, ...card, description: null }, images: SANJI_DEMO_IMAGES[card.id] ?? [card.main_image!], others: SANJI_DEMO_CARDS.filter((c) => c.id !== card.id) };
+    const d = demoById(id);
+    const data = {
+      product: d.product,
+      images: d.images,
+      options: d.options,
+      reviews: { total: 0, average: 0, list: [] },
+      stats: { buyers: 0, sold: d.sold, rebuyers: 0 },
+      others: SANJI_DEMO_CARDS.filter((c) => c.id !== d.product.id),
+      influencerId: null,
+    };
     return (
       <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
         <SanjiSalesPage {...data} demo kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={await sanjiLinkBase()} />

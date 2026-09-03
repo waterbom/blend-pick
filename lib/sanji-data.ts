@@ -23,6 +23,8 @@ export interface SanjiProduct {
   influencer_id: string | null;
   sale_start_at: string | null;
   sale_end_at: string | null;
+  origin?: string | null;                                           // 원산지 (상품정보 표에 표시)
+  trust?: { rating: number; count: number; source: string } | null; // 외부 스토어 평점·리뷰 수 (우리 후기가 없을 때 신뢰 표시)
 }
 
 export interface SanjiOption {
@@ -222,60 +224,6 @@ export async function loadSanjiSalesPage(productId: string, inf?: string) {
   };
 }
 
-// 메인 예시 상품 — 산지픽 상품이 없을 때 레이아웃 확인용. 사진은 public/sanji/products/<품목>/ 의 실사진.
-const demoAt = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400e3).toISOString();
-const P = (dir: string, file: string) => `/sanji/products/${encodeURIComponent(dir)}/${encodeURIComponent(file)}.webp`;
-// 예시 상품별 사진 세트 — 첫 장이 대표, 나머지가 슬라이드·상세
-export const SANJI_DEMO_IMAGES: Record<string, string[]> = {
-  "demo": ["감자", "감자1", "감자2", "감자3", "감자4", "감자5", "감자6"].map((f) => P("감자", f)),
-  "demo-2": ["복숭아", "복숭아1", "복숭아2", "복숭아3", "복숭아4", "복숭아5", "복숭아6"].map((f) => P("복숭아", f)),
-  "demo-3": ["단호박1", "단호박2", "단호박3", "단호박4", "단호박5"].map((f) => P("단호박", f)),
-  "demo-4": ["배도라지1", "배도라지2", "배도라지3"].map((f) => P("배도라지", f)),
-  "demo-5": ["사과1", "사과2", "사과3", "사과4", "사과5", "사과6", "사과7"].map((f) => P("사과", f)),
-};
-export const SANJI_DEMO_CARDS: SanjiCard[] = [
-  { id: "demo", name: "카스테라 포슬포슬 햇감자 3kg (GAP 인증 괴산 노지 홍감자)", brand: "괴산 청년농부", price: 14900, original_price: 21000, main_image: SANJI_DEMO_IMAGES["demo"][0], stock: 137, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(1), sold: 1284 },
-  { id: "demo-2", name: "한 입에 꿀 대향금 복숭아 2kg (고당도 황도)", brand: "괴산 과수원", price: 24900, original_price: 34000, main_image: SANJI_DEMO_IMAGES["demo-2"][0], stock: 84, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(2), sold: 412 },
-  { id: "demo-3", name: "달콤 숙성 미니 밤 단호박 3kg (큐어링 완료)", brand: "괴산 청년농부", price: 12900, original_price: 19000, main_image: SANJI_DEMO_IMAGES["demo-3"][0], stock: 52, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(3), sold: 233 },
-  { id: "demo-4", name: "목이 편한 클래식 배도라지즙 100ml × 20개입", brand: "산지픽", price: 19900, original_price: 28000, main_image: SANJI_DEMO_IMAGES["demo-4"][0], stock: 60, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(4), sold: 96 },
-  { id: "demo-5", name: "아삭 달콤 부사 사과 특대과 선물용 12과", brand: "괴산 6대째 청년농부", price: 49900, original_price: 72000, main_image: SANJI_DEMO_IMAGES["demo-5"][0], stock: 0, status: "active", sale_start_at: new Date(Date.now() + 26 * 3600e3).toISOString(), sale_end_at: null, created_at: demoAt(0), sold: 0 },
-];
-export const SANJI_DEMO_REVIEWS: SanjiHomeReview[] = [
-  { id: "r1", buyer_name: "아링", rating: 5, content: "감자가 진짜 포슬포슬해요. 소금만 찍어 먹어도 달달", image: SANJI_DEMO_IMAGES["demo"][6], created_at: demoAt(0.05), product_id: "demo", product_name: "카스테라 포슬포슬 햇감자 3kg" },
-  { id: "r2", buyer_name: "잔망알찬", rating: 5, content: "복숭아 향이 박스 열자마자 확 올라와요. 한 입에 꿀이 맞네요", image: SANJI_DEMO_IMAGES["demo-2"][4], created_at: demoAt(0.7), product_id: "demo-2", product_name: "한 입에 꿀 대향금 복숭아 2kg" },
-  { id: "r3", buyer_name: "2422WQrJ", rating: 5, content: "단호박 쪄서 먹으니 밤 맛이에요. 아이들이 더 잘 먹어요", image: SANJI_DEMO_IMAGES["demo-3"][0], created_at: demoAt(1.2), product_id: "demo-3", product_name: "달콤 숙성 미니 밤 단호박 3kg" },
-];
-
-// 첫 산지픽 상품이 등록되기 전 — 디자인 확인용 예시 (구매 버튼은 잠긴다)
-export const SANJI_DEMO: NonNullable<Awaited<ReturnType<typeof loadSanjiSalesPage>>> & { demo: true } = {
-  demo: true,
-  product: {
-    id: "demo",
-    name: "카스테라 포슬포슬 햇감자 3kg (GAP 인증 괴산 노지 홍감자)",
-    brand: "괴산 청년농부",
-    category: "산지픽",
-    description: null,
-    price: 14900,
-    original_price: 21000,
-    stock: 137,
-    status: "active",
-    shipping_type: "free",
-    shipping_cost: 0,
-    free_shipping_threshold: null,
-    per_unit_shipping_cost: null,
-    main_image: SANJI_DEMO_IMAGES["demo"][0],
-    influencer_id: null,
-    sale_start_at: null,
-    sale_end_at: null,
-  },
-  images: SANJI_DEMO_IMAGES["demo"],
-  options: [],
-  reviews: {
-    total: 0,
-    average: 0,
-    list: [],
-  },
-  stats: { buyers: 0, sold: 0, rebuyers: 0 },
-  others: [],
-  influencerId: null,
-};
+// 예시 상품(상품 등록 전 화면 채우기)은 lib/sanji-demo.ts — 여기선 타입만 제공
+export type { SanjiDemoProduct } from "@/lib/sanji-demo";
+export { SANJI_DEMO_CARDS, SANJI_DEMO_REVIEWS, SANJI_DEMO_PRODUCTS, demoById } from "@/lib/sanji-demo";

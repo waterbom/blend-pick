@@ -230,8 +230,9 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
 
   const infoRows: [string, string][] = [
     ["판매처", product.brand || "산지픽"],
+    ...(product.origin ? [["원산지", product.origin] as [string, string]] : []),
     ["배송", shippingLabel(product)],
-    ["출고", "수확 후 순차 출고 · 산지 직송"],
+    ["출고", "산지에서 바로 발송"],
     ...(product.sale_end_at ? [["판매기간", `${fmtDate(product.sale_end_at)} 까지`] as [string, string]] : []),
     ["운영", "블랜드펀치 (BLEND PUNCH)"],
     ["문의", "카카오톡 채널 산지픽"],
@@ -387,9 +388,11 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         </div>
         <h1 className="sp-title">{product.name}</h1>
         <div className="sp-rating">
-          <Stars n={reviews.total ? reviews.average : 5} />
+          <Stars n={reviews.total ? reviews.average : product.trust ? product.trust.rating : 5} />
           {reviews.total ? (
             <span><b>{reviews.average.toFixed(1)}</b> · 후기 {reviews.total.toLocaleString()}개</span>
+          ) : product.trust ? (
+            <span><b>{product.trust.rating.toFixed(2)}</b> · {product.trust.source} 리뷰 {product.trust.count.toLocaleString()}건</span>
           ) : (
             <span style={{ color: MUTED }}>첫 후기를 기다리고 있어요</span>
           )}
@@ -401,7 +404,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         </div>
         <div className="sp-ship">
           <span className="k">배송</span>
-          <span>{shippingLabel(product)} · 수확 후 순차 출고</span>
+          <span>{shippingLabel(product)} · 산지 직송</span>
         </div>
       </div>
 
@@ -516,7 +519,10 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
             )}
           </>
         ) : (
-          <div className="sp-empty">아직 후기가 없어요.<br />첫 구매 후 마이페이지에서 후기를 남기면 이 자리에 올라옵니다.</div>
+          <div className="sp-empty">
+            {product.trust ? <>{product.trust.source}에서 <b style={{ color: INK }}>★ {product.trust.rating.toFixed(2)} · 리뷰 {product.trust.count.toLocaleString()}건</b>을 받은 상품이에요.<br /></> : null}
+            산지픽 첫 후기를 기다리고 있어요. 구매 후 마이페이지에서 남길 수 있습니다.
+          </div>
         )}
       </div>
 
