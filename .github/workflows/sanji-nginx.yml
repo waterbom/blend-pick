@@ -2,7 +2,7 @@ name: Sanji Subdomain (nginx)
 
 # 산지픽 서브도메인 서버 세팅 — Actions 탭에서 수동 실행
 #   inspect : 현재 nginx 설정·인증서 상태만 출력 (아무것도 바꾸지 않음)
-#   apply   : sanji.blendpunch.com 서버 블록 추가 + nginx 검증·리로드 (+ 가능하면 certbot 인증서 발급)
+#   apply   : sanjipick.blendpunch.com 서버 블록 추가 + nginx 검증·리로드 (+ 가능하면 certbot 인증서 발급)
 on:
   workflow_dispatch:
     inputs:
@@ -15,7 +15,7 @@ on:
       host:
         description: "서브도메인"
         required: true
-        default: sanji.blendpunch.com
+        default: sanjipick.blendpunch.com
 
 jobs:
   nginx:

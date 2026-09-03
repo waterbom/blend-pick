@@ -37,7 +37,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     key: "sanjipick",
     name: "산지픽",
     nameEn: "SANJI PICK",
-    host: process.env.NEXT_PUBLIC_SANJI_HOST || "sanji.blendpunch.com",
+    host: process.env.NEXT_PUBLIC_SANJI_HOST || "sanjipick.blendpunch.com",
     basePath: "/sanji",
     tagline: "산지에서 바로, 제철 그대로",
     description: "농가에서 바로 보내는 제철 농산물 공동구매 — 산지픽",
@@ -47,10 +47,13 @@ export const SITES: Record<SiteKey, SiteConfig> = {
   },
 };
 
+// 산지픽으로 취급할 호스트 — 정식 도메인 + 예전/별칭 도메인 (DNS가 남아있어도 같은 사이트로)
+const SANJI_HOST_ALIASES = ["sanji.blendpunch.com"];
+
 // 요청 호스트 → 사이트 (포트 제거 후 비교, 기본은 블랜드픽)
 export function siteFromHost(host: string | null | undefined): SiteKey {
   const h = (host || "").split(":")[0].toLowerCase();
-  if (h && h === SITES.sanjipick.host.toLowerCase()) return "sanjipick";
+  if (h && (h === SITES.sanjipick.host.toLowerCase() || SANJI_HOST_ALIASES.includes(h))) return "sanjipick";
   return "blendpick";
 }
 
