@@ -19,6 +19,13 @@ jobs:
         run: |
           echo "=== DNS ($H) ==="; dig +short "$H" A || true; dig +short "$H" CNAME || true
           echo "=== DNS (shop.blendpunch.com) ==="; dig +short shop.blendpunch.com A || true
+          echo "=== 리졸버별 조회 (국내 통신사 + 공용) ==="
+          for ns in "KT 168.126.63.1" "SKB 210.220.163.82" "LGU+ 164.124.101.2" "Google 8.8.8.8" "Cloudflare 1.1.1.1" "권위(Cloudflare NS) $(dig +short NS blendpunch.com | head -1)"; do
+            set -- $ns; name=$1; ip=$2
+            ans=$(dig +time=4 +tries=1 @"$ip" "$H" A 2>/dev/null | grep -E "^;; ->>HEADER|^$H|ANSWER:" | tr '\n' ' ')
+            echo "[$name @$ip] $ans"
+          done
+          echo "=== SOA / 네거티브 캐시 TTL ==="; dig +noall +authority blendpunch.com SOA | head -2; dig +noall +answer blendpunch.com SOA | head -1
           for u in "http://$H/" "https://$H/" "https://shop.blendpunch.com/"; do
             echo; echo "=== curl -I $u ==="
             curl -sS -o /dev/null -m 20 -w "http_code=%{http_code} redirect=%{redirect_url} ssl_verify=%{ssl_verify_result} remote=%{remote_ip}\n" "$u" || echo "curl 실패"
