@@ -55,9 +55,9 @@ function Img({ src, alt, className }: { src: string | null; alt: string; classNa
 }
 
 export default function SanjiHome({
-  products, reviews, linkBase, demo, kakaoUrl,
+  products, reviews, linkBase, kakaoUrl,
 }: {
-  products: SanjiCard[]; reviews: SanjiHomeReview[]; linkBase: string; demo: boolean; kakaoUrl: string;
+  products: SanjiCard[]; reviews: SanjiHomeReview[]; linkBase: string; demo?: boolean; kakaoUrl: string;
 }) {
   const href = (p: SanjiCard) => `${linkBase}/p/${p.id}`;
   const now = Date.now();
@@ -94,6 +94,26 @@ export default function SanjiHome({
     }, 3000);
     return () => clearInterval(id);
   }, [banners.length]);
+
+  // 대표 상품 큰 카드 — 3.5초마다 한 장씩 자동 넘김 (손대는 동안·화면 벗어나면 멈춤, 끝나면 처음으로)
+  const bigRef = useRef<HTMLDivElement>(null);
+  const bigTouch = useRef(false);
+  const bigCount = Math.min(live.length, 6);
+  useEffect(() => {
+    if (bigCount < 2 || tab !== 0) return;
+    const id = setInterval(() => {
+      const el = bigRef.current;
+      if (!el || bigTouch.current || document.hidden) return;
+      const card = el.querySelector<HTMLElement>(".sh-bigcard");
+      if (!card) return;
+      const step = card.offsetWidth + 12;
+      const cur = Math.round(el.scrollLeft / step);
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+      const next = atEnd ? 0 : cur + 1;
+      el.scrollTo({ left: next * step, behavior: next === 0 ? "auto" : "smooth" });
+    }, 3500);
+    return () => clearInterval(id);
+  }, [bigCount, tab]);
 
   const [showTop, setShowTop] = useState(false);
   useEffect(() => {
@@ -189,7 +209,6 @@ export default function SanjiHome({
         .sh-nav a.on{color:${GREEN}}
         .sh-top{position:fixed;right:16px;bottom:calc(90px + env(safe-area-inset-bottom));z-index:19;width:48px;height:48px;border-radius:50%;background:${CREAM};border:1px solid ${LINE};color:${GREEN};box-shadow:0 4px 14px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center}
         .sh-kakao{position:fixed;right:16px;bottom:calc(148px + env(safe-area-inset-bottom));z-index:19;width:48px;height:48px;border-radius:50%;background:#FEE500;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center}
-        .sh-demo{margin:0 16px;padding:10px 14px;border-radius:10px;background:#E7EFE3;color:${GREEN};font-size:12px;font-weight:600;line-height:1.5}
       `}</style>
 
       {/* 헤더 + 탭 */}
@@ -211,8 +230,6 @@ export default function SanjiHome({
           ))}
         </div>
       </div>
-
-      {demo && <div className="sh-demo" style={{ marginTop: 12 }}>예시 화면 — 상품 관리에서 카테고리 '산지픽' 상품을 등록하면 실제 상품으로 채워집니다.</div>}
 
       {tab === 1 && (
         <div className="sh-sec">
@@ -261,7 +278,14 @@ export default function SanjiHome({
             <div className="sh-sec__h"><h2>산지에서 바로 온 그 상품!</h2></div>
             <p className="sh-sec__sub">아묻따! 농가에서 직접 보내는 산지 직송</p>
             {live.length ? (
-              <div className="sh-big">
+              <div
+                className="sh-big"
+                ref={bigRef}
+                onTouchStart={() => { bigTouch.current = true; }}
+                onTouchEnd={() => { setTimeout(() => { bigTouch.current = false; }, 2500); }}
+                onMouseEnter={() => { bigTouch.current = true; }}
+                onMouseLeave={() => { bigTouch.current = false; }}
+              >
                 {live.slice(0, 6).map((p) => (
                   <a key={p.id} className="sh-bigcard" href={href(p)}>
                     <div className="th">

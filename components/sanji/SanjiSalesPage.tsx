@@ -384,7 +384,6 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       <div className="sp-head">
         <div className="sp-brandline">
           <span>{product.brand || "산지픽"} · 산지 직송</span>
-          {demo && <span style={{ color: GREEN, fontWeight: 700 }}>예시 화면</span>}
         </div>
         <h1 className="sp-title">{product.name}</h1>
         <div className="sp-rating">
@@ -541,7 +540,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
             <span>{endLeft ? `종료까지 ${endLeft}` : `종료까지 ${product.stock.toLocaleString()}개 남음`}</span>
           </div>
         )}
-        {demo && <div className="sp-urg"><span>상품 관리에서 카테고리 '산지픽' 상품을 등록하면 이 자리에 실제 상품이 뜹니다</span></div>}
+        {demo && <div className="sp-urg"><span>오픈 준비 중이에요 · 곧 구매하실 수 있어요</span></div>}
         <div className="sp-btns">
           <button className="sp-gift" disabled={saleState !== "open" || soldout} onClick={() => setSheet("gift")}>선물하기</button>
           <button className="sp-buy" disabled={saleState !== "open" || soldout} onClick={() => setSheet("buy")}>{ctaLabel}</button>
@@ -599,7 +598,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
               <b>{won(itemsTotal + shipping)}</b>
             </div>
             <button className="sp-buy" style={{ width: "100%" }} disabled={!canBuy || going} onClick={checkout}>
-              {demo ? "상품 준비 중 (예시 화면)" : going ? "이동 중..." : sheet === "gift" ? "선물 결제하기" : "바로 구매하기"}
+              {demo ? "오픈 준비 중" : going ? "이동 중..." : sheet === "gift" ? "선물 결제하기" : "바로 구매하기"}
             </button>
           </div>
         </>
