@@ -5,10 +5,10 @@ const S = SITES.sanjipick;
 
 // 산지픽 공통 메타 — 서브도메인으로 접속하면 proxy.ts가 /sanji/* 로 리라이트해서 이 레이아웃을 탄다
 export const metadata: Metadata = {
-  title: { default: `${S.name} — 농가 직송 제철 농산물 공동구매`, template: `%s · ${S.name}` },
+  title: { default: "농가 직송 제철 농산물 공동구매", template: `%s · ${S.name}` },
   description: "산지에서 바로, 제철 그대로 집 앞까지. 농가 직송·중간유통 ZERO·수확 당일 발송 — 인플루언서가 직접 검증한 농산물 공동구매, 산지픽.",
   openGraph: {
-    title: `${S.name} — 농가 직송 제철 농산물 공동구매`,
+    title: "농가 직송 제철 농산물 공동구매",
     description: "산지에서 바로, 제철 그대로 집 앞까지. 농가 직송 · 중간유통 ZERO · 수확 당일 발송",
     url: `https://${S.host}`,
     siteName: S.name,
