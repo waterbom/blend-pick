@@ -11,11 +11,12 @@ import type { SanjiCard, SanjiOption, SanjiProduct, SanjiReview, SanjiStats } fr
 // → 상품설명(더보기) → 상품정보 → 함께 본 상품 → 후기 카드 → 하단 고정 "특가 종료 후 N원 비싸져요" + 선물하기/구매하기.
 // 구매는 블랜드픽 결제 흐름(/products/[id]/checkout, /cart/checkout)을 그대로 탄다.
 
-const ORANGE = "#FF5A1F";
-const INK = "#191919";
+const GREEN = "#2F5D34"; // 로고 그린
+const CREAM = "#FBF8F1";
+const INK = "#1E2A1F";
 const MUTED = "#8A8A8A";
-const LINE = "#EDEDED";
-const BAND = "#F5F5F5";
+const LINE = "#E8E3D6";
+const BAND = "#F3EDDF";
 
 export interface SanjiSalesProps {
   product: SanjiProduct;
@@ -239,39 +240,39 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
   return (
     <div className="sp">
       <style>{`
-        .sp{position:relative;max-width:480px;margin:0 auto;background:#fff;min-height:100svh;font-family:'Noto Sans KR',-apple-system,sans-serif;color:${INK};letter-spacing:-.01em;padding-bottom:132px}
+        .sp{position:relative;max-width:480px;margin:0 auto;background:${CREAM};min-height:100svh;font-family:'Noto Sans KR',-apple-system,sans-serif;color:${INK};letter-spacing:-.01em;padding-bottom:132px}
         .sp *{box-sizing:border-box}
         .sp button{font-family:inherit;cursor:pointer}
         .sp-top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:12px 14px}
-        .sp-brand{display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);color:#fff;font-weight:900;font-size:13px;padding:6px 11px;border-radius:999px;backdrop-filter:blur(6px);text-decoration:none}
-        .sp-brand::before{content:"";width:7px;height:7px;border-radius:50%;background:${ORANGE}}
+        .sp-brand{display:inline-flex;align-items:center;gap:7px;background:rgba(251,248,241,.92);color:${GREEN};font-weight:900;font-size:13px;padding:4px 12px 4px 4px;border-radius:999px;backdrop-filter:blur(6px);text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+        .sp-brand img{width:26px;height:26px;border-radius:50%;display:block}
         .sp-icons{display:flex;gap:8px}
         .sp-icon{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.45);border:0;color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
-        .sp-slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;aspect-ratio:1/1;background:#f3f1ec}
+        .sp-slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;aspect-ratio:1/1;background:#E9E4D6}
         .sp-slider::-webkit-scrollbar{display:none}
         .sp-slide{flex:0 0 100%;scroll-snap-align:start;width:100%;height:100%;object-fit:cover;display:block}
         .sp-slider-wrap{position:relative}
         .sp-count{position:absolute;right:14px;bottom:14px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;font-variant-numeric:tabular-nums}
         .sp-pill{position:absolute;left:14px;bottom:14px;display:inline-flex;align-items:center;gap:6px;background:#fff;color:${INK};font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
-        .sp-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:${ORANGE};box-shadow:0 0 0 3px rgba(255,90,31,.2)}
-        .sp-deal{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#FFF1EA;color:#D63A00;font-size:13px;font-weight:700}
+        .sp-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:${GREEN};box-shadow:0 0 0 3px rgba(255,90,31,.2)}
+        .sp-deal{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#E7EFE3;color:${GREEN};font-size:13px;font-weight:700}
         .sp-deal b{font-weight:900}
-        .sp-deal .t{font-variant-numeric:tabular-nums;font-weight:600;color:#B23100}
-        .sp-dealbar{height:4px;background:#FFD9C8}
-        .sp-dealbar i{display:block;height:100%;background:linear-gradient(90deg,${ORANGE},#FF9A3D)}
+        .sp-deal .t{font-variant-numeric:tabular-nums;font-weight:600;color:#4E6B50}
+        .sp-dealbar{height:4px;background:#D3E1CD}
+        .sp-dealbar i{display:block;height:100%;background:linear-gradient(90deg,${GREEN},#6FA36B)}
         .sp-head{padding:18px 16px 6px}
         .sp-brandline{font-size:12px;color:${MUTED};font-weight:500;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
         .sp-title{font-size:19px;font-weight:700;line-height:1.35;margin:0;word-break:keep-all}
         .sp-rating{display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-top:8px}
         .sp-rating b{color:${INK}}
         .sp-price{display:flex;align-items:baseline;gap:8px;margin-top:12px;font-variant-numeric:tabular-nums}
-        .sp-price .rate{color:${ORANGE};font-size:22px;font-weight:900}
+        .sp-price .rate{color:${GREEN};font-size:22px;font-weight:900}
         .sp-price .now{font-size:24px;font-weight:900}
         .sp-price .was{font-size:14px;color:${MUTED};text-decoration:line-through}
         .sp-ship{display:flex;align-items:center;gap:8px;margin:12px 0 2px;padding:12px 0 16px;border-top:1px solid ${LINE};font-size:13px;color:#444}
         .sp-ship .k{color:${MUTED};min-width:44px}
         .sp-band{height:8px;background:${BAND}}
-        .sp-tabs{position:sticky;top:0;z-index:6;display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border-bottom:1px solid ${LINE}}
+        .sp-tabs{position:sticky;top:0;z-index:6;display:grid;grid-template-columns:repeat(3,1fr);background:${CREAM};border-bottom:1px solid ${LINE}}
         .sp-tabs button{height:46px;border:0;background:none;font-size:14px;font-weight:600;color:${MUTED};position:relative}
         .sp-tabs button.on{color:${INK}}
         .sp-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:${INK}}
@@ -279,11 +280,11 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-sec h3{font-size:15px;font-weight:700;margin:0 0 12px}
         .sp-desc{position:relative;overflow:hidden;transition:max-height .3s}
         .sp-desc.clamp{max-height:720px}
-        .sp-desc.clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(180deg,rgba(255,255,255,0),#fff)}
+        .sp-desc.clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(180deg,rgba(251,248,241,0),${CREAM})}
         .sp-desc img{display:block;max-width:100%;height:auto;margin:0 auto}
         .sp-desc .html{font-size:14px;line-height:1.7;color:#333}
         .sp-desc .html img{margin:8px auto}
-        .sp-more{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:48px;margin-top:12px;border:1px solid #D9D9D9;border-radius:8px;background:#fff;font-size:14px;font-weight:600;color:${INK}}
+        .sp-more{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:48px;margin-top:12px;border:1px solid #CFD8CC;border-radius:8px;background:#fff;font-size:14px;font-weight:600;color:${INK}}
         .sp-empty{padding:36px 0;text-align:center;color:${MUTED};font-size:13px;line-height:1.7}
         .sp-info{width:100%;border-collapse:collapse;font-size:13px}
         .sp-info th{width:84px;text-align:left;font-weight:500;color:${MUTED};padding:9px 0;border-bottom:1px solid ${LINE};vertical-align:top}
@@ -296,32 +297,32 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
         .sp-card .nm{font-size:12px;line-height:1.4;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#333}
         .sp-card .pr{margin-top:4px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
-        .sp-card .pr em{font-style:normal;color:${ORANGE};margin-right:4px}
+        .sp-card .pr em{font-style:normal;color:${GREEN};margin-right:4px}
         .sp-rvsum{display:flex;align-items:center;gap:12px;padding:12px 14px;background:${BAND};border-radius:10px;margin-bottom:14px}
         .sp-rvsum .big{font-size:26px;font-weight:900;font-variant-numeric:tabular-nums}
         .sp-rvsum .sub{font-size:12px;color:${MUTED}}
         .sp-rv{padding:14px 0;border-bottom:1px solid ${LINE}}
         .sp-rv .who{display:flex;align-items:center;gap:8px}
-        .sp-rv .av{width:30px;height:30px;border-radius:50%;background:#E9E3D6;color:#6A5B4A;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+        .sp-rv .av{width:30px;height:30px;border-radius:50%;background:#DCEBD6;color:${GREEN};font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
         .sp-rv .nm{font-size:13px;font-weight:600}
         .sp-rv .dt{font-size:11px;color:${MUTED};margin-left:auto}
         .sp-rv .opt{font-size:11px;color:${MUTED};margin-top:6px}
         .sp-rv .tx{font-size:13px;line-height:1.65;color:#333;margin-top:6px;white-space:pre-line;word-break:break-word}
         .sp-rv .ph{display:flex;gap:6px;margin-top:8px}
         .sp-rv .ph img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:#eee}
-        .sp-bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:20;background:#fff;box-shadow:0 -6px 24px rgba(0,0,0,.08)}
-        .sp-urg{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#FFF1EA;font-size:12px;font-weight:700;color:#D63A00}
-        .sp-urg span:last-child{color:#B23100;font-weight:600;font-variant-numeric:tabular-nums}
+        .sp-bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:20;background:${CREAM};box-shadow:0 -6px 24px rgba(0,0,0,.08)}
+        .sp-urg{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#E7EFE3;font-size:12px;font-weight:700;color:${GREEN}}
+        .sp-urg span:last-child{color:#4E6B50;font-weight:600;font-variant-numeric:tabular-nums}
         .sp-btns{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
-        .sp-gift{flex:0 0 112px;height:52px;border-radius:10px;border:1.5px solid ${INK};background:#fff;font-size:15px;font-weight:700;color:${INK}}
-        .sp-buy{flex:1;height:52px;border-radius:10px;border:0;background:${ORANGE};color:#fff;font-size:16px;font-weight:800}
+        .sp-gift{flex:0 0 112px;height:52px;border-radius:10px;border:1.5px solid ${GREEN};background:#fff;font-size:15px;font-weight:700;color:${GREEN}}
+        .sp-buy{flex:1;height:52px;border-radius:10px;border:0;background:${GREEN};color:#fff;font-size:16px;font-weight:800}
         .sp-buy:disabled,.sp-gift:disabled{background:#DDD;color:#999;border-color:#DDD;cursor:not-allowed}
         .sp-dim{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45)}
-        .sp-sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:31;background:#fff;border-radius:18px 18px 0 0;padding:10px 16px calc(12px + env(safe-area-inset-bottom));max-height:82svh;overflow:auto;animation:sp-up .22s ease-out}
+        .sp-sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:31;background:${CREAM};border-radius:18px 18px 0 0;padding:10px 16px calc(12px + env(safe-area-inset-bottom));max-height:82svh;overflow:auto;animation:sp-up .22s ease-out}
         .sp-sheet .grip{width:40px;height:4px;border-radius:2px;background:#DDD;margin:0 auto 14px}
         .sp-sheet h4{font-size:15px;font-weight:700;margin:0 0 10px}
         .sp-opt{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 14px;margin-bottom:8px;border:1.5px solid ${LINE};border-radius:10px;background:#fff;font-size:14px;text-align:left}
-        .sp-opt.on{border-color:${INK}}
+        .sp-opt.on{border-color:${GREEN};background:#F1F6EE}
         .sp-opt.dead{color:#B5B5B5;text-decoration:line-through}
         .sp-opt .p{font-weight:700;font-variant-numeric:tabular-nums}
         .sp-line{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;margin-bottom:8px;background:${BAND};border-radius:10px;font-size:13px}
@@ -340,7 +341,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       {/* 상단 슬라이드 */}
       <div className="sp-slider-wrap">
         <div className="sp-top">
-          <a className="sp-brand" href={linkBase || "/"}>산지픽</a>
+          <a className="sp-brand" href={linkBase || "/"}><img src="/sanji/logo.png" alt="" />산지픽</a>
           <div className="sp-icons">
             <button className="sp-icon" onClick={share} aria-label="공유">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
@@ -382,7 +383,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       <div className="sp-head">
         <div className="sp-brandline">
           <span>{product.brand || "산지픽"} · 산지 직송</span>
-          {demo && <span style={{ color: ORANGE, fontWeight: 700 }}>예시 화면</span>}
+          {demo && <span style={{ color: GREEN, fontWeight: 700 }}>예시 화면</span>}
         </div>
         <h1 className="sp-title">{product.name}</h1>
         <div className="sp-rating">

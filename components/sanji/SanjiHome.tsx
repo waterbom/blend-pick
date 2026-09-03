@@ -7,10 +7,11 @@ import type { SanjiCard, SanjiHomeReview } from "@/lib/sanji-data";
 // 헤더(로고·검색·장바구니) → 탭(추천/베스트/신상품) → 배너 슬라이드 → 큰 2열 카드 → 한정특가 3열
 // → 신상품 가로 스크롤 → 곧 오픈 예정 → 고객 후기 리스트 → 하단 탭바. 카드는 전부 /p/<id> 상세(판매 페이지)로 연결.
 
-const ORANGE = "#FF5A1F";
-const INK = "#191919";
+const GREEN = "#2F5D34"; // 로고 그린
+const CREAM = "#FBF8F1"; // 로고 바탕 크림
+const INK = "#1E2A1F";
 const MUTED = "#8A8A8A";
-const LINE = "#EDEDED";
+const LINE = "#E8E3D6";
 
 const won = (n: number) => n.toLocaleString("ko-KR") + "원";
 const pct = (p: SanjiCard) => (p.original_price && p.original_price > p.price ? Math.round((1 - p.price / p.original_price) * 100) : 0);
@@ -100,28 +101,29 @@ export default function SanjiHome({
   return (
     <div className="sh">
       <style>{`
-        .sh{position:relative;max-width:480px;margin:0 auto;background:#fff;min-height:100svh;font-family:'Noto Sans KR',-apple-system,sans-serif;color:${INK};letter-spacing:-.01em;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+        .sh{position:relative;max-width:480px;margin:0 auto;background:${CREAM};min-height:100svh;font-family:'Noto Sans KR',-apple-system,sans-serif;color:${INK};letter-spacing:-.01em;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
         .sh *{box-sizing:border-box}
         .sh a{color:inherit;text-decoration:none}
         .sh button{font-family:inherit;cursor:pointer}
-        .sh-hd{position:sticky;top:0;z-index:10;background:#fff}
+        .sh-hd{position:sticky;top:0;z-index:10;background:${CREAM}}
         .sh-hd__row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
-        .sh-logo{display:inline-flex;align-items:baseline;gap:2px;font-size:24px;font-weight:900;letter-spacing:-.04em;color:${ORANGE};line-height:1}
-        .sh-logo i{font-style:normal;color:#3F6B3A}
-        .sh-logo small{font-size:10px;font-weight:700;color:${MUTED};letter-spacing:.08em;margin-left:6px}
+        .sh-logo{display:inline-flex;align-items:center;gap:8px;color:${GREEN};line-height:1}
+        .sh-logo img{width:38px;height:38px;border-radius:50%;display:block}
+        .sh-logo b{font-size:22px;font-weight:900;letter-spacing:-.04em}
+        .sh-logo small{display:block;margin-top:3px;font-size:9px;font-weight:700;color:${GREEN};letter-spacing:.18em;opacity:.8}
         .sh-hd__icons{display:flex;gap:18px;color:${INK}}
         .sh-tabs{display:flex;gap:4px;padding:0 16px;border-bottom:1px solid ${LINE}}
-        .sh-tabs button{height:44px;padding:0 6px;border:0;background:none;font-size:16px;font-weight:600;color:#666;position:relative}
-        .sh-tabs button.on{color:${ORANGE}}
-        .sh-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:${ORANGE}}
+        .sh-tabs button{height:44px;padding:0 6px;border:0;background:none;font-size:16px;font-weight:600;color:#7A8074;position:relative}
+        .sh-tabs button.on{color:${GREEN}}
+        .sh-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:${GREEN}}
         .sh-ban{position:relative;margin-top:14px}
-        .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;aspect-ratio:16/10;background:#f3f1ec}
+        .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;aspect-ratio:16/10;background:#E9E4D6}
         .sh-ban__track::-webkit-scrollbar{display:none}
         .sh-ban__item{position:relative;flex:0 0 100%;scroll-snap-align:start;overflow:hidden}
         .sh-ban__item img,.sh-ban__item .ph{width:100%;height:100%;object-fit:cover;display:block}
         .sh-ban__veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.72) 100%)}
         .sh-ban__txt{position:absolute;left:18px;right:18px;bottom:18px;color:#fff}
-        .sh-ban__txt .k{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:${ORANGE};margin-bottom:8px}
+        .sh-ban__txt .k{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:${GREEN};margin-bottom:8px}
         .sh-ban__txt h2{margin:0;font-size:22px;font-weight:900;line-height:1.25;word-break:keep-all;text-shadow:0 2px 10px rgba(0,0,0,.4)}
         .sh-ban__txt p{margin:4px 0 0;font-size:13px;opacity:.9}
         .sh-ban__cnt{position:absolute;right:14px;bottom:14px;color:#fff;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;text-shadow:0 1px 4px rgba(0,0,0,.6)}
@@ -130,27 +132,28 @@ export default function SanjiHome({
         .sh-sec__h h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.03em}
         .sh-sec__h a{font-size:13px;color:${MUTED}}
         .sh-sec__sub{margin:4px 0 14px;font-size:14px;color:#777}
-        .sh-big{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px 4px;scroll-snap-type:x mandatory}
+        .sh-big{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px 4px;scroll-snap-type:x mandatory;scroll-padding:0 16px}
         .sh-big::-webkit-scrollbar{display:none}
         .sh-bigcard{flex:0 0 78%;scroll-snap-align:start}
-        .sh-bigcard .th{position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;background:#f3f1ec}
+        .sh-bigcard:last-child{margin-right:16px}
+        .sh-bigcard .th{position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
         .sh-bigcard .th img{width:100%;height:100%;object-fit:cover;display:block}
         .sh-bigcard .pill{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.6);color:#fff;font-size:13px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;backdrop-filter:blur(4px)}
-        .sh-bigcard .pill::before{content:"%";display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${ORANGE};font-size:10px}
+        .sh-bigcard .pill::before{content:"%";display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${GREEN};font-size:10px}
         .sh-bigcard .left{display:flex;align-items:center;gap:5px;margin-top:12px;font-size:13px;color:#777}
         .sh-bigcard .ttl{margin-top:8px;font-size:18px;font-weight:800;line-height:1.45;word-break:keep-all}
-        .sh-bigcard .ttl span{background:linear-gradient(transparent 55%,#FFE1D4 55%)}
+        .sh-bigcard .ttl span{background:linear-gradient(transparent 55%,#DCEBD6 55%)}
         .sh-bigcard .pr{margin-top:8px;font-size:22px;font-weight:900;font-variant-numeric:tabular-nums}
-        .sh-bigcard .pr em{font-style:normal;color:${ORANGE};margin-right:6px}
+        .sh-bigcard .pr em{font-style:normal;color:${GREEN};margin-right:6px}
         .sh-bigcard .br{margin-top:2px;font-size:13px;color:#777}
         .sh-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 10px}
-        .sh-card .th{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#f3f1ec}
+        .sh-card .th{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
         .sh-card .th img{width:100%;height:100%;object-fit:cover;display:block}
         .sh-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
         .sh-card .nm{margin-top:8px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .sh-card .pr{margin-top:4px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
-        .sh-card .pr em{font-style:normal;color:${ORANGE};margin-right:4px}
-        .sh-row{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px 4px}
+        .sh-card .pr em{font-style:normal;color:${GREEN};margin-right:4px}
+        .sh-row{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px 4px;scroll-padding:0 16px}
         .sh-row::-webkit-scrollbar{display:none}
         .sh-row .sh-card{flex:0 0 150px}
         .sh-row .sh-card .nm{font-size:15px}
@@ -160,25 +163,25 @@ export default function SanjiHome({
         .sh-soon .when small{font-size:13px;font-weight:600}
         .sh-soon .when b{font-size:26px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
         .sh-rv{display:grid;grid-template-columns:130px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid ${LINE}}
-        .sh-rv .th{aspect-ratio:1/1;border-radius:8px;overflow:hidden;background:#f3f1ec}
+        .sh-rv .th{aspect-ratio:1/1;border-radius:8px;overflow:hidden;background:#E9E4D6}
         .sh-rv .th img{width:100%;height:100%;object-fit:cover;display:block}
         .sh-rv .nm{font-size:16px;font-weight:700}
         .sh-rv .meta{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:${MUTED}}
         .sh-rv .tx{margin-top:8px;font-size:14px;line-height:1.55;color:#333;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
         .sh-rv .pd{margin-top:6px;font-size:12px;color:${MUTED}}
         .sh-empty{padding:28px 0;text-align:center;font-size:13px;color:${MUTED};line-height:1.7}
-        .sh-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:20;display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border-top:1px solid ${LINE};padding:8px 0 calc(8px + env(safe-area-inset-bottom))}
+        .sh-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:20;display:grid;grid-template-columns:repeat(3,1fr);background:${CREAM};border-top:1px solid ${LINE};padding:8px 0 calc(8px + env(safe-area-inset-bottom))}
         .sh-nav a{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:#777}
-        .sh-nav a.on{color:${ORANGE}}
-        .sh-top{position:fixed;right:16px;bottom:calc(90px + env(safe-area-inset-bottom));z-index:19;width:48px;height:48px;border-radius:50%;background:#fff;border:1px solid #E3E3E3;box-shadow:0 4px 14px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center}
+        .sh-nav a.on{color:${GREEN}}
+        .sh-top{position:fixed;right:16px;bottom:calc(90px + env(safe-area-inset-bottom));z-index:19;width:48px;height:48px;border-radius:50%;background:${CREAM};border:1px solid ${LINE};color:${GREEN};box-shadow:0 4px 14px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center}
         .sh-kakao{position:fixed;right:16px;bottom:calc(148px + env(safe-area-inset-bottom));z-index:19;width:48px;height:48px;border-radius:50%;background:#FEE500;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center}
-        .sh-demo{margin:0 16px;padding:10px 14px;border-radius:10px;background:#FFF1EA;color:#B23100;font-size:12px;font-weight:600;line-height:1.5}
+        .sh-demo{margin:0 16px;padding:10px 14px;border-radius:10px;background:#E7EFE3;color:${GREEN};font-size:12px;font-weight:600;line-height:1.5}
       `}</style>
 
       {/* 헤더 + 탭 */}
       <div className="sh-hd">
         <div className="sh-hd__row">
-          <a href={linkBase || "/"} className="sh-logo" aria-label="산지픽 홈">산지<i>픽</i><small>SANJI PICK</small></a>
+          <a href={linkBase || "/"} className="sh-logo" aria-label="산지픽 홈"><img src="/sanji/logo.png" alt="" /><span><b>산지픽</b><small>SANJI PICK</small></span></a>
           <div className="sh-hd__icons">
             <a href="/products" aria-label="검색">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>

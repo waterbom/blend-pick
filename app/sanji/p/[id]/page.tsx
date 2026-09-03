@@ -39,7 +39,7 @@ export default async function SanjiProductPage({
     const card = SANJI_DEMO_CARDS.find((c) => c.id === id) ?? SANJI_DEMO_CARDS[0];
     const data = { ...SANJI_DEMO, product: { ...SANJI_DEMO.product, ...card, description: null }, images: [card.main_image!], others: SANJI_DEMO_CARDS.filter((c) => c.id !== card.id) };
     return (
-      <main style={{ background: "#F2F2F2", minHeight: "100svh" }}>
+      <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
         <SanjiSalesPage {...data} demo kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={await sanjiLinkBase()} />
       </main>
     );
@@ -47,7 +47,7 @@ export default async function SanjiProductPage({
   const [data, linkBase] = await Promise.all([loadSanjiSalesPage(id, inf), sanjiLinkBase()]);
   if (!data) notFound();
   return (
-    <main style={{ background: "#F2F2F2", minHeight: "100svh" }}>
+    <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
       <SanjiSalesPage {...data} kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={linkBase} />
     </main>
   );

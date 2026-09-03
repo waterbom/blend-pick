@@ -11,7 +11,7 @@ export default async function SanjiRoot() {
   const [products, reviews, linkBase] = await Promise.all([getSanjiProducts(), getSanjiHomeReviews(), sanjiLinkBase()]);
   const demo = products.length === 0;
   return (
-    <main style={{ background: "#F2F2F2", minHeight: "100svh" }}>
+    <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
       <SanjiHome
         products={demo ? SANJI_DEMO_CARDS : products}
         reviews={demo ? SANJI_DEMO_REVIEWS : reviews}
