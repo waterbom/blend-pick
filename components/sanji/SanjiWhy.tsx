@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 
 // 산지픽 랜딩 ② "산지픽은 이렇게 달라요" (시안 herospec ② 기준)
 // 히어로 폰 목업이 위로 200px 걸쳐 내려오므로 padding-top 290px, 딥그린→아이보리 세로 그라데이션.
-// 에셋 (public/sanji/): why-farmer.png / why-storage.png / why-produce.png (120×120 크롭 표시), badge-*.png
+// 에셋 (public/sanji/): why-farmer.png / why-storage.png / why-produce.png (120×120 크롭 표시), cert-*.png, badge-*.png
 
 const CARDS = [
   { no: "01", img: "/sanji/why-farmer.png", pos: "60% 40%", title: "농가 직거래", desc: "산지 농부와 직접 계약, 유통 마진 0" },
@@ -12,10 +12,11 @@ const CARDS = [
   { no: "03", img: "/sanji/why-produce.png", pos: "35% 50%", title: "직접 먹어보고 검증", desc: "인플루언서가 먹어보고 통과한 것만 공구" },
 ];
 
-const BADGES = [
-  { src: "/sanji/badge-gap.png", alt: "GAP 인증", short: "GAP" },
-  { src: "/sanji/badge-6th.png", alt: "6차산업 인증", short: "6차" },
-  { src: "/sanji/badge-cycle.png", alt: "자연순환농법", short: "순환" },
+// 하단 인증 서류 블록 (certsblock.html) — 서류 이미지가 없으면 자리만 잡히고, 올리면 바로 표시
+// 에셋: cert-lowcarbon.png (썸네일) / cert-lowcarbon-field.png (크게 보기) / cert-6th.png, badge-gap.png / badge-6th.png
+const CERTS = [
+  { doc: "/sanji/cert-lowcarbon.png", full: "/sanji/cert-lowcarbon-field.png", pos: "top", badge: "/sanji/badge-gap.png", short: "GAP", name: "GAP·저탄소 인증", org: "안전관리 기준 통과 농산물", alt: "저탄소 농축산물 인증서" },
+  { doc: "/sanji/cert-6th.png", full: "/sanji/cert-6th.png", pos: "left top", badge: "/sanji/badge-6th.png", short: "6차", name: "6차산업 인증", org: "농림축산식품부", alt: "농촌융복합산업 사업자 인증서" },
 ];
 
 export default function SanjiWhy() {
@@ -57,8 +58,18 @@ export default function SanjiWhy() {
         .sj-wcard__num{font-size:11px;font-weight:700;color:#ff6a3d}
         .sj-wcard__title{font-size:17px;font-weight:900;letter-spacing:-.02em}
         .sj-wcard__desc{font-size:13px;line-height:1.5;color:#6b675e;word-break:keep-all;text-wrap:pretty}
-        .sj-why__trust{display:flex;justify-content:center;align-items:center;gap:12px;font-size:12px;color:#6b675e;white-space:nowrap}
-        .sj-why__trust .sj-tbadge{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background-color:#e9e3d3;background-size:cover;background-position:center;font-size:10px;font-weight:700;color:#6b675e}
+        .sj-certs{display:flex;flex-direction:column;gap:14px}
+        .sj-certs__head{display:flex;justify-content:space-between;align-items:baseline}
+        .sj-certs__title{font-size:15px;font-weight:900;letter-spacing:-.02em}
+        .sj-certs__hint{font-size:11px;color:#9a9484;white-space:nowrap}
+        .sj-certs__grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .sj-cert{display:flex;flex-direction:column;gap:10px;background:#fff;border-radius:16px;padding:12px;box-shadow:0 6px 24px rgba(60,40,10,.08);text-decoration:none;color:#1a1a17}
+        .sj-cert__doc{height:150px;border-radius:10px;overflow:hidden;background:#eef0e6;background-size:cover;background-repeat:no-repeat;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9a9484}
+        .sj-cert__meta{display:flex;align-items:center;gap:8px}
+        .sj-cert__badge{width:26px;height:26px;border-radius:50%;flex-shrink:0;background-color:#e9e3d3;background-size:cover;background-position:center;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#6b675e}
+        .sj-cert__meta div{display:flex;flex-direction:column;min-width:0;gap:2px}
+        .sj-cert__name{font-size:12px;font-weight:700;line-height:1.3;word-break:keep-all}
+        .sj-cert__org{font-size:10px;color:#6b675e}
         @media (prefers-reduced-motion: reduce){.sj-reveal{opacity:1;transform:none;transition:none}}
       `}</style>
 
@@ -83,11 +94,23 @@ export default function SanjiWhy() {
         ))}
       </div>
 
-      <div className="sj-why__trust sj-reveal">
-        {BADGES.map((b) => (
-          <span key={b.short} className="sj-tbadge" role="img" aria-label={b.alt} style={{ backgroundImage: `url(${b.src})` }}>{b.short}</span>
-        ))}
-        <span>국가 인증 농가만 선별</span>
+      {/* 인증 서류 — 탭하면 원본 이미지를 새 탭으로 */}
+      <div className="sj-certs sj-reveal">
+        <div className="sj-certs__head">
+          <div className="sj-certs__title">국가 인증 서류, 직접 확인하세요</div>
+          <div className="sj-certs__hint">탭하면 크게 보기</div>
+        </div>
+        <div className="sj-certs__grid">
+          {CERTS.map((c) => (
+            <a key={c.name} className="sj-cert" href={c.full} target="_blank" rel="noreferrer">
+              <div className="sj-cert__doc" role="img" aria-label={c.alt} style={{ backgroundImage: `url(${c.doc})`, backgroundPosition: c.pos }} />
+              <div className="sj-cert__meta">
+                <span className="sj-cert__badge" role="img" aria-label={c.name} style={{ backgroundImage: `url(${c.badge})` }}>{c.short}</span>
+                <div><span className="sj-cert__name">{c.name}</span><span className="sj-cert__org">{c.org}</span></div>
+              </div>
+            </a>
+          ))}
+        </div>
       </div>
     </section>
   );
