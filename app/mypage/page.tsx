@@ -142,7 +142,7 @@ export default async function MyPage() {
         {/* 좌측 레일 — 프로필 + 메뉴 */}
         <aside className="md:sticky md:top-6">
         <div className="ds-card flex items-center gap-4 p-5">
-          <div className="w-16 h-16 overflow-hidden shrink-0" style={{ background: "#F6F4EE", border: "1px solid #E4E1D6" }}>
+          <div className="w-16 h-16 overflow-hidden shrink-0" style={{ background: "var(--surface-soft)", border: "1px solid var(--line)" }}>
             {user.profile_image ? (
               <img src={user.profile_image} alt={user.nickname} className="w-full h-full object-cover" />
             ) : (
@@ -151,15 +151,15 @@ export default async function MyPage() {
           </div>
           <div>
             <div className="ds-caption mb-1">MY PAGE</div>
-            <p className="ds-serif text-lg font-semibold m-0" style={{ color: "#1C2418" }}>
+            <p className="ds-serif text-lg font-semibold m-0" style={{ color: "var(--text-primary)" }}>
               {user.nickname || user.name || "이름 없음"}
             </p>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[10px] font-bold px-2 py-0.5" style={{ letterSpacing: "0.08em", color: "#244B1F", background: "#EAF0E6" }}>
+              <span className="text-[10px] font-bold px-2 py-0.5" style={{ letterSpacing: "0.08em", color: "var(--accent-hover)", background: "var(--accent-soft)" }}>
                 {roleInfo.label}
               </span>
               {user.role_status && user.role !== "customer" && (
-                <span className="text-xs" style={{ color: "#8B927F" }}>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                   {ROLE_STATUS_LABEL[user.role_status] ?? user.role_status}
                 </span>
               )}
@@ -167,10 +167,10 @@ export default async function MyPage() {
           </div>
         </div>
         <nav className="ds-card mt-4 flex flex-col">
-          <a href="#orders" className="px-5 py-3 text-[13px] font-bold" style={{ color: "#244B1F", borderLeft: "2px solid #244B1F", background: "#F6F4EE" }}>주문 내역</a>
-          <a href="#hotel" className="px-5 py-3 text-[13px]" style={{ color: "#4A5442", borderTop: "1px solid #F0EDE4" }}>호텔 예약 내역</a>
-          <a href="#subscribe" className="px-5 py-3 text-[13px]" style={{ color: "#4A5442", borderTop: "1px solid #F0EDE4" }}>OS 구독</a>
-          <a href="/api/auth/logout" className="px-5 py-3 text-[13px]" style={{ color: "#8B927F", borderTop: "1px solid #F0EDE4" }}>로그아웃</a>
+          <a href="#orders" className="px-5 py-3 text-[13px] font-bold" style={{ color: "var(--accent-hover)", borderLeft: "2px solid var(--accent-hover)", background: "var(--surface-soft)" }}>주문 내역</a>
+          <a href="#hotel" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-secondary)", borderTop: "1px solid var(--line-soft)" }}>호텔 예약 내역</a>
+          <a href="#subscribe" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-secondary)", borderTop: "1px solid var(--line-soft)" }}>OS 구독</a>
+          <a href="/api/auth/logout" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--line-soft)" }}>로그아웃</a>
         </nav>
         </aside>
 
@@ -179,7 +179,7 @@ export default async function MyPage() {
         <section id="hotel" className="mb-10">
           <div className="ds-section-title mb-4"><span>호텔 예약 내역</span></div>
           {hotelReservations.length === 0 ? (
-            <div className="ds-card p-5 text-sm" style={{ color: "#8B927F" }}>
+            <div className="ds-card p-5 text-sm" style={{ color: "var(--text-muted)" }}>
               호텔 예약 내역이 없습니다.
             </div>
           ) : (
@@ -189,21 +189,21 @@ export default async function MyPage() {
                 const paidAt = rv.paid_at ? new Date(rv.paid_at).toLocaleDateString("ko-KR") : "";
                 return (
                   <div key={rv.id} className="ds-card">
-                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid #E4E1D6", background: "#FAFAF6" }}>
+                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid var(--line)", background: "var(--surface-soft)" }}>
                       <div className="flex items-baseline gap-3 min-w-0">
-                        <span className="ds-mono text-xs font-semibold" style={{ color: "#5C6553" }}>{paidAt}</span>
-                        <span className="ds-mono text-[11px] truncate" style={{ color: "#8B927F" }}>{rv.order_number}</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 shrink-0" style={{ letterSpacing: "0.08em", color: "#244B1F", background: "#EAF0E6" }}>호텔 예약</span>
+                        <span className="ds-mono text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{paidAt}</span>
+                        <span className="ds-mono text-[11px] truncate" style={{ color: "var(--text-muted)" }}>{rv.order_number}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 shrink-0" style={{ letterSpacing: "0.08em", color: "var(--accent-hover)", background: "var(--accent-soft)" }}>호텔 예약</span>
                       </div>
                       <span className={`text-xs font-semibold shrink-0 ${st.color}`}>{st.label}</span>
                     </div>
                     <div className="px-5 py-4">
-                      <p className="text-sm font-semibold mb-1" style={{ color: "#1C2418" }}>{rv.product_name}</p>
-                      <p className="text-xs tnum mb-3" style={{ color: "#8B927F" }}>
+                      <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{rv.product_name}</p>
+                      <p className="text-xs tnum mb-3" style={{ color: "var(--text-muted)" }}>
                         {fmtStayDate(rv.check_in)} 입실 ~ {fmtStayDate(rv.check_out)} 퇴실
                       </p>
-                      <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid #E4E1D6" }}>
-                        <span className="ds-mono text-sm font-semibold" style={{ color: "#1C2418" }}>
+                      <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid var(--line)" }}>
+                        <span className="ds-mono text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                           {Number(rv.total_amount).toLocaleString()}원
                         </span>
                         {rv.status === "paid" && (
@@ -226,7 +226,7 @@ export default async function MyPage() {
         <section id="orders" className="mb-10">
           <div className="ds-section-title mb-4"><span>주문 내역</span></div>
           {orders.length === 0 ? (
-            <div className="ds-card p-5 text-sm" style={{ color: "#8B927F" }}>
+            <div className="ds-card p-5 text-sm" style={{ color: "var(--text-muted)" }}>
               구매 내역이 없습니다.
             </div>
           ) : (
@@ -239,10 +239,10 @@ export default async function MyPage() {
                 return (
                   <div key={order.id} className="ds-card">
                     {/* 주문 헤더 스트립 */}
-                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid #E4E1D6", background: "#FAFAF6" }}>
+                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid var(--line)", background: "var(--surface-soft)" }}>
                       <div className="flex items-baseline gap-3 min-w-0">
-                        <span className="ds-mono text-xs font-semibold" style={{ color: "#5C6553" }}>{paidAt}</span>
-                        <span className="ds-mono text-[11px] truncate" style={{ color: "#8B927F" }}>{order.order_number}</span>
+                        <span className="ds-mono text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>{paidAt}</span>
+                        <span className="ds-mono text-[11px] truncate" style={{ color: "var(--text-muted)" }}>{order.order_number}</span>
                       </div>
                       <span className={`text-xs font-semibold shrink-0 ${statusInfo.color}`}>
                         {statusInfo.label}
@@ -260,7 +260,7 @@ export default async function MyPage() {
                           >
                             {item.product_name}
                             {item.option_label && (
-                              <span className="font-normal" style={{ color: "#8B927F" }}> / {item.option_label}</span>
+                              <span className="font-normal" style={{ color: "var(--text-muted)" }}> / {item.option_label}</span>
                             )}
                           </Link>
                           <span className="text-xs shrink-0 ml-3" style={{ color: "var(--text-muted)" }}>
@@ -272,7 +272,7 @@ export default async function MyPage() {
 
                     {/* 배송지 */}
                     {order.addr_address && (
-                      <p className="px-5 pb-2 m-0 text-xs" style={{ color: "#8B927F" }}>
+                      <p className="px-5 pb-2 m-0 text-xs" style={{ color: "var(--text-muted)" }}>
                         배송지 · {order.recipient_name ?? order.buyer_name} · {order.addr_address}{order.addr_detail ? ` ${order.addr_detail}` : ""}
                       </p>
                     )}
@@ -284,13 +284,13 @@ export default async function MyPage() {
                           const stepIdx = order.status === "delivered" ? 3 : order.status === "shipped" ? 2 : order.status === "preparing" ? 1 : 0;
                           return ["결제 완료", "상품 준비", "배송 중", "배송 완료"].map((label, i) => (
                             <span key={label} className="flex items-center">
-                              <span className="text-[10.5px] font-bold" style={{ color: i <= stepIdx ? "#2D5A27" : "#B4B0A2" }}>{label}</span>
-                              {i < 3 && <span className="inline-block w-6 sm:w-8 h-px mx-1.5" style={{ background: i < stepIdx ? "#2D5A27" : "#E4E1D6" }} />}
+                              <span className="text-[10.5px] font-bold" style={{ color: i <= stepIdx ? "var(--accent)" : "#B4B0A2" }}>{label}</span>
+                              {i < 3 && <span className="inline-block w-6 sm:w-8 h-px mx-1.5" style={{ background: i < stepIdx ? "var(--accent)" : "var(--line)" }} />}
                             </span>
                           ));
                         })()}
                         {(order.shipped_kst || order.delivered_kst) && (
-                          <span className="ds-mono text-[10.5px] ml-3" style={{ color: "#8B927F" }}>
+                          <span className="ds-mono text-[10.5px] ml-3" style={{ color: "var(--text-muted)" }}>
                             {order.shipped_kst && `발송 ${order.shipped_kst}`}
                             {order.shipped_kst && order.delivered_kst && " · "}
                             {order.delivered_kst && `완료 ${order.delivered_kst}`}
@@ -313,10 +313,10 @@ export default async function MyPage() {
                               {["신청 접수", "수거·처리 중", `${kindLabel} 완료`].map((label, i) => (
                                 <span key={label} className="flex items-center">
                                   <span className="text-[10.5px] font-bold" style={{ color: i <= stepIdx ? "#6D28D9" : "#B4B0A2" }}>{label}</span>
-                                  {i < 2 && <span className="inline-block w-6 sm:w-8 h-px mx-1.5" style={{ background: i < stepIdx ? "#6D28D9" : "#E4E1D6" }} />}
+                                  {i < 2 && <span className="inline-block w-6 sm:w-8 h-px mx-1.5" style={{ background: i < stepIdx ? "#6D28D9" : "var(--line)" }} />}
                                 </span>
                               ))}
-                              <span className="ds-mono text-[10.5px] ml-3" style={{ color: "#8B927F" }}>신청 {r.created_kst}</span>
+                              <span className="ds-mono text-[10.5px] ml-3" style={{ color: "var(--text-muted)" }}>신청 {r.created_kst}</span>
                             </>
                           );
                         })()}
@@ -332,9 +332,9 @@ export default async function MyPage() {
                     {/* 총액 + 버튼 */}
                     <div
                       className="flex items-center justify-between px-5 py-3.5"
-                      style={{ borderTop: "1px solid #E4E1D6" }}
+                      style={{ borderTop: "1px solid var(--line)" }}
                     >
-                      <span className="ds-mono text-sm font-semibold" style={{ color: "#1C2418" }}>
+                      <span className="ds-mono text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                         {Number(order.total_amount).toLocaleString()}원
                       </span>
                       <div className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export default async function MyPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs px-3.5 py-2 transition-colors"
-                            style={{ border: "1px solid #E4E1D6", color: "#4A5442" }}
+                            style={{ border: "1px solid var(--line)", color: "var(--text-secondary)" }}
                           >
                             {carrierName(order.tracking_company)} 조회
                           </a>
@@ -358,21 +358,21 @@ export default async function MyPage() {
                           <Link
                             href={`/mypage/returns/new?order=${order.id}`}
                             className="text-xs px-3.5 py-2 transition-colors"
-                            style={{ border: "1px solid #E4E1D6", color: "#4A5442" }}
+                            style={{ border: "1px solid var(--line)", color: "var(--text-secondary)" }}
                           >
                             교환·반품
                           </Link>
                         )}
                         {order.status === "delivered" && (
                           order.items[0]?.reviewed ? (
-                            <span className="text-xs font-semibold px-3.5 py-2" style={{ border: "1px solid #E4E1D6", color: "#8F948A" }}>
+                            <span className="text-xs font-semibold px-3.5 py-2" style={{ border: "1px solid var(--line)", color: "#8F948A" }}>
                               리뷰 작성완료 ✓
                             </span>
                           ) : (
                             <Link
                               href={`/products/${order.items[0]?.product_id}#review`}
                               className="text-xs font-semibold px-3.5 py-2"
-                              style={{ border: "1px solid #244B1F", color: "#244B1F" }}
+                              style={{ border: "1px solid var(--accent-hover)", color: "var(--accent-hover)" }}
                             >
                               리뷰 쓰기
                             </Link>
@@ -391,7 +391,7 @@ export default async function MyPage() {
         <section id="subscribe" className="mb-10">
           <div className="ds-section-title mb-4"><span>OS 구독</span></div>
           <div className="ds-card p-5">
-            <p className="text-sm" style={{ color: "#8B927F" }}>구독을 하지 않은 상태입니다.</p>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>구독을 하지 않은 상태입니다.</p>
             <button className="ds-btn ds-btn-primary mt-4 px-8" style={{ height: "44px", fontSize: "13px" }}>
               구독하기
             </button>

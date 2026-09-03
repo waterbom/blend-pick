@@ -78,7 +78,7 @@ export default function HeaderClient({
   return (
     <header
       className="sticky top-0 z-50 border-b"
-      style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "saturate(180%) blur(12px)", WebkitBackdropFilter: "saturate(180%) blur(12px)", borderColor: "var(--line)" }}
+      style={{ background: isSanji ? "rgba(251,248,241,0.9)" : "rgba(255,255,255,0.85)", backdropFilter: "saturate(180%) blur(12px)", WebkitBackdropFilter: "saturate(180%) blur(12px)", borderColor: "var(--line)" }}
     >
       {/*
         기존: 2줄 헤더 (로고+로그인 / 햄버거+네비)
@@ -89,9 +89,12 @@ export default function HeaderClient({
         {/* 좌측: 로고 */}
         <div className="flex items-center">
           {isSanji ? (
-            <Link href={homeHref} className="flex items-baseline gap-1.5 text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "#3E2A1E" }}>
-              <span>SANJI</span>
-              <span style={{ color: "#3F6B3A" }}>PICK</span>
+            <Link href={homeHref} className="flex items-center gap-2" style={{ color: "var(--accent)" }}>
+              <img src="/sanji/logo.png" alt="" className="w-9 h-9 rounded-full" />
+              <span className="flex flex-col leading-none">
+                <span className="text-xl font-extrabold" style={{ letterSpacing: "-0.03em" }}>산지픽</span>
+                <span className="text-[9px] font-bold tracking-[0.18em] opacity-80 mt-0.5">SANJI PICK</span>
+              </span>
             </Link>
           ) : (
             <Link href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { BrandMark } from "@/components/SiteContext";
 import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
@@ -112,7 +113,7 @@ export default function SignupPage() {
           className="block text-center text-2xl font-extrabold tracking-tight mb-10"
           style={{ color: "var(--text-primary)" }}
         >
-          BLEND PICK
+          <span className="inline-flex justify-center"><BrandMark size={22} /></span>
         </Link>
 
         {step === "form" ? (

@@ -19,7 +19,7 @@
 | `components/sanji/SanjiSalesPage.tsx` | 판매 페이지 UI | 상품 슬라이드 → 한정특가 잔여 → 가격 → 탭(설명/정보/후기) → 함께 본 상품 → 하단 고정 구매바 |
 | `components/Header*` | 공용 헤더 | 사이트별 로고·네비 분기 |
 
-- 산지픽 도메인에서 `/products/*`, `/cart`, `/checkout`, `/login`, `/mypage`, `/api/*`는 **블랜드픽과 공용** (헤더만 산지픽 로고).
+- 산지픽 도메인에서 `/products/*`, `/cart`, `/checkout`, `/login`, `/mypage`, `/api/*`는 **블랜드픽과 공용**. 레이아웃은 같고, 루트 레이아웃이 `html[data-site="sanjipick"]`를 붙여 `globals.css`의 산지픽 팔레트(로고 그린·크림·Noto Sans KR)로 색만 갈린다. 헤더·푸터·로그인/회원가입 워드마크는 산지픽 로고로 바뀐다 (`components/SiteContext.tsx`의 `BrandMark`).
 - 산지픽에 노출할 상품 = 상품 관리에서 **카테고리 `산지픽`** 으로 지정한 판매 중 상품.
   - 루트 `/` 는 메인. 배너 = 판매중 상품 앞 4개, 큰 카드 = 판매중 상품, 한정특가 = 할인율 순, 신상품 = 등록순, 오픈 예정 = `sale_start_at`이 미래인 상품(오늘/내일 HH:MM 표시), 후기 = 산지픽 상품 최근 후기.
   - 카드 클릭 → `/p/<id>` 판매 페이지 (상품 슬라이드·특가 바·탭·하단 구매바).

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { BrandMark } from "@/components/SiteContext";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -40,13 +41,13 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center px-4 py-10" style={{ background: "var(--background)" }}>
       <div className="w-full max-w-[520px] ds-card">
         {/* 상단 브랜드 밴드 */}
-        <Link href="/" className="flex items-center justify-center h-16" style={{ background: "#244B1F" }}>
-          <span className="text-white font-extrabold text-[17px]" style={{ letterSpacing: "0.06em" }}>BLEND PICK</span>
+        <Link href="/" className="flex items-center justify-center h-16" style={{ background: "var(--accent-hover)" }}>
+          <BrandMark onDark size={17} />
         </Link>
 
         <div className="px-8 sm:px-14 pt-12 pb-10">
           <div className="ds-caption mb-3">MEMBER LOGIN</div>
-          <h1 className="ds-serif text-[26px] font-semibold m-0" style={{ color: "#1C2418" }}>로그인</h1>
+          <h1 className="ds-serif text-[26px] font-semibold m-0" style={{ color: "var(--text-primary)" }}>로그인</h1>
 
           <div className="mt-7 flex flex-col gap-3">
             {/* 카카오 로그인 */}
@@ -60,9 +61,9 @@ export default function LoginPage() {
 
             {/* 구분선 */}
             <div className="flex items-center gap-3.5 my-2">
-              <div className="flex-1 h-px" style={{ background: "#E4E1D6" }} />
-              <span className="text-[11px]" style={{ color: "#8B927F" }}>또는 이메일로</span>
-              <div className="flex-1 h-px" style={{ background: "#E4E1D6" }} />
+              <div className="flex-1 h-px" style={{ background: "var(--line)" }} />
+              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>또는 이메일로</span>
+              <div className="flex-1 h-px" style={{ background: "var(--line)" }} />
             </div>
 
             {/* 이메일 로그인 */}
@@ -100,16 +101,16 @@ export default function LoginPage() {
             <span>로그인 시 이용약관에 동의하게 됩니다</span>
             <span>
               아직 회원이 아니신가요?{" "}
-              <Link href="/signup" className="font-semibold" style={{ color: "#2D5A27" }}>
+              <Link href="/signup" className="font-semibold" style={{ color: "var(--accent)" }}>
                 회원가입
               </Link>
             </span>
           </div>
         </div>
 
-        <div className="px-8 sm:px-14 py-4 text-[11px]" style={{ borderTop: "1px solid #E4E1D6", color: "#8B927F" }}>
+        <div className="px-8 sm:px-14 py-4 text-[11px]" style={{ borderTop: "1px solid var(--line)", color: "var(--text-muted)" }}>
           비회원으로 주문하셨나요?{" "}
-          <Link href="/orders/lookup" className="font-semibold underline" style={{ color: "#2D5A27" }}>
+          <Link href="/orders/lookup" className="font-semibold underline" style={{ color: "var(--accent)" }}>
             휴대폰 인증으로 주문 조회
           </Link>
         </div>

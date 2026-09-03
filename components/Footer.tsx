@@ -1,19 +1,31 @@
 import Link from "next/link";
+import { currentSite } from "@/lib/site-server";
 
-export default function Footer() {
+// 공용 푸터 — 사이트별로 브랜드 표기만 갈린다 (사업자 정보는 블랜드펀치 공통)
+export default async function Footer() {
+  const site = await currentSite();
+  const sanji = site.key === "sanjipick";
   return (
     <footer className="mt-auto border-t" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
       <div className="container-blend py-10">
         <div className="flex flex-col gap-6 text-left">
           {/* 브랜드 */}
           <div>
-            <p className="text-sm font-extrabold tracking-widest uppercase" style={{ color: "var(--text-primary)" }}>Blend Pick</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>인플루언서 공구 플랫폼</p>
+            {sanji ? (
+              <p className="flex items-center gap-2 m-0" style={{ color: "var(--accent)" }}>
+                <img src="/sanji/logo.png" alt="" className="w-8 h-8 rounded-full" />
+                <span className="text-base font-extrabold" style={{ letterSpacing: "-0.03em" }}>산지픽</span>
+                <span className="text-[10px] font-bold tracking-[0.18em] opacity-80">SANJI PICK</span>
+              </p>
+            ) : (
+              <p className="text-sm font-extrabold tracking-widest uppercase" style={{ color: "var(--text-primary)" }}>Blend Pick</p>
+            )}
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{sanji ? "산지에서 바로, 제철 그대로 · 농가 직송 공동구매 by BLEND PUNCH" : "인플루언서 공구 플랫폼"}</p>
           </div>
 
           {/* 링크 */}
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
-            <Link href="/hotel/lookup" className="transition-colors hover:underline font-semibold" style={{ color: "var(--accent)" }}>예약 조회</Link>
+            {!sanji && <Link href="/hotel/lookup" className="transition-colors hover:underline font-semibold" style={{ color: "var(--accent)" }}>예약 조회</Link>}
             <Link href="/orders/lookup" className="transition-colors hover:underline font-semibold" style={{ color: "var(--accent)" }}>주문 조회</Link>
             <Link href="/terms" className="transition-colors hover:underline" style={{ color: "var(--text-secondary)" }}>이용약관</Link>
             <Link href="/privacy" className="transition-colors hover:underline font-semibold" style={{ color: "var(--text-primary)" }}>개인정보처리방침</Link>
@@ -28,7 +40,7 @@ export default function Footer() {
             <p>대표전화: 010-4792-3646 &nbsp;|&nbsp; 고객센터: blendpick@blendpunch.com</p>
           </div>
 
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>© 2026 Blend Pick. All rights reserved.</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>© 2026 {sanji ? "SANJI PICK by BLEND PUNCH" : "Blend Pick"}. All rights reserved.</p>
         </div>
       </div>
     </footer>
