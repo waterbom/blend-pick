@@ -222,19 +222,28 @@ export async function loadSanjiSalesPage(productId: string, inf?: string) {
   };
 }
 
-// 메인 예시 상품 — 산지픽 상품이 없을 때 레이아웃 확인용
+// 메인 예시 상품 — 산지픽 상품이 없을 때 레이아웃 확인용. 사진은 public/sanji/products/<품목>/ 의 실사진.
 const demoAt = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400e3).toISOString();
+const P = (dir: string, file: string) => `/sanji/products/${encodeURIComponent(dir)}/${encodeURIComponent(file)}.webp`;
+// 예시 상품별 사진 세트 — 첫 장이 대표, 나머지가 슬라이드·상세
+export const SANJI_DEMO_IMAGES: Record<string, string[]> = {
+  "demo": ["감자", "감자1", "감자2", "감자3", "감자4", "감자5", "감자6"].map((f) => P("감자", f)),
+  "demo-2": ["복숭아", "복숭아1", "복숭아2", "복숭아3", "복숭아4", "복숭아5", "복숭아6"].map((f) => P("복숭아", f)),
+  "demo-3": ["단호박1", "단호박2", "단호박3", "단호박4", "단호박5"].map((f) => P("단호박", f)),
+  "demo-4": ["배도라지1", "배도라지2", "배도라지3"].map((f) => P("배도라지", f)),
+  "demo-5": ["사과1", "사과2", "사과3", "사과4", "사과5", "사과6", "사과7"].map((f) => P("사과", f)),
+};
 export const SANJI_DEMO_CARDS: SanjiCard[] = [
-  { id: "demo", name: "괴산 부사 사과 5kg 가정용 (흠과 아님 · 당일 수확)", brand: "괴산 청년농부", price: 29900, original_price: 43000, main_image: "/sanji/card-basket.png", stock: 137, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(1), sold: 1284 },
-  { id: "demo-2", name: "제철 단호박 3kg (밤처럼 포슬포슬)", brand: "해남 농가", price: 12900, original_price: 19000, main_image: "/sanji/why-produce.png", stock: 84, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(2), sold: 412 },
-  { id: "demo-3", name: "산지 직송 사과 10kg 대용량 박스", brand: "괴산 청년농부", price: 49900, original_price: 72000, main_image: "/sanji/card-crate.png", stock: 52, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(3), sold: 233 },
-  { id: "demo-4", name: "저온창고 숙성 고구마 5kg", brand: "여주 농가", price: 15900, original_price: 22000, main_image: "/sanji/why-storage.png", stock: 0, status: "active", sale_start_at: new Date(Date.now() + 26 * 3600e3).toISOString(), sale_end_at: null, created_at: demoAt(0), sold: 0 },
-  { id: "demo-5", name: "농가 직거래 제철 채소 꾸러미", brand: "괴산 농가", price: 19900, original_price: 26000, main_image: "/sanji/why-farmer.png", stock: 0, status: "active", sale_start_at: new Date(Date.now() + 5 * 3600e3).toISOString(), sale_end_at: null, created_at: demoAt(0), sold: 0 },
+  { id: "demo", name: "카스테라 포슬포슬 햇감자 3kg (GAP 인증 괴산 노지 홍감자)", brand: "괴산 청년농부", price: 14900, original_price: 21000, main_image: SANJI_DEMO_IMAGES["demo"][0], stock: 137, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(1), sold: 1284 },
+  { id: "demo-2", name: "한 입에 꿀 대향금 복숭아 2kg (고당도 황도)", brand: "괴산 과수원", price: 24900, original_price: 34000, main_image: SANJI_DEMO_IMAGES["demo-2"][0], stock: 84, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(2), sold: 412 },
+  { id: "demo-3", name: "달콤 숙성 미니 밤 단호박 3kg (큐어링 완료)", brand: "괴산 청년농부", price: 12900, original_price: 19000, main_image: SANJI_DEMO_IMAGES["demo-3"][0], stock: 52, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(3), sold: 233 },
+  { id: "demo-4", name: "목이 편한 클래식 배도라지즙 100ml × 20개입", brand: "산지픽", price: 19900, original_price: 28000, main_image: SANJI_DEMO_IMAGES["demo-4"][0], stock: 60, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(4), sold: 96 },
+  { id: "demo-5", name: "아삭 달콤 부사 사과 특대과 선물용 12과", brand: "괴산 6대째 청년농부", price: 49900, original_price: 72000, main_image: SANJI_DEMO_IMAGES["demo-5"][0], stock: 0, status: "active", sale_start_at: new Date(Date.now() + 26 * 3600e3).toISOString(), sale_end_at: null, created_at: demoAt(0), sold: 0 },
 ];
 export const SANJI_DEMO_REVIEWS: SanjiHomeReview[] = [
-  { id: "r1", buyer_name: "아링", rating: 5, content: "맛있어요 진짜짱! 달달달달 너무 굿이에요", image: "/sanji/card-basket.png", created_at: demoAt(0.05), product_id: "demo", product_name: "괴산 부사 사과 5kg" },
-  { id: "r2", buyer_name: "잔망알찬", rating: 5, content: "일주일 넘게 방치하고 있다가 잘라보니 세상달달ㅠㅠ 너무 맛있어요", image: "/sanji/why-produce.png", created_at: demoAt(0.7), product_id: "demo-2", product_name: "제철 단호박 3kg" },
-  { id: "r3", buyer_name: "2422WQrJ", rating: 5, content: "박스 열자마자 사과 향이 확 올라와요. 재구매 의사 100%", image: "/sanji/card-crate.png", created_at: demoAt(1.2), product_id: "demo-3", product_name: "산지 직송 사과 10kg" },
+  { id: "r1", buyer_name: "아링", rating: 5, content: "감자가 진짜 포슬포슬해요. 소금만 찍어 먹어도 달달", image: SANJI_DEMO_IMAGES["demo"][6], created_at: demoAt(0.05), product_id: "demo", product_name: "카스테라 포슬포슬 햇감자 3kg" },
+  { id: "r2", buyer_name: "잔망알찬", rating: 5, content: "복숭아 향이 박스 열자마자 확 올라와요. 한 입에 꿀이 맞네요", image: SANJI_DEMO_IMAGES["demo-2"][4], created_at: demoAt(0.7), product_id: "demo-2", product_name: "한 입에 꿀 대향금 복숭아 2kg" },
+  { id: "r3", buyer_name: "2422WQrJ", rating: 5, content: "단호박 쪄서 먹으니 밤 맛이에요. 아이들이 더 잘 먹어요", image: SANJI_DEMO_IMAGES["demo-3"][0], created_at: demoAt(1.2), product_id: "demo-3", product_name: "달콤 숙성 미니 밤 단호박 3kg" },
 ];
 
 // 첫 산지픽 상품이 등록되기 전 — 디자인 확인용 예시 (구매 버튼은 잠긴다)
@@ -242,24 +251,24 @@ export const SANJI_DEMO: NonNullable<Awaited<ReturnType<typeof loadSanjiSalesPag
   demo: true,
   product: {
     id: "demo",
-    name: "괴산 부사 사과 5kg 가정용 (흠과 아님 · 당일 수확)",
-    brand: "산지픽",
+    name: "카스테라 포슬포슬 햇감자 3kg (GAP 인증 괴산 노지 홍감자)",
+    brand: "괴산 청년농부",
     category: "산지픽",
     description: null,
-    price: 29900,
-    original_price: 43000,
+    price: 14900,
+    original_price: 21000,
     stock: 137,
     status: "active",
     shipping_type: "free",
     shipping_cost: 0,
     free_shipping_threshold: null,
     per_unit_shipping_cost: null,
-    main_image: "/sanji/card-basket.png",
+    main_image: SANJI_DEMO_IMAGES["demo"][0],
     influencer_id: null,
     sale_start_at: null,
     sale_end_at: null,
   },
-  images: ["/sanji/card-basket.png", "/sanji/card-crate.png", "/sanji/why-produce.png"],
+  images: SANJI_DEMO_IMAGES["demo"],
   options: [],
   reviews: {
     total: 0,

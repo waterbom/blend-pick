@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import SanjiSalesPage from "@/components/sanji/SanjiSalesPage";
-import { getSanjiProduct, loadSanjiSalesPage, SANJI_DEMO, SANJI_DEMO_CARDS } from "@/lib/sanji-data";
+import { getSanjiProduct, loadSanjiSalesPage, SANJI_DEMO, SANJI_DEMO_CARDS, SANJI_DEMO_IMAGES } from "@/lib/sanji-data";
 import { sanjiLinkBase } from "@/lib/sanji-link";
 import { SITES } from "@/lib/sites";
 
@@ -37,7 +37,7 @@ export default async function SanjiProductPage({
   // 메인 예시 카드(demo-*)에서 들어온 경우 — 예시 판매 페이지 (구매 잠김)
   if (id.startsWith("demo")) {
     const card = SANJI_DEMO_CARDS.find((c) => c.id === id) ?? SANJI_DEMO_CARDS[0];
-    const data = { ...SANJI_DEMO, product: { ...SANJI_DEMO.product, ...card, description: null }, images: [card.main_image!], others: SANJI_DEMO_CARDS.filter((c) => c.id !== card.id) };
+    const data = { ...SANJI_DEMO, product: { ...SANJI_DEMO.product, ...card, description: null }, images: SANJI_DEMO_IMAGES[card.id] ?? [card.main_image!], others: SANJI_DEMO_CARDS.filter((c) => c.id !== card.id) };
     return (
       <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
         <SanjiSalesPage {...data} demo kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={await sanjiLinkBase()} />
