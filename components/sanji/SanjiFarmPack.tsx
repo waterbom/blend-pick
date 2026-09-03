@@ -4,22 +4,23 @@ import { useEffect, useRef } from "react";
 
 // 산지픽 이야기 ③ OUR FARM + ④ PACKING (시안 herospec ③·④ 기준) — ② 아래에 이어 붙는다.
 // 에셋 (public/sanji/): farm-harvester / farm-machine / farm-peach / farm-hands, pack-potato / pack-aircap (.png)
-// 파일이 없으면 베이지 바탕만 보이고, 올리면 바로 반영된다. GIF/MP4로 바꾸려면 아래 CUTS의 video 필드에 경로를 넣으면 된다.
+// 농장 4컷은 farm-*.mp4 영상(GIF 원본을 H.264로 변환, 720px) + farm-*.png 포스터. 영상 교체는 mp4만 바꾸면 된다.
 
 const ACCENT = "#ff6a3d";
 
+// video가 있으면 영상(무음·자동재생·반복)으로, img는 영상 로딩 전 포스터 겸 대체 이미지
 const CUTS: { key: string; step: string; title: string; img: string; video?: string; half?: boolean }[] = [
-  { key: "harvester", step: "01 수확", title: "기계 수확으로 하루 만에 밭 한 판", img: "/sanji/farm-harvester.png" },
-  { key: "machine", step: "02 선별", title: "흙만 털고 바로 선별", img: "/sanji/farm-machine.png", half: true },
-  { key: "peach", step: "03 과수원", title: "복숭아·사과 나무에서 바로", img: "/sanji/farm-peach.png", half: true },
-  { key: "hands", step: "04 손 검수", title: "마지막은 사람 손으로 하나씩", img: "/sanji/farm-hands.png" },
+  { key: "harvester", step: "01 수확", title: "기계 수확으로 하루 만에 밭 한 판", img: "/sanji/farm-harvester.png", video: "/sanji/farm-harvester.mp4" },
+  { key: "machine", step: "02 선별", title: "흙만 털고 바로 선별", img: "/sanji/farm-machine.png", video: "/sanji/farm-machine.mp4", half: true },
+  { key: "peach", step: "03 과수원", title: "복숭아·사과 나무에서 바로", img: "/sanji/farm-peach.png", video: "/sanji/farm-peach.mp4", half: true },
+  { key: "hands", step: "04 손 검수", title: "마지막은 사람 손으로 하나씩", img: "/sanji/farm-hands.png", video: "/sanji/farm-hands.mp4" },
 ];
 
 function Cut({ c, reverse }: { c: (typeof CUTS)[number]; reverse: boolean }) {
   return (
     <div className={`sj-gif${c.half ? " sj-gif--half" : ""} sj-reveal`}>
       {c.video ? (
-        <video className="sj-gif__media" src={c.video} autoPlay muted loop playsInline style={{ animationDirection: reverse ? "alternate-reverse" : "alternate" }} />
+        <video className="sj-gif__media" src={c.video} poster={c.img} autoPlay muted loop playsInline preload="metadata" style={{ animationDirection: reverse ? "alternate-reverse" : "alternate" }} />
       ) : (
         <div className="sj-gif__media" role="img" aria-label={c.title} style={{ backgroundImage: `url(${c.img})`, animationDirection: reverse ? "alternate-reverse" : "alternate" }} />
       )}

@@ -12,13 +12,16 @@
 | why-farmer.png | ② 카드 01 농가 직거래 | 정방형 권장 (120×120 크롭 표시) |
 | why-storage.png | ② 카드 02 수확 당일 발송 | 정방형 권장 |
 | why-produce.png | ② 카드 03 직접 먹어보고 검증 (시식 사진 없으면 임시로 작물 클로즈업) | 정방형 권장 |
-| farm-harvester.png | ③ OUR FARM 01 수확 (큰 컷 220px) | 가로 16:10 이상, GIF/MP4로 교체 가능 |
-| farm-machine.png | ③ 02 선별 (반쪽 컷 200px) | 정방형 권장 |
-| farm-peach.png | ③ 03 과수원 (반쪽 컷) | 정방형 권장 |
-| farm-hands.png | ③ 04 손 검수 (큰 컷) | 가로 |
+| farm-harvester.mp4 / .png | ③ OUR FARM 01 수확 (큰 컷 220px) — mp4 영상 + png 포스터 | 720px, 무음 |
+| farm-machine.mp4 / .png | ③ 02 선별 (반쪽 컷 200px) | 720px, 무음 |
+| farm-peach.mp4 / .png | ③ 03 과수원 (반쪽 컷) | 720px, 무음 |
+| farm-hands.mp4 / .png | ③ 04 손 검수 (큰 컷) | 720px, 무음 |
+| farm-dig.mp4 | (예비) 밭 파는 컷 — 아직 화면에 안 씀 | |
 | pack-potato.png | ④ PACKING 메인 사진 (260px) | 가로 |
 | pack-aircap.png | ④ 우하단 인셋 에어캡 사진 (150×150) | 정방형 |
 
 > 2026-09-03 — 루트(/)가 랜딩에서 **판매 페이지**로 바뀌었다. 위 에셋은 이제 `/about`(브랜드 소개)에서 쓰이고,
 > 판매 페이지의 슬라이드·상세 이미지는 **상품 관리**(대표 이미지 + 추가 이미지 + 상세 HTML)에서 올린 것이 그대로 뜬다.
 > 산지픽 상품이 하나도 없을 때만 card-basket / card-crate / why-produce 가 예시 슬라이드로 쓰인다.
+
+> GIF 원본은 8~16MB라 그대로 올리면 모바일에서 너무 느리다. `ffmpeg -i in.gif -vf scale=720:-2 -pix_fmt yuv420p -c:v libx264 -crf 29 -an out.mp4` 로 변환해서 올린다.
