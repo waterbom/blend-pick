@@ -121,7 +121,7 @@ export default function SignupPage() {
             {/* 카카오톡 1초 가입 (카카오 로그인 = 자동 가입) */}
             <a
               href={`/api/auth/kakao${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`}
-              className="w-full bg-[#FEE500] text-[#191600] py-4 text-sm font-bold hover:brightness-95 transition-all flex items-center justify-center gap-2 rounded-xl"
+              className="sj-kakao w-full bg-[#FEE500] text-[#191600] py-4 text-sm font-bold hover:brightness-95 transition-all flex items-center justify-center gap-2 rounded-xl"
             >
               <span>💬</span> 카카오톡 1초 가입
             </a>
@@ -286,7 +286,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full text-white py-3.5 text-sm font-bold rounded-xl transition-all hover:brightness-95 disabled:opacity-50"
+                className="sj-primary w-full text-white py-3.5 text-sm font-bold rounded-xl transition-all hover:brightness-95 disabled:opacity-50"
                 style={{ background: "var(--accent)" }}
               >
                 {loading ? "처리 중..." : "인증 코드 받기"}
@@ -315,7 +315,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full text-white py-3.5 text-sm font-bold rounded-xl transition-all hover:brightness-95 disabled:opacity-50"
+                className="sj-primary w-full text-white py-3.5 text-sm font-bold rounded-xl transition-all hover:brightness-95 disabled:opacity-50"
                 style={{ background: "var(--accent)" }}
               >
                 {loading ? "확인 중..." : "인증 완료"}
