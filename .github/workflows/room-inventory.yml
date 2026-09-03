@@ -1,0 +1,47 @@
+name: Room Inventory (배정 수량 조정)
+
+# 객실 배정 수량 조정 — scripts/set-room-inventory.cjs 를 EC2(상용 DB)에서 실행
+#   add 모드: 현재 배정에서 N개 증감 (음수 가능)   set 모드: 배정을 N개로 지정
+#   이미 예약된 수보다 적게는 못 줄인다 (스크립트 안전장치)
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "숙박일 (YYYY-MM-DD)"
+        required: true
+      room:
+        description: "객실명 (예: 디럭스 더블)"
+        required: true
+      mode:
+        description: "add(증감) / set(지정)"
+        required: true
+        default: add
+        type: choice
+        options: [add, set]
+      amount:
+        description: "수량 (add면 +1, -1 처럼 증감값 / set이면 최종 배정 수)"
+        required: true
+        default: "1"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Adjust on EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          D: ${{ inputs.date }}
+          R: ${{ inputs.room }}
+          M: ${{ inputs.mode }}
+          A: ${{ inputs.amount }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: D,R,M,A
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            git pull -q
+            node scripts/set-room-inventory.cjs --date="$D" --room="$R" --$M="$A"
