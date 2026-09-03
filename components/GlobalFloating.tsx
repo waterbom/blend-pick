@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import InquiryButton from "@/components/InquiryButton";
+import { currentSite } from "@/lib/site-server";
 
 // 오픈 예정 — 우리 Shop에 등록된 상품 중 판매 시작(sale_start_at)이 미래로 예약된 것만.
 // 없으면 빈 배열 → InquiryButton이 UPCOMING 버튼을 표시하지 않음(비활성).
@@ -34,6 +35,8 @@ async function getUserId() {
 }
 
 export default async function GlobalFloating() {
+  // 산지픽은 화면 하단이 고정 구매바라 블랜드픽 플로팅 버튼(문의·오픈예정)을 띄우지 않는다 — 문의는 페이지 안 카카오 버튼으로
+  if ((await currentSite()).key === "sanjipick") return null;
   const [upcoming, userId] = await Promise.all([getUpcoming(), getUserId()]);
   return <InquiryButton userId={userId} upcoming={upcoming} />;
 }

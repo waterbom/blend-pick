@@ -1,15 +1,22 @@
-import SanjiHero from "@/components/sanji/SanjiHero";
-import SanjiWhy from "@/components/sanji/SanjiWhy";
+import SanjiSalesPage from "@/components/sanji/SanjiSalesPage";
+import { getSanjiProducts, loadSanjiSalesPage, SANJI_DEMO } from "@/lib/sanji-data";
+import { sanjiLinkBase } from "@/lib/sanji-link";
+import { SITES } from "@/lib/sites";
 
-// 산지픽 랜딩 (sanjipick.blendpunch.com/) — 모바일 전용, 검색·광고 유입 첫 화면.
-// 섹션은 시안 확정되는 대로 하나씩 추가한다. 쇼핑 메인은 별도 경로로 분리 예정.
-export default function SanjiLanding() {
+export const dynamic = "force-dynamic";
+
+// 산지픽 루트 (sanjipick.blendpunch.com/) — 랜딩 없이 바로 판매 페이지.
+// 카테고리 '산지픽' 상품 중 가장 최근 등록된 상품이 대표로 뜨고, 나머지는 "함께 본 상품"으로 깔린다.
+// 아직 산지픽 상품이 없으면 예시 화면(구매 잠김)을 보여준다.
+export default async function SanjiRoot({ searchParams }: { searchParams: Promise<{ inf?: string }> }) {
+  const { inf } = await searchParams;
+  const [list, linkBase] = await Promise.all([getSanjiProducts(), sanjiLinkBase()]);
+  const featured = list.find((p) => p.status === "active" && p.stock > 0) ?? list[0];
+  const data = featured ? await loadSanjiSalesPage(featured.id, inf) : null;
+  const props = data ?? SANJI_DEMO;
   return (
-    <main style={{ background: "#0b150e", minHeight: "100svh" }}>
-      <SanjiHero />
-      <SanjiWhy />
-      {/* 다음 섹션 자리 — #deals (지금 열린 산지 공구) 부터 순서대로 */}
-      <div id="deals" />
+    <main style={{ background: "#F2F2F2", minHeight: "100svh" }}>
+      <SanjiSalesPage {...props} demo={!data} kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={linkBase} />
     </main>
   );
 }

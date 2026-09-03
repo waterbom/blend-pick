@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function SanjiLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: "#0b150e", minHeight: "100svh" }}>
+    <div style={{ background: "#F2F2F2", minHeight: "100svh" }}>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link

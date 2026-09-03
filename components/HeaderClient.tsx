@@ -40,7 +40,7 @@ const NAV_ITEMS = [
 
 // 산지픽 네비 — 농산물 사이트라 숙박 메뉴 없음
 const SANJI_NAV_ITEMS = [
-  { label: "지금 산지 직송", href: "/sanji#fresh", hot: true },
+  { label: "지금 산지 직송", href: "/sanji", hot: true },
   { label: "산지픽 이야기", href: "/sanji/about", hot: false },
   { label: "CONTACT", href: "/blend-picked" },
 ];

@@ -45,7 +45,10 @@ export function proxy(req: NextRequest) {
 
 // 산지픽 도메인에서 산지픽 전용 페이지로 리라이트할 1차 경로 — 그 외(/products, /cart, /checkout, /login, /mypage …)는 공용
 // ★ app/sanji/ 아래에 페이지를 추가하면 여기에도 세그먼트를 등록
-const SANJI_OWN_PATHS = new Set<string>([""]);
+//   ""      → /sanji        (루트 = 대표 상품 판매 페이지)
+//   "p"     → /sanji/p/<id> (개별 상품 판매 페이지)
+//   "about" → /sanji/about  (브랜드 소개 — 예전 랜딩)
+const SANJI_OWN_PATHS = new Set<string>(["", "p", "about"]);
 
 function firstSegment(pathname: string) {
   return pathname.split("/")[1] ?? "";
