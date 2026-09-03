@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SITES, siteFromHost, siteFromPath } from "@/lib/sites";
+import { SITES, siteFromHost, siteFromPath, type SiteKey } from "@/lib/sites";
 
 // Next 16 proxy (구 middleware) — 두 가지 일을 한다.
 // 1) /admin/* 접근 시 admin_token 확인
@@ -18,14 +18,23 @@ export function proxy(req: NextRequest) {
   }
 
   const host = req.headers.get("host");
-  const site = siteFromHost(host) === "sanjipick" ? "sanjipick" : siteFromPath(pathname);
+  const sanjiHost = siteFromHost(host) === "sanjipick";
+  const seg = firstSegment(pathname);
+  let site: SiteKey = sanjiHost ? "sanjipick" : siteFromPath(pathname);
+
+  // 미리보기 모드 — shop 도메인에서 /sanji 로 산지픽을 보다가 공용 페이지(로그인·마이페이지·장바구니·결제…)로
+  // 넘어가면 도메인상으론 블랜드픽이라 테마가 바뀐다. /sanji 를 거친 브라우저에 쿠키를 심어 두고,
+  // 공용 페이지에서는 그 쿠키로 산지픽 테마를 유지한다. 블랜드픽 고유 페이지(/, /hotel, /influencer)로 가면 해제.
+  const preview = !sanjiHost && req.cookies.get(PREVIEW_COOKIE)?.value === "1";
+  if (preview && site === "blendpick" && PREVIEW_SHARED.has(seg)) site = "sanjipick";
 
   // 다운스트림(서버 컴포넌트)이 어느 사이트인지 알 수 있게 요청 헤더에 표시
   const reqHeaders = new Headers(req.headers);
   reqHeaders.set("x-site", site);
   reqHeaders.set("x-pathname", pathname);
 
-  if (siteFromHost(host) === "sanjipick") {
+  let res: NextResponse;
+  if (sanjiHost) {
     const bp = SITES.sanjipick.basePath;
     const alreadyPrefixed = pathname === bp || pathname.startsWith(bp + "/");
     const shared =
@@ -33,15 +42,30 @@ export function proxy(req: NextRequest) {
       pathname.startsWith("/_next") ||
       pathname.startsWith("/admin") ||
       /\.[a-zA-Z0-9]+$/.test(pathname); // 파일 확장자가 있는 정적 자원
-    if (!alreadyPrefixed && !shared && SANJI_OWN_PATHS.has(firstSegment(pathname))) {
+    if (!alreadyPrefixed && !shared && SANJI_OWN_PATHS.has(seg)) {
       const url = req.nextUrl.clone();
       url.pathname = bp + (pathname === "/" ? "" : pathname);
-      return NextResponse.rewrite(url, { request: { headers: reqHeaders } });
+      res = NextResponse.rewrite(url, { request: { headers: reqHeaders } });
+    } else {
+      res = NextResponse.next({ request: { headers: reqHeaders } });
+    }
+  } else {
+    res = NextResponse.next({ request: { headers: reqHeaders } });
+    if (siteFromPath(pathname) === "sanjipick") {
+      res.cookies.set(PREVIEW_COOKIE, "1", { path: "/", sameSite: "lax" });
+    } else if (preview && (pathname === "/" || PREVIEW_CLEAR.has(seg))) {
+      res.cookies.set(PREVIEW_COOKIE, "", { path: "/", maxAge: 0 });
     }
   }
-
-  return NextResponse.next({ request: { headers: reqHeaders } });
+  return res;
 }
+
+// shop 도메인 미리보기 쿠키 — /sanji 방문 시 심고, 블랜드픽 고유 페이지로 가면 지운다
+const PREVIEW_COOKIE = "sj_preview";
+// 쿠키가 있을 때 산지픽 테마로 보여줄 공용 1차 경로
+const PREVIEW_SHARED = new Set<string>(["login", "signup", "mypage", "cart", "checkout", "orders", "pay", "products", "terms", "privacy", "guide"]);
+// 여기로 오면 미리보기 해제 (블랜드픽 고유 영역)
+const PREVIEW_CLEAR = new Set<string>(["hotel", "influencer", "campaigns", "admin"]);
 
 // 산지픽 도메인에서 산지픽 전용 페이지로 리라이트할 1차 경로 — 그 외(/products, /cart, /checkout, /login, /mypage …)는 공용
 // ★ app/sanji/ 아래에 페이지를 추가하면 여기에도 세그먼트를 등록
