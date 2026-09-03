@@ -183,7 +183,6 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
     created_at: at(0),
   },
   {
-    // 사진 아직 없음 — public/sanji/products/옥수수/ 에 옥수수1.webp… 올리면 아래 images에 연결
     product: {
       ...base,
       id: "demo-6",
@@ -193,7 +192,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
       price: 11900,
       original_price: 20000,
       stock: 120,
-      main_image: null,
+      main_image: P("옥수수", "옥수수"),
       trust: { rating: 4.64, count: 119, source: "스마트스토어" },
       description: desc(
         "쫀득하고 구수한 진공 옥수수",
@@ -206,7 +205,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
         ["보관: 냉동 보관, 냉동 상태로 전자레인지 2~3분 또는 끓는 물 5분.", "100g당 1,587원", "파손 시 100% 재발송"]
       ),
     },
-    images: [],
+    images: ["옥수수", "옥수수1", "옥수수2", "옥수수3", "옥수수4"].map((f) => P("옥수수", f)),
     options: [],
     sold: 188,
     created_at: at(5),
