@@ -144,9 +144,7 @@ export default function SanjiHome({
         .sh-hd{position:sticky;top:0;z-index:10;background:${CREAM}}
         .sh-hd__row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
         .sh-logo{display:inline-flex;align-items:center;gap:8px;color:${GREEN};line-height:1}
-        .sh-logo img{width:38px;height:38px;border-radius:50%;display:block}
-        .sh-logo b{font-size:22px;font-weight:900;letter-spacing:-.04em}
-        .sh-logo small{display:block;margin-top:3px;font-size:9px;font-weight:700;color:${GREEN};letter-spacing:.18em;opacity:.8}
+        .sh-logo img{height:52px;width:auto;display:block}
         .sh-hd__icons{display:flex;gap:18px;color:${INK}}
         .sh-tabs{display:flex;gap:4px;padding:0 16px;border-bottom:1px solid ${LINE}}
         .sh-tabs button{height:44px;padding:0 6px;border:0;background:none;font-size:16px;font-weight:600;color:#7A8074;position:relative}
@@ -214,7 +212,7 @@ export default function SanjiHome({
       {/* 헤더 + 탭 */}
       <div className="sh-hd">
         <div className="sh-hd__row">
-          <a href={linkBase || "/"} className="sh-logo" aria-label="산지픽 홈"><img src="/sanji/logo.png" alt="" /><span><b>산지픽</b><small>SANJI PICK</small></span></a>
+          <a href={linkBase || "/"} className="sh-logo" aria-label="산지픽 홈"><img src="/sanji/logo-wide.png" alt="산지픽 SANJI PICK" /></a>
           <div className="sh-hd__icons">
             <a href="/products" aria-label="검색">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>

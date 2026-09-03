@@ -13,9 +13,7 @@ export default async function Footer() {
           <div>
             {sanji ? (
               <p className="flex items-center gap-2 m-0" style={{ color: "var(--accent)" }}>
-                <img src="/sanji/logo.png" alt="" className="w-8 h-8 rounded-full" />
-                <span className="text-base font-extrabold" style={{ letterSpacing: "-0.03em" }}>산지픽</span>
-                <span className="text-[10px] font-bold tracking-[0.18em] opacity-80">SANJI PICK</span>
+                <img src="/sanji/logo-wide.png" alt="산지픽 SANJI PICK" className="h-12 w-auto" />
               </p>
             ) : (
               <p className="text-sm font-extrabold tracking-widest uppercase" style={{ color: "var(--text-primary)" }}>Blend Pick</p>

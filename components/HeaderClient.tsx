@@ -90,11 +90,7 @@ export default function HeaderClient({
         <div className="flex items-center">
           {isSanji ? (
             <Link href={homeHref} className="flex items-center gap-2" style={{ color: "var(--accent)" }}>
-              <img src="/sanji/logo.png" alt="" className="w-9 h-9 rounded-full" />
-              <span className="flex flex-col leading-none">
-                <span className="text-xl font-extrabold" style={{ letterSpacing: "-0.03em" }}>산지픽</span>
-                <span className="text-[9px] font-bold tracking-[0.18em] opacity-80 mt-0.5">SANJI PICK</span>
-              </span>
+              <img src="/sanji/logo-wide.png" alt="산지픽 SANJI PICK" className="h-11 w-auto" />
             </Link>
           ) : (
             <Link href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>

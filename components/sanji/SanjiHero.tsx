@@ -37,7 +37,7 @@ export default function SanjiHero({ homeHref = "/" }: { homeHref?: string }) {
         .sj-hero__veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,20,12,.55) 0%,rgba(8,20,12,.25) 30%,rgba(8,20,12,.55) 55%,rgba(8,20,12,.94) 78%,#0b150e 100%)}
         .sj-hero__top{position:absolute;top:16px;left:20px;right:20px;display:flex;justify-content:space-between;align-items:center;z-index:2}
         .sj-brand{display:inline-flex;align-items:center;gap:8px;font-weight:900;font-size:15px;letter-spacing:-.02em;color:#fff;text-decoration:none;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(251,248,241,.92);color:#2F5D34;box-shadow:0 2px 8px rgba(0,0,0,.25)}
-        .sj-brand img{width:28px;height:28px;border-radius:50%;display:block}
+        .sj-brand img{height:36px;width:auto;display:block}
         .sj-badges{display:flex;gap:6px}
         .sj-badge{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.6);font-size:9px;font-weight:700;letter-spacing:-.02em;background-color:rgba(255,255,255,.12);background-size:cover;background-position:center;backdrop-filter:blur(4px);color:#fff}
         .sj-hero__copy{position:absolute;left:24px;right:24px;top:300px;display:flex;flex-direction:column;gap:14px;z-index:2;animation:sj-rise .6s ease-out both}
@@ -84,7 +84,7 @@ export default function SanjiHero({ homeHref = "/" }: { homeHref?: string }) {
       </div>
 
       <header className="sj-hero__top">
-        <a className="sj-brand" href={homeHref} aria-label="산지픽 홈으로"><img src="/sanji/logo.png" alt="" />산지픽</a>
+        <a className="sj-brand" href={homeHref} aria-label="산지픽 홈으로"><img src="/sanji/logo-wide.png" alt="산지픽" /></a>
         <div className="sj-badges">
           {BADGES.map((b) => <Badge key={b.short} {...b} />)}
         </div>

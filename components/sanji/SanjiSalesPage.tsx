@@ -246,7 +246,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp button{font-family:inherit;cursor:pointer}
         .sp-top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:12px 14px}
         .sp-brand{display:inline-flex;align-items:center;gap:7px;background:rgba(251,248,241,.92);color:${GREEN};font-weight:900;font-size:13px;padding:4px 12px 4px 4px;border-radius:999px;backdrop-filter:blur(6px);text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-        .sp-brand img{width:26px;height:26px;border-radius:50%;display:block}
+        .sp-brand img{height:34px;width:auto;display:block}
         .sp-icons{display:flex;gap:8px}
         .sp-icon{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.45);border:0;color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
         .sp-slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;aspect-ratio:1/1;background:#E9E4D6}
@@ -342,7 +342,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       {/* 상단 슬라이드 */}
       <div className="sp-slider-wrap">
         <div className="sp-top">
-          <a className="sp-brand" href={linkBase || "/"}><img src="/sanji/logo.png" alt="" />산지픽</a>
+          <a className="sp-brand" href={linkBase || "/"}><img src="/sanji/logo-wide.png" alt="산지픽" /></a>
           <div className="sp-icons">
             <button className="sp-icon" onClick={share} aria-label="공유">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
