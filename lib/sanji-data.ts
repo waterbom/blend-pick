@@ -53,6 +53,22 @@ export interface SanjiCard {
   main_image: string | null;
   stock: number;
   status: string;
+  sale_start_at: string | null;
+  sale_end_at: string | null;
+  created_at: string;
+  sold: number; // 누적 판매 수량 (베스트 정렬용)
+}
+
+// 메인 후기 리스트 — 산지픽 상품 전체의 최근 후기
+export interface SanjiHomeReview {
+  id: string;
+  buyer_name: string;
+  rating: number;
+  content: string;
+  image: string | null;
+  created_at: string;
+  product_id: string;
+  product_name: string;
 }
 
 // 구매 지표 — 슬라이드 위 "재구매" 알림, 특가 바 등 사회적 증거용
@@ -67,13 +83,33 @@ const CATS = SITES.sanjipick.categories;
 export async function getSanjiProducts(): Promise<SanjiCard[]> {
   try {
     const r = await shopPool.query(
-      `SELECT id, name, brand, price, original_price, main_image, stock, status
-         FROM products_shop
-        WHERE category = ANY($1::text[]) AND status IN ('active', 'soldout')
-        ORDER BY created_at DESC`,
+      `SELECT p.id, p.name, p.brand, p.price, p.original_price, p.main_image, p.stock, p.status,
+              p.sale_start_at, p.sale_end_at, p.created_at,
+              COALESCE((SELECT SUM(oi.quantity)::int FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                         WHERE oi.product_id = p.id AND o.status <> 'cancelled' AND o.status <> 'pending'), 0) AS sold
+         FROM products_shop p
+        WHERE p.category = ANY($1::text[]) AND p.status IN ('active', 'soldout')
+        ORDER BY p.created_at DESC`,
       [CATS]
     );
     return r.rows as SanjiCard[];
+  } catch {
+    return [];
+  }
+}
+
+export async function getSanjiHomeReviews(limit = 8): Promise<SanjiHomeReview[]> {
+  try {
+    const r = await shopPool.query(
+      `SELECT rv.id, rv.buyer_name, rv.rating, rv.content, rv.created_at, rv.product_id,
+              (CASE WHEN rv.images IS NOT NULL AND array_length(rv.images, 1) > 0 THEN rv.images[1] ELSE p.main_image END) AS image,
+              p.name AS product_name
+         FROM reviews rv JOIN products_shop p ON p.id = rv.product_id
+        WHERE p.category = ANY($1::text[]) AND rv.is_hidden = false
+        ORDER BY rv.created_at DESC LIMIT $2`,
+      [CATS, limit]
+    );
+    return r.rows as SanjiHomeReview[];
   } catch {
     return [];
   }
@@ -185,6 +221,21 @@ export async function loadSanjiSalesPage(productId: string, inf?: string) {
     influencerId: attributed,
   };
 }
+
+// 메인 예시 상품 — 산지픽 상품이 없을 때 레이아웃 확인용
+const demoAt = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400e3).toISOString();
+export const SANJI_DEMO_CARDS: SanjiCard[] = [
+  { id: "demo", name: "괴산 부사 사과 5kg 가정용 (흠과 아님 · 당일 수확)", brand: "괴산 청년농부", price: 29900, original_price: 43000, main_image: "/sanji/card-basket.png", stock: 137, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(1), sold: 1284 },
+  { id: "demo-2", name: "제철 단호박 3kg (밤처럼 포슬포슬)", brand: "해남 농가", price: 12900, original_price: 19000, main_image: "/sanji/why-produce.png", stock: 84, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(2), sold: 412 },
+  { id: "demo-3", name: "산지 직송 사과 10kg 대용량 박스", brand: "괴산 청년농부", price: 49900, original_price: 72000, main_image: "/sanji/card-crate.png", stock: 52, status: "active", sale_start_at: null, sale_end_at: null, created_at: demoAt(3), sold: 233 },
+  { id: "demo-4", name: "저온창고 숙성 고구마 5kg", brand: "여주 농가", price: 15900, original_price: 22000, main_image: "/sanji/why-storage.png", stock: 0, status: "active", sale_start_at: new Date(Date.now() + 26 * 3600e3).toISOString(), sale_end_at: null, created_at: demoAt(0), sold: 0 },
+  { id: "demo-5", name: "농가 직거래 제철 채소 꾸러미", brand: "괴산 농가", price: 19900, original_price: 26000, main_image: "/sanji/why-farmer.png", stock: 0, status: "active", sale_start_at: new Date(Date.now() + 5 * 3600e3).toISOString(), sale_end_at: null, created_at: demoAt(0), sold: 0 },
+];
+export const SANJI_DEMO_REVIEWS: SanjiHomeReview[] = [
+  { id: "r1", buyer_name: "아링", rating: 5, content: "맛있어요 진짜짱! 달달달달 너무 굿이에요", image: "/sanji/card-basket.png", created_at: demoAt(0.05), product_id: "demo", product_name: "괴산 부사 사과 5kg" },
+  { id: "r2", buyer_name: "잔망알찬", rating: 5, content: "일주일 넘게 방치하고 있다가 잘라보니 세상달달ㅠㅠ 너무 맛있어요", image: "/sanji/why-produce.png", created_at: demoAt(0.7), product_id: "demo-2", product_name: "제철 단호박 3kg" },
+  { id: "r3", buyer_name: "2422WQrJ", rating: 5, content: "박스 열자마자 사과 향이 확 올라와요. 재구매 의사 100%", image: "/sanji/card-crate.png", created_at: demoAt(1.2), product_id: "demo-3", product_name: "산지 직송 사과 10kg" },
+];
 
 // 첫 산지픽 상품이 등록되기 전 — 디자인 확인용 예시 (구매 버튼은 잠긴다)
 export const SANJI_DEMO: NonNullable<Awaited<ReturnType<typeof loadSanjiSalesPage>>> & { demo: true } = {
