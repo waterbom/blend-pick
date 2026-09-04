@@ -27,14 +27,14 @@ type Filter = "all" | SanjiKind;
 export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: { products: SanjiCard[]; linkBase: string; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery);
   const [filter, setFilter] = useState<Filter>("all");
+  const [now] = useState(() => Date.now()); // 렌더 시점 고정 (오픈 예정 판별)
   const list = useMemo(() => {
-    const now = Date.now();
     const kw = q.trim().toLowerCase();
     return products
       .filter((p) => !(p.sale_start_at && new Date(p.sale_start_at).getTime() > now))
       .filter((p) => filter === "all" || sanjiKind(p.category) === filter)
       .filter((p) => !kw || p.name.toLowerCase().includes(kw) || (p.brand || "").toLowerCase().includes(kw));
-  }, [products, q, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [products, q, filter, now]);
   const counts = useMemo(() => ({
     all: products.length,
     produce: products.filter((p) => sanjiKind(p.category) === "produce").length,
