@@ -90,4 +90,7 @@ NEXT_PUBLIC_SANJI_KAKAO_URL=...                  # 산지픽 전용 카카오 �
 - `orders.site` = `'blendpick' | 'sanjipick'` (기본 blendpick). `scripts/migrate-order-site.cjs` 가 배포 때마다 실행돼 컬럼을 보장한다.
 - 결제 확정 API(`app/api/payment/{shop,cart,extra}-confirm`, `confirm`)가 `lib/site-request.ts` 의 `siteFromRequest(req)` 로 판별해 저장.
   proxy 가 붙인 `x-site` 헤더(산지픽 도메인, 또는 shop 도메인 `/sanji` 미리보기 쿠키) 우선, 없으면 호스트.
-- 다음 단계: 어드민 판매 관리 '전체/블랜드픽/산지픽' 필터, 배송·수익·정산 분리, 알림톡 브랜드명 분기.
+- 어드민: 판매 관리·배송 관리에 '전체/블랜드픽/산지픽' 필터 + 주문번호 옆 산지픽 배지(`components/admin/SiteBadge.tsx`),
+  주문 상세 상단 사이트 배지, 수익 관리 '사이트' 셀렉트(`/api/admin/profit?site=`), 정산 목록 배지.
+- 문자: 발송 안내·반품 환불 안내·인증번호 머리말이 주문/요청 사이트에 따라 `[블랜드픽]`/`[산지픽]` (`lib/site-label.ts siteSmsTag`).
+- 주문 조회 페이지 제목도 접속 사이트 브랜드로.

@@ -4,6 +4,8 @@ import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import Link from "next/link";
 import TrackingForm from "@/components/admin/TrackingForm";
+import { SITE_BADGE_CLS, siteLabel } from "@/lib/site-label";
+import type { SiteKey } from "@/lib/sites";
 
 const STATUS_LABEL: Record<string, string> = {
   paid:               "신규주문",
@@ -41,7 +43,7 @@ const STATUS_STYLE: Record<string, string> = {
 async function getOrder(id: string) {
   const result = await shopPool.query(
     `SELECT
-      o.id, o.order_number, o.status, o.order_type,
+      o.id, o.order_number, o.status, o.order_type, o.site,
       o.buyer_name, o.buyer_phone, o.buyer_email,
       o.recipient_name, o.recipient_phone,
       o.addr_zipcode, o.addr_address, o.addr_detail, o.addr_memo,
@@ -120,6 +122,10 @@ export default async function OrderDetailPage({
           <h1 className="text-lg font-bold text-gray-800">주문 상세</h1>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {/* 결제된 사이트 — 블랜드픽/산지픽 (항상 표시) */}
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${SITE_BADGE_CLS[(order.site as SiteKey) || "blendpick"] ?? SITE_BADGE_CLS.blendpick}`}>
+            {siteLabel(order.site)}
+          </span>
           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${(ORDER_TYPE_BADGE[order.order_type] ?? ORDER_TYPE_BADGE.shop).cls}`}>
             {(ORDER_TYPE_BADGE[order.order_type] ?? ORDER_TYPE_BADGE.shop).label}
           </span>

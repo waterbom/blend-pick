@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
   const results: { order_number: string; success: boolean; reason?: string }[] = [];
   // 이번에 새로 배송중으로 바뀐 건만 발송 문자 대상 — 운송장 재등록(이미 배송중)은 제외해 중복 발송 방지
-  const toNotify: { order_number: string; name: string; phone: string; carrier: string | null; tracking_number: string }[] = [];
+  const toNotify: { order_number: string; name: string; phone: string; carrier: string | null; tracking_number: string; site: string | null }[] = [];
 
   const client = await shopPool.connect();
   try {
@@ -57,7 +57,8 @@ export async function POST(req: Request) {
          WHERE order_number = $1
            AND status IN ('paid', 'confirmed', 'preparing')
          RETURNING COALESCE(recipient_name, buyer_name) AS name,
-                   COALESCE(recipient_phone, buyer_phone) AS phone`,
+                   COALESCE(recipient_phone, buyer_phone) AS phone,
+                   site`,
         [order_number, carrier || null, tracking_number]
       );
 
@@ -89,6 +90,7 @@ export async function POST(req: Request) {
             phone: updated[0].phone,
             carrier: carrier || null,
             tracking_number,
+            site: updated[0].site as string | null,
           });
         }
       }
@@ -107,6 +109,7 @@ export async function POST(req: Request) {
             orderNumber: n.order_number,
             carrier: n.carrier,
             trackingNumber: n.tracking_number,
+            site: n.site,
           });
           if (r.ok) smsSent++;
           else { smsFailed++; console.error(`[shipments] 발송 문자 실패 ${n.order_number}:`, r.error); }

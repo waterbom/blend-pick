@@ -34,6 +34,7 @@ export default function ProfitClient() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [channel, setChannel] = useState("");
+  const [site, setSite] = useState(""); // '' | 'blendpick' | 'sanjipick' — 사이트별 손익
   const [infFilter, setInfFilter] = useState("");
   const [bizFilter, setBizFilter] = useState("");
 
@@ -43,6 +44,7 @@ export default function ProfitClient() {
     if (from) p.set("from", from);
     if (to) p.set("to", to);
     if (channel) p.set("channel", channel);
+    if (site) p.set("site", site);
     const res = await fetch(`/api/admin/profit?${p.toString()}`);
     if (res.ok) setRows(await res.json());
     setLoading(false);
@@ -107,6 +109,14 @@ export default function ProfitClient() {
         <div>
           <label className="text-xs font-bold text-gray-500 block mb-1">종료일</label>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inp} />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-gray-500 block mb-1">사이트</label>
+          <select value={site} onChange={(e) => setSite(e.target.value)} className={inp}>
+            <option value="">전체</option>
+            <option value="blendpick">블랜드픽</option>
+            <option value="sanjipick">산지픽</option>
+          </select>
         </div>
         <div>
           <label className="text-xs font-bold text-gray-500 block mb-1">판매채널</label>

@@ -33,6 +33,8 @@ export async function GET(req: Request) {
   const from = searchParams.get("from"); // YYYY-MM-DD
   const to = searchParams.get("to");
   const channel = searchParams.get("channel"); // 'shop' | 'campaign' | 'hotel' | null
+  const siteParam = searchParams.get("site");
+  const site = siteParam === "blendpick" || siteParam === "sanjipick" ? siteParam : null; // 사이트별 손익 (orders.site)
 
   // ── 호텔 공구 — 대행 모델 배분: 호텔(공급가) 88% · 인플루언서 5%(귀속 주문만) · 블랜드픽 7% ──
   // 블랜드픽 순수익 = 7% − 토스 수수료 1.7% = 매출의 5.3% (직접 유입 주문은 인플 몫 5%가 우리에게 남음)
@@ -45,6 +47,7 @@ export async function GET(req: Request) {
   async function hotelRows() {
     const hConds = ["o.status = ANY($1)", "o.order_type IN ('hotel', 'extra')"];
     const hParams: unknown[] = [[...COUNTABLE_ORDER_STATUSES]];
+    if (site) { hParams.push(site); hConds.push(`o.site = $${hParams.length}`); }
     if (from) { hParams.push(from); hConds.push(`o.paid_at >= $${hParams.length}::date`); }
     if (to) { hParams.push(to); hConds.push(`o.paid_at < ($${hParams.length}::date + INTERVAL '1 day')`); }
     const h = await shopPool.query(
@@ -100,6 +103,7 @@ export async function GET(req: Request) {
     params.push(channel);
     conds.push(`o.order_type = $${params.length}`);
   }
+  if (site) { params.push(site); conds.push(`o.site = $${params.length}`); }
   const where = `WHERE ${conds.join(" AND ")}`;
 
   // 공급가 미입력 상품이 담긴 주문은 손익에서 통째로 제외 — 원가 0원으로 잡혀

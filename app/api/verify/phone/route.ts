@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendSMS, phoneVerifyOn } from "@/lib/sms";
 import { signChallenge, normPhone } from "@/lib/phone-verify";
+import { siteFromRequest } from "@/lib/site-request";
+import { siteSmsTag } from "@/lib/site-label";
 
 // 인증번호 발송
 export async function POST(req: NextRequest) {
@@ -14,7 +16,8 @@ export async function POST(req: NextRequest) {
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const sms = await sendSMS(p, `[블랜드픽] 인증번호 [${code}] 를 입력해주세요.`);
+  // 머리말은 요청이 온 사이트 브랜드로 (산지픽 결제 인증이면 [산지픽])
+  const sms = await sendSMS(p, `${siteSmsTag(siteFromRequest(req))} 인증번호 [${code}] 를 입력해주세요.`);
   if (!sms.ok) {
     // SOLAPI 실제 실패 사유를 서버 로그에 남김 (journalctl 로 확인)
     console.error("[verify/phone] SMS 발송 실패:", sms.error);

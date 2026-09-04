@@ -1,5 +1,6 @@
 import shopPool from "@/lib/db-shop";
 import Link from "next/link";
+import SiteBadge from "@/components/admin/SiteBadge";
 
 interface SettlementRow {
   id: string;
@@ -7,6 +8,7 @@ interface SettlementRow {
   order_id: string;
   order_number: string | null;
   buyer_name: string | null;
+  site: string | null; // 결제된 사이트 (블랜드픽/산지픽)
   gross_amount: number;
   fee: number;
   net_amount: number;
@@ -45,7 +47,7 @@ async function getSettlements(period?: string) {
 
   const result = await shopPool.query(`
     SELECT s.id, s.payment_key, s.order_id, s.gross_amount, s.fee, s.net_amount, s.settled_at, s.created_at,
-           o.order_number, o.buyer_name
+           o.order_number, o.buyer_name, o.site
     FROM settlements s
     LEFT JOIN orders o ON o.id = s.order_id
     ${where}
@@ -160,7 +162,7 @@ export default async function SettlementsPage({
                     {new Date(s.settled_at).toLocaleDateString("ko-KR")}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">
-                    {s.order_number || "-"}
+                    {s.order_number || "-"} <SiteBadge site={s.site} className="ml-1 font-sans" />
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-800">
                     {s.buyer_name || "-"}

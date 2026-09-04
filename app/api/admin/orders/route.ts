@@ -17,6 +17,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") || "";
+  const site = searchParams.get("site") || ""; // 'blendpick' | 'sanjipick' | '' (전체)
 
   // 호텔 예약(order_type='hotel')은 '예약 관리'에서 따로 관리 → 판매 관리에서 제외
   // 삭제된 상품만 담긴 주문은 목록에서 숨김(데이터는 보존 — 상품 삭제 시 order_items.product_id가 NULL이 됨).
@@ -28,10 +29,11 @@ export async function GET(req: Request) {
   )`;
   // status는 쉼표 목록 허용 (예: confirmed,preparing — 배송준비 탭에서 주문확인 건 포함)
   // 판매·배송 관리는 일반 상품(shop)·공동구매(campaign)만 — 호텔 예약과 호텔 차액(extra)은 예약 관리에서
-  const where = status
-    ? `WHERE o.status = ANY($1) AND o.order_type IN ('shop', 'campaign') AND ${notDeletedProduct}`
-    : `WHERE o.order_type IN ('shop', 'campaign') AND ${notDeletedProduct}`;
-  const params = status ? [status.split(",").map((v) => v.trim()).filter(Boolean)] : [];
+  const conds = [`o.order_type IN ('shop', 'campaign')`, notDeletedProduct];
+  const params: unknown[] = [];
+  if (status) { params.push(status.split(",").map((v) => v.trim()).filter(Boolean)); conds.push(`o.status = ANY($${params.length})`); }
+  if (site === "blendpick" || site === "sanjipick") { params.push(site); conds.push(`o.site = $${params.length}`); }
+  const where = `WHERE ${conds.join(" AND ")}`;
 
   const result = await shopPool.query(`
     SELECT
@@ -39,6 +41,7 @@ export async function GET(req: Request) {
       o.order_number,
       o.status,
       o.order_type,
+      o.site,
       o.buyer_name,
       o.buyer_phone,
       o.recipient_name,

@@ -66,7 +66,7 @@ export async function PATCH(req: Request) {
   const { rows } = await shopPool.query(
     `SELECT r.id, r.order_id, r.kind, r.status, r.prev_status, r.reason,
             o.status AS order_status, o.payment_key, o.total_amount,
-            o.order_number, o.buyer_name, o.buyer_phone
+            o.order_number, o.buyer_name, o.buyer_phone, o.site
        FROM order_returns r JOIN orders o ON o.id = r.order_id
       WHERE r.id = $1`,
     [id]
@@ -203,6 +203,7 @@ export async function PATCH(req: Request) {
           buyerName: ret.buyer_name,
           orderNumber: ret.order_number,
           refundAmount: refunded,
+          site: ret.site,
         });
         smsSent = r.ok === true;
       } catch (e) {

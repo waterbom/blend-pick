@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
+import SiteBadge from "@/components/admin/SiteBadge";
+import { SITE_FILTERS } from "@/lib/site-label";
 
 interface OrderItem {
   id: string;
@@ -20,6 +22,7 @@ interface Order {
   order_number: string;
   status: string;
   order_type: string;
+  site: string | null; // 결제된 사이트 — 'blendpick' | 'sanjipick'
   buyer_name: string;
   buyer_phone: string;
   recipient_name: string | null;
@@ -126,6 +129,7 @@ export default function OrdersClient() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [siteFilter, setSiteFilter] = useState(""); // '' | 'blendpick' | 'sanjipick'
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [acting, setActing] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -157,11 +161,13 @@ export default function OrdersClient() {
 
   // 검색 — 주문번호·구매자·수령인·연락처·상품명·옵션·인플루언서 통합
   const [query, setQuery] = useState("");
+  const siteOf = (o: Order) => o.site || "blendpick";
   const visibleOrders = useMemo(() => {
     let list =
       typeFilter === "campaign" ? orders.filter(isCampaign)
       : typeFilter === "shop" ? orders.filter((o) => !isCampaign(o))
       : orders;
+    if (siteFilter) list = list.filter((o) => siteOf(o) === siteFilter);
     const q = query.trim().toLowerCase();
     if (q) {
       const qDigits = q.replace(/[^0-9]/g, "");
@@ -181,7 +187,7 @@ export default function OrdersClient() {
       );
     }
     return list;
-  }, [orders, typeFilter, query]);
+  }, [orders, typeFilter, siteFilter, query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const typeCounts = useMemo(() => {
     let shop = 0, campaign = 0;
@@ -190,6 +196,13 @@ export default function OrdersClient() {
       else shop++;
     }
     return { all: orders.length, shop, campaign };
+  }, [orders]);
+
+  // 사이트별 건수 (블랜드픽/산지픽) — 현재 상태 탭 기준
+  const siteCounts = useMemo(() => {
+    const c: Record<string, number> = { "": orders.length, blendpick: 0, sanjipick: 0 };
+    for (const o of orders) c[siteOf(o)] = (c[siteOf(o)] ?? 0) + 1;
+    return c;
   }, [orders]);
 
   const groups = useMemo(() => {
@@ -417,8 +430,23 @@ export default function OrdersClient() {
         </div>
       )}
 
-      {/* 판매 유형 필터 + 검색 */}
+      {/* 사이트(블랜드픽/산지픽) · 판매 유형 필터 + 검색 */}
       <div className="flex items-center gap-3 flex-wrap mb-3">
+        <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 w-fit">
+          {SITE_FILTERS.map((t) => (
+            <button key={t.key} onClick={() => setSiteFilter(t.key)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-none text-sm font-medium transition-colors ${
+                siteFilter === t.key
+                  ? t.key === "sanjipick" ? "bg-[#2F5D34] text-white" : "bg-gray-900 text-white"
+                  : "text-gray-500 hover:bg-gray-50"
+              }`}>
+              {t.label}
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                siteFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+              }`}>{siteCounts[t.key] ?? 0}</span>
+            </button>
+          ))}
+        </div>
         <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 w-fit">
           {[
             { key: "", label: "전체", count: typeCounts.all },
@@ -593,6 +621,7 @@ export default function OrdersClient() {
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-gray-500">
                             <Link href={`/admin/orders/${o.id}`} className="hover:text-[#2D5A27]">{o.order_number}</Link>
+                            <SiteBadge site={o.site} className="ml-1.5 font-sans" />
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                             {new Date(o.created_at).toLocaleDateString("ko-KR")}

@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { CORE_CARRIERS, carrierName as libCarrierName } from "@/lib/carriers";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
+import SiteBadge from "@/components/admin/SiteBadge";
+import { SITE_FILTERS } from "@/lib/site-label";
 
 interface OrderItem {
   product_id: string | null; // 추가옵션 행은 null
@@ -16,6 +18,7 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
+  site: string | null; // 결제된 사이트 — 'blendpick' | 'sanjipick'
   recipient_name: string | null;
   recipient_phone: string | null;
   buyer_name: string;
@@ -102,7 +105,18 @@ const TAB_ACTION: Partial<Record<Tab, { action: string; label: string; color: st
 
 export default function ShipmentsClient() {
   const [tab, setTab] = useState<Tab>("preparing");
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  // 사이트 필터 (블랜드픽/산지픽) — 산지픽은 농가 발송이라 배송 담당이 달라 따로 볼 수 있게
+  const [siteFilter, setSiteFilter] = useState("");
+  const orders = useMemo(
+    () => (siteFilter ? allOrders.filter((o) => (o.site || "blendpick") === siteFilter) : allOrders),
+    [allOrders, siteFilter]
+  );
+  const siteCounts = useMemo(() => {
+    const c: Record<string, number> = { "": allOrders.length, blendpick: 0, sanjipick: 0 };
+    for (const o of allOrders) { const k = o.site || "blendpick"; c[k] = (c[k] ?? 0) + 1; }
+    return c;
+  }, [allOrders]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -151,7 +165,8 @@ export default function ShipmentsClient() {
     const q = status === "preparing" ? "confirmed,preparing" : status;
     const res = await fetch(`/api/admin/orders?status=${q}`);
     const data = await res.json();
-    setOrders(data);
+    setAllOrders(data);
+    setSelected(new Set());
     setLoading(false);
   }
 
@@ -303,21 +318,38 @@ export default function ShipmentsClient() {
 
   return (
     <div>
-      {/* 탭 */}
-      <div className="flex flex-wrap mb-4">
-        {TABS.map((t, ti) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className="px-4 py-2 text-xs font-semibold transition-colors"
-            style={{
-              border: "1px solid",
-              marginLeft: ti > 0 ? "-1px" : 0,
-              background: tab === t.key ? "#1A1D18" : "#fff",
-              color: tab === t.key ? "#fff" : "#5C6156",
-              borderColor: tab === t.key ? "#1A1D18" : "#D6D6CF",
-            }}>
-            {t.label}
-          </button>
-        ))}
+      {/* 탭 + 사이트 필터 */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex flex-wrap">
+          {TABS.map((t, ti) => (
+            <button key={t.key} onClick={() => { setTab(t.key); setSelected(new Set()); }}
+              className="px-4 py-2 text-xs font-semibold transition-colors"
+              style={{
+                border: "1px solid",
+                marginLeft: ti > 0 ? "-1px" : 0,
+                background: tab === t.key ? "#1A1D18" : "#fff",
+                color: tab === t.key ? "#fff" : "#5C6156",
+                borderColor: tab === t.key ? "#1A1D18" : "#D6D6CF",
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 w-fit">
+          {SITE_FILTERS.map((t) => (
+            <button key={t.key} onClick={() => { setSiteFilter(t.key); setSelected(new Set()); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-semibold transition-colors ${
+                siteFilter === t.key
+                  ? t.key === "sanjipick" ? "bg-[#2F5D34] text-white" : "bg-gray-900 text-white"
+                  : "text-gray-500 hover:bg-gray-50"
+              }`}>
+              {t.label}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${siteFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"}`}>
+                {siteCounts[t.key] ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── 배송준비 탭 ── */}
@@ -536,7 +568,7 @@ export default function ShipmentsClient() {
               {orders.filter((o) => selected.has(o.id)).map((o) => (
                 <div key={o.id} className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="font-mono text-xs text-gray-500">{o.order_number}</div>
+                    <div className="font-mono text-xs text-gray-500">{o.order_number} <SiteBadge site={o.site} className="ml-1 font-sans" /></div>
                     <div className="text-xs text-gray-700 truncate">{o.recipient_name ?? o.buyer_name}</div>
                   </div>
                   <input value={modalTracking[o.id] ?? ""}
@@ -636,7 +668,7 @@ function OrderTable({
                 <input type="checkbox" checked={selected.has(o.id)} onChange={() => onToggle(o.id)}
                   className="w-4 h-4 rounded accent-[#2D5A27]" />
               </td>
-              <td className="px-4 py-3 font-mono text-xs text-gray-500">{o.order_number}</td>
+              <td className="px-4 py-3 font-mono text-xs text-gray-500">{o.order_number} <SiteBadge site={o.site} className="ml-1 font-sans" /></td>
               <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                 {new Date(o.created_at).toLocaleDateString("ko-KR")}
               </td>
