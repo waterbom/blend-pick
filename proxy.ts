@@ -45,6 +45,13 @@ export function proxy(req: NextRequest) {
       /\.[a-zA-Z0-9]+$/.test(pathname); // 파일 확장자가 있는 정적 자원
     // /products 목록만 산지픽 전용 (검색) — /products/<id>, /products/<id>/checkout 은 공용 그대로
     const ownList = pathname === "/products";
+    // 검색엔진용 robots.txt / sitemap.xml 은 산지픽 전용 파일로 (app/sanji/robots.ts, sitemap.ts)
+    const seoFile = pathname === "/robots.txt" || pathname === "/sitemap.xml";
+    if (seoFile) {
+      const url = req.nextUrl.clone();
+      url.pathname = bp + pathname;
+      return NextResponse.rewrite(url, { request: { headers: reqHeaders } });
+    }
     if (!alreadyPrefixed && !shared && (SANJI_OWN_PATHS.has(seg) || ownList)) {
       const url = req.nextUrl.clone();
       url.pathname = bp + (pathname === "/" ? "" : pathname);

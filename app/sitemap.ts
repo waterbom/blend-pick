@@ -1,8 +1,9 @@
 import type { MetadataRoute } from "next";
 import shopPool from "@/lib/db-shop";
+import { SITES } from "@/lib/sites";
 
-// 사이트맵 — 검색엔진에 "여기 이런 페이지들이 있다"고 알려주는 목록.
-// 판매중 상품은 DB에서 자동으로 포함된다 (내려간 상품은 자동 제외).
+// 블랜드픽 사이트맵 — 검색엔진에 "여기 이런 페이지들이 있다"고 알려주는 목록.
+// 판매중 상품은 DB에서 자동으로 포함된다 (내려간 상품·산지픽 카테고리 상품은 제외 — 산지픽은 app/sanji/sitemap.ts).
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = "https://shop.blendpunch.com";
   const items: MetadataRoute.Sitemap = [
@@ -14,7 +15,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const r = await shopPool.query(
       `SELECT id, COALESCE(updated_at, created_at) AS updated
-         FROM products_shop WHERE status = 'active' ORDER BY created_at DESC LIMIT 500`
+         FROM products_shop
+        WHERE status = 'active' AND category <> ALL($1::text[])
+        ORDER BY created_at DESC LIMIT 500`,
+      [SITES.sanjipick.categories]
     );
     for (const p of r.rows) {
       items.push({

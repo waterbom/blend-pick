@@ -5,10 +5,19 @@ import Footer from "@/components/Footer";
 import InfRefCookie from "@/components/InfRefCookie";
 import { SiteProvider } from "@/components/SiteContext";
 import { currentSite } from "@/lib/site-server";
+import { SITES } from "@/lib/sites";
 
+// 블랜드픽 기본 메타 (산지픽은 app/sanji/layout.tsx 가 덮어씀).
+// verification: 구글 서치콘솔·네이버 서치어드바이저 소유 확인 meta 태그 — 코드는 lib/sites.ts 에 넣는다
+const BP = SITES.blendpick;
 export const metadata: Metadata = {
+  metadataBase: new URL(`https://${BP.host}`),
   title: "BLEND PICK — 인플루언서 공구 플랫폼",
   description: "블랜드픽에서 트렌디한 제품을 만나보세요",
+  verification: {
+    google: BP.verification.google.length ? BP.verification.google : undefined,
+    other: BP.verification.naver.length ? { "naver-site-verification": BP.verification.naver } : undefined,
+  },
 };
 
 export default async function RootLayout({

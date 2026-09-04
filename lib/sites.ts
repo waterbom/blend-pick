@@ -17,6 +17,9 @@ export interface SiteConfig {
   description: string;
   categories: string[]; // products_shop.category 중 이 사이트에 노출할 카테고리 (빈 배열 = 전체)
   kakaoUrl: string;
+  // 검색엔진 소유 확인 코드 — 구글 서치콘솔 'HTML 태그' / 네이버 서치어드바이저 'HTML 태그' 방식의 content 값.
+  // 코드를 여기 넣고 배포하면 <head>에 meta 태그가 실려 소유 확인이 통과된다 (비밀값 아님).
+  verification: { google: string[]; naver: string[] };
 }
 
 const KAKAO = process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL || "http://pf.kakao.com/_VyING/chat";
@@ -32,6 +35,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     description: "인플루언서와 함께하는 공동구매 — 블랜드픽",
     categories: [],
     kakaoUrl: KAKAO,
+    verification: { google: [], naver: [] },
   },
   sanjipick: {
     key: "sanjipick",
@@ -45,6 +49,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     // '산지픽'·'산지픽 농산물' = 농산물 탭, '산지픽 해산물' = 해산물 탭 (lib/sanji-kind.ts)
     categories: ["산지픽", "산지픽 농산물", "산지픽 해산물"],
     kakaoUrl: process.env.NEXT_PUBLIC_SANJI_KAKAO_URL || KAKAO,
+    verification: { google: [], naver: [] },
   },
 };
 
