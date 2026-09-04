@@ -85,12 +85,13 @@ export default function HeaderClient({
         변경: 1줄로 통합 — 로고, 네비, 우측 액션을 한 줄에 배치
         → 시각적으로 깔끔하고, 세로 공간 절약
       */}
-      <div className="container-blend flex items-center justify-between h-14 sm:h-16">
+      {/* 산지픽은 메인(SanjiHome) 헤더와 같은 높이 74px(14 + 로고 52 + 8) — 화면 전환 때 헤더가 튀지 않게 */}
+      <div className={`container-blend flex items-center justify-between ${isSanji ? "h-[74px]" : "h-14 sm:h-16"}`}>
         {/* 좌측: 로고 */}
         <div className="flex items-center">
           {isSanji ? (
             <Link href={homeHref} className="flex items-center gap-2" style={{ color: "var(--accent)" }}>
-              <img src="/sanji/logo-wide.png" alt="산지픽 SANJI PICK" className="h-11 w-auto" />
+              <img src="/sanji/logo-wide.png" alt="산지픽 SANJI PICK" className="h-[52px] w-auto" />
             </Link>
           ) : (
             <Link href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>

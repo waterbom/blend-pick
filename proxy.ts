@@ -42,7 +42,9 @@ export function proxy(req: NextRequest) {
       pathname.startsWith("/_next") ||
       pathname.startsWith("/admin") ||
       /\.[a-zA-Z0-9]+$/.test(pathname); // 파일 확장자가 있는 정적 자원
-    if (!alreadyPrefixed && !shared && SANJI_OWN_PATHS.has(seg)) {
+    // /products 목록만 산지픽 전용 (검색) — /products/<id>, /products/<id>/checkout 은 공용 그대로
+    const ownList = pathname === "/products";
+    if (!alreadyPrefixed && !shared && (SANJI_OWN_PATHS.has(seg) || ownList)) {
       const url = req.nextUrl.clone();
       url.pathname = bp + (pathname === "/" ? "" : pathname);
       res = NextResponse.rewrite(url, { request: { headers: reqHeaders } });
@@ -72,6 +74,7 @@ const PREVIEW_CLEAR = new Set<string>(["hotel", "influencer", "campaigns", "admi
 //   ""      → /sanji        (루트 = 대표 상품 판매 페이지)
 //   "p"     → /sanji/p/<id> (개별 상품 판매 페이지)
 //   "about" → /sanji/about  (브랜드 소개 — 예전 랜딩)
+//   (정확히 "/products" 만) → /sanji/products (산지픽 전체 상품·검색) — proxy() 안에서 별도 처리
 const SANJI_OWN_PATHS = new Set<string>(["", "p", "about"]);
 
 function firstSegment(pathname: string) {

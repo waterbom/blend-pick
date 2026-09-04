@@ -50,6 +50,7 @@ export interface SanjiCard {
   id: string;
   name: string;
   brand: string;
+  category: string; // '산지픽 농산물' / '산지픽 해산물' — 메인 탭 분기 (lib/sanji-kind.ts)
   price: number;
   original_price: number | null;
   main_image: string | null;
@@ -85,7 +86,7 @@ const CATS = SITES.sanjipick.categories;
 export async function getSanjiProducts(): Promise<SanjiCard[]> {
   try {
     const r = await shopPool.query(
-      `SELECT p.id, p.name, p.brand, p.price, p.original_price, p.main_image, p.stock, p.status,
+      `SELECT p.id, p.name, p.brand, p.category, p.price, p.original_price, p.main_image, p.stock, p.status,
               p.sale_start_at, p.sale_end_at, p.created_at,
               COALESCE((SELECT SUM(oi.quantity)::int FROM order_items oi JOIN orders o ON o.id = oi.order_id
                          WHERE oi.product_id = p.id AND o.status <> 'cancelled' AND o.status <> 'pending'), 0) AS sold

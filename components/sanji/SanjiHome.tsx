@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SanjiCard, SanjiHomeReview } from "@/lib/sanji-data";
 import { SANJI_BANNERS, bannerSrc, bannerTarget } from "@/lib/sanji-banners";
+import { sanjiKind } from "@/lib/sanji-kind";
 
 // 산지픽 메인 (sanjipick.blendpunch.com/) — 오늘과일(쿠마) 메인 구성을 산지픽 톤으로.
 // 헤더(로고·검색·장바구니) → 탭(추천/베스트/신상품) → 배너 슬라이드 → 큰 2열 카드 → 한정특가 3열
@@ -65,8 +66,10 @@ export default function SanjiHome({
   const isOpen = (p: SanjiCard) => !isUpcoming(p) && !(p.sale_end_at && new Date(p.sale_end_at).getTime() < now);
   const live = useMemo(() => products.filter(isOpen), [products]); // eslint-disable-line react-hooks/exhaustive-deps
   const upcoming = useMemo(() => products.filter(isUpcoming).sort((a, b) => new Date(a.sale_start_at!).getTime() - new Date(b.sale_start_at!).getTime()), [products]); // eslint-disable-line react-hooks/exhaustive-deps
-  const best = useMemo(() => [...live].sort((a, b) => b.sold - a.sold), [live]);
   const newest = useMemo(() => [...live].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [live]);
+  // 탭 분기 — 카테고리 '산지픽 해산물'만 해산물, 나머지는 농산물 (판매량 순)
+  const produce = useMemo(() => live.filter((p) => sanjiKind(p.category) === "produce").sort((a, b) => b.sold - a.sold), [live]);
+  const seafood = useMemo(() => live.filter((p) => sanjiKind(p.category) === "seafood").sort((a, b) => b.sold - a.sold), [live]);
   const deals = useMemo(() => live.filter((p) => pct(p) > 0).sort((a, b) => pct(b) - pct(a)), [live]);
 
   const [tab, setTab] = useState<0 | 1 | 2>(0);
@@ -214,7 +217,7 @@ export default function SanjiHome({
         <div className="sh-hd__row">
           <a href={linkBase || "/"} className="sh-logo" aria-label="산지픽 홈"><img src="/sanji/logo-wide.png" alt="산지픽 SANJI PICK" /></a>
           <div className="sh-hd__icons">
-            <a href="/products" aria-label="검색">
+            <a href={`${linkBase}/products`} aria-label="검색">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             </a>
             <a href="/cart" aria-label="장바구니">
@@ -223,7 +226,7 @@ export default function SanjiHome({
           </div>
         </div>
         <div className="sh-tabs">
-          {["산지 추천", "베스트", "신상품"].map((t, i) => (
+          {["산지직송 추천", "농산물", "해산물"].map((t, i) => (
             <button key={t} className={tab === i ? "on" : ""} onClick={() => setTab(i as 0 | 1 | 2)}>{t}</button>
           ))}
         </div>
@@ -231,16 +234,16 @@ export default function SanjiHome({
 
       {tab === 1 && (
         <div className="sh-sec">
-          <div className="sh-sec__h"><h2>🏆 지금 제일 잘 나가요</h2></div>
-          <p className="sh-sec__sub">누적 판매량 순</p>
-          {best.length ? <Grid items={best} /> : <div className="sh-empty">판매 중인 상품이 없어요</div>}
+          <div className="sh-sec__h"><h2>🥔 밭에서 바로 온 농산물</h2></div>
+          <p className="sh-sec__sub">많이 찾는 순 · 농가에서 수확한 그대로</p>
+          {produce.length ? <Grid items={produce} /> : <div className="sh-empty">판매 중인 농산물이 없어요</div>}
         </div>
       )}
       {tab === 2 && (
         <div className="sh-sec">
-          <div className="sh-sec__h"><h2>🔔 따끈따끈한 신상품!</h2></div>
-          <p className="sh-sec__sub">최근 등록 순</p>
-          {newest.length ? <Grid items={newest} /> : <div className="sh-empty">등록된 상품이 없어요</div>}
+          <div className="sh-sec__h"><h2>🐟 바다에서 바로 온 해산물</h2></div>
+          <p className="sh-sec__sub">많이 찾는 순 · 항구에서 손질해 바로 발송</p>
+          {seafood.length ? <Grid items={seafood} /> : <div className="sh-empty">해산물은 지금 준비 중이에요<br />바다 산지와 손잡는 대로 이 자리에 올라옵니다</div>}
         </div>
       )}
 
@@ -273,8 +276,8 @@ export default function SanjiHome({
 
           {/* 큰 2열 카드 — 산지 직송 대표 상품 */}
           <div className="sh-sec">
-            <div className="sh-sec__h"><h2>산지에서 바로 온 그 상품!</h2></div>
-            <p className="sh-sec__sub">아묻따! 농가에서 직접 보내는 산지 직송</p>
+            <div className="sh-sec__h"><h2>이번 주 산지에서 막 올라왔어요</h2></div>
+            <p className="sh-sec__sub">중간 유통 없이, 농가에서 수확한 그대로 보내드려요</p>
             {live.length ? (
               <div
                 className="sh-big"
@@ -288,11 +291,11 @@ export default function SanjiHome({
                   <a key={p.id} className="sh-bigcard" href={href(p)}>
                     <div className="th">
                       <Img src={p.main_image} alt={p.name} />
-                      {gap(p) > 0 && <span className="pill">{won(gap(p))} 추가 할인</span>}
+                      {gap(p) > 0 && <span className="pill">정가보다 {won(gap(p))} 저렴</span>}
                     </div>
                     <div className="left">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
-                      {p.stock > 0 ? `${p.stock.toLocaleString()}개 남음` : "품절"}
+                      {p.stock > 0 ? `남은 수량 ${p.stock.toLocaleString()}개` : "품절"}
                     </div>
                     <div className="ttl"><span>{p.name}</span></div>
                     <div className="pr">{pct(p) > 0 && <em>{pct(p)}%</em>}{won(p.price)}</div>
@@ -308,8 +311,8 @@ export default function SanjiHome({
           {/* 한정특가 3열 */}
           {deals.length > 0 && (
             <div className="sh-sec">
-              <div className="sh-sec__h"><h2>눈 깜짝할 새 없어지는 한정특가!</h2></div>
-              <p className="sh-sec__sub">수확한 만큼만 드리는 산지 초특가</p>
+              <div className="sh-sec__h"><h2>수확한 만큼만, 한정 수량 특가</h2></div>
+              <p className="sh-sec__sub">이번 물량이 끝나면 다음 수확까지 기다려야 해요</p>
               <Grid items={deals.slice(0, 6)} />
             </div>
           )}
@@ -317,8 +320,8 @@ export default function SanjiHome({
           {/* 신상품 가로 */}
           {newest.length > 0 && (
             <div className="sh-sec">
-              <div className="sh-sec__h"><h2>🔔 따끈따끈한 신상품!</h2><a href="#" onClick={(e) => { e.preventDefault(); setTab(2); window.scrollTo({ top: 0 }); }}>더보기 ›</a></div>
-              <p className="sh-sec__sub">이번 주 새로 올라온 산지 상품</p>
+              <div className="sh-sec__h"><h2>🌱 새로 들어온 산지 상품</h2><a href="#" onClick={(e) => { e.preventDefault(); setTab(2); window.scrollTo({ top: 0 }); }}>전체 보기 ›</a></div>
+              <p className="sh-sec__sub">직접 먹어보고 골라 이번 주 새로 올린 상품</p>
               <div className="sh-row">
                 {newest.slice(0, 8).map((p) => (
                   <a key={p.id} className="sh-card" href={href(p)}>
@@ -334,8 +337,8 @@ export default function SanjiHome({
           {/* 곧 오픈 예정 */}
           {upcoming.length > 0 && (
             <div className="sh-sec">
-              <div className="sh-sec__h"><h2>🔔 곧 오픈 예정!</h2></div>
-              <p className="sh-sec__sub">장바구니 비워 두셨나요? 수확 맞춰 열리는 공구예요</p>
+              <div className="sh-sec__h"><h2>⏰ 수확 맞춰 곧 열려요</h2></div>
+              <p className="sh-sec__sub">농가 수확 일정에 맞춰 판매를 시작하는 상품이에요</p>
               <div className="sh-row">
                 {upcoming.map((p) => {
                   const o = openLabel(p.sale_start_at!);
@@ -356,8 +359,8 @@ export default function SanjiHome({
 
           {/* 후기 */}
           <div className="sh-sec">
-            <div className="sh-sec__h"><h2>고객분들의 솔직 담백한 후기</h2></div>
-            <p className="sh-sec__sub">직접 받아본 분들의 이야기</p>
+            <div className="sh-sec__h"><h2>받아보신 분들의 한마디</h2></div>
+            <p className="sh-sec__sub">포장 뜯고 남겨주신 진짜 후기예요</p>
             {reviews.length ? reviews.map((r) => {
               const p = products.find((x) => x.id === r.product_id);
               return (

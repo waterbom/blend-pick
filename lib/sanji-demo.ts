@@ -220,6 +220,7 @@ export const SANJI_DEMO_CARDS: SanjiCard[] = SANJI_DEMO_PRODUCTS.map((d) => ({
   id: d.product.id,
   name: d.product.name,
   brand: d.product.brand,
+  category: "산지픽 농산물",
   price: d.product.price,
   original_price: d.product.original_price,
   main_image: d.product.main_image,

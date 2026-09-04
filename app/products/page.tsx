@@ -4,8 +4,12 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
 import ProductCarousel from "@/components/ProductCarousel";
+import { SITES } from "@/lib/sites";
 
 export const metadata = { title: "Products · BLEND PICK" };
+
+// 산지픽 카테고리 상품은 블랜드픽 목록에서 제외 — 산지픽 도메인의 /products 는 proxy가 /sanji/products 로 보낸다
+const SANJI_CATS = SITES.sanjipick.categories;
 
 // 딥 포레스트 팔레트 (호텔 예약 페이지와 동일 토큰)
 const C = {
@@ -43,12 +47,12 @@ interface Product {
 }
 
 async function getProducts(category?: string) {
-  const params: string[] = [];
+  const params: (string | string[])[] = [SANJI_CATS];
   // 판매 시작이 미래로 예약된 상품은 '판매 중'이 아니라 '오픈 예정'에서 노출
-  let where = `WHERE status = 'active' AND (sale_start_at IS NULL OR sale_start_at <= NOW())`;
+  let where = `WHERE status = 'active' AND (sale_start_at IS NULL OR sale_start_at <= NOW()) AND category <> ALL($1::text[])`;
   if (category) {
     params.push(category);
-    where += ` AND category = $1`;
+    where += ` AND category = $2`;
   }
   const result = await shopPool.query(
     `SELECT id, name, brand, category, price, original_price, stock, status, main_image, shipping_type, shipping_cost
@@ -60,7 +64,8 @@ async function getProducts(category?: string) {
 
 async function getCategories() {
   const result = await shopPool.query(
-    `SELECT DISTINCT category FROM products_shop WHERE status = 'active' ORDER BY category`
+    `SELECT DISTINCT category FROM products_shop WHERE status = 'active' AND category <> ALL($1::text[]) ORDER BY category`,
+    [SANJI_CATS]
   );
   return result.rows.map((r) => r.category as string);
 }
@@ -80,10 +85,10 @@ async function getUpcoming(): Promise<UpcomingProduct[]> {
       SELECT id, name, brand, main_image AS image,
              to_char(sale_start_at AT TIME ZONE 'Asia/Seoul', 'FMMM. FMDD') AS open_label
       FROM products_shop
-      WHERE status = 'active' AND sale_start_at > NOW()
+      WHERE status = 'active' AND sale_start_at > NOW() AND category <> ALL($1::text[])
       ORDER BY sale_start_at ASC
       LIMIT 8
-    `);
+    `, [SANJI_CATS]);
     return result.rows as UpcomingProduct[];
   } catch (e) {
     console.error("[products] upcoming 조회 실패:", e);

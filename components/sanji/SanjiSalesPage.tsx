@@ -224,8 +224,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
     : "구매하기";
 
   const socialPill =
-    stats.rebuyers >= 3 ? `최근 3개월간 ${stats.rebuyers.toLocaleString()}명이 재구매했어요`
-    : stats.buyers >= 10 ? `${stats.buyers.toLocaleString()}명이 구매했어요`
+    stats.rebuyers >= 3 ? `석 달 새 ${stats.rebuyers.toLocaleString()}명이 다시 주문했어요`
+    : stats.buyers >= 10 ? `${stats.buyers.toLocaleString()}명이 받아보셨어요`
     : stats.sold >= 10 ? `누적 ${stats.sold.toLocaleString()}개 판매` : "";
 
   const infoRows: [string, string][] = [
@@ -370,7 +370,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       {saleState === "open" && !soldout && (
         <>
           <div className="sp-deal">
-            <span>한정특가 · <b>{product.stock.toLocaleString()}개</b> 남음</span>
+            <span>한정 수량 · <b>{product.stock.toLocaleString()}개</b> 남았어요</span>
             {endLeft ? <span className="t">종료까지 {endLeft}</span> : <span className="t">수확분 소진 시 마감</span>}
           </div>
           <div className="sp-dealbar"><i style={{ width: `${Math.round(soldRatio * 100)}%` }} /></div>
@@ -457,7 +457,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         <>
           <div className="sp-band" />
           <div className="sp-sec">
-            <h3>다른 고객이 함께 본 상품</h3>
+            <h3>이런 상품도 산지에서 왔어요</h3>
             <div className="sp-row">
               {others.map((p) => {
                 const d = p.original_price && p.original_price > p.price ? Math.round((1 - p.price / p.original_price) * 100) : 0;
@@ -536,8 +536,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       <div className="sp-bottom">
         {saleState === "open" && !soldout && !demo && (priceGap > 0 || product.stock > 0) && (
           <div className="sp-urg">
-            <span>{priceGap > 0 ? `특가 종료 후 ${won(priceGap)} 비싸져요` : "산지 직송 특가 진행 중"}</span>
-            <span>{endLeft ? `종료까지 ${endLeft}` : `종료까지 ${product.stock.toLocaleString()}개 남음`}</span>
+            <span>{priceGap > 0 ? `이번 수확분까지만 이 가격 · 이후 ${won(priceGap)} 올라요` : "산지 직송가로 판매 중"}</span>
+            <span>{endLeft ? `마감까지 ${endLeft}` : `${product.stock.toLocaleString()}개 남았어요`}</span>
           </div>
         )}
         {demo && <div className="sp-urg"><span>오픈 준비 중이에요 · 곧 구매하실 수 있어요</span></div>}

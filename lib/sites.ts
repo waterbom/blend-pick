@@ -41,8 +41,9 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     basePath: "/sanji",
     tagline: "산지에서 바로, 제철 그대로",
     description: "농가에서 바로 보내는 제철 농산물 공동구매 — 산지픽",
-    // 상품 관리에서 카테고리를 '산지픽'으로 지정한 상품만 산지픽에 노출
-    categories: ["산지픽"],
+    // 상품 관리에서 카테고리를 이 중 하나로 지정한 상품만 산지픽에 노출
+    // '산지픽'·'산지픽 농산물' = 농산물 탭, '산지픽 해산물' = 해산물 탭 (lib/sanji-kind.ts)
+    categories: ["산지픽", "산지픽 농산물", "산지픽 해산물"],
     kakaoUrl: process.env.NEXT_PUBLIC_SANJI_KAKAO_URL || KAKAO,
   },
 };
