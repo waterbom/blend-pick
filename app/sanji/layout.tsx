@@ -34,8 +34,10 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: S.name,
       type: "website",
       locale: "ko_KR",
-      images: [{ url: `https://${S.host}/sanji/hero-farmer.png`, width: 784, height: 552, alt: "산지픽 — 농가 직송 제철 농산물" }],
+      // 카톡·인스타 등 링크 미리보기 이미지 — 로고 (public/sanji/og.png, 1200×630)
+      images: [{ url: `https://${S.host}/sanji/og.png`, width: 1200, height: 630, alt: "산지픽 SANJI PICK" }],
     },
+    twitter: { card: "summary_large_image", images: [`https://${S.host}/sanji/og.png`] },
   };
 }
 

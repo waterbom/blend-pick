@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { fbqTrack } from "@/lib/analytics";
 
 interface OrderResult {
   orderNumber: string;
@@ -39,6 +40,8 @@ function CartSuccessContent() {
         if (data.ok) {
           sessionStorage.removeItem("cartCheckoutData");
           setResult(data);
+          // 메타 광고 전환 — 결제 완료(Purchase) 이벤트
+          fbqTrack("Purchase", { value: Number(data.totalAmount) || Number(amount), currency: "KRW" });
         } else {
           setError(data.error || "결제 확인 중 오류가 발생했습니다.");
         }

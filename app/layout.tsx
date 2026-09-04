@@ -4,6 +4,7 @@ import GlobalFloating from "@/components/GlobalFloating";
 import Footer from "@/components/Footer";
 import InfRefCookie from "@/components/InfRefCookie";
 import { SiteProvider } from "@/components/SiteContext";
+import MetaPixel from "@/components/MetaPixel";
 import { currentSite } from "@/lib/site-server";
 import { SITES } from "@/lib/sites";
 
@@ -48,6 +49,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <SiteProvider site={site.key}>
           <InfRefCookie />
+          <MetaPixel />
           {children}
           <Footer />
           <GlobalFloating />
