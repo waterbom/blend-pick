@@ -84,3 +84,10 @@ NEXT_PUBLIC_SANJI_KAKAO_URL=...                  # 산지픽 전용 카카오 �
 - 산지픽 전용 상품 상세 톤(현재는 공용 상세 페이지 + 산지픽 헤더)
 - `robots.txt` / `sitemap.xml` 호스트별 분기, 네이버·구글 서치콘솔에 서브도메인 별도 등록
 - 토스페이먼츠 상점 설정에 `sanjipick.blendpunch.com` 도메인 추가 (결제창 허용 도메인)
+
+## 주문의 사이트 구분 (orders.site)
+
+- `orders.site` = `'blendpick' | 'sanjipick'` (기본 blendpick). `scripts/migrate-order-site.cjs` 가 배포 때마다 실행돼 컬럼을 보장한다.
+- 결제 확정 API(`app/api/payment/{shop,cart,extra}-confirm`, `confirm`)가 `lib/site-request.ts` 의 `siteFromRequest(req)` 로 판별해 저장.
+  proxy 가 붙인 `x-site` 헤더(산지픽 도메인, 또는 shop 도메인 `/sanji` 미리보기 쿠키) 우선, 없으면 호스트.
+- 다음 단계: 어드민 판매 관리 '전체/블랜드픽/산지픽' 필터, 배송·수익·정산 분리, 알림톡 브랜드명 분기.

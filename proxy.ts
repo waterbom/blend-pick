@@ -25,8 +25,9 @@ export function proxy(req: NextRequest) {
   // 미리보기 모드 — shop 도메인에서 /sanji 로 산지픽을 보다가 공용 페이지(로그인·마이페이지·장바구니·결제…)로
   // 넘어가면 도메인상으론 블랜드픽이라 테마가 바뀐다. /sanji 를 거친 브라우저에 쿠키를 심어 두고,
   // 공용 페이지에서는 그 쿠키로 산지픽 테마를 유지한다. 블랜드픽 고유 페이지(/, /hotel, /influencer)로 가면 해제.
+  // API 호출(결제 확정 등)도 미리보기 중이면 산지픽으로 표시 — orders.site 기록 기준
   const preview = !sanjiHost && req.cookies.get(PREVIEW_COOKIE)?.value === "1";
-  if (preview && site === "blendpick" && PREVIEW_SHARED.has(seg)) site = "sanjipick";
+  if (preview && site === "blendpick" && (PREVIEW_SHARED.has(seg) || seg === "api")) site = "sanjipick";
 
   // 다운스트림(서버 컴포넌트)이 어느 사이트인지 알 수 있게 요청 헤더에 표시
   const reqHeaders = new Headers(req.headers);

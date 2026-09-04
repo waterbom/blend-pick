@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { siteFromRequest } from "@/lib/site-request";
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import { randomBytes } from "crypto";
@@ -73,9 +74,9 @@ export async function POST(req: NextRequest) {
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at, order_type,
-        influencer_id, campaign_id, influencer_name, commission_rate
+        influencer_id, campaign_id, influencer_name, commission_rate, site
       ) VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'paid',$13,$14,NOW(),'campaign',
-        $15,$16,$17,$18)
+        $15,$16,$17,$18,$19)
       RETURNING id`,
       [
         orderNumber,
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
         campaign?.id ?? null,
         campaign?.influencer_name ?? null,
         campaign?.commission_rate ?? null,
+        siteFromRequest(req), // 블랜드픽/산지픽 — 어드민 분리 기준
       ]
     );
     await client.query(

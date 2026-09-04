@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { siteFromRequest } from "@/lib/site-request";
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import { cookies } from "next/headers";
@@ -99,9 +100,9 @@ export async function POST(req: NextRequest) {
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at, order_type,
-        influencer_id, influencer_name, commission_rate
+        influencer_id, influencer_name, commission_rate, site
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'paid',$14,$15,NOW(),'shop',
-        $16,$17,$18)
+        $16,$17,$18,$19)
       RETURNING id`,
       [
         orderNumber,
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest) {
         influencer?.id ?? null,
         influencer?.name ?? null,
         influencer ? commissionRate : null,
+        siteFromRequest(req), // 어느 사이트에서 결제됐는지 (블랜드픽/산지픽) — 어드민 분리 기준
       ]
     );
 

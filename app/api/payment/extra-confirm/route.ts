@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { siteFromRequest } from "@/lib/site-request";
 import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
 import { randomBytes } from "crypto";
@@ -51,12 +52,12 @@ export async function POST(req: NextRequest) {
     const { rows } = await client.query(
       `INSERT INTO orders (
         order_number, buyer_name, buyer_phone, recipient_name, recipient_phone,
-        addr_memo, total_amount, shipping_fee, status, payment_key, payment_method, paid_at, order_type
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,0,'paid',$8,$9,NOW(),'extra')
+        addr_memo, total_amount, shipping_fee, status, payment_key, payment_method, paid_at, order_type, site
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,0,'paid',$8,$9,NOW(),'extra',$10)
       RETURNING id`,
       // 같은 파라미터($2)를 두 컬럼에 재사용하면 컬럼 타입이 다를 때
       // "inconsistent types deduced for parameter" 에러가 나므로 자리마다 별도 파라미터로 전달
-      [orderNumber, name || "-", phone || "-", name || "-", phone || "-", memoText, info.amount, paymentKey, tossData.method]
+      [orderNumber, name || "-", phone || "-", name || "-", phone || "-", memoText, info.amount, paymentKey, tossData.method, siteFromRequest(req)]
     );
     await client.query(
       `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity)

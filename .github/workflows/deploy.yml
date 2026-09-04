@@ -22,5 +22,7 @@ jobs:
             cd ${{ secrets.EC2_APP_DIR }}
             git pull
             npm ci
+            # 스키마 마이그레이션 (idempotent) — 코드가 새 컬럼을 쓰기 전에 먼저 반영
+            node scripts/migrate-order-site.cjs || { echo "::error::orders.site 마이그레이션 실패 — 배포 중단"; exit 1; }
             npm run build
             sudo systemctl restart blend-pick
