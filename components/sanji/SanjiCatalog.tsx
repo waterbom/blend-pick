@@ -27,8 +27,8 @@ type Filter = "all" | SanjiKind;
 export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: { products: SanjiCard[]; linkBase: string; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery);
   const [filter, setFilter] = useState<Filter>("all");
-  const now = Date.now();
   const list = useMemo(() => {
+    const now = Date.now();
     const kw = q.trim().toLowerCase();
     return products
       .filter((p) => !(p.sale_start_at && new Date(p.sale_start_at).getTime() > now))
@@ -114,7 +114,7 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: 
           </div>
         ) : (
           <div className="sc-empty">
-            {filter === "seafood" && !q ? <>해산물은 지금 준비 중이에요<br />바다 산지와 손잡는 대로 올라옵니다</> : q ? <>'{q}'에 맞는 상품이 아직 없어요<br />다른 이름으로 찾아보세요</> : "판매 중인 상품이 없어요"}
+            {filter === "seafood" && !q ? <>해산물은 지금 준비 중이에요<br />바다 산지와 손잡는 대로 올라옵니다</> : q ? <>{`'${q}'에 맞는 상품이 아직 없어요`}<br />다른 이름으로 찾아보세요</> : "판매 중인 상품이 없어요"}
           </div>
         )}
       </div>
