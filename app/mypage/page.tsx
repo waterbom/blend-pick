@@ -4,7 +4,7 @@ import CustomerOrders from "@/components/CustomerOrders";
 import SanjiMyPage from "@/components/sanji/SanjiMyPage";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/auth";
+import { verifyToken, verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import Header from "@/components/Header";
@@ -58,6 +58,8 @@ async function getHotelReservations(userId: string) {
 export default async function MyPage() {
   if ((await currentSite()).key === "sanjipick") return <SanjiMyPage />;
   const cookieStore = await cookies();
+  const adminToken = cookieStore.get("admin_token")?.value;
+  if (adminToken && await verifyAdminToken(adminToken)) redirect("/admin");
   const token = cookieStore.get("shop_token")?.value;
   if (!token) redirect("/login");
 

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { verifyToken } from "@/lib/auth";
+import { verifyToken, verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import { getOrders } from "@/lib/customer-orders";
 import { sanjiLinkBase } from "@/lib/sanji-link";
@@ -15,7 +15,10 @@ export default async function SanjiMyPage() {
   const base = await sanjiLinkBase();
   // 공용 카카오 콜백이 shop 호스트로 돌아와도 산지픽 화면을 유지한다.
   const loginHref = `/login?redirect=${encodeURIComponent("/sanji/mypage")}`;
-  const token = (await cookies()).get("shop_token")?.value;
+  const cookieStore = await cookies();
+  const adminToken = cookieStore.get("admin_token")?.value;
+  if (adminToken && await verifyAdminToken(adminToken)) redirect("/admin");
+  const token = cookieStore.get("shop_token")?.value;
   const payload = token ? await verifyToken(token) : null;
   if (!payload) redirect(loginHref);
 

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "관리자 로그인 설정을 확인해주세요." }, { status: 503 });
     }
 
-    const res = NextResponse.json({ ok: true, redirect: "/" });
+    const res = NextResponse.json({ ok: true, isAdmin: true, redirect: "/admin" });
     res.cookies.set("admin_token", adminToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

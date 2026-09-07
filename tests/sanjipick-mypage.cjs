@@ -33,7 +33,7 @@ function load(file, mocks = {}, cache = new Map()) {
 }
 const sites = load('lib/sites.ts');
 const cookies = { cookies: async () => ({ get: name => ({ value: name === 'shop_token' ? 'token' : 'verified' }) }) };
-const auth = { verifyToken: async () => ({ id: 'user-1', role: 'influencer' }) };
+const auth = { verifyAdminToken: async () => null, verifyToken: async () => ({ id: 'user-1', role: 'influencer' }) };
 const link = ({ children, ...props }) => React.createElement('a', props, children);
 const redirect = dest => { throw Error(`REDIRECT:${dest}`); };
 const baseMocks = {

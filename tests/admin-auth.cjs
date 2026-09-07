@@ -87,6 +87,7 @@ function load(file, mocks) {
     const denied = await login(req(admin.email, 'wrong'));
     assert.equal(denied.status, 401); assert.equal(denied.cookies.get('admin_token'), undefined);
     const res = await login(req(admin.email));
+    assert.deepEqual(await res.clone().json(), { ok: true, isAdmin: true, redirect: "/admin" });
     assert.deepEqual(await auth.verifyAdminToken(res.cookies.get('admin_token').value), admin);
     assert.equal(res.cookies.get('shop_token').maxAge, 0);
   });
@@ -105,6 +106,24 @@ function load(file, mocks) {
     const token = await signed({ ...admin, email: 'personal@example.com' });
     const route = load('app/api/admin/categories/route.ts', { '@/lib/auth': auth, 'next/headers': { cookies: async () => ({ get: () => ({ value: token }) }) }, '@/lib/db-shop': { query: async () => { throw Error('Unauthorized DB access'); } } });
     assert.equal((await route.GET()).status, 401);
+  });
+  await test('both MyPage implementations redirect verified admin to admin without customer lookup', async () => {
+    const redirect = url => { throw Error(`REDIRECT:${url}`); };
+    const token = await auth.signAdminToken(admin);
+    const pageMocks = {
+      '@/lib/auth': auth,
+      'next/headers': { cookies: async () => ({ get: key => key === 'admin_token' ? { value: token } : undefined }) },
+      'next/navigation': { redirect }, '@/lib/site-server': { currentSite: async () => ({ key: 'blendpick' }) },
+      '@/lib/sanji-link': { sanjiLinkBase: async () => '' }, '@/lib/sites': { SITES: {} },
+      '@/lib/db': { query: async () => { throw Error('Admin must not require a customer account'); } }, '@/lib/db-shop': {},
+      '@/lib/customer-orders': { getOrders: async () => { throw Error('Customer orders must not load'); } },
+      '@/components/Header': () => null, '@/components/CustomerOrders': () => null,
+      '@/components/WithdrawButton': () => null, '@/components/sanji/SanjiMyPage': () => null,
+    };
+    for (const file of ['app/mypage/page.tsx', 'components/sanji/SanjiMyPage.tsx']) {
+      const page = load(file, pageMocks).default;
+      await assert.rejects(() => page(), /REDIRECT:\/admin$/);
+    }
   });
   console.log(`${count} authentication checks passed. No production access.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

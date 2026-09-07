@@ -34,7 +34,7 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.href = redirect || data.redirect || "/";
+    window.location.href = data.isAdmin ? "/admin" : redirect || data.redirect || "/";
   }
 
   return (
