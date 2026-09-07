@@ -62,3 +62,9 @@ PGLITE_MODULE=/tmp/blendpick-admin-test/node_modules/@electric-sql/pglite node t
 - 사이드바: 산지픽은 딥그린 팔레트 + 산지픽 로고, "산지 직송 / 후기 관리" 표기. Shop은 기존 다크 무채색 (`components/admin/AdminSidebar.tsx` THEME). 배경색도 사이트별.
 - 상품 관리·상품 목록 API·카테고리 API는 접속 도메인으로 걸러진다 (`lib/admin-site.ts adminProductScopeSql`): 산지픽 어드민은 `산지픽 농산물`/`산지픽 해산물` 카테고리 상품만, Shop 어드민은 그 외만. 상품 테이블 자체는 공유.
 - 산지픽 어드민에서 상품 등록 시 카테고리는 산지픽 카테고리만 보이고, 다른 값이면 `산지픽 농산물`로 저장한다.
+
+## 결제 금액 서버 검증 (승인 전 차단)
+
+- `lib/order-amount.ts`: 단품(`verifySingleAmount`)·장바구니(`verifyCartAmount`) 결제 확정 API가 토스 승인 **전에** 상품가·옵션가·추가옵션·배송비를 DB 기준으로 다시 계산해, 화면이 보낸 `totalAmount`/`shippingCost`/`amount`와 하나라도 다르면 400으로 막는다 (승인 전이라 카드 청구 없음).
+- 계산은 화면과 같은 함수(`lib/shop-price.ts shopUnitPrice`, `lib/shipping.ts cartShippingFee`)를 쓴다. 가격이 결제 도중 바뀐 경우도 같은 메시지("결제 금액이 현재 상품 가격과 달라요")로 막히며, 서버 로그에 불일치 상세가 남는다.
+- 검증 시나리오 10개(옵션·조건부 무료·건별 배송비·추가옵션·금액 조작·없는 상품)는 가짜 DB로 확인했다. 호텔·공구(campaign) 결제는 대상이 아니다.

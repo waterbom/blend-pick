@@ -10,6 +10,7 @@ import { isPhoneVerified } from "@/lib/phone-verify";
 import { findClosedSaleProduct } from "@/lib/sale-window";
 import { infRefFromCookie } from "@/lib/inf-ref";
 import { randomBytes } from "crypto";
+import { verifySingleAmount } from "@/lib/order-amount";
 
 function generateOrderNumber(site: SiteKey) {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -42,6 +43,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "비회원 주문은 휴대폰 인증이 필요합니다." }, { status: 403 });
       }
     }
+  }
+
+  // 0.7 결제 금액 서버 재계산 — 화면 금액이 DB 가격·배송비와 다르면 승인 전에 차단 (카드 청구 없음)
+  const amountCheck = await verifySingleAmount({
+    productId: checkoutData?.productId, optionId: checkoutData?.optionId, quantity: checkoutData?.quantity,
+    unitPrice: checkoutData?.unitPrice, shippingCost: checkoutData?.shippingCost, totalAmount: checkoutData?.totalAmount, amount,
+  }).catch((e) => ({ ok: false as const, error: "결제 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", detail: String(e) }));
+  if (!amountCheck.ok) {
+    console.error("[shop-confirm] 금액 불일치로 승인 차단:", amountCheck.detail, { orderId, productId: checkoutData?.productId });
+    return NextResponse.json({ ok: false, error: amountCheck.error }, { status: 400 });
   }
 
   // 1. 토스페이먼츠 결제 승인
