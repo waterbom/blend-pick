@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useSiteKey } from "@/components/SiteContext";
 import PhoneVerifyField from "@/components/PhoneVerifyField";
 import { carrierName, trackingUrl } from "@/lib/carriers";
 
 interface LookupOrder {
   id: string;
   order_number: string;
-  order_type: "shop" | "hotel";
+  order_type: "shop" | "campaign" | "hotel";
   status: string;
   total_amount: number;
   tracking_company: string | null;
@@ -33,6 +34,7 @@ const STATUS_LABEL: Record<string, string> = {
 const hotelStatus: Record<string, string> = { paid: "예약확정", checked_in: "체크인완료", cancelled: "취소됨", no_show: "노쇼", awaiting: "예약대기" };
 
 export default function OrderLookupClient() {
+  const isSanji = useSiteKey() === "sanjipick";
   const [phone, setPhone] = useState("");
   const [verified, setVerified] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -82,7 +84,7 @@ export default function OrderLookupClient() {
       {!orders && (
         <div className="ds-card p-6">
           <p className="text-[13px] mb-4" style={{ color: "#6B7263" }}>
-            주문할 때 입력한 휴대폰 번호로 인증하면, 그 번호로 결제한 주문·예약 내역을 한 번에 볼 수 있어요.
+            {isSanji ? "주문할 때 입력한 휴대폰 번호로 인증하면 산지픽 주문·배송 내역을 볼 수 있어요." : "주문할 때 입력한 휴대폰 번호로 인증하면, 그 번호로 결제한 주문·예약 내역을 한 번에 볼 수 있어요."}
           </p>
           <label className="ds-label">휴대폰 번호</label>
           <input

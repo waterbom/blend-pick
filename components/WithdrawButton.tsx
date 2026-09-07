@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function WithdrawButton() {
+export default function WithdrawButton({ sharedAccount = false, homeHref = "/" }: { sharedAccount?: boolean; homeHref?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -16,7 +16,7 @@ export default function WithdrawButton() {
     setLoading(false);
 
     if (data.ok) {
-      router.push("/");
+      router.push(homeHref);
     } else {
       alert(data.error || "오류가 발생했습니다.");
     }
@@ -39,6 +39,7 @@ export default function WithdrawButton() {
             <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
               탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.
             </p>
+            {sharedAccount && <p className="text-sm mb-3" style={{ color: "var(--sale)" }}>산지픽과 블랜드픽은 같은 회원 계정을 사용합니다. 탈퇴하면 두 서비스의 계정이 함께 탈퇴됩니다.</p>}
             <p className="text-sm font-medium mb-4" style={{ color: "var(--text-secondary)" }}>
               아래에 <strong>확인했습니다</strong> 를 입력해주세요.
             </p>

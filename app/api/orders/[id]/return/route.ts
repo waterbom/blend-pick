@@ -1,3 +1,4 @@
+import { currentSite } from "@/lib/site-server";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
@@ -15,6 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const payload = token ? await verifyToken(token) : null;
 
   const { id } = await params;
+  const site = await currentSite();
   const body = await req.json().catch(() => ({}));
 
   const kind = body.kind === "exchange" ? "exchange" : body.kind === "return" ? "return" : null;
@@ -46,8 +48,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { rows } = await shopPool.query(
     `SELECT o.id, o.status, o.user_id, o.buyer_phone, o.order_type, o.addr_address, o.addr_detail
-       FROM orders o WHERE o.id = $1`,
-    [id]
+       FROM orders o WHERE o.id = $1 AND o.site = $2`,
+    [id, site.key]
   );
   const order = rows[0];
   if (!order) return NextResponse.json({ error: "주문을 찾을 수 없습니다" }, { status: 404 });

@@ -1,3 +1,4 @@
+import { sanjiLinkBase } from "@/lib/sanji-link";
 import { cookies } from "next/headers";
 import { verifyToken, verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
@@ -49,7 +50,7 @@ export default async function Header() {
       user={user}
       isAdmin={isAdmin}
       isInfluencer={isInfluencer}
-      site={{ key: site.key, nameEn: site.nameEn, basePath: site.basePath }}
+      site={{ key: site.key, nameEn: site.nameEn, basePath: site.key === "sanjipick" ? await sanjiLinkBase() : site.basePath }}
     />
   );
 }

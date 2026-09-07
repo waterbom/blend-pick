@@ -1,3 +1,5 @@
+import { sanjiLinkBase } from "@/lib/sanji-link";
+import { currentSite } from "@/lib/site-server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth";
@@ -11,14 +13,17 @@ export default async function ReturnNewPage({
 }: {
   searchParams: Promise<{ order?: string }>;
 }) {
+  const site = await currentSite();
+  const mypageHref = site.key === "sanjipick" ? `${await sanjiLinkBase()}/mypage` : "/mypage";
+  const loginHref = `/login?redirect=${encodeURIComponent(site.key === "sanjipick" ? "/sanji/mypage" : mypageHref)}`;
   const cookieStore = await cookies();
   const token = cookieStore.get("shop_token")?.value;
-  if (!token) redirect("/login");
+  if (!token) redirect(loginHref);
   const payload = await verifyToken(token);
-  if (!payload) redirect("/login");
+  if (!payload) redirect(loginHref);
 
   const { order: orderId } = await searchParams;
-  if (!orderId) redirect("/mypage");
+  if (!orderId) redirect(mypageHref);
 
   const { rows } = await shopPool.query(
     `SELECT o.id, o.order_number, o.status, o.addr_address, o.addr_detail,
@@ -31,19 +36,19 @@ export default async function ReturnNewPage({
             ) ORDER BY oi.id) AS items
        FROM orders o
        JOIN order_items oi ON oi.order_id = o.id
-      WHERE o.id = $1 AND o.user_id = $2 AND o.order_type IN ('shop', 'campaign')
+      WHERE o.id = $1 AND o.user_id = $2 AND o.site = $3 AND o.order_type IN ('shop', 'campaign')
       GROUP BY o.id`,
-    [orderId, payload.id]
+    [orderId, payload.id, site.key]
   );
   const order = rows[0];
-  if (!order || !["shipped", "delivered"].includes(order.status)) redirect("/mypage");
+  if (!order || !["shipped", "delivered"].includes(order.status)) redirect(mypageHref);
 
   // 진행 중 신청이 있으면 폼 대신 마이페이지로 (중복 차단)
   const dup = await shopPool.query(
     `SELECT 1 FROM order_returns WHERE order_id = $1 AND status IN ('requested', 'collecting')`,
     [orderId]
   );
-  if (dup.rows[0]) redirect("/mypage");
+  if (dup.rows[0]) redirect(mypageHref);
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -55,6 +60,7 @@ export default async function ReturnNewPage({
         </h1>
         <p className="ds-mono text-xs mb-8" style={{ color: "#8B927F" }}>{order.order_number}</p>
         <ReturnRequestForm
+          doneHref={mypageHref}
           orderId={order.id}
           items={order.items}
           defaultAddress={order.addr_address || ""}

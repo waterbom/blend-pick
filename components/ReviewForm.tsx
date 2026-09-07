@@ -15,8 +15,8 @@ const STAR_HINTS = ["별점을 선택해 주세요", "별로예요", "아쉬워�
 const CHIPS = ["아이가 좋아해요", "구성이 알차요", "배송이 빨라요"];
 
 export default function ReviewForm({
-  productId, loggedIn, onClose,
-}: { productId: string; loggedIn: boolean; onClose?: () => void }) {
+  productId, loggedIn, onClose, doneHref,
+}: { productId: string; loggedIn: boolean; onClose?: () => void; doneHref?: string }) {
   const router = useRouter();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -56,6 +56,7 @@ export default function ReviewForm({
       if (!res.ok) { alert(d.error || "리뷰 등록에 실패했어요."); return; }
       alert("리뷰가 등록되었습니다. 감사합니다!");
       onClose?.();
+      if (doneHref) router.push(doneHref);
       router.refresh();
     } finally {
       setBusy(false);
@@ -152,7 +153,7 @@ export default function ReviewForm({
 
       {/* 하단 버튼 — 취소 1 : 등록 1.4, 별점 미선택 시 비활성 */}
       <div className="flex gap-2">
-        <button type="button" onClick={onClose}
+        <button type="button" onClick={() => { if (doneHref) router.push(doneHref); else onClose?.(); }}
           className="flex-1 text-[13.5px] font-semibold"
           style={{ height: 52, border: `1px solid ${HAIR}`, color: "#6B7263", background: "#fff" }}>
           취소

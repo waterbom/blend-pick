@@ -1,3 +1,4 @@
+import { currentSite } from "@/lib/site-server";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "휴대폰 인증이 필요합니다." }, { status: 403 });
   }
 
+  const site = await currentSite();
   const r = await shopPool.query(
     `SELECT o.id, o.order_number, o.order_type, o.status, o.total_amount,
             o.tracking_company, o.tracking_number,
@@ -31,10 +33,11 @@ export async function POST(req: NextRequest) {
                FROM order_items oi WHERE oi.order_id = o.id) AS items
        FROM orders o
       WHERE regexp_replace(COALESCE(o.buyer_phone, ''), '[^0-9]', '', 'g') = $1
-        AND o.order_type IN ('shop', 'hotel')
+        AND o.site = $2
+        AND (o.order_type IN ('shop', 'campaign') OR ($2 = 'blendpick' AND o.order_type = 'hotel'))
       ORDER BY o.paid_at DESC NULLS LAST
       LIMIT 50`,
-    [p]
+    [p, site.key]
   );
   return NextResponse.json({ ok: true, orders: r.rows });
 }

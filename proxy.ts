@@ -77,13 +77,13 @@ const PREVIEW_SHARED = new Set<string>(["login", "signup", "mypage", "cart", "ch
 // 여기로 오면 미리보기 해제 (블랜드픽 고유 영역)
 const PREVIEW_CLEAR = new Set<string>(["hotel", "influencer", "campaigns", "admin"]);
 
-// 산지픽 도메인에서 산지픽 전용 페이지로 리라이트할 1차 경로 — 그 외(/products, /cart, /checkout, /login, /mypage …)는 공용
+// 산지픽 도메인에서 산지픽 전용 페이지로 리라이트할 1차 경로 — 그 외(/products, /cart, /checkout, /login …)는 공용
 // ★ app/sanji/ 아래에 페이지를 추가하면 여기에도 세그먼트를 등록
 //   ""      → /sanji        (루트 = 대표 상품 판매 페이지)
 //   "p"     → /sanji/p/<id> (개별 상품 판매 페이지)
 //   "about" → /sanji/about  (브랜드 소개 — 예전 랜딩)
 //   (정확히 "/products" 만) → /sanji/products (산지픽 전체 상품·검색) — proxy() 안에서 별도 처리
-const SANJI_OWN_PATHS = new Set<string>(["", "p", "about"]);
+const SANJI_OWN_PATHS = new Set<string>(["", "p", "about", "mypage"]);
 
 function firstSegment(pathname: string) {
   return pathname.split("/")[1] ?? "";

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { verifiedPhoneOf, normPhone } from "@/lib/phone-verify";
 import shopPool from "@/lib/db-shop";
+import { currentSite } from "@/lib/site-server";
 
 // 이름 마스킹: 김민수 → 김*수, 김수 → 김*, 외자/영문도 가운데 가림
 function maskName(name: string) {
@@ -45,8 +46,9 @@ export async function POST(req: Request) {
   }
 
   // 배송완료된 이 상품 주문 중 아직 리뷰를 안 쓴 주문 1건 찾기
-  const conds = [`oi.product_id = $1`, `o.status = 'delivered'`];
-  const params: unknown[] = [product_id];
+  const site = await currentSite();
+  const conds = [`oi.product_id = $1`, `o.status = 'delivered'`, `o.site = $2`];
+  const params: unknown[] = [product_id, site.key];
   if (logged?.id) {
     params.push(logged.id);
     conds.push(`o.user_id = $${params.length}`);

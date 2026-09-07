@@ -1,3 +1,4 @@
+import { currentSite } from "@/lib/site-server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import shopPool from "@/lib/db-shop";
@@ -12,6 +13,7 @@ export default async function GuestReturnNewPage({
 }: {
   searchParams: Promise<{ order?: string }>;
 }) {
+  const site = await currentSite();
   const { order: orderId } = await searchParams;
   if (!orderId) redirect("/orders/lookup");
 
@@ -30,9 +32,9 @@ export default async function GuestReturnNewPage({
             ) ORDER BY oi.id) AS items
        FROM orders o
        JOIN order_items oi ON oi.order_id = o.id
-      WHERE o.id = $1 AND o.order_type IN ('shop', 'campaign')
+      WHERE o.id = $1 AND o.site = $2 AND o.order_type IN ('shop', 'campaign')
       GROUP BY o.id`,
-    [orderId]
+    [orderId, site.key]
   );
   const order = rows[0];
   if (!order || normPhone(order.buyer_phone || "") !== phone) redirect("/orders/lookup");

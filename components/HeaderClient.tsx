@@ -39,10 +39,10 @@ const NAV_ITEMS = [
 ];
 
 // 산지픽 네비 — 농산물 사이트라 숙박 메뉴 없음
-const SANJI_NAV_ITEMS = [
-  { label: "지금 산지 직송", href: "/sanji", hot: true },
-  { label: "산지픽 이야기", href: "/sanji/about", hot: false },
-  { label: "CONTACT", href: "/blend-picked" },
+const sanjiNavItems = (base: string) => [
+  { label: "지금 산지 직송", href: base || "/", hot: true },
+  { label: "산지픽 이야기", href: `${base}/about`, hot: false },
+  { label: "주문·배송 조회", href: `${base}/mypage` },
 ];
 
 interface User {
@@ -72,7 +72,7 @@ export default function HeaderClient({
   // 모바일 햄버거 메뉴 — sm 미만에서는 네비가 숨겨지므로 여기로 카테고리 진입
   const [menuOpen, setMenuOpen] = useState(false);
   const isSanji = site?.key === "sanjipick";
-  const navItems = isSanji ? SANJI_NAV_ITEMS : NAV_ITEMS;
+  const navItems = isSanji ? sanjiNavItems(site!.basePath) : NAV_ITEMS;
   const homeHref = isSanji ? site!.basePath || "/" : "/";
 
   return (
@@ -162,7 +162,7 @@ export default function HeaderClient({
                   관리자마이페이지
                 </Link>
               </div>
-            ) : isInfluencer ? (
+            ) : isInfluencer && !isSanji ? (
               /* 인플루언서 — 마이페이지 대신 인플루언서 탭 */
               <Link
                 href="/influencer"
@@ -181,7 +181,7 @@ export default function HeaderClient({
             ) : (
               /* 일반 유저 */
               <Link
-                href="/mypage"
+                href={isSanji ? `${site!.basePath}/mypage` : "/mypage"}
                 className="flex items-center gap-2 transition-colors duration-200 hover:opacity-80"
               >
                 {user.profile_image ? (
@@ -199,7 +199,7 @@ export default function HeaderClient({
             )
           ) : (
             <Link
-              href="/login"
+              href={isSanji ? "/login?redirect=%2Fsanji%2Fmypage" : "/login"}
               className="text-[13px] font-medium transition-colors duration-200"
               style={{ color: "var(--text-secondary)" }}
               onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--text-primary)"; }}

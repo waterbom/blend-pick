@@ -128,7 +128,7 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: 
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c4-4 8-7.6 8-12a8 8 0 10-16 0c0 4.4 4 8 8 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
           산지 이야기
         </a>
-        <a href="/mypage">
+        <a href={`${linkBase}/mypage`}>
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
           마이페이지
         </a>
