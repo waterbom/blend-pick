@@ -34,7 +34,7 @@ export default function CartClient() {
   async function fetchCart() {
     const res = await fetch("/api/cart");
     if (res.status === 401) {
-      router.push("/login");
+      router.push("/login?redirect=%2Fcart");
       return;
     }
     const data = await res.json();

@@ -75,10 +75,11 @@ function load(file, mocks) {
   });
   await test('Kakao personal login clears old admin session', async () => {
     const oldFetch = global.fetch;
-    global.fetch = async url => ({ json: async () => url.includes('/oauth/token') ? { access_token: 'mock-only' } : { id: 'kakao-1', kakao_account: { profile: { nickname: 'Personal' } } } });
+    global.fetch = async url => ({ ok: true, json: async () => url.includes('/oauth/token') ? { access_token: 'mock-only' } : { id: 'kakao-1', kakao_account: { profile: { nickname: 'Personal' } } } });
     try {
-      const callback = load('app/api/auth/kakao/callback/route.ts', mocks).GET;
-      const res = await callback(new NextRequest('https://shop.blendpunch.com/api/auth/kakao/callback?code=mock'));
+      const helper = load('lib/kakao-login.ts', { '@/lib/db-shop': mocks['@/lib/db-shop'], '@/lib/sites': { SITES: {}, siteFromHost: () => 'blendpick' } });
+      const callback = load('app/api/auth/kakao/callback/route.ts', { ...mocks, '@/lib/kakao-login': helper, '@/lib/db-shop': { query: async () => ({ rows: [{ site: 'blendpick', return_path: '/' }] }) } }).GET;
+      const res = await callback(new NextRequest('https://shop.blendpunch.com/api/auth/kakao/callback?code=mock&state=test-flow', { headers: { cookie: 'kakao_login_flow=test-flow' } }));
       assert.equal(res.cookies.get('admin_token').maxAge, 0);
       assert.equal((await auth.verifyToken(res.cookies.get('shop_token').value)).role, 'customer');
     } finally { global.fetch = oldFetch; }

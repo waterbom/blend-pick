@@ -81,7 +81,7 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
       sale_type text, sale_start_at timestamptz, sale_end_at timestamptz, influencer_rate numeric, supply_price integer,
       return_cost_roundtrip integer);
     CREATE TABLE product_options (id uuid PRIMARY KEY, product_id uuid, value text, stock integer, supply_price integer);
-    CREATE TABLE cart (id uuid PRIMARY KEY);
+    CREATE TABLE cart (id uuid PRIMARY KEY, user_id uuid, site text NOT NULL DEFAULT 'blendpick');
     CREATE TABLE order_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid REFERENCES orders(id), product_id uuid,
       product_name text, option_id uuid, option_label text, unit_price integer, quantity integer, supply_price integer);
     CREATE TABLE reviews (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid REFERENCES orders(id), product_id uuid,
@@ -201,12 +201,20 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
     await test(`${site}: order and cart payment still call Toss and save the correct site`,async()=>{
       for (const endpoint of ['shop-confirm','cart-confirm','confirm']) {
         global.fetch=async(url,opts)=>{assert.equal(url,'https://api.tosspayments.com/v1/payments/confirm');assert.equal(JSON.parse(opts.body).amount,10000);return Response.json({method:'card'});};
-        const cd={productId:product,productName:'Fruit',unitPrice:10000,quantity:1,totalAmount:10000,shippingCost:0,customerName:'Test',customerPhone:'01000000000',shippingAddress:'Test',campaignId:campaign,items:[{cart_id:id(200),product_id:product,name:'Fruit',unit_price:10000,price:10000,quantity:1}]};
+        const cd={productId:product,productName:'Fruit',unitPrice:10000,quantity:1,totalAmount:10000,shippingCost:0,customerName:'Test',customerPhone:'01000000000',shippingAddress:'Test',campaignId:campaign,items:[{id:id(200),product_id:product,name:'Fruit',unit_price:10000,price:10000,quantity:1}]};
+        if (endpoint === 'cart-confirm') {
+          await db.query('DELETE FROM cart');
+          await db.query('INSERT INTO cart(id,user_id,site) VALUES ($1,$2,$3),($4,$2,$5),($6,$7,$3)',[id(200),user,site,id(201),site==='sanjipick'?'blendpick':'sanjipick',id(202),id(999)]);
+        }
         const {POST}=load(`app/api/payment/${endpoint}/route.ts`,mocks);
         const result=await(await POST(req(`/api/payment/${endpoint}`,{paymentKey:`MOCK_${site}_${endpoint}`,orderId:`MOCK_${endpoint}`,amount:10000,checkoutData:cd}))).json();
         assert.equal(result.ok,true,JSON.stringify(result));
         const saved=(await db.query('SELECT site, order_number FROM orders WHERE payment_key=$1',[`MOCK_${site}_${endpoint}`])).rows[0];
         assert.equal(saved.site,site);assert.ok(saved.order_number.startsWith(site==='sanjipick'?'SJ-':'BP-'));
+        if (endpoint === 'cart-confirm') {
+          const remaining=(await db.query('SELECT id FROM cart ORDER BY id')).rows.map(r=>r.id);
+          assert.deepEqual(remaining,[id(201),id(202)]);
+        }
       }
       global.fetch=async()=>{httpCalls++;throw Error('Unexpected external request');};
     });

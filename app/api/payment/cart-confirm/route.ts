@@ -22,6 +22,24 @@ export async function POST(req: NextRequest) {
   const paymentSite = siteFromRequest(req);
   const { paymentKey, orderId, amount, checkoutData } = await req.json();
 
+  // 승인 전에 로그인 유저와 장바구니 소속 확인 (비로그인도 허용)
+  const cookieStore = await cookies();
+  const token = cookieStore.get("shop_token")?.value;
+  let userId: string | null = null;
+  if (token) {
+    const payload = await verifyToken(token);
+    userId = payload?.id ?? null;
+  }
+
+  const requestedIds = (Array.isArray(checkoutData?.items) ? checkoutData.items : [])
+    .map((item: { id?: string }) => item.id).filter((id: unknown): id is string => typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+  if (requestedIds.length) {
+    const existingCart = await shopPool.query("SELECT user_id, site FROM cart WHERE id = ANY($1::uuid[])", [requestedIds]);
+    if (existingCart.rows.some(item => !userId || String(item.user_id) !== userId || item.site !== paymentSite)) {
+      return NextResponse.json({ ok: false, error: "현재 사이트의 장바구니에서 다시 결제해주세요." }, { status: 400 });
+    }
+  }
+
   const secretKey = process.env.TOSS_SECRET_KEY!;
 
   // 0. 판매 시간창 검사 — 오픈 전/종료 상품이 담겨 있으면 승인 자체를 막는다 (승인 전이라 카드 청구 없음)
@@ -62,15 +80,6 @@ export async function POST(req: NextRequest) {
       { ok: false, error: tossData.message || "결제 승인 실패" },
       { status: 400 }
     );
-  }
-
-  // 2. 로그인 유저 확인 (비로그인도 허용)
-  const cookieStore = await cookies();
-  const token = cookieStore.get("shop_token")?.value;
-  let userId: string | null = null;
-  if (token) {
-    const payload = await verifyToken(token);
-    userId = payload?.id ?? null;
   }
 
   // 3. DB 저장: orders 1건 + order_items N줄 + cart 비우기
@@ -185,11 +194,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 결제 완료된 아이템들을 cart 테이블에서 삭제
-    const cartIds = items.map((i) => i.id);
-    if (cartIds.length > 0) {
+    const cartIds = requestedIds;
+    if (userId && cartIds.length > 0) {
       await client.query(
-        `DELETE FROM cart WHERE id = ANY($1::uuid[])`,
-        [cartIds]
+        `DELETE FROM cart WHERE id = ANY($1::uuid[]) AND user_id = $2 AND site = $3`,
+        [cartIds, userId, paymentSite]
       );
     }
 

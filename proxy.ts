@@ -19,6 +19,15 @@ export function proxy(req: NextRequest) {
 
   const host = req.headers.get("host");
   const sanjiHost = siteFromHost(host) === "sanjipick";
+  // 운영에서는 Shop의 과거 산지픽 미리보기를 정식 산지픽 도메인으로 보낸다.
+  if (process.env.NODE_ENV === "production" && !sanjiHost && siteFromPath(pathname) === "sanjipick") {
+    const url = new URL(`https://${SITES.sanjipick.host}`);
+    url.pathname = req.nextUrl.pathname.slice(SITES.sanjipick.basePath.length) || "/";
+    url.search = req.nextUrl.search;
+    const res = NextResponse.redirect(url);
+    res.cookies.set("sj_preview", "", { path: "/", maxAge: 0 });
+    return res;
+  }
   const seg = firstSegment(pathname);
   let site: SiteKey = sanjiHost ? "sanjipick" : siteFromPath(pathname);
 
@@ -26,7 +35,7 @@ export function proxy(req: NextRequest) {
   // 넘어가면 도메인상으론 블랜드픽이라 테마가 바뀐다. /sanji 를 거친 브라우저에 쿠키를 심어 두고,
   // 공용 페이지에서는 그 쿠키로 산지픽 테마를 유지한다. 블랜드픽 고유 페이지(/, /hotel, /influencer)로 가면 해제.
   // API 호출(결제 확정 등)도 미리보기 중이면 산지픽으로 표시 — orders.site 기록 기준
-  const preview = !sanjiHost && req.cookies.get(PREVIEW_COOKIE)?.value === "1";
+  const preview = process.env.NODE_ENV !== "production" && !sanjiHost && req.cookies.get(PREVIEW_COOKIE)?.value === "1";
   if (preview && site === "blendpick" && (PREVIEW_SHARED.has(seg) || seg === "api")) site = "sanjipick";
 
   if (seg === "admin" || pathname.startsWith("/api/admin/")) site = siteFromHost(host);
