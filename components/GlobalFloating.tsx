@@ -3,6 +3,7 @@ import { verifyToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import InquiryButton from "@/components/InquiryButton";
 import { currentSite } from "@/lib/site-server";
+import { SITES } from "@/lib/sites";
 
 // 오픈 예정 — 우리 Shop에 등록된 상품 중 판매 시작(sale_start_at)이 미래로 예약된 것만.
 // 없으면 빈 배열 → InquiryButton이 UPCOMING 버튼을 표시하지 않음(비활성).
@@ -12,10 +13,10 @@ async function getUpcoming() {
       SELECT id, id AS product_id, name AS title, price, main_image,
              sale_start_at AS starts_at, NULL AS influencer_name
       FROM products_shop
-      WHERE status = 'active' AND sale_start_at > NOW()
+      WHERE status = 'active' AND sale_start_at > NOW() AND category <> ALL($1::text[])
       ORDER BY sale_start_at ASC
       LIMIT 10
-    `);
+    `, [SITES.sanjipick.categories]); // 블랜드픽 전용 플로팅이라 산지픽 오픈 예정은 제외
     return result.rows;
   } catch {
     return [];

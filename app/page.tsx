@@ -7,6 +7,11 @@ import HotelPromoBand from "@/components/HotelPromoBand";
 import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 import { getTopSellerIds } from "@/lib/best-sellers";
+import { ON_SALE_SQL } from "@/lib/sale-window";
+import { SITES } from "@/lib/sites";
+
+// 산지픽 카테고리 상품은 블랜드픽 메인에 섞이지 않게 제외 (산지픽 도메인 메인은 proxy가 /sanji 로 보낸다)
+const SANJI_CATS = SITES.sanjipick.categories;
 
 interface ShopProduct {
   id: string;
@@ -29,15 +34,16 @@ interface UpcomingProduct {
   open_label: string;
 }
 
-// 판매 중 상품 — Shop 등록 기준 (판매 시작 예약이 미래인 상품은 제외)
+// 판매 중 상품 — Shop 등록 기준 (판매 시작 예약이 미래이거나, 판매 종료일이 지난 공구는 제외)
 async function getSellingProducts(): Promise<ShopProduct[]> {
   try {
     const result = await shopPool.query(
       `SELECT id, name, brand, price, original_price, stock, status, main_image, shipping_type, shipping_cost
        FROM products_shop
-       WHERE status = 'active' AND (sale_start_at IS NULL OR sale_start_at <= NOW())
+       WHERE status = 'active' AND ${ON_SALE_SQL} AND category <> ALL($1::text[])
        ORDER BY created_at DESC
-       LIMIT 8`
+       LIMIT 8`,
+      [SANJI_CATS]
     );
     return result.rows;
   } catch (e) {
@@ -53,9 +59,10 @@ async function getUpcomingProducts(): Promise<UpcomingProduct[]> {
       `SELECT id, name, brand, main_image,
               to_char(sale_start_at AT TIME ZONE 'Asia/Seoul', 'FMMM. FMDD') AS open_label
        FROM products_shop
-       WHERE status = 'active' AND sale_start_at > NOW()
+       WHERE status = 'active' AND sale_start_at > NOW() AND category <> ALL($1::text[])
        ORDER BY sale_start_at ASC
-       LIMIT 4`
+       LIMIT 4`,
+      [SANJI_CATS]
     );
     return result.rows;
   } catch (e) {
