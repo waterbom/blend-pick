@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
+import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -14,12 +15,15 @@ export async function GET() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // 접속 도메인 범위(Shop/산지픽)의 상품만
+  const c = adminProductScopeSql((await currentAdminSite()).key, "category", 1);
   const result = await shopPool.query(`
     SELECT id, name, brand, price, original_price, stock, category, status, sale_type,
            shipping_type, shipping_cost, main_image, influencer_rate, influencer_id, product_code, created_at
     FROM products_shop
+    WHERE ${c.sql}
     ORDER BY created_at DESC
-  `);
+  `, [c.param]);
   return NextResponse.json(result.rows);
 }
 
@@ -31,7 +35,7 @@ export async function POST(req: Request) {
   const {
     name, brand, description, price, original_price, instant_discount_price,
     supply_price, influencer_rate,
-    stock, category, status, sale_type,
+    stock, category: rawCategory, status, sale_type,
     presale_enabled, presale_start_at, presale_end_at,
     sale_start_at, sale_end_at, tax_type,
     shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost,
@@ -49,6 +53,11 @@ export async function POST(req: Request) {
   if (!name || price == null) {
     return NextResponse.json({ error: "상품명과 가격은 필수입니다" }, { status: 400 });
   }
+
+  // 산지픽 어드민에서 등록하면 산지픽 카테고리로만 — 다른 카테고리를 골랐거나 비었으면 '산지픽 농산물'
+  const site = (await currentAdminSite()).key;
+  const sanjiCats = adminProductScopeSql("sanjipick", "category", 1).param;
+  const category = site === "sanjipick" && !sanjiCats.includes(rawCategory || "") ? "산지픽 농산물" : rawCategory;
 
   // 옵션이 있으면 대표 재고는 판매중 옵션 재고 합계로 자동 반영 ("재고 확인" 버튼 안 눌러도 항상 일치)
   const hasOptions = Array.isArray(options) && options.some((o: { name?: string }) => o?.name);

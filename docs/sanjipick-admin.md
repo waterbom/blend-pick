@@ -56,3 +56,9 @@ npm run build
 ```sh
 PGLITE_MODULE=/tmp/blendpick-admin-test/node_modules/@electric-sql/pglite node tests/storefront-site.cjs
 ```
+
+## 어드민 화면 분리 (다른 사이트처럼)
+
+- 사이드바: 산지픽은 딥그린 팔레트 + 산지픽 로고, "산지 직송 / 후기 관리" 표기. Shop은 기존 다크 무채색 (`components/admin/AdminSidebar.tsx` THEME). 배경색도 사이트별.
+- 상품 관리·상품 목록 API·카테고리 API는 접속 도메인으로 걸러진다 (`lib/admin-site.ts adminProductScopeSql`): 산지픽 어드민은 `산지픽 농산물`/`산지픽 해산물` 카테고리 상품만, Shop 어드민은 그 외만. 상품 테이블 자체는 공유.
+- 산지픽 어드민에서 상품 등록 시 카테고리는 산지픽 카테고리만 보이고, 다른 값이면 `산지픽 농산물`로 저장한다.

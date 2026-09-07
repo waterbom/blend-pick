@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const admin = await verifyAdminToken(adminToken);
     if (admin) {
       return (
-        <div className="min-h-screen bg-gray-100 md:flex">
+        <div className="min-h-screen md:flex" style={{ background: site.key === "sanjipick" ? "#F3F0E8" : "#F3F4F6" }}>
           <AdminSidebar siteKey={site.key} />
           <main className="flex-1 p-4 md:p-8 overflow-auto">{children}</main>
         </div>

@@ -2,6 +2,8 @@ import Link from "next/link";
 import shopPool from "@/lib/db-shop";
 import ProductDeleteButton from "@/components/admin/ProductDeleteButton";
 import ProductCodeCopy from "@/components/admin/ProductCodeCopy";
+import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
+import type { SiteKey } from "@/lib/sites";
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   active:  { label: "판매중",  color: "bg-green-100 text-green-700" },
@@ -9,12 +11,15 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   soldout: { label: "품절",    color: "bg-red-100 text-red-500" },
 };
 
-async function getProducts() {
+// 접속 도메인 범위의 상품만 — 산지픽 어드민은 산지픽 카테고리, Shop 어드민은 그 외
+async function getProducts(site: SiteKey) {
+  const c = adminProductScopeSql(site, "category", 1);
   const result = await shopPool.query(`
     SELECT id, name, brand, price, stock, status, main_image, product_code, created_at
     FROM products_shop
+    WHERE ${c.sql}
     ORDER BY created_at DESC
-  `);
+  `, [c.param]);
   return result.rows;
 }
 
@@ -23,7 +28,8 @@ export default async function AdminProductsPage({
 }: {
   searchParams: Promise<{ f?: string }>;
 }) {
-  const all = await getProducts();
+  const site = await currentAdminSite();
+  const all = await getProducts(site.key);
   const { f = "" } = await searchParams;
   // 재고 확인 필요 = 판매중인데 재고 0 (이상 상태 경고)
   const warn = all.filter((p) => p.status === "active" && Number(p.stock) === 0);
@@ -50,8 +56,8 @@ export default async function AdminProductsPage({
       {/* 헤더 */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-xl font-bold text-[#1A1D18]">상품 관리</h1>
-          <p className="text-sm text-gray-400 mt-0.5">총 {counts.all}개 상품</p>
+          <h1 className="text-xl font-bold text-[#1A1D18]">{site.key === "sanjipick" ? "산지픽 상품 관리" : "상품 관리"}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">총 {counts.all}개 상품{site.key === "sanjipick" ? " · 산지 직송 상품만 표시" : ""}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
