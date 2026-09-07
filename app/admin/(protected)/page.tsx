@@ -66,6 +66,8 @@ export default async function AdminDashboard() {
         <span className="ds-mono text-xs" style={{ color: "#8F948A" }}>{kstToday()} 기준</span>
       </div>
 
+      <Link href="/admin/operations" className="block mb-6 rounded-lg bg-[#244B1F] px-5 py-4 text-white">오늘 처리할 일 · 미출고, 송장 누락, 재고, 교환·반품 확인 →</Link>
+
       {/* KPI 스트립 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px" style={{ background: "#E2E2DC", border: "1px solid #E2E2DC" }}>
         {kpis.map((c) => (

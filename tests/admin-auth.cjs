@@ -105,7 +105,7 @@ function load(file, mocks) {
   });
   await test('protected API denies foreign-email signed admin token before DB access', async () => {
     const token = await signed({ ...admin, email: 'personal@example.com' });
-    const route = load('app/api/admin/categories/route.ts', { '@/lib/auth': auth, 'next/headers': { cookies: async () => ({ get: () => ({ value: token }) }) }, '@/lib/db-shop': { query: async () => { throw Error('Unauthorized DB access'); } } });
+    const route = load('app/api/admin/categories/route.ts', { '@/lib/admin-site': { currentAdminSite: async () => { throw Error('Site lookup must follow authorization'); } }, '@/lib/sites': { SITES: { sanjipick: { categories: ['산지픽'] } } }, '@/lib/auth': auth, 'next/headers': { cookies: async () => ({ get: () => ({ value: token }) }) }, '@/lib/db-shop': { query: async () => { throw Error('Unauthorized DB access'); } } });
     assert.equal((await route.GET()).status, 401);
   });
   await test('both MyPage implementations redirect verified admin to admin without customer lookup', async () => {

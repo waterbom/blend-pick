@@ -36,25 +36,34 @@ interface ReturnRow {
 
 // 교환·반품 신청 처리 패널 — 신청 상세(사유·사진·수거지)를 보고
 // 수거 접수 → 완료(반품은 토스 환불) / 거절을 건별로 처리한다
-export default function ReturnsPanel({ kind, onChanged }: { kind: "exchange" | "return"; onChanged?: () => void }) {
+export default function ReturnsPanel({ kind, onChanged, initialRequestId }: { kind: "exchange" | "return"; onChanged?: () => void; initialRequestId?: string }) {
+  const [requestId, setRequestId] = useState(initialRequestId);
   const [rows, setRows] = useState<ReturnRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
+    setLoadError(false);
     try {
-      const res = await fetch(`/api/admin/returns?kind=${kind}`);
+      const res = await fetch(`/api/admin/returns?kind=${kind}${requestId ? `&id=${encodeURIComponent(requestId)}` : ''}`, { signal });
+      if (!res.ok) throw new Error("Return lookup failed");
       const data = await res.json();
-      setRows(Array.isArray(data) ? data : []);
+      if (!Array.isArray(data)) throw new Error("Invalid return lookup");
+      if (!signal?.aborted) setRows(data);
     } catch {
-      setRows([]);
+      if (!signal?.aborted) { setRows([]); setLoadError(true); }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  }, [kind]);
+  }, [kind, requestId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
 
   async function act(r: ReturnRow, action: "collect" | "complete" | "reject") {
     let note = "";
@@ -131,10 +140,12 @@ export default function ReturnsPanel({ kind, onChanged }: { kind: "exchange" | "
   const kindLabel = kind === "exchange" ? "교환" : "반품";
 
   if (loading) return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>;
-  if (rows.length === 0) return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">진행 중인 {kindLabel} 신청이 없습니다</div>;
+  if (loadError) return <div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600">신청을 불러오지 못했습니다.<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div>;
+  if (rows.length === 0) return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">{requestId ? "이 신청은 처리되었거나 현재 사이트에서 확인할 수 없습니다." : `진행 중인 ${kindLabel} 신청이 없습니다`}{requestId && <button className="block mx-auto mt-3 underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button>}</div>;
 
   return (
     <div className="space-y-3">
+      {requestId && <div className="flex items-center justify-between gap-3 p-3 bg-green-50 text-xs text-green-800"><span>오늘 처리할 일에서 선택한 신청입니다.</span><button className="underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button></div>}
       {rows.map((r) => {
         const acting = actingId === r.id;
         return (

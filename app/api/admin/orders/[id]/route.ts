@@ -28,9 +28,26 @@ export async function PATCH(
   const site = (await currentAdminSite()).key;
 
   const { id } = await params;
-  const { status, tracking_company, tracking_number } = await request.json();
+  const { action, status, tracking_company, tracking_number } = await request.json();
 
   if (!(await adminOrderIdsBelong([id], site))) return NextResponse.json({ error: "이 사이트의 주문을 찾을 수 없습니다." }, { status: 404 });
+
+  // 배송중 누락 보완은 상태 전환·문자·정산 없이 송장 두 필드만 변경한다.
+  if (action === "repair_tracking") {
+    if (typeof tracking_company !== "string" || typeof tracking_number !== "string" ||
+        !tracking_company.trim() || !tracking_number.trim() ||
+        tracking_company.length > 100 || tracking_number.length > 100) {
+      return NextResponse.json({ error: "택배사와 운송장번호를 모두 입력해주세요." }, { status: 400 });
+    }
+    const result = await shopPool.query(
+      `UPDATE orders SET tracking_company = $1, tracking_number = $2
+       WHERE id = $3 AND site = $4 AND status = 'shipped'
+         AND (NULLIF(TRIM(tracking_company), '') IS NULL OR NULLIF(TRIM(tracking_number), '') IS NULL)
+       RETURNING id`, [tracking_company.trim(), tracking_number.trim(), id, site]
+    );
+    if (!result.rows.length) return NextResponse.json({ error: "주문 상태나 송장 정보가 바뀌었습니다. 새로고침해 확인해주세요." }, { status: 409 });
+    return NextResponse.json({ ok: true });
+  }
 
   const VALID = [
     "confirmed", "preparing", "shipped", "delivered", "cancelled",

@@ -104,8 +104,8 @@ const TAB_ACTION: Partial<Record<Tab, { action: string; label: string; color: st
   cancel_requested:   { action: "cancel_confirm",    label: "취소 확인",     color: "bg-red-500 hover:bg-red-600" },
 };
 
-export default function ShipmentsClient() {
-  const [tab, setTab] = useState<Tab>("preparing");
+export default function ShipmentsClient({ initialTab = "preparing", initialRequestId }: { initialTab?: "preparing" | "exchange_requested" | "return_requested"; initialRequestId?: string }) {
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   // 사이트 필터 (블랜드픽/산지픽) — 산지픽은 농가 발송이라 배송 담당이 달라 따로 볼 수 있게
   const siteFilter = useSiteKey();
@@ -486,7 +486,7 @@ export default function ShipmentsClient() {
 
       {/* ── 교환·반품 신청 탭 — 신청 상세(사유·사진·수거지) 보고 건별 처리 ── */}
       {(tab === "exchange_requested" || tab === "return_requested") && (
-        <ReturnsPanel kind={tab === "exchange_requested" ? "exchange" : "return"} />
+        <ReturnsPanel key={tab} kind={tab === "exchange_requested" ? "exchange" : "return"} initialRequestId={tab === initialTab ? initialRequestId : undefined} />
       )}
 
       {/* ── 액션 탭 (취소요청) ── */}

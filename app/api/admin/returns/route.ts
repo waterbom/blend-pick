@@ -29,6 +29,10 @@ export async function GET(req: Request) {
   }
   // 기본은 진행 중(접수·수거)만 — 배송관리 신청 탭용
   const statuses = (sp.get("status") || "requested,collecting").split(",").map((v) => v.trim()).filter(Boolean);
+  const requestId = sp.get("id");
+  if (requestId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
+    return NextResponse.json({ error: "신청 ID가 올바르지 않습니다." }, { status: 400 });
+  }
 
   const r = await shopPool.query(
     `SELECT r.id, r.order_id, r.kind, r.status, r.items, r.reason, r.detail, r.photos,
@@ -48,9 +52,10 @@ export async function GET(req: Request) {
        FROM order_returns r
        JOIN orders o ON o.id = r.order_id
       WHERE r.kind = $1 AND r.status = ANY($2) AND o.site = $3
+        ${requestId ? "AND r.id = $4::uuid" : ""}
       ORDER BY r.created_at DESC
       LIMIT 200`,
-    [kind, statuses, site]
+    requestId ? [kind, statuses, site, requestId] : [kind, statuses, site]
   );
   return NextResponse.json(r.rows);
 }

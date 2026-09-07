@@ -32,6 +32,7 @@ export default function TrackingForm({
   const [saved, setSaved] = useState(false);
 
   const alreadyShipped = ["shipped", "delivered"].includes(currentStatus);
+  const canRepairTracking = currentStatus === "shipped" && (!trackingCompany?.trim() || !trackingNumber?.trim());
   const canCancel = currentStatus === "paid";
 
   async function handleSaveTracking() {
@@ -41,7 +42,11 @@ export default function TrackingForm({
       const res = await fetch(`/api/admin/orders/${orderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(canRepairTracking ? {
+          action: "repair_tracking",
+          tracking_company: company,
+          tracking_number: number.trim(),
+        } : {
           status: "shipped",
           tracking_company: company,
           tracking_number: number.trim(),
@@ -52,7 +57,8 @@ export default function TrackingForm({
         setTimeout(() => setSaved(false), 2500);
         router.refresh();
       } else {
-        alert("저장에 실패했습니다.");
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "저장에 실패했습니다.");
       }
     } finally {
       setLoading(false);
@@ -76,8 +82,9 @@ export default function TrackingForm({
   }
 
   return (
-    <div className="bg-white rounded-none border border-gray-100 p-5">
+    <div id="tracking" className="bg-white rounded-none border border-gray-100 p-5 scroll-mt-6">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">배송 처리</h2>
+      {canRepairTracking && <p className="text-xs text-amber-700 mb-4">누락된 송장 정보를 보완해주세요. 배송중 상태와 기존 출고 시각은 유지됩니다.</p>}
 
       {/* 운송장 입력 */}
       <div className="space-y-3 mb-5">
@@ -86,7 +93,7 @@ export default function TrackingForm({
           <select
             value={company}
             onChange={(e) => setCompany(e.target.value)}
-            disabled={alreadyShipped}
+            disabled={alreadyShipped && !canRepairTracking}
             className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-[#C7D6C0] disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="">택배사 선택</option>
@@ -101,20 +108,20 @@ export default function TrackingForm({
             type="text"
             value={number}
             onChange={(e) => setNumber(e.target.value)}
-            disabled={alreadyShipped}
+            disabled={alreadyShipped && !canRepairTracking}
             placeholder="운송장번호 입력"
             className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-[#C7D6C0] disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
 
-        {!alreadyShipped && (
+        {(!alreadyShipped || canRepairTracking) && (
           <button
             onClick={handleSaveTracking}
             disabled={!company || !number.trim() || loading}
             className="w-full py-2.5 rounded-none text-sm font-semibold text-white transition-all disabled:opacity-40"
             style={{ background: "#2D5A27" }}
           >
-            {saved ? "저장됐어요 ✓" : loading ? "처리중..." : "운송장 등록 + 배송중으로 변경"}
+            {saved ? "저장됐어요 ✓" : loading ? "처리중..." : canRepairTracking ? "누락 송장 정보 저장" : "운송장 등록 + 배송중으로 변경"}
           </button>
         )}
 
