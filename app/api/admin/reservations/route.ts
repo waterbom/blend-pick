@@ -1,3 +1,4 @@
+import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -15,20 +16,21 @@ async function getAdmin() {
 export async function GET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // 입실시간(체크인일 15:00 KST)이 지난 예약확정 건은 자동으로 체크인완료 처리
   // (노쇼였다면 목록의 상태 선택에서 노쇼로 정정 — 매출 집계는 둘 다 포함이라 금액엔 영향 없음)
   await shopPool.query(
     `UPDATE orders SET status = 'checked_in'
-      WHERE order_type = 'hotel' AND status = 'paid'
+      WHERE site = 'blendpick' AND order_type = 'hotel' AND status = 'paid'
         AND stay_check_in IS NOT NULL
         AND stay_check_in::date + TIME '15:00' <= (NOW() AT TIME ZONE 'Asia/Seoul')`
   );
 
   const status = new URL(req.url).searchParams.get("status") || "";
   const where = status
-    ? `WHERE o.order_type = 'hotel' AND o.status = $1`
-    : `WHERE o.order_type = 'hotel'`;
+    ? `WHERE o.site = 'blendpick' AND o.order_type = 'hotel' AND o.status = $1`
+    : `WHERE o.site = 'blendpick' AND o.order_type = 'hotel'`;
   const params = status ? [status] : [];
 
   const result = await shopPool.query(
@@ -43,7 +45,7 @@ export async function GET(req: Request) {
        -- 취소 후 재결제: 같은 연락처로 이 예약보다 먼저 취소된 호텔 예약이 있는 경우 (취소된 예약 자신은 제외)
        (o.status <> 'cancelled' AND EXISTS (
          SELECT 1 FROM orders c
-          WHERE c.order_type = 'hotel' AND c.status = 'cancelled'
+          WHERE c.site = 'blendpick' AND c.order_type = 'hotel' AND c.status = 'cancelled'
             AND c.buyer_phone = o.buyer_phone
             AND c.id <> o.id AND c.created_at < o.created_at
        )) AS repaid_after_cancel,
@@ -66,7 +68,7 @@ export async function GET(req: Request) {
          SELECT SUM(e.total_amount)::bigint
            FROM orders e
            JOIN order_items ei ON ei.order_id = e.id
-          WHERE e.order_type = 'extra' AND e.status = 'paid'
+          WHERE e.site = 'blendpick' AND e.order_type = 'extra' AND e.status = 'paid'
             AND ei.product_name LIKE o.order_number || ' %'
        ), 0) AS extra_paid
      FROM orders o
@@ -83,12 +85,15 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { id, status, fullRefund } = await req.json();
   const allowed = ["paid", "checked_in", "cancelled", "no_show"];
   if (!id || !allowed.includes(status)) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
+
+  if (!(await adminOrderIdsBelong([id], "blendpick"))) return NextResponse.json({ error: "예약을 찾을 수 없습니다." }, { status: 404 });
 
   // 취소가 아니면 상태만 변경
   if (status !== "cancelled") {

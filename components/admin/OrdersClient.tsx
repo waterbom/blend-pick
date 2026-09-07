@@ -5,7 +5,8 @@ import Link from "next/link";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
 import SiteBadge from "@/components/admin/SiteBadge";
-import { SITE_FILTERS } from "@/lib/site-label";
+import { useSiteKey } from "@/components/SiteContext";
+import { SITES } from "@/lib/sites";
 
 interface OrderItem {
   id: string;
@@ -129,7 +130,7 @@ export default function OrdersClient() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [siteFilter, setSiteFilter] = useState(""); // '' | 'blendpick' | 'sanjipick'
+  const siteFilter = useSiteKey(); // '' | 'blendpick' | 'sanjipick'
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [acting, setActing] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -187,7 +188,7 @@ export default function OrdersClient() {
       );
     }
     return list;
-  }, [orders, typeFilter, siteFilter, query]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orders, typeFilter, siteFilter, query]);
 
   const typeCounts = useMemo(() => {
     let shop = 0, campaign = 0;
@@ -432,21 +433,7 @@ export default function OrdersClient() {
 
       {/* 사이트(블랜드픽/산지픽) · 판매 유형 필터 + 검색 */}
       <div className="flex items-center gap-3 flex-wrap mb-3">
-        <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 w-fit">
-          {SITE_FILTERS.map((t) => (
-            <button key={t.key} onClick={() => setSiteFilter(t.key)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-none text-sm font-medium transition-colors ${
-                siteFilter === t.key
-                  ? t.key === "sanjipick" ? "bg-[#2F5D34] text-white" : "bg-gray-900 text-white"
-                  : "text-gray-500 hover:bg-gray-50"
-              }`}>
-              {t.label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                siteFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
-              }`}>{siteCounts[t.key] ?? 0}</span>
-            </button>
-          ))}
-        </div>
+        <span className="text-sm font-semibold text-[#2F5D34]">{SITES[siteFilter].name} 주문 {siteCounts[siteFilter] ?? 0}건</span>
         <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 w-fit">
           {[
             { key: "", label: "전체", count: typeCounts.all },

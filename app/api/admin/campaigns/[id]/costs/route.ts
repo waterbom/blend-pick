@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -15,6 +16,7 @@ const CATEGORIES = new Set(["shipping", "ad", "sample", "etc"]);
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { id } = await params;
   const { category, amount, memo } = await req.json();
@@ -23,9 +25,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { rows } = await shopPool.query(
-    `INSERT INTO campaign_costs (campaign_id, category, amount, memo)
-     VALUES ($1, $2, $3, $4) RETURNING id`,
-    [id, category, Math.round(Number(amount)), memo || null]
+    `INSERT INTO campaign_costs (campaign_id, category, amount, memo, site)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [id, category, Math.round(Number(amount)), memo || null, site]
   );
   return NextResponse.json({ id: rows[0].id }, { status: 201 });
 }

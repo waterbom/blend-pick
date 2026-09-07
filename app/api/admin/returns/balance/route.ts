@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -10,14 +11,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const site = (await currentAdminSite()).key;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id가 필요합니다" }, { status: 400 });
 
   const { rows } = await shopPool.query(
     `SELECT o.payment_key, o.total_amount
        FROM order_returns r JOIN orders o ON o.id = r.order_id
-      WHERE r.id = $1`,
-    [id]
+      WHERE r.id = $1 AND o.site = $2`,
+    [id, site]
   );
   const row = rows[0];
   if (!row) return NextResponse.json({ error: "신청을 찾을 수 없습니다" }, { status: 404 });

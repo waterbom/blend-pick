@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -18,6 +19,7 @@ async function getAdmin() {
 export async function POST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { rows } = await req.json() as {
     rows: { order_number: string; carrier: string; tracking_number: string }[];
@@ -54,18 +56,18 @@ export async function POST(req: Request) {
              shipped_at = COALESCE(shipped_at, NOW()),
              tracking_company = $2,
              tracking_number  = $3
-         WHERE order_number = $1
+         WHERE order_number = $1 AND site = $4
            AND status IN ('paid', 'confirmed', 'preparing')
          RETURNING COALESCE(recipient_name, buyer_name) AS name,
                    COALESCE(recipient_phone, buyer_phone) AS phone,
                    site`,
-        [order_number, carrier || null, tracking_number]
+        [order_number, carrier || null, tracking_number, site]
       );
 
       if ((rowCount ?? 0) === 0) {
         const existing = await client.query(
-          `SELECT status FROM orders WHERE order_number = $1`,
-          [order_number]
+          `SELECT status FROM orders WHERE order_number = $1 AND site = $2`,
+          [order_number, site]
         );
         const st = existing.rows[0]?.status;
         if (!st) {
@@ -73,8 +75,8 @@ export async function POST(req: Request) {
         } else if (st === "shipped" || st === "delivered") {
           // 이미 배송 단계인 주문은 운송장 정보만 갱신
           await client.query(
-            `UPDATE orders SET tracking_company = $2, tracking_number = $3 WHERE order_number = $1`,
-            [order_number, carrier || null, tracking_number]
+            `UPDATE orders SET tracking_company = $2, tracking_number = $3 WHERE order_number = $1 AND site = $4`,
+            [order_number, carrier || null, tracking_number, site]
           );
           results.push({ order_number, success: true });
         } else {

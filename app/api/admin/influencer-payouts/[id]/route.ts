@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -14,6 +15,7 @@ async function getAdmin() {
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { id } = await params;
   const { status } = await req.json();
@@ -24,8 +26,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const r = await shopPool.query(
     `UPDATE influencer_payouts
      SET status = $1, paid_at = CASE WHEN $1 = 'paid' THEN NOW() ELSE NULL END, updated_at = NOW()
-     WHERE id = $2`,
-    [status, id]
+     WHERE id = $2 AND site = $3`,
+    [status, id, site]
   );
   if (r.rowCount === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });

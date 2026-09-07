@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -14,6 +15,7 @@ async function getAdmin() {
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { id } = await params;
   const [campaign, costs] = await Promise.all([
@@ -28,8 +30,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     ),
     shopPool.query(
       `SELECT id, category, amount, memo, created_at
-       FROM campaign_costs WHERE campaign_id = $1 ORDER BY created_at ASC`,
-      [id]
+       FROM campaign_costs WHERE campaign_id = $1 AND site = $2 ORDER BY created_at ASC`,
+      [id, site]
     ),
   ]);
   if (!campaign.rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });

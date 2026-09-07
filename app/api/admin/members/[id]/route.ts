@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -13,6 +14,7 @@ async function getAdmin() {
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { id } = await params;
   const [orders, reviews] = await Promise.all([
@@ -23,15 +25,15 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
                 WHERE oi.order_id = o.id ORDER BY (oi.product_id IS NULL), oi.id LIMIT 1) AS product_name,
               (SELECT COUNT(*)::int FROM order_items oi WHERE oi.order_id = o.id) AS item_count
          FROM orders o
-        WHERE o.user_id = $1
+        WHERE o.user_id = $1 AND o.site = $2
         ORDER BY o.paid_at DESC NULLS LAST
         LIMIT 10`,
-      [id]
+      [id, site]
     ),
     // reviews엔 user_id가 없어 주문 경유로 집계
     shopPool.query(
-      `SELECT COUNT(*)::int AS n FROM reviews rv JOIN orders o ON o.id = rv.order_id WHERE o.user_id = $1`,
-      [id]
+      `SELECT COUNT(*)::int AS n FROM reviews rv JOIN orders o ON o.id = rv.order_id WHERE o.user_id = $1 AND o.site = $2`,
+      [id, site]
     ).catch(() => ({ rows: [{ n: 0 }] })),
   ]);
 

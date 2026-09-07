@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -28,6 +29,7 @@ async function getAdmin() {
 export async function GET() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const statuses = [...COUNTABLE_ORDER_STATUSES];
 
@@ -39,25 +41,25 @@ export async function GET() {
               COUNT(*) AS orders,
               COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
        FROM orders
-       WHERE campaign_id IS NOT NULL AND influencer_id IS NOT NULL AND status = ANY($1)
+       WHERE campaign_id IS NOT NULL AND influencer_id IS NOT NULL AND status = ANY($1) AND site = $2
        GROUP BY campaign_id, influencer_id`,
-      [statuses]
+      [statuses, site]
     ),
     shopPool.query(
       `SELECT o.campaign_id, COALESCE(SUM(oi.quantity), 0) AS qty
        FROM orders o JOIN order_items oi ON oi.order_id = o.id
-       WHERE o.campaign_id IS NOT NULL AND o.status = ANY($1)
+       WHERE o.campaign_id IS NOT NULL AND o.status = ANY($1) AND o.site = $2
        GROUP BY o.campaign_id`,
-      [statuses]
+      [statuses, site]
     ),
     shopPool.query(
       `SELECT influencer_id,
               COUNT(*) AS orders,
               COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
        FROM orders
-       WHERE order_type = 'hotel' AND influencer_id IS NOT NULL AND status = ANY($1)
+       WHERE order_type = 'hotel' AND influencer_id IS NOT NULL AND status = ANY($1) AND site = $2
        GROUP BY influencer_id`,
-      [statuses]
+      [statuses, site]
     ),
     // 상품공구(Shop 상품): 상품 × 인플루언서 단위 귀속 매출 (버킷 id = product_id)
     // (주문, 상품) 단위로 먼저 접는다 — 옵션 여러 줄 주문에서 주문 금액이 중복 합산되는 것 방지
@@ -73,11 +75,11 @@ export async function GET() {
               GROUP BY order_id, product_id) op ON op.order_id = o.id
        JOIN products_shop ps ON ps.id = op.product_id
        WHERE o.order_type = 'shop' AND o.influencer_id IS NOT NULL
-         AND o.campaign_id IS NULL AND o.status = ANY($1)
+         AND o.campaign_id IS NULL AND o.status = ANY($1) AND o.site = $2
        GROUP BY op.product_id, o.influencer_id, ps.name, ps.influencer_rate`,
-      [statuses]
+      [statuses, site]
     ),
-    shopPool.query(`SELECT * FROM influencer_payouts`),
+    shopPool.query(`SELECT * FROM influencer_payouts WHERE site = $1`, [site]),
   ]);
 
   if (sales.rows.length === 0 && hotelSales.rows.length === 0 && shopProductSales.rows.length === 0) {

@@ -11,5 +11,6 @@ export async function GET(req: NextRequest) {
   const home = site.key === "sanjipick" && !sanjiHost ? "/sanji" : "/";
   const res = NextResponse.redirect(new URL(home, origin));
   res.cookies.set("shop_token", "", { maxAge: 0, path: "/" });
+  res.cookies.set("admin_token", "", { maxAge: 0, path: "/" });
   return res;
 }

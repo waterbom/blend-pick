@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -16,8 +17,9 @@ export async function DELETE(
 ) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { id, costId } = await params;
-  await shopPool.query("DELETE FROM campaign_costs WHERE id = $1 AND campaign_id = $2", [costId, id]);
+  await shopPool.query("DELETE FROM campaign_costs WHERE id = $1 AND campaign_id = $2 AND site = $3", [costId, id, site]);
   return NextResponse.json({ ok: true });
 }

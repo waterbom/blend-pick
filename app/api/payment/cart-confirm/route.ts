@@ -1,3 +1,4 @@
+import type { SiteKey } from "@/lib/sites";
 import { NextRequest, NextResponse } from "next/server";
 import { siteFromRequest } from "@/lib/site-request";
 import shopPool from "@/lib/db-shop";
@@ -11,13 +12,14 @@ import { findClosedSaleProduct } from "@/lib/sale-window";
 import { infRefFromCookie } from "@/lib/inf-ref";
 import { randomBytes } from "crypto";
 
-function generateOrderNumber() {
+function generateOrderNumber(site: SiteKey) {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const suffix = randomBytes(3).toString("hex").toUpperCase();
-  return `BP-${date}-${suffix}`;
+  return `${site === "sanjipick" ? "SJ" : "BP"}-${date}-${suffix}`;
 }
 
 export async function POST(req: NextRequest) {
+  const paymentSite = siteFromRequest(req);
   const { paymentKey, orderId, amount, checkoutData } = await req.json();
 
   const secretKey = process.env.TOSS_SECRET_KEY!;
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. DB 저장: orders 1건 + order_items N줄 + cart 비우기
-  const orderNumber = generateOrderNumber();
+  const orderNumber = generateOrderNumber(paymentSite);
   const items: Array<{
     id: string; // cart item id (장바구니 비우기용)
     product_id: string | null; // 추가옵션은 null
@@ -136,7 +138,7 @@ export async function POST(req: NextRequest) {
         influencer?.id ?? null,
         influencer?.name ?? null,
         influencer ? commissionRate : null,
-        siteFromRequest(req), // 블랜드픽/산지픽 — 어드민 분리 기준
+        paymentSite, // 블랜드픽/산지픽 — 어드민 분리 기준
       ]
     );
 

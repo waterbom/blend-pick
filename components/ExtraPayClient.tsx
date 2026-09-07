@@ -1,5 +1,8 @@
 "use client";
 
+import { useSiteKey } from "@/components/SiteContext";
+import { SITES } from "@/lib/sites";
+
 import { useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { validateBuyerName } from "@/lib/validate-name";
@@ -27,6 +30,7 @@ export default function ExtraPayClient({
   amount: number;
   label: string;
 }) {
+  const site = useSiteKey();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -104,7 +108,7 @@ export default function ExtraPayClient({
       {/* 헤드라인 */}
       <div className="mb-6">
         <p className="text-[11px] font-semibold tracking-[0.28em] uppercase mb-2" style={{ fontFamily: MONO, color: C.muted3 }}>
-          BLEND PICK — PAYMENT
+          {SITES[site].nameEn} — PAYMENT
         </p>
         <h1 className="text-2xl font-bold" style={{ fontFamily: SERIF, color: C.green900 }}>추가 결제</h1>
         <div className="mt-4 h-px w-full" style={{ background: C.hairline }} />

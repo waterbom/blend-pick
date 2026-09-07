@@ -13,7 +13,7 @@ export function proxy(req: NextRequest) {
   if (pathname.startsWith("/admin")) {
     const adminToken = req.cookies.get("admin_token")?.value;
     if (!adminToken) {
-      return NextResponse.redirect(new URL("/login", req.url));
+      return NextResponse.redirect(new URL("/login?redirect=%2Fadmin", req.url));
     }
   }
 
@@ -28,6 +28,13 @@ export function proxy(req: NextRequest) {
   // API 호출(결제 확정 등)도 미리보기 중이면 산지픽으로 표시 — orders.site 기록 기준
   const preview = !sanjiHost && req.cookies.get(PREVIEW_COOKIE)?.value === "1";
   if (preview && site === "blendpick" && (PREVIEW_SHARED.has(seg) || seg === "api")) site = "sanjipick";
+
+  if (seg === "admin" || pathname.startsWith("/api/admin/")) site = siteFromHost(host);
+
+  // 산지픽에는 숙박 관리 화면/API를 제공하지 않는다.
+  if (sanjiHost && (pathname === "/admin/reservations" || pathname.startsWith("/admin/reservations/") || pathname.startsWith("/api/admin/reservations") || pathname.startsWith("/api/admin/hotel-worksheet"))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   // 다운스트림(서버 컴포넌트)이 어느 사이트인지 알 수 있게 요청 헤더에 표시
   const reqHeaders = new Headers(req.headers);

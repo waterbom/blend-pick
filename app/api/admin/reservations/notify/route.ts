@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -28,12 +29,13 @@ function nightsOf(ci: string, co: string) {
 export async function GET() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await ensureColumn();
   const { rows } = await shopPool.query(
     `SELECT COUNT(*)::int AS pending
        FROM orders
-      WHERE order_type = 'hotel' AND status = 'paid' AND kakao_notified_at IS NULL`
+      WHERE site = 'blendpick' AND order_type = 'hotel' AND status = 'paid' AND kakao_notified_at IS NULL`
   );
   return NextResponse.json({ pending: rows[0].pending, configured: smsConfigured() });
 }
@@ -42,6 +44,7 @@ export async function GET() {
 export async function POST() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (!smsConfigured()) {
     return NextResponse.json(
@@ -57,7 +60,7 @@ export async function POST() {
             to_char(o.stay_check_out, 'YYYY-MM-DD') AS check_out,
             (SELECT oi.product_name FROM order_items oi WHERE oi.order_id = o.id LIMIT 1) AS product_name
        FROM orders o
-      WHERE o.order_type = 'hotel' AND o.status = 'paid' AND o.kakao_notified_at IS NULL
+      WHERE o.site = 'blendpick' AND o.order_type = 'hotel' AND o.status = 'paid' AND o.kakao_notified_at IS NULL
       ORDER BY o.created_at`
   );
 

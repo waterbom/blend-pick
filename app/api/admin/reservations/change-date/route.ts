@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -22,6 +23,7 @@ function pkgOf(name: string): PkgKey {
 export async function POST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { id, checkIn, checkOut, pkg: reqPkg, room: reqRoom, preview } = await req.json();
   if (!id || !checkIn || !checkOut) {
@@ -35,7 +37,7 @@ export async function POST(req: Request) {
             to_char(o.stay_check_out, 'YYYY-MM-DD') AS old_out,
             (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name,
             (SELECT id FROM order_items WHERE order_id = o.id LIMIT 1) AS item_id
-       FROM orders o WHERE o.id = $1 AND o.order_type = 'hotel'`,
+       FROM orders o WHERE o.id = $1 AND o.site = 'blendpick' AND o.order_type = 'hotel'`,
     [id]
   );
   const ord = rows[0];

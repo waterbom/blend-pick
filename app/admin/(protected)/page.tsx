@@ -1,8 +1,10 @@
+import { currentAdminSite } from "@/lib/admin-site";
+import { SITES, type SiteKey } from "@/lib/sites";
 import shopPool from "@/lib/db-shop";
 import Link from "next/link";
 
 // 대시보드 — KPI 스트립(오늘 매출·주문·진행 공구·정산액) + 처리 대기 큐
-async function getStats() {
+async function getStats(site: SiteKey) {
   const [kpi, gongu, queue] = await Promise.all([
     shopPool.query(`
       SELECT
@@ -14,8 +16,8 @@ async function getStats() {
         COUNT(*) FILTER (
           WHERE (paid_at AT TIME ZONE 'Asia/Seoul')::date = (NOW() AT TIME ZONE 'Asia/Seoul')::date
             AND status = 'cancelled') AS today_cancels
-      FROM orders
-    `),
+      FROM orders WHERE site = $1
+    `, [site]),
     shopPool.query(`
       SELECT
         COUNT(*) FILTER (WHERE status = 'active' AND sale_type = 'groupbuy'
@@ -23,15 +25,16 @@ async function getStats() {
           AND (sale_end_at IS NULL OR sale_end_at >= NOW())) AS live_gongu,
         COUNT(*) FILTER (WHERE status = 'active' AND sale_start_at > NOW()) AS upcoming
       FROM products_shop
-    `),
+      WHERE CASE WHEN $1 = 'sanjipick' THEN category = ANY($2::text[]) ELSE NOT COALESCE(category = ANY($2::text[]), false) END
+    `, [site, SITES.sanjipick.categories]),
     shopPool.query(`
       SELECT
-        (SELECT COUNT(*) FROM orders WHERE status = 'paid' AND order_type IN ('shop', 'campaign')) AS new_orders,
-        (SELECT COUNT(*) FROM products_shop WHERE status = 'active' AND stock = 0) AS zero_stock,
-        (SELECT COUNT(*) FROM reviews WHERE created_at >= NOW() - INTERVAL '7 days') AS new_reviews,
-        (SELECT COALESCE(SUM(net_amount), 0) FROM settlements
-          WHERE settled_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date) AS today_settlement
-    `),
+        (SELECT COUNT(*) FROM orders WHERE site = $1 AND status = 'paid' AND order_type IN ('shop', 'campaign')) AS new_orders,
+        (SELECT COUNT(*) FROM products_shop WHERE status = 'active' AND stock = 0 AND CASE WHEN $1 = 'sanjipick' THEN category = ANY($2::text[]) ELSE NOT COALESCE(category = ANY($2::text[]), false) END) AS zero_stock,
+        (SELECT COUNT(*) FROM reviews r JOIN orders o ON o.id = r.order_id WHERE o.site = $1 AND r.created_at >= NOW() - INTERVAL '7 days') AS new_reviews,
+        (SELECT COALESCE(SUM(net_amount), 0) FROM settlements s JOIN orders o ON o.id = s.order_id
+          WHERE o.site = $1 AND s.settled_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date) AS today_settlement
+    `, [site, SITES.sanjipick.categories]),
   ]);
   return { k: kpi.rows[0], g: gongu.rows[0], q: queue.rows[0] };
 }
@@ -40,7 +43,8 @@ const kstToday = () =>
   new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, ". ");
 
 export default async function AdminDashboard() {
-  const { k, g, q } = await getStats();
+  const site = await currentAdminSite();
+  const { k, g, q } = await getStats(site.key);
 
   const kpis = [
     { label: "오늘 매출", value: `${Number(k.today_sales).toLocaleString()}원`, sub: `취소 ${Number(k.today_cancels)}건 포함` },
@@ -58,7 +62,7 @@ export default async function AdminDashboard() {
   return (
     <div>
       <div className="flex items-baseline justify-between mb-6">
-        <h1 className="text-xl font-bold" style={{ color: "#1A1D18" }}>대시보드</h1>
+        <h1 className="text-xl font-bold" style={{ color: "#1A1D18" }}>{site.name} 대시보드</h1>
         <span className="ds-mono text-xs" style={{ color: "#8F948A" }}>{kstToday()} 기준</span>
       </div>
 

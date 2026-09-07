@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { cookies } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import { verifyAdminToken } from "@/lib/auth";
@@ -41,6 +42,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 async function getOrder(id: string) {
+  const site = (await currentAdminSite()).key;
   const result = await shopPool.query(
     `SELECT
       o.id, o.order_number, o.status, o.order_type, o.site,
@@ -63,9 +65,9 @@ async function getOrder(id: string) {
       ) AS items
     FROM orders o
     JOIN order_items oi ON oi.order_id = o.id
-    WHERE o.id = $1
+    WHERE o.id = $1 AND o.site = $2
     GROUP BY o.id`,
-    [id]
+    [id, site]
   );
   return result.rows[0] ?? null;
 }

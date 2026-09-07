@@ -1,3 +1,5 @@
+import { currentAdminSite } from "@/lib/admin-site";
+import type { SiteKey } from "@/lib/sites";
 import shopPool from "@/lib/db-shop";
 import Link from "next/link";
 import SiteBadge from "@/components/admin/SiteBadge";
@@ -16,7 +18,7 @@ interface SettlementRow {
   created_at: string;
 }
 
-async function getSettlementStats() {
+async function getSettlementStats(site: SiteKey) {
   const result = await shopPool.query(`
     SELECT
       COALESCE(SUM(net_amount) FILTER (
@@ -30,19 +32,19 @@ async function getSettlementStats() {
       ), 0) AS this_month,
       COALESCE(SUM(net_amount), 0) AS total,
       COALESCE(SUM(fee), 0) AS total_fee
-    FROM settlements
-  `);
+    FROM settlements s JOIN orders o ON o.id = s.order_id WHERE o.site = $1
+  `, [site]);
   return result.rows[0];
 }
 
-async function getSettlements(period?: string) {
-  let where = "";
+async function getSettlements(site: SiteKey, period?: string) {
+  let where = "WHERE o.site = $1";
   if (period === "today") {
-    where = `WHERE s.settled_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date`;
+    where += ` AND s.settled_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date`;
   } else if (period === "week") {
-    where = `WHERE s.settled_at >= date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')`;
+    where += ` AND s.settled_at >= date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')`;
   } else if (period === "month") {
-    where = `WHERE s.settled_at >= date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')`;
+    where += ` AND s.settled_at >= date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')`;
   }
 
   const result = await shopPool.query(`
@@ -53,7 +55,7 @@ async function getSettlements(period?: string) {
     ${where}
     ORDER BY s.settled_at DESC
     LIMIT 200
-  `);
+  `, [site]);
   return result.rows as SettlementRow[];
 }
 
@@ -62,10 +64,11 @@ export default async function SettlementsPage({
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
+  const site = (await currentAdminSite()).key;
   const { period } = await searchParams;
   const [stats, settlements] = await Promise.all([
-    getSettlementStats(),
-    getSettlements(period),
+    getSettlementStats(site),
+    getSettlements(site, period),
   ]);
 
   const dashboardCards = [

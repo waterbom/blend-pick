@@ -87,5 +87,6 @@ export async function GET(req: NextRequest) {
     path: "/",
   });
 
+  res.cookies.set("admin_token", "", { maxAge: 0, path: "/" });
   return res;
 }

@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -15,6 +16,7 @@ async function getAdmin() {
 export async function GET() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const [campaigns, costs] = await Promise.all([
     pool.query(
@@ -28,7 +30,7 @@ export async function GET() {
     ),
     shopPool.query(
       `SELECT campaign_id, COALESCE(SUM(amount), 0) AS total
-       FROM campaign_costs GROUP BY campaign_id`
+       FROM campaign_costs WHERE site = $1 GROUP BY campaign_id`, [site]
     ),
   ]);
 

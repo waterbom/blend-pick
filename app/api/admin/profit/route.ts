@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -28,13 +29,12 @@ async function getAdmin() {
 export async function GET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from"); // YYYY-MM-DD
   const to = searchParams.get("to");
   const channel = searchParams.get("channel"); // 'shop' | 'campaign' | 'hotel' | null
-  const siteParam = searchParams.get("site");
-  const site = siteParam === "blendpick" || siteParam === "sanjipick" ? siteParam : null; // 사이트별 손익 (orders.site)
 
   // ── 호텔 공구 — 대행 모델 배분: 호텔(공급가) 88% · 인플루언서 5%(귀속 주문만) · 블랜드픽 7% ──
   // 블랜드픽 순수익 = 7% − 토스 수수료 1.7% = 매출의 5.3% (직접 유입 주문은 인플 몫 5%가 우리에게 남음)
@@ -45,6 +45,7 @@ export async function GET(req: Request) {
   // 인플루언서별 행 분리 — 귀속 주문끼리 묶어 집계, 귀속 없는 건(예약 변경 차액 등)은 별도 행.
   // 상태(status) 기준 집계라 취소되면 실시간으로 매출에서 빠진다.
   async function hotelRows() {
+    if (site === "sanjipick") return [];
     const hConds = ["o.status = ANY($1)", "o.order_type IN ('hotel', 'extra')"];
     const hParams: unknown[] = [[...COUNTABLE_ORDER_STATUSES]];
     if (site) { hParams.push(site); hConds.push(`o.site = $${hParams.length}`); }
@@ -155,7 +156,7 @@ export async function GET(req: Request) {
     `SELECT campaign_id,
             COALESCE(SUM(amount) FILTER (WHERE category = 'shipping'), 0) AS shipping_cost,
             COALESCE(SUM(amount) FILTER (WHERE category <> 'shipping'), 0) AS other_costs
-     FROM campaign_costs GROUP BY campaign_id`
+     FROM campaign_costs WHERE site = $1 GROUP BY campaign_id`, [site]
   );
 
   // 호텔만 조회하는 경우 상품공구 집계 생략

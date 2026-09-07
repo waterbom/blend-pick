@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
   // 1. 링크 토큰 검증 + 금액 변조 확인 (승인 전)
   const info = token ? await verifyPayLink(token) : null;
   if (!info) return NextResponse.json({ ok: false, error: "유효하지 않은 결제 링크입니다." }, { status: 400 });
+  if (info.site !== siteFromRequest(req)) return NextResponse.json({ ok: false, error: "결제 링크가 발급된 사이트에서 결제해주세요." }, { status: 400 });
   if (Number(amount) !== info.amount) {
     return NextResponse.json({ ok: false, error: "결제 금액이 일치하지 않습니다." }, { status: 400 });
   }
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
       RETURNING id`,
       // 같은 파라미터($2)를 두 컬럼에 재사용하면 컬럼 타입이 다를 때
       // "inconsistent types deduced for parameter" 에러가 나므로 자리마다 별도 파라미터로 전달
-      [orderNumber, name || "-", phone || "-", name || "-", phone || "-", memoText, info.amount, paymentKey, tossData.method, siteFromRequest(req)]
+      [orderNumber, name || "-", phone || "-", name || "-", phone || "-", memoText, info.amount, paymentKey, tossData.method, info.site]
     );
     await client.query(
       `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity)

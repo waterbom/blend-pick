@@ -1,3 +1,4 @@
+import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -14,10 +15,10 @@ async function getAdmin() {
 export async function GET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") || "";
-  const site = searchParams.get("site") || ""; // 'blendpick' | 'sanjipick' | '' (전체)
 
   // 호텔 예약(order_type='hotel')은 '예약 관리'에서 따로 관리 → 판매 관리에서 제외
   // 삭제된 상품만 담긴 주문은 목록에서 숨김(데이터는 보존 — 상품 삭제 시 order_items.product_id가 NULL이 됨).
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
   )`;
   // status는 쉼표 목록 허용 (예: confirmed,preparing — 배송준비 탭에서 주문확인 건 포함)
   // 판매·배송 관리는 일반 상품(shop)·공동구매(campaign)만 — 호텔 예약과 호텔 차액(extra)은 예약 관리에서
-  const conds = [`o.order_type IN ('shop', 'campaign')`, notDeletedProduct];
+  const conds = [site === 'sanjipick' ? `o.order_type IN ('shop', 'campaign', 'extra')` : `o.order_type IN ('shop', 'campaign')`, notDeletedProduct];
   const params: unknown[] = [];
   if (status) { params.push(status.split(",").map((v) => v.trim()).filter(Boolean)); conds.push(`o.status = ANY($${params.length})`); }
   if (site === "blendpick" || site === "sanjipick") { params.push(site); conds.push(`o.site = $${params.length}`); }
@@ -85,11 +86,14 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { orderIds, action, deduct_shipping } = await req.json();
   if (!Array.isArray(orderIds) || orderIds.length === 0) {
     return NextResponse.json({ error: "주문 ID가 없습니다" }, { status: 400 });
   }
+
+  if (!(await adminOrderIdsBelong(orderIds, site))) return NextResponse.json({ error: "이 사이트의 주문을 찾을 수 없습니다." }, { status: 404 });
 
   const TRANSITIONS: Record<string, { from: string; to: string }> = {
     confirm:          { from: "paid",              to: "confirmed" },
@@ -105,8 +109,8 @@ export async function PATCH(req: Request) {
       `UPDATE orders
           SET status = CASE WHEN tracking_number IS NOT NULL THEN 'shipped' ELSE 'confirmed' END,
               updated_at = NOW()
-        WHERE id = ANY($1::uuid[]) AND status = 'cancel_requested'`,
-      [orderIds]
+        WHERE id = ANY($1::uuid[]) AND site = $2 AND status = 'cancel_requested'`,
+      [orderIds, site]
     );
     return NextResponse.json({ ok: true, updated: r.rowCount });
   }
@@ -118,8 +122,8 @@ export async function PATCH(req: Request) {
   // (토스 전액 환불 → 상태 취소 → 재고 복원, 환불 실패 건은 상태 유지하고 건수로 보고)
   if (action === "cancel_confirm") {
     const targets = await shopPool.query(
-      `SELECT id FROM orders WHERE id = ANY($1::uuid[]) AND status = 'cancel_requested'`,
-      [orderIds]
+      `SELECT id FROM orders WHERE id = ANY($1::uuid[]) AND site = $2 AND status = 'cancel_requested'`,
+      [orderIds, site]
     );
     let updated = 0;
     const failed: string[] = [];
@@ -141,8 +145,8 @@ export async function PATCH(req: Request) {
   }
 
   const result = await shopPool.query(
-    `UPDATE orders SET status = $1     WHERE id = ANY($2::uuid[]) AND status = $3`,
-    [t.to, orderIds, t.from]
+    `UPDATE orders SET status = $1     WHERE id = ANY($2::uuid[]) AND status = $3 AND site = $4`,
+    [t.to, orderIds, t.from, site]
   );
 
   return NextResponse.json({ ok: true, updated: result.rowCount });

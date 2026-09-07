@@ -2,18 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import bcrypt from "bcryptjs";
-import { signToken } from "@/lib/auth";
-import { SignJWT } from "jose";
-
-const ADMIN_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || "blend-admin-secret-2026"
-);
+import { ADMIN_EMAIL, signToken, signAdminToken } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
 
   // 관리자 계정이면 admin_users 테이블에서 처리
-  if (email === "admin@blendpick.com") {
+  if (email === ADMIN_EMAIL) {
     const adminResult = await shopPool.query(
       "SELECT * FROM admin_users WHERE email = $1",
       [email]
@@ -27,10 +22,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "이메일 또는 비밀번호가 올바르지 않습니다." }, { status: 401 });
     }
     // 12시간 — 1시간이면 상품 등록처럼 긴 작업 중에 만료돼 저장이 401로 튕김
-    const adminToken = await new SignJWT({ id: admin.id, email: admin.email, name: admin.name })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("12h")
-      .sign(ADMIN_SECRET);
+    const adminToken = await signAdminToken({ id: admin.id, email: admin.email, name: admin.name });
+    if (!adminToken) {
+      return NextResponse.json({ ok: false, error: "관리자 로그인 설정을 확인해주세요." }, { status: 503 });
+    }
 
     const res = NextResponse.json({ ok: true, redirect: "/" });
     res.cookies.set("admin_token", adminToken, {
@@ -40,6 +35,7 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 12,
       path: "/",
     });
+    res.cookies.set("shop_token", "", { maxAge: 0, path: "/" });
     return res;
   }
 
@@ -101,5 +97,6 @@ export async function POST(req: NextRequest) {
     path: "/",
   });
 
+  res.cookies.set("admin_token", "", { maxAge: 0, path: "/" });
   return res;
 }

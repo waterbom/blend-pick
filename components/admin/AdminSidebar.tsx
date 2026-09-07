@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { SITES, type SiteKey } from "@/lib/sites";
 import { usePathname } from "next/navigation";
 
 // 그룹핑된 메뉴 — 다크 무채색 사이드바, 활성 항목만 그린 포인트
@@ -37,7 +38,7 @@ const NAV_GROUPS: { caption: string; items: { label: string; href: string }[] }[
   },
 ];
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavLinks({ pathname, onNavigate, siteKey }: { pathname: string; onNavigate?: () => void; siteKey: SiteKey }) {
   return (
     <nav className="flex-1 py-5 overflow-y-auto">
       {NAV_GROUPS.map((group, gi) => (
@@ -48,7 +49,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
           >
             {group.caption}
           </div>
-          {group.items.map((item) => {
+          {group.items.filter(item => siteKey !== "sanjipick" || item.href !== "/admin/reservations").map((item) => {
             const active =
               item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
             return (
@@ -75,11 +76,11 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
   );
 }
 
-function Logo() {
+function Logo({ siteKey }: { siteKey: SiteKey }) {
   return (
     <Link href="/" className="block px-6 py-6" style={{ borderBottom: "1px solid #2A2D27" }}>
-      <p className="font-extrabold text-[15px] text-white" style={{ letterSpacing: "0.06em" }}>BLEND PICK</p>
-      <p className="ds-mono text-[10px] mt-1" style={{ letterSpacing: "0.24em", color: "#6C7266" }}>ADMIN</p>
+      <p className="font-extrabold text-[15px] text-white" style={{ letterSpacing: "0.06em" }}>{SITES[siteKey].nameEn}</p>
+      <p className="ds-mono text-[10px] mt-1" style={{ letterSpacing: "0.24em", color: "#6C7266" }}>{SITES[siteKey].name} 전용 관리자</p>
     </Link>
   );
 }
@@ -102,7 +103,7 @@ function LogoutButton() {
   );
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ siteKey = "blendpick" }: { siteKey?: SiteKey }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -111,7 +112,7 @@ export default function AdminSidebar() {
       {/* 모바일 상단바 */}
       <div className="md:hidden sticky top-0 z-40 bg-white border-b border-gray-200 flex items-center justify-between pl-4 pr-2 py-2.5">
         <Link href="/admin" className="leading-tight">
-          <span className="text-xs text-gray-400 font-bold tracking-widest uppercase mr-1.5">Blend Pick</span>
+          <span className="text-xs text-gray-400 font-bold tracking-widest uppercase mr-1.5">{SITES[siteKey].nameEn}</span>
           <span className="text-sm font-black text-gray-900">Admin</span>
         </Link>
         <button
@@ -132,7 +133,7 @@ export default function AdminSidebar() {
           <aside className="absolute left-0 top-0 bottom-0 w-64 flex flex-col shadow-xl" style={{ background: "#1B1D19" }}>
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <Logo />
+                <Logo siteKey={siteKey} />
               </div>
               <button
                 onClick={() => setOpen(false)}
@@ -145,7 +146,7 @@ export default function AdminSidebar() {
                 </svg>
               </button>
             </div>
-            <NavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
+            <NavLinks siteKey={siteKey} pathname={pathname} onNavigate={() => setOpen(false)} />
             <LogoutButton />
           </aside>
         </div>
@@ -153,8 +154,8 @@ export default function AdminSidebar() {
 
       {/* 데스크톱 사이드바 */}
       <aside className="hidden md:flex w-56 flex-col min-h-screen" style={{ background: "#1B1D19" }}>
-        <Logo />
-        <NavLinks pathname={pathname} />
+        <Logo siteKey={siteKey} />
+        <NavLinks siteKey={siteKey} pathname={pathname} />
         <LogoutButton />
       </aside>
     </>

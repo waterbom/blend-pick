@@ -1,3 +1,4 @@
+import type { SiteKey } from "@/lib/sites";
 import { NextRequest, NextResponse } from "next/server";
 import { siteFromRequest } from "@/lib/site-request";
 import shopPool from "@/lib/db-shop";
@@ -10,13 +11,14 @@ import { findClosedSaleProduct } from "@/lib/sale-window";
 import { infRefFromCookie } from "@/lib/inf-ref";
 import { randomBytes } from "crypto";
 
-function generateOrderNumber() {
+function generateOrderNumber(site: SiteKey) {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const suffix = randomBytes(3).toString("hex").toUpperCase();
-  return `BP-${date}-${suffix}`;
+  return `${site === "sanjipick" ? "SJ" : "BP"}-${date}-${suffix}`;
 }
 
 export async function POST(req: NextRequest) {
+  const paymentSite = siteFromRequest(req);
   const { paymentKey, orderId, amount, checkoutData } = await req.json();
 
   const secretKey = process.env.TOSS_SECRET_KEY!;
@@ -88,7 +90,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. blendpunch_shop DB에 orders + order_items 저장
-  const orderNumber = generateOrderNumber();
+  const orderNumber = generateOrderNumber(paymentSite);
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
         influencer?.id ?? null,
         influencer?.name ?? null,
         influencer ? commissionRate : null,
-        siteFromRequest(req), // 어느 사이트에서 결제됐는지 (블랜드픽/산지픽) — 어드민 분리 기준
+        paymentSite, // 어느 사이트에서 결제됐는지 (블랜드픽/산지픽) — 어드민 분리 기준
       ]
     );
 

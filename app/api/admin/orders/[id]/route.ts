@@ -1,3 +1,4 @@
+import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -24,9 +25,12 @@ export async function PATCH(
 ) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { id } = await params;
   const { status, tracking_company, tracking_number } = await request.json();
+
+  if (!(await adminOrderIdsBelong([id], site))) return NextResponse.json({ error: "이 사이트의 주문을 찾을 수 없습니다." }, { status: 404 });
 
   const VALID = [
     "confirmed", "preparing", "shipped", "delivered", "cancelled",
@@ -43,7 +47,7 @@ export async function PATCH(
   //  ALREADY_CANCELED_PAYMENT를 정상 처리해 이어서 진행된다)
   if (status === "cancelled") {
     const cur = await shopPool.query(
-      `SELECT status, payment_key FROM orders WHERE id = $1`, [id]
+      `SELECT status, payment_key FROM orders WHERE id = $1 AND site = $2`, [id, site]
     );
     const ord = cur.rows[0];
     if (!ord) return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -77,7 +81,7 @@ export async function PATCH(
     await client.query("BEGIN");
 
     // 취소 전환 시 재고 복원용 — 이전 상태 확인 (이미 취소된 주문은 중복 복원 방지)
-    const prev = await client.query(`SELECT status FROM orders WHERE id = $1`, [id]);
+    const prev = await client.query(`SELECT status FROM orders WHERE id = $1 AND site = $2`, [id, site]);
     const prevStatus = prev.rows[0]?.status;
 
     // 주문 상태 변경 (운송장 정보 있으면 함께 저장)
@@ -88,9 +92,9 @@ export async function PATCH(
            delivered_at = CASE WHEN $1 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
            tracking_company = COALESCE($3, tracking_company),
            tracking_number  = COALESCE($4, tracking_number)
-       WHERE id = $2
+       WHERE id = $2 AND site = $5
        RETURNING id, order_number, total_amount, payment_method, payment_key`,
-      [status, id, tracking_company ?? null, tracking_number ?? null]
+      [status, id, tracking_company ?? null, tracking_number ?? null, site]
     );
 
     if (rows.length === 0) {

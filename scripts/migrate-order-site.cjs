@@ -33,6 +33,18 @@ const pool = new Pool({ connectionString: conn, ssl: { rejectUnauthorized: false
 (async () => {
   await pool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS site text NOT NULL DEFAULT 'blendpick'");
   await pool.query("CREATE INDEX IF NOT EXISTS orders_site_created_idx ON orders (site, created_at DESC)");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(fs.readFileSync(path.join(__dirname, "admin-site.sql"), "utf8"));
+    await client.query("COMMIT");
+    console.log("✅ 관리자 비용·정산 사이트 분리 준비 완료");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
   const r = await pool.query("SELECT site, COUNT(*)::int AS n FROM orders GROUP BY site ORDER BY site");
   console.log("✅ orders.site 준비 완료:", r.rows.map((x) => `${x.site}=${x.n}`).join(", ") || "주문 없음");
   await pool.end();

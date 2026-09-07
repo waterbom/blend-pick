@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -51,6 +52,7 @@ async function fetchTrackingStatus(
 export async function POST() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const apiKey = process.env.SWEETTRACKER_API_KEY;
   if (!apiKey) {
@@ -64,10 +66,10 @@ export async function POST() {
   const { rows: shippedOrders } = await shopPool.query(`
     SELECT id, order_number, tracking_company, tracking_number, total_amount, payment_method, payment_key
     FROM orders
-    WHERE status = 'shipped' AND tracking_number IS NOT NULL
+    WHERE site = $1 AND status = 'shipped' AND tracking_number IS NOT NULL
     ORDER BY created_at ASC
     LIMIT 100
-  `);
+  `, [site]);
 
   if (shippedOrders.length === 0) {
     return NextResponse.json({ ok: true, checked: 0, delivered: 0 });
@@ -104,9 +106,9 @@ export async function POST() {
 
       const { rows: updated } = await client.query(
         `UPDATE orders SET status = 'delivered', delivered_at = COALESCE(delivered_at, NOW())
-         WHERE id = ANY($1::uuid[]) AND status = 'shipped'
+         WHERE id = ANY($1::uuid[]) AND site = $2 AND status = 'shipped'
          RETURNING id, order_number, total_amount, payment_method, payment_key`,
-        [deliveredIds]
+        [deliveredIds, site]
       );
 
       for (const order of updated) {

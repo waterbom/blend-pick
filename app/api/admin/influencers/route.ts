@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -18,6 +19,7 @@ async function getAdmin() {
 export async function GET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q");
@@ -47,9 +49,9 @@ export async function GET(req: Request) {
               COUNT(*) AS order_count,
               COALESCE(SUM(total_amount - shipping_fee), 0) AS gross_sales
        FROM orders
-       WHERE influencer_id IS NOT NULL AND status = ANY($1)
+       WHERE influencer_id IS NOT NULL AND status = ANY($1) AND site = $2
        GROUP BY influencer_id`,
-      [[...COUNTABLE_ORDER_STATUSES]]
+      [[...COUNTABLE_ORDER_STATUSES], site]
     ),
   ]);
 

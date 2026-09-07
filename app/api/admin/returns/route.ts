@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -19,6 +20,7 @@ async function getAdmin() {
 export async function GET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const sp = new URL(req.url).searchParams;
   const kind = sp.get("kind"); // exchange | return
@@ -45,10 +47,10 @@ export async function GET(req: Request) {
                FROM order_return_events e WHERE e.return_id = r.id) AS events
        FROM order_returns r
        JOIN orders o ON o.id = r.order_id
-      WHERE r.kind = $1 AND r.status = ANY($2)
+      WHERE r.kind = $1 AND r.status = ANY($2) AND o.site = $3
       ORDER BY r.created_at DESC
       LIMIT 200`,
-    [kind, statuses]
+    [kind, statuses, site]
   );
   return NextResponse.json(r.rows);
 }
@@ -57,6 +59,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { id, action, note, refund_amount } = await req.json();
   if (!id || !["collect", "complete", "reject"].includes(action)) {
@@ -68,8 +71,8 @@ export async function PATCH(req: Request) {
             o.status AS order_status, o.payment_key, o.total_amount,
             o.order_number, o.buyer_name, o.buyer_phone, o.site
        FROM order_returns r JOIN orders o ON o.id = r.order_id
-      WHERE r.id = $1`,
-    [id]
+      WHERE r.id = $1 AND o.site = $2`,
+    [id, site]
   );
   const ret = rows[0];
   if (!ret) return NextResponse.json({ error: "신청을 찾을 수 없습니다" }, { status: 404 });

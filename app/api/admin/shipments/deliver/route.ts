@@ -1,3 +1,4 @@
+import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -21,11 +22,14 @@ async function getAdmin() {
 export async function PATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { orderIds } = await req.json();
   if (!Array.isArray(orderIds) || orderIds.length === 0) {
     return NextResponse.json({ error: "주문 ID가 없습니다" }, { status: 400 });
   }
+
+  if (!(await adminOrderIdsBelong(orderIds, site))) return NextResponse.json({ error: "이 사이트의 주문을 찾을 수 없습니다." }, { status: 404 });
 
   const client = await shopPool.connect();
   try {
@@ -33,9 +37,9 @@ export async function PATCH(req: Request) {
 
     const { rows: orders } = await client.query(
       `UPDATE orders SET status = 'delivered', delivered_at = COALESCE(delivered_at, NOW())
-       WHERE id = ANY($1::uuid[]) AND status = 'shipped'
+       WHERE id = ANY($1::uuid[]) AND site = $2 AND status = 'shipped'
        RETURNING id, order_number, total_amount, payment_method, payment_key`,
-      [orderIds]
+      [orderIds, site]
     );
 
     for (const order of orders) {

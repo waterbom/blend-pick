@@ -5,7 +5,8 @@ import { CORE_CARRIERS, carrierName as libCarrierName } from "@/lib/carriers";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
 import SiteBadge from "@/components/admin/SiteBadge";
-import { SITE_FILTERS } from "@/lib/site-label";
+import { useSiteKey } from "@/components/SiteContext";
+import { SITES } from "@/lib/sites";
 
 interface OrderItem {
   product_id: string | null; // 추가옵션 행은 null
@@ -107,7 +108,7 @@ export default function ShipmentsClient() {
   const [tab, setTab] = useState<Tab>("preparing");
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   // 사이트 필터 (블랜드픽/산지픽) — 산지픽은 농가 발송이라 배송 담당이 달라 따로 볼 수 있게
-  const [siteFilter, setSiteFilter] = useState("");
+  const siteFilter = useSiteKey();
   const orders = useMemo(
     () => (siteFilter ? allOrders.filter((o) => (o.site || "blendpick") === siteFilter) : allOrders),
     [allOrders, siteFilter]
@@ -335,21 +336,7 @@ export default function ShipmentsClient() {
             </button>
           ))}
         </div>
-        <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 w-fit">
-          {SITE_FILTERS.map((t) => (
-            <button key={t.key} onClick={() => { setSiteFilter(t.key); setSelected(new Set()); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-semibold transition-colors ${
-                siteFilter === t.key
-                  ? t.key === "sanjipick" ? "bg-[#2F5D34] text-white" : "bg-gray-900 text-white"
-                  : "text-gray-500 hover:bg-gray-50"
-              }`}>
-              {t.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${siteFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"}`}>
-                {siteCounts[t.key] ?? 0}
-              </span>
-            </button>
-          ))}
-        </div>
+        <span className="text-sm font-semibold text-[#2F5D34]">{SITES[siteFilter].name} 주문 {siteCounts[siteFilter] ?? 0}건</span>
       </div>
 
       {/* ── 배송준비 탭 ── */}

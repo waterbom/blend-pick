@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSiteKey } from "@/components/SiteContext";
+import { SITES } from "@/lib/sites";
 import { BUSINESS_TYPE_LABEL, type BusinessType } from "@/lib/settlement";
 
 interface Row {
@@ -31,25 +33,49 @@ const WON = (n: number) => n.toLocaleString();
 export default function ProfitClient() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [channel, setChannel] = useState("");
-  const [site, setSite] = useState(""); // '' | 'blendpick' | 'sanjipick' — 사이트별 손익
+  const site = useSiteKey();
   const [infFilter, setInfFilter] = useState("");
   const [bizFilter, setBizFilter] = useState("");
 
   async function load() {
     setLoading(true);
+    setError("");
     const p = new URLSearchParams();
     if (from) p.set("from", from);
     if (to) p.set("to", to);
     if (channel) p.set("channel", channel);
     if (site) p.set("site", site);
-    const res = await fetch(`/api/admin/profit?${p.toString()}`);
-    if (res.ok) setRows(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/admin/profit?${p.toString()}`);
+      if (!res.ok) throw new Error("수익 내역을 불러오지 못했습니다.");
+      setRows(await res.json());
+    } catch {
+      setError("수익 내역을 불러오지 못했습니다. 다시 조회해 주세요.");
+    } finally {
+      setLoading(false);
+    }
   }
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    let active = true;
+    async function initialLoad() {
+      try {
+        const res = await fetch("/api/admin/profit");
+        if (!res.ok) throw new Error("수익 조회 실패");
+        const data = await res.json();
+        if (active) setRows(data);
+      } catch {
+        if (active) setError("수익 내역을 불러오지 못했습니다. 다시 조회해 주세요.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void initialLoad();
+    return () => { active = false; };
+  }, []);
 
   // 인플루언서/사업자유형 필터는 클라이언트에서
   const visible = useMemo(
@@ -112,11 +138,7 @@ export default function ProfitClient() {
         </div>
         <div>
           <label className="text-xs font-bold text-gray-500 block mb-1">사이트</label>
-          <select value={site} onChange={(e) => setSite(e.target.value)} className={inp}>
-            <option value="">전체</option>
-            <option value="blendpick">블랜드픽</option>
-            <option value="sanjipick">산지픽</option>
-          </select>
+          <div className={inp}>{SITES[site].name}</div>
         </div>
         <div>
           <label className="text-xs font-bold text-gray-500 block mb-1">판매채널</label>
@@ -124,7 +146,7 @@ export default function ProfitClient() {
             <option value="">전체</option>
             <option value="campaign">공동구매</option>
             <option value="shop">자사몰</option>
-            <option value="hotel">호텔 공구</option>
+            {site === "blendpick" && <option value="hotel">호텔 공구</option>}
           </select>
         </div>
         <button onClick={load} className="bg-gray-900 text-white text-sm font-bold px-4 py-2 rounded-none hover:bg-gray-700">
@@ -150,6 +172,8 @@ export default function ProfitClient() {
       <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
         {loading ? (
           <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
+        ) : error ? (
+          <div role="alert" className="text-center py-16 text-red-500 text-sm">{error}</div>
         ) : visible.length === 0 ? (
           <div className="text-center py-16 text-gray-400 text-sm">데이터가 없어요</div>
         ) : (
@@ -239,10 +263,10 @@ export default function ProfitClient() {
       </div>
 
       <p className="text-xs text-gray-400 mt-4">
-        · PG수수료 "예상" = 아직 배송완료(정산 생성) 전 주문이 포함되어 요율(카드 3.63% / 이체 1.65%)로 추정한 금액입니다.
+        · PG수수료 &quot;예상&quot; = 아직 배송완료(정산 생성) 전 주문이 포함되어 요율(카드 3.63% / 이체 1.65%)로 추정한 금액입니다.
         <br />· ⚠(공급가) = 공급가 미입력 상품이 담긴 주문은 손익에서 제외됩니다 — 상품 관리에서 공급가를 입력하면 자동 포함돼요. ⚠(수수료) = 수수료율 미설정.
         <br />· 기간 필터는 주문(결제일) 기준이며, 공구별 배송비/기타비용은 공구 단위 입력값이 그대로 반영됩니다.
-        <br />· 호텔 공구: 대행 모델 — 공급가(호텔 정산분) 88%. 부가세는 순납부 예상액(매출부가세 − 인플·토스 매입세액공제). 순이익 = 12% − 부가세(순납부) − 인플루언서 정산 5%(귀속 주문만) − 토스 1.7% ≈ 매출의 4.82% (세후 실질). 인플루언서 지급은 [공구 정산]에서 실행됩니다.
+        {site === "blendpick" && <><br />· 호텔 공구: 대행 모델 — 공급가(호텔 정산분) 88%. 부가세는 순납부 예상액(매출부가세 − 인플·토스 매입세액공제). 순이익 = 12% − 부가세(순납부) − 인플루언서 정산 5%(귀속 주문만) − 토스 1.7% ≈ 매출의 4.82% (세후 실질). 인플루언서 지급은 [공구 정산]에서 실행됩니다.</>}
       </p>
     </div>
   );

@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -89,7 +90,7 @@ async function compute(baseline: string | null) {
               ORDER BY h.changed_at DESC LIMIT 1) AS change_label,
             o.addr_memo AS memo
        FROM orders o
-      WHERE o.order_type = 'hotel'
+      WHERE o.site = 'blendpick' AND o.order_type = 'hotel'
       ORDER BY o.stay_check_in NULLS LAST, o.created_at`
   );
   const rows = r.rows as HotelOrderRow[];
@@ -129,6 +130,7 @@ async function compute(baseline: string | null) {
 
 export async function GET(req: Request) {
   if (!(await getAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
   await ensureTable();
 
   const since = new URL(req.url).searchParams.get("since");
@@ -150,6 +152,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   if (!(await getAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
   await ensureTable();
 
   const body = await req.json().catch(() => ({}));

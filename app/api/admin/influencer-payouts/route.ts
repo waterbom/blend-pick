@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -23,6 +24,7 @@ async function getAdmin() {
 export async function POST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const { campaign_id, influencer_id } = await req.json();
   if (!campaign_id || !influencer_id) {
@@ -31,14 +33,15 @@ export async function POST(req: Request) {
 
   // 이미 지급완료면 재확정 금지 (지급 취소 후 가능)
   const existing = await shopPool.query(
-    "SELECT status FROM influencer_payouts WHERE campaign_id = $1 AND influencer_id = $2",
-    [campaign_id, influencer_id]
+    "SELECT status FROM influencer_payouts WHERE campaign_id = $1 AND influencer_id = $2 AND site = $3",
+    [campaign_id, influencer_id, site]
   );
   if (existing.rows[0]?.status === "paid") {
     return NextResponse.json({ error: "이미 지급완료된 정산입니다. 지급 취소 후 재확정하세요." }, { status: 409 });
   }
 
   const isHotel = campaign_id === HOTEL_PAYOUT_CAMPAIGN_ID;
+  if (isHotel && site === "sanjipick") return NextResponse.json({ error: "대상 정산이 없습니다." }, { status: 404 });
 
   // 버킷 종류 판별: 호텔(센티널) / 캠페인(OS) / 상품공구(products_shop.id)
   let rate: number | null = null;
@@ -72,8 +75,8 @@ export async function POST(req: Request) {
       ? await shopPool.query(
           `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
            FROM orders
-           WHERE order_type = 'hotel' AND influencer_id = $1 AND status = ANY($2)`,
-          [influencer_id, [...COUNTABLE_ORDER_STATUSES]]
+           WHERE order_type = 'hotel' AND influencer_id = $1 AND status = ANY($2) AND site = $3`,
+          [influencer_id, [...COUNTABLE_ORDER_STATUSES], site]
         )
       : bucket === "product"
       ? await shopPool.query(
@@ -81,26 +84,27 @@ export async function POST(req: Request) {
           `SELECT COALESCE(SUM(o.total_amount - o.shipping_fee), 0) AS gross
            FROM orders o
            WHERE o.order_type = 'shop' AND o.influencer_id = $2
-             AND o.campaign_id IS NULL AND o.status = ANY($3)
+             AND o.campaign_id IS NULL AND o.status = ANY($3) AND o.site = $4
              AND EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.product_id = $1)`,
-          [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES]]
+          [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES], site]
         )
       : await shopPool.query(
           `SELECT COALESCE(SUM(total_amount - shipping_fee), 0) AS gross
            FROM orders
-           WHERE campaign_id = $1 AND influencer_id = $2 AND status = ANY($3)`,
-          [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES]]
+           WHERE campaign_id = $1 AND influencer_id = $2 AND status = ANY($3) AND site = $4`,
+          [campaign_id, influencer_id, [...COUNTABLE_ORDER_STATUSES], site]
         );
   const gross = Number(sales.rows[0].gross);
+  if (gross <= 0) return NextResponse.json({ error: "이 사이트의 정산 대상 매출이 없습니다." }, { status: 404 });
   const commission = calcCommission(gross, Number(rate));
   const b = calcPayout(commission, businessType);
 
   const { rows } = await shopPool.query(
     `INSERT INTO influencer_payouts (
        campaign_id, influencer_id, business_type, gross_sales, commission_rate,
-       commission, supply_value, vat, withholding, payout_amount, status
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
-     ON CONFLICT (campaign_id, influencer_id) DO UPDATE SET
+       commission, supply_value, vat, withholding, payout_amount, status, site
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',$11)
+     ON CONFLICT (site, campaign_id, influencer_id) DO UPDATE SET
        business_type = EXCLUDED.business_type,
        gross_sales = EXCLUDED.gross_sales,
        commission_rate = EXCLUDED.commission_rate,
@@ -112,7 +116,7 @@ export async function POST(req: Request) {
        status = 'pending',
        updated_at = NOW()
      RETURNING id`,
-    [campaign_id, influencer_id, businessType, gross, rate, b.commission, b.supplyValue, b.vat, b.withholding, b.payout]
+    [campaign_id, influencer_id, businessType, gross, rate, b.commission, b.supplyValue, b.vat, b.withholding, b.payout, site]
   );
 
   return NextResponse.json({ ok: true, id: rows[0].id, payout: b }, { status: 201 });

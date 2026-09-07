@@ -1,3 +1,5 @@
+import { SITES } from "@/lib/sites";
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -14,15 +16,16 @@ async function getAdmin() {
 export async function GET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
-  const { searchParams, origin } = new URL(req.url);
+  const { searchParams } = new URL(req.url);
   const amount = Number(searchParams.get("amount"));
   const label = (searchParams.get("label") || "추가 결제").trim();
   if (!Number.isFinite(amount) || amount <= 0) {
     return NextResponse.json({ error: "amount(금액)를 정확히 지정해주세요." }, { status: 400 });
   }
 
-  const token = await signPayLink(amount, label);
-  const link = `${origin}/pay/extra?t=${token}`;
+  const token = await signPayLink(amount, label, site);
+  const link = `https://${SITES[site].host}/pay/extra?t=${token}`;
   return NextResponse.json({ amount, label, link });
 }

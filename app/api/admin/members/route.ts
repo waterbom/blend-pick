@@ -1,3 +1,4 @@
+import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -16,6 +17,7 @@ async function getAdmin() {
 export async function GET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const site = (await currentAdminSite()).key;
 
   const sp = new URL(req.url).searchParams;
   const q = (sp.get("q") || "").trim();
@@ -57,17 +59,17 @@ export async function GET(req: Request) {
               to_char(MAX(o.paid_at) AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS last_order_at,
               to_char(MIN(o.paid_at) AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS first_order_at
          FROM orders o
-        WHERE o.user_id = ANY($1)
+        WHERE o.user_id = ANY($1) AND o.site = $3
         GROUP BY o.user_id`,
-      [ids, [...COUNTABLE_ORDER_STATUSES]]
+      [ids, [...COUNTABLE_ORDER_STATUSES], site]
     );
     for (const r of agg.rows) aggMap.set(String(r.user_id), r);
     const rets = await shopPool.query(
       `SELECT o.user_id, COUNT(*) AS returns
          FROM order_returns r JOIN orders o ON o.id = r.order_id
-        WHERE o.user_id = ANY($1)
+        WHERE o.user_id = ANY($1) AND o.site = $2
         GROUP BY o.user_id`,
-      [ids]
+      [ids, site]
     );
     for (const r of rets.rows) {
       const cur = aggMap.get(String(r.user_id)) ?? {};
@@ -100,8 +102,8 @@ export async function GET(req: Request) {
     ),
     shopPool.query(
       `SELECT COUNT(DISTINCT user_id)::int AS n FROM orders
-        WHERE user_id IS NOT NULL AND paid_at >= NOW() - INTERVAL '30 days' AND status = ANY($1)`,
-      [[...COUNTABLE_ORDER_STATUSES]]
+        WHERE site = $2 AND user_id IS NOT NULL AND paid_at >= NOW() - INTERVAL '30 days' AND status = ANY($1)`,
+      [[...COUNTABLE_ORDER_STATUSES], site]
     ),
   ]);
 

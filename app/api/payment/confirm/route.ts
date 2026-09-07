@@ -1,16 +1,18 @@
+import type { SiteKey } from "@/lib/sites";
 import { NextRequest, NextResponse } from "next/server";
 import { siteFromRequest } from "@/lib/site-request";
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import { randomBytes } from "crypto";
 
-function generateOrderNumber() {
+function generateOrderNumber(site: SiteKey) {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const suffix = randomBytes(3).toString("hex").toUpperCase();
-  return `BP-${date}-${suffix}`;
+  return `${site === "sanjipick" ? "SJ" : "BP"}-${date}-${suffix}`;
 }
 
 export async function POST(req: NextRequest) {
+  const paymentSite = siteFromRequest(req);
   const { paymentKey, orderId, amount, checkoutData } = await req.json();
 
   const secretKey = process.env.TOSS_SECRET_KEY!;
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
   // 3. 샵 orders에 공동구매 주문 저장 (order_type='campaign')
   //    캠페인 상품은 다른 DB라 product_id=NULL + product_name(텍스트)로 저장.
   //    저장 실패해도 토스 승인은 됐으므로 결제완료로 처리(로그만 남김).
-  const orderNumber = generateOrderNumber();
+  const orderNumber = generateOrderNumber(paymentSite);
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
         campaign?.id ?? null,
         campaign?.influencer_name ?? null,
         campaign?.commission_rate ?? null,
-        siteFromRequest(req), // 블랜드픽/산지픽 — 어드민 분리 기준
+        paymentSite, // 블랜드픽/산지픽 — 어드민 분리 기준
       ]
     );
     await client.query(

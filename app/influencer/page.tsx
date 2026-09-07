@@ -124,7 +124,7 @@ export default async function InfluencerPage() {
   );
   const hotelPayoutRes = await shopPool.query(
     `SELECT status, payout_amount FROM influencer_payouts
-     WHERE campaign_id = $1 AND influencer_id = $2`,
+     WHERE campaign_id = $1 AND influencer_id = $2 AND site = 'blendpick'`,
     [HOTEL_PAYOUT_CAMPAIGN_ID, inf.id]
   );
   const hotelGross = Number(hotelSalesRes.rows[0]?.gross ?? 0);
@@ -158,8 +158,8 @@ export default async function InfluencerPage() {
         [ids, [...COUNTABLE_ORDER_STATUSES]]
       ),
       shopPool.query(
-        `SELECT campaign_id, status, payout_amount
-         FROM influencer_payouts WHERE campaign_id = ANY($1) AND influencer_id = $2`,
+        `SELECT campaign_id, CASE WHEN BOOL_AND(status = 'paid') THEN 'paid' ELSE 'pending' END AS status, SUM(payout_amount) AS payout_amount
+         FROM influencer_payouts WHERE campaign_id = ANY($1) AND influencer_id = $2 GROUP BY campaign_id`,
         [ids, inf.id]
       ),
     ]);
