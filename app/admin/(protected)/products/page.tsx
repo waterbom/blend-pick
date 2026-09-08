@@ -2,6 +2,8 @@ import Link from "next/link";
 import shopPool from "@/lib/db-shop";
 import ProductDeleteButton from "@/components/admin/ProductDeleteButton";
 import ProductCodeCopy from "@/components/admin/ProductCodeCopy";
+import SecretLinkCopy from "@/components/admin/SecretLinkCopy";
+import { sanjiSecretLinkUrl } from "@/lib/secret-link";
 import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
 import type { SiteKey } from "@/lib/sites";
 
@@ -15,7 +17,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 async function getProducts(site: SiteKey) {
   const c = adminProductScopeSql(site, "category", 1);
   const result = await shopPool.query(`
-    SELECT id, name, brand, price, stock, status, main_image, product_code, created_at, is_visible, link_price, (link_code IS NOT NULL) AS has_link
+    SELECT id, name, brand, price, stock, status, main_image, product_code, created_at, link_price, link_code
     FROM products_shop
     WHERE ${c.sql}
     ORDER BY created_at DESC
@@ -33,26 +35,26 @@ export default async function AdminProductsPage({
   const { f = "" } = await searchParams;
   // 재고 확인 필요 = 판매중인데 재고 0 (이상 상태 경고)
   const warn = all.filter((p) => p.status === "active" && Number(p.stock) === 0);
-  // 비전시 = 메인·목록·검색에 안 나오고 비밀링크·상세 URL로만 파는 상품
-  const hidden = all.filter((p) => p.is_visible === false);
+  // 비전시 링크 = 상품은 평소처럼 전시되고, 전용 가격으로 파는 비공개 링크가 발급된 상품
+  const linked = all.filter((p) => !!p.link_code);
   const counts = {
     all: all.length,
     active: all.filter((p) => p.status === "active").length,
     soldout: all.filter((p) => p.status === "soldout").length,
     warn: warn.length,
-    hidden: hidden.length,
+    linked: linked.length,
   };
   const products =
     f === "active" ? all.filter((p) => p.status === "active")
     : f === "soldout" ? all.filter((p) => p.status === "soldout")
     : f === "warn" ? warn
-    : f === "hidden" ? hidden
+    : f === "linked" ? linked
     : all;
   const TABS = [
     { key: "", label: `전체 ${counts.all}` },
     { key: "active", label: `판매중 ${counts.active}` },
     { key: "soldout", label: `품절 ${counts.soldout}` },
-    { key: "hidden", label: `비전시 ${counts.hidden}` },
+    ...(site.key === "sanjipick" ? [{ key: "linked", label: `비전시 링크 ${counts.linked}` }] : []),
     { key: "warn", label: `재고 확인 필요 ${counts.warn}`, warn: true },
   ];
 
@@ -158,10 +160,11 @@ export default async function AdminProductsPage({
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {Number(p.price).toLocaleString()}원
-                      {p.link_price != null && (
-                        <p className="text-[11px] font-medium text-[#2D5A27]" title="비밀링크로 들어왔을 때 적용되는 가격">
-                          🔗 링크가 {Number(p.link_price).toLocaleString()}원{p.has_link ? "" : " · 링크 미발급"}
-                        </p>
+                      {p.link_code && (
+                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-[#2D5A27]" title="비전시 링크로 들어왔을 때 적용되는 가격">
+                          🔗 링크가 {p.link_price != null ? `${Number(p.link_price).toLocaleString()}원` : "전시가와 같음"}
+                          <SecretLinkCopy url={sanjiSecretLinkUrl(p.id, p.link_code)} />
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -173,11 +176,6 @@ export default async function AdminProductsPage({
                       <span className={`text-xs font-bold px-2 py-1 rounded-full ${s.color}`}>
                         {s.label}
                       </span>
-                      {p.is_visible === false && (
-                        <span className="ml-1 text-xs font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700" title="메인·목록·검색에 안 나옴 — 비밀링크·상세 URL로만 구매">
-                          비전시
-                        </span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
                       {new Date(p.created_at).toLocaleDateString("ko-KR")}

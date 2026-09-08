@@ -59,7 +59,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     manufacturer, origin_country, product_condition, manufacture_date,
     main_image, extra_images, options,
     addons, addon_multi,
-    is_visible, link_price,
+    is_visible, link_price, revoke_link,
   } = body;
 
   // 옵션이 있으면 대표 재고는 판매중 옵션 재고 합계로 자동 반영 ("재고 확인" 버튼 안 눌러도 항상 일치)
@@ -93,7 +93,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         manufacturer = $32, origin_country = $33,
         product_condition = $34, manufacture_date = $35,
         main_image = $36, addon_multi = $37, supply_price = $38, influencer_rate = $39,
-        is_visible = $41, link_price = $42, updated_at = NOW()
+        is_visible = $41, link_price = $42,
+        link_code = CASE WHEN $43::boolean THEN NULL ELSE link_code END, -- 비전시 링크 사용을 끄면 코드 해제
+        updated_at = NOW()
       WHERE id = $40
     `, [
       name, brand || null, description || null,
@@ -117,8 +119,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       supply_price || null,
       influencer_rate ?? null,
       id,
-      is_visible !== false, // 전시(true) / 비전시·비밀링크 전용(false)
+      is_visible !== false, // 상품 자체는 항상 전시(기본값) — 화면에서 바꾸지 않는다
       linkPrice,
+      revoke_link === true,
     ]);
 
     await client.query("DELETE FROM product_images WHERE product_id = $1", [id]);
