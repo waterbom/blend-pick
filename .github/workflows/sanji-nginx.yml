@@ -1,17 +1,19 @@
 name: Sanji Subdomain (nginx)
 
 # 산지픽 서브도메인 서버 세팅 — Actions 탭에서 수동 실행
-#   inspect : 현재 nginx 설정·인증서 상태만 출력 (아무것도 바꾸지 않음)
-#   apply   : sanjipick.blendpunch.com 서버 블록 추가 + nginx 검증·리로드 (+ 가능하면 certbot 인증서 발급)
+#   inspect      : 현재 nginx 설정·인증서 상태만 출력 (아무것도 바꾸지 않음)
+#   apply        : sanjipick.blendpunch.com 서버 블록 추가 + nginx 검증·리로드 (+ 가능하면 certbot 인증서 발급)
+#   upload-limit : 이미 있는 산지픽 서버 블록에 업로드 한도(client_max_body_size, shop과 동일 50M)만 추가 + 리로드
+#                  — 한도가 없으면 nginx 기본 1MB라 어드민 사진 업로드가 413으로 거절된다 (인증서·프록시 설정은 건드리지 않음)
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "inspect(확인만) / apply(적용)"
+        description: "inspect(확인만) / apply(적용) / upload-limit(업로드 한도만 추가)"
         required: true
         default: inspect
         type: choice
-        options: [inspect, apply]
+        options: [inspect, apply, upload-limit]
       host:
         description: "서브도메인"
         required: true
@@ -52,6 +54,25 @@ jobs:
             echo "=== 이미 $SANJI_HOST 설정이 있는지 ==="
             sudo grep -rn "$SANJI_HOST" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null || echo "없음"
 
+            # ---------- upload-limit: 산지픽 블록의 location / 에 업로드 한도만 끼워 넣기 (없을 때만) ----------
+            if [ "$MODE" = "upload-limit" ]; then
+              LIMIT=$(sudo grep -m1 -oE "client_max_body_size[[:space:]]+[0-9]+[mMkKgG]?" "${SHOP_FILE:-/dev/null}" | awk '{print $2}')
+              LIMIT=${LIMIT:-50M}
+              echo "=== 적용할 업로드 한도: $LIMIT (shop 블록 기준) ==="
+              for f in "/etc/nginx/sites-available/$SANJI_HOST" /etc/nginx/sites-available/sanji.blendpunch.com; do
+                sudo test -f "$f" || { echo "$f 없음 — 건너뜀"; continue; }
+                if sudo grep -q "client_max_body_size" "$f"; then
+                  echo "=== $f: 이미 한도 있음 ==="; sudo grep -n "client_max_body_size" "$f"; continue
+                fi
+                sudo cp "$f" "$f.bak.$(date +%s)"
+                sudo sed -i 's|^\([[:space:]]*\)location / {|\1location / {\n\1    client_max_body_size '"$LIMIT"';\n\1    proxy_read_timeout 300;|' "$f"
+                echo "=== $f 패치 결과 ==="; sudo grep -n -A2 "location / {" "$f"
+              done
+              echo "=== nginx -t ==="; sudo nginx -t
+              sudo systemctl reload nginx && echo "nginx reload 완료 — 업로드 한도 $LIMIT 적용"
+              exit 0
+            fi
+
             if [ "$MODE" != "apply" ]; then
               echo "=== inspect 모드 — 변경 없이 종료 ==="; exit 0
             fi
@@ -77,6 +98,8 @@ jobs:
 
                 location / {
                     proxy_pass $UPSTREAM;
+                    client_max_body_size 50M;
+                    proxy_read_timeout 300;
                     proxy_http_version 1.1;
                     proxy_set_header Upgrade \$http_upgrade;
                     proxy_set_header Connection 'upgrade';
