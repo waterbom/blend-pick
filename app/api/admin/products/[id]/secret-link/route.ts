@@ -4,66 +4,43 @@ import { randomBytes } from "crypto";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
-import { sanjiSecretLinkUrl } from "@/lib/secret-link";
-
-// 상품 비밀링크 코드 발급/재발급/해제 — 상품 관리 수정 화면의 "비밀링크" 섹션이 호출한다.
-//  POST   { regenerate?: boolean } → 코드가 없으면 새로 발급, regenerate=true 면 기존 코드를 버리고 새 코드 (옛 링크는 즉시 무효)
-//  DELETE                          → 코드 해제 (링크가는 남지만 어떤 링크로도 적용 안 됨)
-// 코드는 URL 에 그대로 실리는 비밀값이라 추측 불가능한 난수(16자 소문자+숫자)로 만든다.
-
-async function getAdmin() {
+import { sanjiSecretLinkUrl, validLinkPeriod, validLinkPrice } from "@/lib/secret-link";
+async function handle(revoke: boolean, id: string) {
   const token = (await cookies()).get("admin_token")?.value;
-  if (!token) return null;
-  return verifyAdminToken(token);
-}
-
-function newCode(): string {
-  // 16자 base36 — 랜덤 바이트를 36진수로 (약 83bit)
-  const b = randomBytes(12);
-  let s = "";
-  for (const x of b) s += x.toString(36).padStart(2, "0");
-  return s.replace(/[^a-z0-9]/g, "").slice(0, 16).padEnd(16, "0");
-}
-
-// 접속 도메인 범위(Shop/산지픽)의 상품만 다룬다 — 다른 사이트 상품 id 로는 404
-async function scopedProduct(id: string) {
-  const c = adminProductScopeSql((await currentAdminSite()).key, "category", 2);
-  const r = await shopPool.query(
-    `SELECT id, link_code, link_price FROM products_shop WHERE id = $1 AND ${c.sql}`,
-    [id, c.param]
-  );
-  return r.rows[0] as { id: string; link_code: string | null; link_price: number | null } | undefined;
-}
-
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await getAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id } = await params;
-  const body = await req.json().catch(() => ({}));
-  const product = await scopedProduct(id);
-  if (!product) return NextResponse.json({ error: "상품을 찾을 수 없어요." }, { status: 404 });
-
-  let code = product.link_code;
-  if (!code || body?.regenerate) {
-    // 유니크 인덱스 충돌 시 한 번 더 시도
-    for (let i = 0; i < 3; i++) {
-      const candidate = newCode();
-      try {
-        await shopPool.query(`UPDATE products_shop SET link_code = $1, updated_at = NOW() WHERE id = $2`, [candidate, id]);
-        code = candidate;
-        break;
-      } catch (e) {
-        if (i === 2) throw e;
-      }
+  if (!token || !(await verifyAdminToken(token))) return NextResponse.json({error:"Unauthorized"},{status:401});
+  const site = (await currentAdminSite()).key;
+  if (site !== "sanjipick") return NextResponse.json({error:"산지픽에서 설정해주세요."},{status:404});
+  const scope = adminProductScopeSql(site, "category", 2);
+  const client = await shopPool.connect();
+  try {
+    await client.query("BEGIN");
+    const {rows} = await client.query(`SELECT * FROM products_shop WHERE id=$1 AND ${scope.sql} FOR UPDATE`, [id,scope.param]);
+    const p=rows[0];
+    if (!p) { await client.query("ROLLBACK"); return NextResponse.json({error:"상품을 찾을 수 없습니다."},{status:404}); }
+    if (revoke) {
+      await client.query("UPDATE product_secret_links SET revoked_at=COALESCE(revoked_at,NOW()) WHERE code=$1",[p.link_code]);
+      await client.query("UPDATE products_shop SET link_code=NULL, updated_at=NOW() WHERE id=$1",[id]);
+      await client.query("COMMIT"); return NextResponse.json({ok:true});
     }
-  }
-  return NextResponse.json({ ok: true, code, url: sanjiSecretLinkUrl(id, code!), link_price: product.link_price });
+    if (!validLinkPeriod(p.link_start_at,p.link_end_at) || new Date(p.link_end_at).getTime() <= Date.now()) throw new Error("저장된 링크 시작·종료 일시를 확인해주세요. 종료된 기간은 재발급할 수 없습니다.");
+    const opts=await client.query("SELECT link_price, is_active FROM product_options WHERE product_id=$1",[id]);
+    if (opts.rows.length ? !opts.rows.some(o=>o.is_active && validLinkPrice(o.link_price)) : !validLinkPrice(p.link_price)) throw new Error("판매할 상품 또는 옵션의 비전시 가격을 먼저 저장해주세요.");
+    const previous=await client.query("SELECT code,revoked_at FROM product_secret_links WHERE product_id=$1 AND starts_at=$2 AND ends_at=$3",[id,p.link_start_at,p.link_end_at]);
+    let code=previous.rows[0]?.code;
+    if (previous.rows[0]?.revoked_at) throw new Error("해제한 기간에는 다시 발급할 수 없습니다. 새 판매 기간을 설정해주세요.");
+    if (!code) {
+      const overlap=await client.query("SELECT 1 FROM product_secret_links WHERE product_id=$1 AND starts_at < $3 AND ends_at > $2 LIMIT 1",[id,p.link_start_at,p.link_end_at]);
+      if (overlap.rows.length) throw new Error("이전에 발급한 기간과 겹칩니다. 겹치지 않는 새 기간을 설정해주세요.");
+      code=randomBytes(16).toString("hex");
+      await client.query("INSERT INTO product_secret_links(code,product_id,starts_at,ends_at) VALUES($1,$2,$3,$4)",[code,id,p.link_start_at,p.link_end_at]);
+    }
+    await client.query("UPDATE products_shop SET link_code=$2,updated_at=NOW() WHERE id=$1",[id,code]);
+    await client.query("COMMIT");
+    return NextResponse.json({ok:true,code,url:sanjiSecretLinkUrl(id,code)});
+  } catch(e) {
+    await client.query("ROLLBACK");
+    return NextResponse.json({error:e instanceof Error ? e.message : "링크 처리에 실패했습니다."},{status:409});
+  } finally {client.release();}
 }
-
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await getAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id } = await params;
-  const product = await scopedProduct(id);
-  if (!product) return NextResponse.json({ error: "상품을 찾을 수 없어요." }, { status: 404 });
-  await shopPool.query(`UPDATE products_shop SET link_code = NULL, updated_at = NOW() WHERE id = $1`, [id]);
-  return NextResponse.json({ ok: true });
-}
+export async function POST(_:Request,{params}:{params:Promise<{id:string}>}) {return handle(false,(await params).id);}
+export async function DELETE(_:Request,{params}:{params:Promise<{id:string}>}) {return handle(true,(await params).id);}

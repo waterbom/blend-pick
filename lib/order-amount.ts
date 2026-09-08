@@ -1,20 +1,22 @@
+import { SITES, type SiteKey } from "@/lib/sites";
 import shopPool from "@/lib/db-shop";
 import { cartShippingFee, type CartFeeItem } from "@/lib/shipping";
-import { cleanLinkCode, linkApplies, linkDelta, linkedUnitPrice } from "@/lib/secret-link";
+import { cleanLinkCode, linkApplies, secretUnitPrice, INVALID_LINK } from "@/lib/secret-link";
 
 // 결제 금액 서버 재계산 — 토스 승인 전에 화면이 보낸 금액이 DB 가격·배송비 규칙과 맞는지 확인한다.
 // 화면(sessionStorage)이나 결제창 요청값을 고쳐도 승인 자체가 막히고, 승인 전이라 카드 청구는 없다.
-// 계산 규칙은 상세·장바구니·결제 화면과 같은 함수(shopUnitPrice → linkedUnitPrice, cartShippingFee)를 쓴다.
-// 비밀링크(?k=) 결제는 상품의 link_code 와 코드가 맞을 때만 링크가(link_price)로 계산한다 — 코드가 틀리면 전시가 기준.
+// 계산 규칙은 상세·장바구니·결제 화면과 같은 함수(secretUnitPrice, cartShippingFee)를 쓴다.
+// 비밀링크(?k=) 결제는 상품의 link_code 와 코드가 맞을 때만 링크가(link_price)로 계산한다 — 틀린 코드·기간 외 요청은 차단.
 
 export type AmountCheck =
-  | { ok: true; linkCode: string | null } // linkCode: 실제로 링크가가 적용된 비밀링크 코드 (주문 스냅샷용)
+  | { ok: true; linkCode: string | null; linkStartAt: string | Date | null; linkEndAt: string | Date | null; units: number[]; names: string[]; optionLabels: (string | null)[] } // linkCode: 실제로 링크가가 적용된 비밀링크 코드 (주문 스냅샷용)
   | { ok: false; error: string; detail: string };
 
 const MISMATCH = "결제 금액이 현재 상품 가격과 달라요. 상품을 다시 담아 결제해주세요.";
 
 interface ProductRow {
-  id: string;
+  id: string; name: string; category: string; status: string; stock: number; is_visible: boolean;
+  link_start_at: string | Date | null; link_end_at: string | Date | null;
   price: number;
   link_price: number | null;
   link_code: string | null;
@@ -44,6 +46,7 @@ export interface CartAmountItem {
 
 // 장바구니·상세 '구매하기'(여러 줄) 결제: totalAmount = 상품+추가옵션 합, amount = totalAmount + shippingCost
 export async function verifyCartAmount(p: {
+  site?: SiteKey;
   items: CartAmountItem[];
   totalAmount: unknown;
   shippingCost: unknown;
@@ -58,42 +61,51 @@ export async function verifyCartAmount(p: {
   if (!mains.length) return { ok: false, error: MISMATCH, detail: "no main product" };
 
   const productIds = [...new Set(mains.map((it) => it.product_id as string))];
-  const optionIds = [...new Set(mains.map((it) => it.option_id).filter((x): x is string => !!x))];
 
   const [pr, or, ar] = await Promise.all([
     shopPool.query(
-      `SELECT id, price, link_price, link_code, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost
+      `SELECT id, name, category, status, stock, is_visible, link_start_at, link_end_at, price, link_price, link_code, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost
          FROM products_shop WHERE id = ANY($1::uuid[])`,
       [productIds]
     ),
-    optionIds.length
-      ? shopPool.query(`SELECT id, product_id, extra_price FROM product_options WHERE id = ANY($1::uuid[])`, [optionIds])
-      : Promise.resolve({ rows: [] as { id: string; product_id: string; extra_price: number | null }[] }),
+    productIds.length
+      ? shopPool.query(`SELECT id, product_id, value, extra_price, link_price, stock, is_active FROM product_options WHERE product_id = ANY($1::uuid[])`, [productIds])
+      : Promise.resolve({ rows: [] as { id: string; product_id: string; value: string; extra_price: number | null; link_price: number | null; stock: number; is_active: boolean }[] }),
     addons.length
       ? shopPool.query(`SELECT product_id, name, extra_price FROM product_addons WHERE product_id = ANY($1::uuid[]) AND is_active = true`, [productIds])
       : Promise.resolve({ rows: [] as { product_id: string; name: string; extra_price: number }[] }),
   ]);
   const products = new Map((pr.rows as ProductRow[]).map((r) => [r.id, r]));
-  const options = new Map((or.rows as { id: string; product_id: string; extra_price: number | null }[]).map((r) => [r.id, r]));
+  const options = new Map((or.rows as { id: string; product_id: string; value: string; extra_price: number | null; link_price: number | null; stock: number; is_active: boolean }[]).map((r) => [r.id, r]));
   const addonRows = ar.rows as { product_id: string; name: string; extra_price: number }[];
 
   let expectedItems = 0;
   let appliedLink: string | null = null;
+  let linkStartAt: string | Date | null = null, linkEndAt: string | Date | null = null;
+  const channels = new Set<string>();
+  const prices = new Map<CartAmountItem, number>();
+  const names = new Map<CartAmountItem, string>();
+  const labels = new Map<CartAmountItem, string | null>();
   const feeItems: CartFeeItem[] = [];
   for (const it of mains) {
     const prod = products.get(it.product_id as string);
     if (!prod) return { ok: false, error: MISMATCH, detail: `product missing ${it.product_id}` };
-    let extra: number | null = null;
-    if (it.option_id) {
-      const opt = options.get(it.option_id);
-      if (!opt || opt.product_id !== prod.id) return { ok: false, error: MISMATCH, detail: `option missing ${it.option_id}` };
-      extra = opt.extra_price == null ? null : n(opt.extra_price);
-    }
-    // 비밀링크 코드가 이 상품 것일 때만 링크가 차액 적용
+    if (p.site && (SITES.sanjipick.categories.includes(prod.category) ? "sanjipick" : "blendpick") !== p.site) return {ok:false,error:INVALID_LINK,detail:"wrong site"};
     const code = cleanLinkCode(it.link_code);
-    const delta = linkDelta({ price: n(prod.price), link_price: prod.link_price, link_code: prod.link_code }, code);
-    if (linkApplies({ price: n(prod.price), link_price: prod.link_price, link_code: prod.link_code }, code)) appliedLink = code;
-    const unit = linkedUnitPrice(n(prod.price), extra, !!it.option_id, delta);
+    const requested = it.link_code !== undefined && it.link_code !== null;
+    const linked = linkApplies(prod,code);
+    if ((requested && !linked) || (!requested && prod.is_visible === false)) return {ok:false,error:INVALID_LINK,detail:"invalid link"};
+    if (linked && !SITES.sanjipick.categories.includes(prod.category)) return {ok:false,error:INVALID_LINK,detail:"wrong link site"};
+    if (prod.status !== "active" || (prod.stock >= 0 && prod.stock < mains.filter(x=>x.product_id===prod.id).reduce((sum,x)=>sum+n(x.quantity),0))) return {ok:false,error:"판매 중인 재고를 확인해주세요.",detail:"unavailable product"};
+    const opt = it.option_id ? options.get(it.option_id) : null;
+    if (it.option_id && (!opt || opt.product_id !== prod.id || !opt.is_active || (opt.stock >= 0 && opt.stock < mains.filter(x=>x.option_id===it.option_id).reduce((sum,x)=>sum+n(x.quantity),0)))) return {ok:false,error:MISMATCH,detail:"unavailable option"};
+    if (!it.option_id && [...options.values()].some(o=>o.product_id===prod.id)) return {ok:false,error:MISMATCH,detail:"option required"};
+    channels.add(linked ? code! : "display");
+    if (channels.size > 1) return {ok:false,error:"전시 상품과 비전시 상품, 서로 다른 비전시 링크는 각각 나누어 결제해주세요.",detail:"mixed sales channels"};
+    if (linked) {appliedLink=code; linkStartAt=prod.link_start_at; linkEndAt=prod.link_end_at;}
+    const unit = secretUnitPrice(prod,opt ?? null,linked);
+    if (unit === null) return {ok:false,error:INVALID_LINK,detail:"link option price missing"};
+    prices.set(it,unit); names.set(it,prod.name); labels.set(it,opt?.value ?? null);
     expectedItems += unit * n(it.quantity);
     feeItems.push({ ...prod, product_id: prod.id, quantity: n(it.quantity), unit_price: unit });
   }
@@ -102,6 +114,7 @@ export async function verifyCartAmount(p: {
     const match = addonRows.find((a) => productIds.includes(a.product_id) && a.name === base);
     if (!match) return { ok: false, error: MISMATCH, detail: `addon missing "${base}"` };
     if (n(match.extra_price) !== n(it.price)) return { ok: false, error: MISMATCH, detail: `addon price ${base} ${it.price}≠${match.extra_price}` };
+    prices.set(it,n(match.extra_price)); names.set(it,`[추가] ${match.name}`); labels.set(it,null);
     expectedItems += n(match.extra_price) * n(it.quantity);
   }
   const expectedShipping = cartShippingFee(feeItems);
@@ -113,11 +126,12 @@ export async function verifyCartAmount(p: {
       detail: `items ${p.totalAmount}≠${expectedItems} / shipping ${p.shippingCost}≠${expectedShipping} / amount ${p.amount}≠${expectedTotal}`,
     };
   }
-  return { ok: true, linkCode: appliedLink };
+  return { ok: true, linkCode: appliedLink, linkStartAt, linkEndAt, units: items.map(it=>prices.get(it)!), names: items.map(it=>names.get(it)!), optionLabels: items.map(it=>labels.get(it) ?? null) };
 }
 
 // 단품 바로 결제: totalAmount = 단가×수량 + 배송비, amount = totalAmount
 export async function verifySingleAmount(p: {
+  site?: SiteKey;
   productId: unknown;
   optionId?: unknown;
   quantity: unknown;
@@ -129,23 +143,16 @@ export async function verifySingleAmount(p: {
 }): Promise<AmountCheck> {
   if (typeof p.productId !== "string" || !isQty(p.quantity)) return { ok: false, error: MISMATCH, detail: "bad product/quantity" };
   const optionId = typeof p.optionId === "string" && p.optionId ? p.optionId : null;
-  const code = cleanLinkCode(p.linkCode);
+  const code = p.linkCode as string | null | undefined;
   const r = await verifyCartAmount({
+    site: p.site,
     items: [{ product_id: p.productId, option_id: optionId, quantity: n(p.quantity), link_code: code }],
     totalAmount: n(p.totalAmount) - n(p.shippingCost),
     shippingCost: p.shippingCost,
     amount: p.amount,
   });
   if (!r.ok) return r;
-  // 단가 표시값도 대조 (주문서 unit_price 스냅샷에 그대로 들어가므로)
-  const [pr, opt] = await Promise.all([
-    shopPool.query(`SELECT price, link_price, link_code FROM products_shop WHERE id = $1`, [p.productId]),
-    optionId ? shopPool.query(`SELECT extra_price FROM product_options WHERE id = $1`, [optionId]) : Promise.resolve({ rows: [] as { extra_price: number | null }[] }),
-  ]);
-  const prod = pr.rows[0] as { price: number; link_price: number | null; link_code: string | null } | undefined;
-  if (!prod) return { ok: false, error: MISMATCH, detail: `product missing ${p.productId}` };
-  const extra = optionId ? (opt.rows[0]?.extra_price == null ? null : n(opt.rows[0].extra_price)) : null;
-  const unit = linkedUnitPrice(n(prod.price), extra, !!optionId, linkDelta({ ...prod, price: n(prod.price) }, code));
+  const unit = r.units[0];
   if (n(p.unitPrice) !== unit) return { ok: false, error: MISMATCH, detail: `unit ${p.unitPrice}≠${unit}` };
   return r;
 }

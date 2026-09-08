@@ -17,7 +17,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 async function getProducts(site: SiteKey) {
   const c = adminProductScopeSql(site, "category", 1);
   const result = await shopPool.query(`
-    SELECT id, name, brand, price, stock, status, main_image, product_code, created_at, link_price, link_code
+    SELECT id, name, brand, price, stock, status, main_image, product_code, created_at, link_price, link_code, link_start_at, link_end_at
     FROM products_shop
     WHERE ${c.sql}
     ORDER BY created_at DESC
@@ -36,7 +36,7 @@ export default async function AdminProductsPage({
   // 재고 확인 필요 = 판매중인데 재고 0 (이상 상태 경고)
   const warn = all.filter((p) => p.status === "active" && Number(p.stock) === 0);
   // 비전시 링크 = 상품은 평소처럼 전시되고, 전용 가격으로 파는 비공개 링크가 발급된 상품
-  const linked = all.filter((p) => !!p.link_code);
+  const linked = all.filter((p) => !!p.link_code && p.link_end_at && new Date(p.link_end_at).getTime() > Date.now());
   const counts = {
     all: all.length,
     active: all.filter((p) => p.status === "active").length,
@@ -160,9 +160,9 @@ export default async function AdminProductsPage({
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {Number(p.price).toLocaleString()}원
-                      {p.link_code && (
+                      {p.link_code && p.link_end_at && new Date(p.link_end_at).getTime() > Date.now() && (
                         <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-[#2D5A27]" title="비전시 링크로 들어왔을 때 적용되는 가격">
-                          🔗 링크가 {p.link_price != null ? `${Number(p.link_price).toLocaleString()}원` : "전시가와 같음"}
+                          비전시 · 옵션별 설정
                           <SecretLinkCopy url={sanjiSecretLinkUrl(p.id, p.link_code)} />
                         </div>
                       )}

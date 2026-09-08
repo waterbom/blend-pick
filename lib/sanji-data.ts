@@ -1,7 +1,7 @@
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import { SITES } from "@/lib/sites";
-import { cleanLinkCode, linkApplies, linkDelta } from "@/lib/secret-link";
+import { cleanLinkCode, linkApplies, secretUnitPrice } from "@/lib/secret-link";
 
 // 산지픽 판매 페이지 데이터 — 상품 관리에서 카테고리를 '산지픽'으로 지정한 상품만 다룬다.
 // 루트(/)는 가장 최근 등록된 산지픽 상품을 곧바로 판매 페이지로 보여주고, 나머지는 "함께 본 상품"으로 깔린다.
@@ -25,6 +25,7 @@ export interface SanjiProduct {
   sale_start_at: string | null;
   sale_end_at: string | null;
   is_visible: boolean;        // false = 비전시(비밀링크 전용) — 메인·목록·검색에 안 나옴
+  link_start_at?: string | null; link_end_at?: string | null;
   link_price: number | null;  // 비밀링크(?k=)로 들어왔을 때 적용되는 판매가 (전시가와 별도)
   origin?: string | null;                                           // 원산지 (상품정보 표에 표시)
   trust?: { rating: number; count: number; source: string } | null; // 외부 스토어 평점·리뷰 수 (우리 후기가 없을 때 신뢰 표시)
@@ -35,6 +36,7 @@ export interface SanjiOption {
   name: string;
   value: string;
   extra_price: number;
+  link_price?: number | null;
   stock: number;
   is_active: boolean;
 }
@@ -123,12 +125,13 @@ export async function getSanjiHomeReviews(limit = 8): Promise<SanjiHomeReview[]>
 
 // link_code 는 서버에서 ?k= 대조용으로만 쓰고 화면(클라이언트)에는 절대 내려보내지 않는다 — loadSanjiSalesPage 가 떼어낸다
 export async function getSanjiProduct(id: string): Promise<(SanjiProduct & { link_code: string | null }) | null> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
   const r = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price, stock, status,
             shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost,
-            main_image, influencer_id, sale_start_at, sale_end_at, is_visible, link_price, link_code
-       FROM products_shop WHERE id = $1`,
-    [id]
+            main_image, influencer_id, sale_start_at, sale_end_at, is_visible, link_price, link_code, link_start_at, link_end_at
+       FROM products_shop WHERE id = $1 AND category = ANY($2::text[])`,
+    [id, SITES.sanjipick.categories]
   );
   return (r.rows[0] as SanjiProduct & { link_code: string | null }) ?? null;
 }
@@ -143,7 +146,7 @@ export async function getSanjiImages(productId: string): Promise<string[]> {
 
 export async function getSanjiOptions(productId: string): Promise<SanjiOption[]> {
   const r = await shopPool.query(
-    `SELECT id, name, value, extra_price, stock, is_active
+    `SELECT id, name, value, extra_price, stock, is_active, link_price
        FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC, name ASC`,
     [productId]
   );
@@ -206,10 +209,14 @@ export async function getInfluencerId(inf?: string): Promise<string | null> {
 }
 
 // 판매 페이지 한 벌 — 상품 + 이미지 + 옵션 + 후기 + 지표 + 함께 본 상품
-// k: 비밀링크 코드(?k=) — 상품의 link_code 와 맞을 때만 linkCode 를 돌려주고 링크가 차액(linkDelta)을 적용한다
+// k: 코드·기간을 확인한 뒤 상품과 옵션에 각각 설정된 비전시 가격을 반환한다.
 export async function loadSanjiSalesPage(productId: string, inf?: string, k?: string) {
-  const [row, images, options, reviews, stats, all, influencerId] = await Promise.all([
-    getSanjiProduct(productId),
+  const row = await getSanjiProduct(productId);
+  if (!row) return null;
+  const code = cleanLinkCode(k);
+  const linked = linkApplies(row, code);
+  if ((k !== undefined && !linked) || (k === undefined && row.is_visible === false)) return null;
+  const [images, options, reviews, stats, all, influencerId] = await Promise.all([
     getSanjiImages(productId),
     getSanjiOptions(productId),
     getSanjiReviews(productId),
@@ -217,21 +224,19 @@ export async function loadSanjiSalesPage(productId: string, inf?: string, k?: st
     getSanjiProducts(),
     getInfluencerId(inf),
   ]);
-  if (!row) return null;
   const { link_code, ...product } = row; // 코드는 화면에 내려보내지 않는다
   const attributed = influencerId && (!product.influencer_id || product.influencer_id === influencerId) ? influencerId : null;
-  const code = cleanLinkCode(k);
-  const linked = linkApplies({ price: Number(product.price), link_price: product.link_price, link_code }, code);
+  const resolvedOptions = linked ? options.filter(o=>o.is_active && secretUnitPrice(row,o,true) !== null).map(o=>({...o, extra_price: secretUnitPrice(row,o,true)!})) : options;
+  if (linked && (options.length ? !resolvedOptions.length : secretUnitPrice(row,null,true) === null)) return null;
   return {
-    product,
+    product: linked ? {...product, price: resolvedOptions.length ? Math.min(...resolvedOptions.map(o=>o.extra_price)) : secretUnitPrice(row,null,true)!} : {...product, link_price: null, link_start_at: null, link_end_at: null},
     images: [...(product.main_image ? [product.main_image] : []), ...images],
-    options,
+    options: resolvedOptions.map(({link_price: _privatePrice, ...o})=>o),
     reviews,
     stats,
     others: all.filter((p) => p.id !== product.id),
     influencerId: attributed,
     linkCode: linked ? code : null,
-    linkDelta: linked ? linkDelta({ price: Number(product.price), link_price: product.link_price, link_code }, code) : 0,
   };
 }
 

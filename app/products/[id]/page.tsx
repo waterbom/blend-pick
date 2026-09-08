@@ -1,7 +1,8 @@
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import Header from "@/components/Header";
-import { notFound } from "next/navigation";
+import { SITES } from "@/lib/sites";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import ProductDetail from "@/components/ProductDetail";
 import RefundPolicy from "@/components/RefundPolicy";
@@ -39,7 +40,8 @@ interface Product {
 }
 
 // 비전시 상품 상세는 검색엔진 색인 제외 (링크를 받은 사람만 보는 페이지)
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{k?:string}> }) {
+  if ((await searchParams).k !== undefined) return {title:"잘못된 요청입니다",robots:{index:false,follow:false}};
   const { id } = await params;
   try {
     const r = await shopPool.query(`SELECT name, is_visible FROM products_shop WHERE id = $1`, [id]);
@@ -165,10 +167,15 @@ export default async function ProductDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ inf?: string }>;
+  searchParams: Promise<{ inf?: string; k?: string }>;
 }) {
   const { id } = await params;
-  const { inf } = await searchParams;
+  const { inf, k } = await searchParams;
+  if (k !== undefined) {
+    const query = new URLSearchParams({k: typeof k === "string" ? k : "invalid"});
+    if (inf) query.set("inf", inf);
+    redirect(`https://${SITES.sanjipick.host}/p/${encodeURIComponent(id)}?${query}`);
+  }
   const [product, images, options, addons, reviews, reviewSummary, influencer] = await Promise.all([
     getProduct(id),
     getImages(id),

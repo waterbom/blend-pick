@@ -83,7 +83,7 @@ const isCampaign = (o: { order_type: string; influencer_name: string | null }) =
 const COLUMNS = [
   "주문일시", "주문일자", "주문시간", "주문번호", "구매자", "구매자번호",
   "수령인", "수령인번호", "수령인주소", "우편번호", "배송메모",
-  "상품명", "선택옵션", "선택수량", "판매금액", "배송비", "총 결제 금액",
+  "상품명", "선택옵션", "선택수량", "판매금액", "배송비", "총 결제 금액", "구매 구분", "비전시 링크 코드",
 ];
 
 // 발주용 엑셀(.xlsx) 행 데이터 — 수량·금액은 숫자 셀
@@ -120,6 +120,7 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
         idx === 0 ? Number(o.total_amount) - Number(o.shipping_fee ?? 0) : "",
         idx === 0 ? Number(o.shipping_fee ?? 0) : "",
         idx === 0 ? Number(o.total_amount) : "",
+        o.link_code ? "비전시" : "전시", o.link_code ?? "",
       ]);
     });
   }
@@ -131,6 +132,7 @@ export default function OrdersClient() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [channelFilter, setChannelFilter] = useState("");
   const siteFilter = useSiteKey(); // '' | 'blendpick' | 'sanjipick'
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [acting, setActing] = useState(false);
@@ -170,6 +172,7 @@ export default function OrdersClient() {
       : typeFilter === "shop" ? orders.filter((o) => !isCampaign(o))
       : orders;
     if (siteFilter) list = list.filter((o) => siteOf(o) === siteFilter);
+    if (channelFilter) list = list.filter(o=>(o.link_code ? "non_display" : "display") === channelFilter);
     const q = query.trim().toLowerCase();
     if (q) {
       const qDigits = q.replace(/[^0-9]/g, "");
@@ -189,7 +192,7 @@ export default function OrdersClient() {
       );
     }
     return list;
-  }, [orders, typeFilter, siteFilter, query]);
+  }, [orders, typeFilter, siteFilter, query, channelFilter]);
 
   const typeCounts = useMemo(() => {
     let shop = 0, campaign = 0;
@@ -390,6 +393,8 @@ export default function OrdersClient() {
 
   return (
     <div>
+      <a href="/admin/link-sales" className="inline-block mb-4 text-sm font-semibold text-[#2D5A27] underline">전시·비전시 판매 집계 보기 →</a>
+      <label className="block mb-4 text-sm">구매 구분 <select value={channelFilter} onChange={e=>{setChannelFilter(e.target.value);setSelected(new Set());}} className="ml-2 border border-gray-200 p-2 bg-white"><option value="">전체</option><option value="display">전시</option><option value="non_display">비전시</option></select></label>
       {/* 대시보드 카드 */}
       <div className="bg-white rounded-none border border-gray-100 p-6 mb-4">
         <p className="text-sm font-semibold text-gray-800 mb-4">판매 관리</p>
@@ -637,7 +642,7 @@ export default function OrdersClient() {
                             {o.influencer_name
                               ? <span className="font-medium text-[#2D5A27]">@{o.influencer_name}</span>
                               : o.link_code
-                                ? <span className="font-medium text-amber-700" title={`비밀링크 코드 ${o.link_code}`}>🔗 비밀링크</span>
+                                ? <span className="font-medium text-amber-700" title={`비밀링크 코드 ${o.link_code}`}>비전시</span>
                                 : <span className="text-gray-300">—</span>}
                             {o.influencer_name && o.link_code && (
                               <span className="ml-1 text-amber-700" title={`비밀링크 코드 ${o.link_code}`}>🔗</span>

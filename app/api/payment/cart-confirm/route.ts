@@ -7,7 +7,6 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { phoneVerifyOn } from "@/lib/sms";
 import { isPhoneVerified } from "@/lib/phone-verify";
-import { shopUnitPrice } from "@/lib/shop-price";
 import { findClosedSaleProduct } from "@/lib/sale-window";
 import { infRefFromCookie } from "@/lib/inf-ref";
 import { randomBytes } from "crypto";
@@ -67,6 +66,7 @@ export async function POST(req: NextRequest) {
 
   // 0.7 결제 금액 서버 재계산 — 상품가·옵션가·추가옵션·배송비를 DB 기준으로 다시 계산해 다르면 승인 전에 차단 (카드 청구 없음)
   const amountCheck = await verifyCartAmount({
+    site: paymentSite,
     items: cartItems as Parameters<typeof verifyCartAmount>[0]["items"],
     totalAmount: checkoutData?.totalAmount, shippingCost: checkoutData?.shippingCost, amount,
   }).catch((e) => ({ ok: false as const, error: "결제 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", detail: String(e) }));
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1. 토스페이먼츠 결제 승인
+  if (amountCheck.linkEndAt && Date.now() >= new Date(amountCheck.linkEndAt).getTime()) return NextResponse.json({ok:false,error:"잘못된 요청입니다"},{status:400});
   const tossRes = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
     method: "POST",
     headers: {
@@ -137,9 +138,9 @@ export async function POST(req: NextRequest) {
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at, order_type,
-        influencer_id, influencer_name, commission_rate, site, link_code
+        influencer_id, influencer_name, commission_rate, site, link_code, link_start_at, link_end_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'paid',$12,$13,NOW(),'shop',
-        $14,$15,$16,$17,$18)
+        $14,$15,$16,$17,$18,$19,$20)
       RETURNING id`,
       [
         orderNumber,
@@ -159,16 +160,16 @@ export async function POST(req: NextRequest) {
         influencer?.name ?? null,
         influencer ? commissionRate : null,
         paymentSite, // 블랜드픽/산지픽 — 어드민 분리 기준
-        amountCheck.linkCode, // 비밀링크로 링크가가 실제 적용된 결제면 그 코드 (아니면 null)
+        amountCheck.linkCode, amountCheck.linkStartAt, amountCheck.linkEndAt, // 비밀링크로 링크가가 실제 적용된 결제면 그 코드 (아니면 null)
       ]
     );
 
     const newOrderId = rows[0].id;
 
     // order_items: 장바구니 아이템 수만큼 INSERT (결제시점 공급가 스냅샷 포함)
-    for (const item of items) {
-      // 화면이 들고 온 가격은 이미 위 amountCheck 로 DB 기준(링크가 포함)과 일치 확인됨
-      const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
+    for (const [itemIndex, item] of items.entries()) {
+      // 클라이언트 개별 가격 대신 서버 재계산 결과를 주문 스냅샷에 저장
+      const unitPrice = amountCheck.units[itemIndex];
       let supplyPrice: number | null = null;
       let optionLabel: string | null = null;
       if (item.product_id) {
@@ -188,7 +189,7 @@ export async function POST(req: NextRequest) {
       await client.query(
         `INSERT INTO order_items (order_id, product_id, option_id, product_name, option_label, unit_price, quantity, supply_price)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [newOrderId, item.product_id, item.option_id ?? null, item.name, optionLabel, unitPrice, item.quantity, supplyPrice]
+        [newOrderId, item.product_id, item.option_id ?? null, amountCheck.names[itemIndex], amountCheck.optionLabels[itemIndex], unitPrice, item.quantity, supplyPrice]
       );
 
       // 재고 차감 — 옵션 상품은 옵션 재고, 상품 재고는 항상 함께 차감 (추가옵션은 product_id 없음 → 제외)

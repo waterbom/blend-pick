@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LINK_PARAM, linkedUnitPrice } from "@/lib/secret-link";
+import { LINK_PARAM } from "@/lib/secret-link";
 import { productShippingFee, shippingLabel } from "@/lib/shipping";
 import type { SanjiCard, SanjiOption, SanjiProduct, SanjiReview, SanjiStats } from "@/lib/sanji-data";
 
@@ -27,7 +27,6 @@ export interface SanjiSalesProps {
   others: SanjiCard[];
   influencerId: string | null;
   linkCode: string | null; // 비밀링크(?k=) — 서버가 상품 코드와 대조해 맞을 때만 넘어온다
-  linkDelta: number;       // 링크가 − 전시가 (링크 미적용이면 0) — 모든 가격 표시·결제에 더한다
   demo?: boolean;
   kakaoUrl: string;
   linkBase: string; // 산지픽 도메인이면 "" · shop 도메인의 /sanji 경로로 보고 있으면 "/sanji"
@@ -59,19 +58,19 @@ function Img({ src, alt, style, className }: { src: string | null; alt: string; 
   return <img src={src!} alt={alt} className={className} style={style} loading="lazy" onError={() => setBad(true)} />;
 }
 
-export default function SanjiSalesPage({ product, images, options, reviews, stats, others, influencerId, linkCode, linkDelta, demo = false, kakaoUrl, linkBase }: SanjiSalesProps) {
+export default function SanjiSalesPage({ product, images, options, reviews, stats, others, influencerId, linkCode, demo = false, kakaoUrl, linkBase }: SanjiSalesProps) {
   const router = useRouter();
-  // 판매가 — 비밀링크로 들어왔으면 링크가(전시가 + 차액), 아니면 전시가. 옵션가도 같은 차액을 적용 (lib/secret-link.ts)
-  const price = Math.max(0, product.price + linkDelta);
-  const unitOf = (extra: number | null | undefined) => linkedUnitPrice(product.price, extra, true, linkDelta);
+  // 판매가 — 서버에서 검증한 채널별 상품·옵션 가격을 표시
+  const price = product.price;
+  const unitOf = (extra: number | null | undefined) => extra ?? price;
 
   // ── 시간창·재고 ─────────────────────────────────────────────
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
-    if (!product.sale_start_at && !product.sale_end_at) return;
+    if (!product.sale_start_at && !product.sale_end_at && !linkCode) return;
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [product.sale_start_at, product.sale_end_at]);
+  }, [product.sale_start_at, product.sale_end_at, linkCode]);
   const startMs = product.sale_start_at ? new Date(product.sale_start_at).getTime() : null;
   const endMs = product.sale_end_at ? new Date(product.sale_end_at).getTime() : null;
   const saleState: "upcoming" | "open" | "ended" =
@@ -183,7 +182,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
   }
 
   function checkout() {
-    if (!canBuy) return;
+    if (!canBuy || (linkCode && (!product.link_end_at || Date.now() >= new Date(product.link_end_at).getTime()))) return;
     setGoing(true);
     if (!hasOptions) {
       const p = new URLSearchParams({ quantity: String(qty) });
@@ -214,7 +213,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         option_id: o.id,
         option_name: o.name,
         option_value: o.value,
-        extra_price: unitOf(o.extra_price), // 링크 차액 반영된 옵션 단가 (결제 화면 표시용 — 승인 전 서버가 DB로 재계산)
+        extra_price: unitOf(o.extra_price), // 서버에서 확인한 비전시 옵션 단가 (결제 화면 표시용 — 승인 전 서버가 DB로 재계산)
         quantity: l.qty,
         link_code: linkCode,
       };
@@ -245,6 +244,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
     ["문의", "카카오톡 채널 산지픽"],
   ];
 
+  if (linkCode && (!product.link_end_at || nowMs >= new Date(product.link_end_at).getTime())) return <main className="min-h-screen grid place-items-center"><h1>잘못된 요청입니다</h1></main>;
   return (
     <div className="sp">
       <style>{`
@@ -410,7 +410,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         </div>
         {linkCode && (
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 10px", borderRadius: 999, background: "#E7EFE3", color: GREEN, fontSize: 12, fontWeight: 700 }}>
-            🔗 전용 링크 가격이 적용됐어요{linkDelta < 0 ? ` · ${won(-linkDelta)} 더 저렴` : ""}
+            전용 링크 가격이 적용됐어요
           </div>
         )}
         <div className="sp-ship">

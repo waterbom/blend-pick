@@ -1,3 +1,4 @@
+import { cleanLinkCode, linkApplies } from "@/lib/secret-link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import SanjiSalesPage from "@/components/sanji/SanjiSalesPage";
@@ -15,9 +16,9 @@ type Search = { inf?: string; k?: string };
 export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Search> }): Promise<Metadata> {
   const { id } = await params;
   const { k } = await searchParams;
-  if (id.startsWith("demo")) return { title: demoById(id).product.name };
+  if (id.startsWith("demo")) return k !== undefined ? {title:"잘못된 요청입니다",robots:{index:false,follow:false}} : { title: demoById(id).product.name };
   const p = await getSanjiProduct(id).catch(() => null);
-  if (!p) return {};
+  if (!p || (k !== undefined && !linkApplies(p, cleanLinkCode(k))) || (k === undefined && p.is_visible === false)) return {title:"잘못된 요청입니다",robots:{index:false,follow:false}};
   const S = SITES.sanjipick;
   // 비전시 상품·비밀링크 주소는 검색엔진에 안 실리게 (링크를 받은 사람만 보는 페이지)
   const secret = !p.is_visible || !!k;
@@ -44,6 +45,7 @@ export default async function SanjiProductPage({
   const { inf, k } = await searchParams;
   // 메인 예시 카드(demo-*)에서 들어온 경우 — 예시 판매 페이지 (구매 잠김)
   if (id.startsWith("demo")) {
+    if (k !== undefined) notFound();
     const d = demoById(id);
     const data = {
       product: d.product,
@@ -54,7 +56,6 @@ export default async function SanjiProductPage({
       others: SANJI_DEMO_CARDS.filter((c) => c.id !== d.product.id),
       influencerId: null,
       linkCode: null,
-      linkDelta: 0,
     };
     return (
       <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>

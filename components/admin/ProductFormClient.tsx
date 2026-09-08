@@ -8,7 +8,7 @@ import { sanjiSecretLinkUrl } from "@/lib/secret-link";
 
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
-interface OptionRow { name: string; price: string; stock: string; active: boolean; sel: boolean; supply: string; }
+interface OptionRow { name: string; price: string; stock: string; active: boolean; sel: boolean; supply: string; linkPrice?: string; }
 // 추가옵션(추가상품): 메인 구매 시 함께 살 수 있는 부가상품
 interface AddonRow { name: string; price: string; active: boolean; }
 
@@ -51,6 +51,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   const [form, setForm] = useState({
     name: "", brand: "", category: "",
+    link_start_at: "", link_end_at: "",
     link_price: "",       // 비전시 링크로 들어왔을 때 적용되는 판매가 (비우면 전시가 그대로)
     manufacturer: "", origin_country: "",
     product_condition: "new", manufacture_date: "",
@@ -130,6 +131,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           name: opts?.stripTagPrefix ? String(data.name ?? "").replace(/^\[[^\]]*\]\s*/, "") : (data.name ?? ""),
           brand: data.brand ?? "",
           category: data.category ?? "",
+          link_start_at: utcToKSTLocal(data.link_start_at), link_end_at: utcToKSTLocal(data.link_end_at),
           link_price: data.link_price != null ? String(data.link_price) : "",
           manufacturer: data.manufacturer ?? "",
           origin_country: data.origin_country ?? "",
@@ -175,7 +177,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
         const padded = [...allImgs, ...EMPTY_IMAGES].slice(0, 5);
         setImages(padded);
         setOptions(
-          (data.options ?? []).map((o: { name: string; price: number; stock: number; active?: boolean; supply_price?: number | null }) => ({
+          (data.options ?? []).map((o: { name: string; price: number; stock: number; active?: boolean; supply_price?: number | null; link_price?: number | null }) => ({
+            linkPrice: o.link_price != null ? String(o.link_price) : "",
             name: o.name, price: String(o.price), stock: String(o.stock),
             active: o.active !== false, sel: false,
             supply: o.supply_price != null ? String(o.supply_price) : "",
@@ -349,6 +352,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       brand: form.brand || null,
       category: form.category || null,
       // 비전시 링크를 끄면 링크가격은 지우고 발급된 코드도 해제 (서버 PATCH가 revoke_link 처리)
+      link_start_at: kstISO(form.link_start_at), link_end_at: kstISO(form.link_end_at),
       link_price: useLink && form.link_price !== "" ? Number(form.link_price) : null,
       revoke_link: !useLink,
       manufacturer: form.manufacturer || null,
@@ -390,6 +394,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       options: options.filter(o => o.name).map(o => ({
         name: o.name, price: Number(o.price) || 0, stock: Number(o.stock) || 0, active: o.active !== false,
         supply_price: o.supply ? Number(o.supply) : null,
+        link_price: useLink && o.linkPrice !== "" && o.linkPrice != null ? Number(o.linkPrice) : null,
       })),
       addons: addons.filter(a => a.name).map(a => ({
         name: a.name, price: Number(a.price) || 0, active: a.active !== false,
@@ -402,6 +407,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     e.preventDefault();
     setSaving(true);
     setError("");
+    if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setError("비전시 링크 시작·종료 일시를 확인해주세요."); setSaving(false); return; }
 
     // 공동구매 + 인플루언서 태그 → 태그별로 상품 복제 등록 (제목 양식 + 개별 공구기간)
     if (mode === "new" && form.sale_type === "groupbuy" && infTags.length > 0) {
@@ -454,7 +460,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     });
     if (res.ok) {
       // 비전시 링크를 켰는데 아직 코드가 없으면 저장과 함께 자동 발급 (등록 직후 / 수정에서 처음 켠 경우)
-      if (useLink && isSanjiCat && !linkCode) {
+      if (useLink && isSanjiCat && Date.parse(kstISO(form.link_end_at)!) > Date.now()) {
         const savedId = mode === "new" ? (await res.json().catch(() => ({}))).id : productId;
         if (savedId) {
           const lr = await fetch(`/api/admin/products/${savedId}/secret-link`, {
@@ -478,15 +484,15 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   // ── 비밀링크 발급/재발급/해제 ────────────────────────────────
   const isSanjiCat = SITES.sanjipick.categories.includes(form.category);
-  const secretUrl = productId && linkCode ? sanjiSecretLinkUrl(productId, linkCode) : "";
+  const linkExpired = !!form.link_end_at && Date.parse(kstISO(form.link_end_at)!) <= Date.now();
+  const secretUrl = productId && linkCode && !linkExpired ? sanjiSecretLinkUrl(productId, linkCode) : "";
 
-  async function issueLink(regenerate = false) {
+  async function issueLink() {
     if (!productId) return;
-    if (regenerate && !confirm("새 링크를 발급하면 지금까지 나눠준 링크는 바로 쓸 수 없게 돼요. 계속할까요?")) return;
     setLinkBusy(true);
     setError("");
     const res = await fetch(`/api/admin/products/${productId}/secret-link`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ regenerate }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
     });
     const d = await res.json().catch(() => ({}));
     if (res.ok) setLinkCode(d.code);
@@ -495,7 +501,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
   }
 
   async function revokeLink() {
-    if (!productId || !confirm("비밀링크를 해제하면 그 링크로는 더 이상 링크가격이 적용되지 않아요. 해제할까요?")) return;
+    if (!productId || !confirm("해제하면 이 링크는 잘못된 요청으로 표시되고 같은 기간에는 재발급할 수 없습니다. 해제할까요?")) return;
     setLinkBusy(true);
     const res = await fetch(`/api/admin/products/${productId}/secret-link`, { method: "DELETE" });
     if (res.ok) setLinkCode(null);
@@ -799,6 +805,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
           {useLink && (
             <>
               <Grid2>
+                <div><label className={lbl}>링크 시작 (한국시간)</label><input type="datetime-local" required value={form.link_start_at} onChange={e=>set("link_start_at",e.target.value)} className={inp}/></div>
+                <div><label className={lbl}>링크 종료 (한국시간)</label><input type="datetime-local" required value={form.link_end_at} onChange={e=>set("link_end_at",e.target.value)} className={inp}/></div>
+              </Grid2>
+              <p className="text-xs text-gray-500">한 기간에 링크 하나만 사용합니다. 시작 전·종료 후에는 “잘못된 요청입니다”로 표시하고 구매를 차단합니다. 기간을 바꾸면 기존 링크가 해제됩니다.</p>
+              <Grid2>
                 <div>
                   <label className={lbl}>전시가격 (판매가)</label>
                   <input readOnly value={form.price ? `${Number(form.price).toLocaleString()}원` : "아래 판매가에서 입력"} className={`${inp} bg-gray-50 text-gray-500`} tabIndex={-1} />
@@ -807,7 +818,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 <div>
                   <label className={lbl}>링크가격 (링크 전용가)</label>
                   <input value={form.link_price} onChange={e => set("link_price", e.target.value)}
-                    type="number" min="0" className={inp} placeholder="비우면 전시가 그대로" />
+                    type="number" min="0" className={inp} placeholder="옵션 없는 상품의 비전시 판매가" />
                   {form.link_price !== "" && form.price && (
                     <p className="text-xs mt-1 font-medium text-[#2D5A27]">
                       {Number(form.link_price) < Number(form.price)
@@ -817,14 +828,21 @@ export default function ProductFormClient({ mode, productId }: Props) {
                           : "→ 전시가와 같음"}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">옵션 상품은 옵션가마다 (링크가 − 전시가) 차액이 똑같이 적용돼요</p>
+                  <p className="text-xs text-gray-400 mt-1">옵션 상품은 아래에서 비전시 가격을 각각 입력합니다. 빈 옵션은 비전시 판매에서 제외됩니다.</p>
                 </div>
               </Grid2>
+              {options.length > 0 && <div className="space-y-2">
+                <p className="text-sm font-semibold">옵션별 판매가격</p>
+                {options.filter(o=>o.name).map((o)=> <div key={o.name} className="grid grid-cols-3 items-center gap-3 text-sm">
+                  <span>{o.name}</span><span>전시 {Number(o.price).toLocaleString()}원</span>
+                  <input aria-label={`${o.name} 비전시 가격`} type="number" min="0" step="1" placeholder="비전시 제외" value={o.linkPrice ?? ""} onChange={e=>setOptions(prev=>prev.map(v=>v===o?{...v,linkPrice:e.target.value}:v))} className={inp}/>
+                </div>)}
+              </div>}
               <div>
                 <label className={lbl}>링크 주소</label>
                 {mode === "new" ? (
                   <p className="text-xs text-gray-400">등록하면 추측할 수 없는 코드가 붙은 링크가 자동 발급돼요. 상품 목록의 「링크 복사」나 수정 화면에서 복사할 수 있어요.</p>
-                ) : linkCode ? (
+                ) : linkExpired ? (<p className="text-sm text-gray-500">종료된 링크입니다. 고객에게는 “잘못된 요청입니다”로 표시됩니다. 새 기간을 설정하고 저장하면 새 링크를 발급합니다.</p>) : linkCode ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <input readOnly value={secretUrl} onFocus={e => e.currentTarget.select()}
@@ -835,16 +853,16 @@ export default function ProductFormClient({ mode, productId }: Props) {
                       </button>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => issueLink(true)} disabled={linkBusy}
-                        className="text-xs text-gray-500 hover:text-gray-800 underline disabled:opacity-40">새 링크로 재발급 (이전 링크 무효)</button>
+                      <button type="button" onClick={() => issueLink()} disabled={linkBusy}
+                        className="text-xs text-gray-500 hover:text-gray-800 underline disabled:opacity-40">저장된 기간의 링크 확인</button>
                     </div>
                     <p className="text-xs text-gray-400">
-                      링크가격을 바꿨다면 아래 저장을 눌러야 반영돼요. 체크를 끄고 저장하면 링크가 해제되고 링크가격도 지워져요.
+                      가격·기간을 바꿨다면 저장해주세요. 체크를 끄고 저장하면 즉시 해제됩니다. 종료·해제한 링크는 다시 살아나지 않으며 과거 주문은 보존됩니다.
                     </p>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => issueLink(false)} disabled={linkBusy}
+                    <button type="button" onClick={() => issueLink()} disabled={linkBusy}
                       className="border border-[#C7D6C0] text-[#2D5A27] hover:bg-[#EAF0E6] text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
                       {linkBusy ? "발급 중..." : "🔗 지금 발급"}
                     </button>

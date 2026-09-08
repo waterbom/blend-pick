@@ -180,6 +180,10 @@ export async function PATCH(req: Request) {
     try {
       await client.query("BEGIN");
       await client.query(`UPDATE order_returns SET status = 'done' WHERE id = $1`, [id]);
+      if (ret.kind === "return" && !alreadyRefunded && ret.payment_key && !String(ret.payment_key).startsWith("SIM_")) await client.query(
+        "INSERT INTO order_refund_amounts(source_key,order_id,amount) VALUES($1,$2,$3) ON CONFLICT(source_key) DO NOTHING",
+        [`return:${id}`,ret.order_id,refunded]
+      );
       await client.query(
         `INSERT INTO order_return_events (return_id, status, note, admin_name) VALUES ($1, 'done', $2, $3)`,
         [
@@ -191,8 +195,8 @@ export async function PATCH(req: Request) {
         ]
       );
       await client.query(
-        `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2`,
-        [doneStatus, ret.order_id]
+        `UPDATE orders SET status = $1, updated_at = NOW(), refund_amount_unresolved = refund_amount_unresolved OR $3::boolean WHERE id = $2`,
+        [doneStatus, ret.order_id, alreadyRefunded]
       );
       await client.query("COMMIT");
     } catch (e) {

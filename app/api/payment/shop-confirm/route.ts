@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
 
   // 0.7 결제 금액 서버 재계산 — 화면 금액이 DB 가격·배송비와 다르면 승인 전에 차단 (카드 청구 없음)
   const amountCheck = await verifySingleAmount({
+    site: paymentSite,
     productId: checkoutData?.productId, optionId: checkoutData?.optionId, quantity: checkoutData?.quantity,
     unitPrice: checkoutData?.unitPrice, shippingCost: checkoutData?.shippingCost, totalAmount: checkoutData?.totalAmount, amount,
     linkCode: checkoutData?.linkCode, // 비밀링크(?k=) 결제 — 코드가 맞을 때만 링크가로 검증
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1. 토스페이먼츠 결제 승인
+  if (amountCheck.linkEndAt && Date.now() >= new Date(amountCheck.linkEndAt).getTime()) return NextResponse.json({ok:false,error:"잘못된 요청입니다"},{status:400});
   const tossRes = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
     method: "POST",
     headers: {
@@ -114,9 +116,9 @@ export async function POST(req: NextRequest) {
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at, order_type,
-        influencer_id, influencer_name, commission_rate, site, link_code
+        influencer_id, influencer_name, commission_rate, site, link_code, link_start_at, link_end_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'paid',$14,$15,NOW(),'shop',
-        $16,$17,$18,$19,$20)
+        $16,$17,$18,$19,$20,$21,$22)
       RETURNING id`,
       [
         orderNumber,
@@ -138,7 +140,7 @@ export async function POST(req: NextRequest) {
         influencer?.name ?? null,
         influencer ? commissionRate : null,
         paymentSite, // 어느 사이트에서 결제됐는지 (블랜드픽/산지픽) — 어드민 분리 기준
-        amountCheck.linkCode, // 비밀링크로 링크가가 실제 적용된 결제면 그 코드 (아니면 null)
+        amountCheck.linkCode, amountCheck.linkStartAt, amountCheck.linkEndAt, // 비밀링크로 링크가가 실제 적용된 결제면 그 코드 (아니면 null)
       ]
     );
 
@@ -155,16 +157,16 @@ export async function POST(req: NextRequest) {
     const supplyPrice = spRes.rows[0]?.supply_price ?? null;
 
     await client.query(
-      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity, supply_price)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity, supply_price, option_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         newOrderId,
         checkoutData.productId,
-        checkoutData.productName,
-        checkoutData.optionLabel || null,
-        checkoutData.unitPrice,
+        amountCheck.names[0],
+        amountCheck.optionLabels[0],
+        amountCheck.units[0],
         checkoutData.quantity,
-        supplyPrice,
+        supplyPrice, checkoutData.optionId ?? null,
       ]
     );
 

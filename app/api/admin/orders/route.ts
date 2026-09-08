@@ -34,6 +34,8 @@ export async function GET(req: Request) {
   const params: unknown[] = [];
   if (status) { params.push(status.split(",").map((v) => v.trim()).filter(Boolean)); conds.push(`o.status = ANY($${params.length})`); }
   if (site === "blendpick" || site === "sanjipick") { params.push(site); conds.push(`o.site = $${params.length}`); }
+  const channel = searchParams.get("channel");
+  if (channel === "display" || channel === "non_display") { params.push(channel); conds.push(`o.sales_channel = $${params.length}`); }
   const where = `WHERE ${conds.join(" AND ")}`;
 
   const result = await shopPool.query(`
@@ -56,7 +58,7 @@ export async function GET(req: Request) {
       o.tracking_company,
       o.tracking_number,
       o.influencer_name,
-      o.link_code,
+      o.link_code, o.sales_channel, o.link_start_at, o.link_end_at,
       o.created_at,
       json_agg(
         json_build_object(

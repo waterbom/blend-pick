@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import ShopCheckoutClient from "@/components/ShopCheckoutClient";
 import { productShippingFee } from "@/lib/shipping";
-import { cleanLinkCode, linkApplies, linkDelta, linkedUnitPrice } from "@/lib/secret-link";
+import { cleanLinkCode, linkApplies, secretUnitPrice } from "@/lib/secret-link";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { phoneVerifyOn } from "@/lib/sms";
@@ -12,7 +12,7 @@ import { phoneVerifyOn } from "@/lib/sms";
 async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, price, original_price, main_image, shipping_type, shipping_cost,
-            free_shipping_threshold, per_unit_shipping_cost, status, stock, link_price, link_code
+            free_shipping_threshold, per_unit_shipping_cost, status, stock, is_visible, link_price, link_code, link_start_at, link_end_at
      FROM products_shop WHERE id = $1`,
     [id]
   );
@@ -21,7 +21,7 @@ async function getProduct(id: string) {
 
 async function getOption(optionId: string) {
   const result = await shopPool.query(
-    `SELECT id, name, value, extra_price FROM product_options WHERE id = $1`,
+    `SELECT id, product_id, name, value, extra_price, link_price, stock, is_active FROM product_options WHERE id = $1`,
     [optionId]
   );
   return result.rows[0] || null;
@@ -46,6 +46,7 @@ export default async function ShopCheckoutPage({
   searchParams: Promise<{ optionId?: string; quantity?: string; inf?: string; k?: string }>;
 }) {
   const { id } = await params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const { optionId, quantity: qStr, inf, k } = await searchParams;
   const influencer = await getInfluencer(inf);
   const quantity = Math.max(1, parseInt(qStr ?? "1") || 1);
@@ -57,11 +58,14 @@ export default async function ShopCheckoutPage({
 
   if (!product) notFound();
 
-  // 비밀링크(?k=) — 상품의 link_code 와 맞을 때만 링크가 적용 (틀린 코드는 조용히 전시가로)
+  // 비밀링크(?k=) — 상품의 link_code 와 맞을 때만 링크가 적용 (틀린 코드·기간 외 접근은 차단)
   const code = cleanLinkCode(k);
   const linked = linkApplies(product, code);
+  if ((k !== undefined && !linked) || (k === undefined && product.is_visible === false)) notFound();
+  if (optionId && (!option || option.product_id !== id || !option.is_active || option.stock < quantity)) notFound();
   const linkCode = linked ? code : null;
-  const unitPrice = linkedUnitPrice(Number(product.price), option?.extra_price, !!option, linkDelta(product, code));
+  const unitPrice = secretUnitPrice(product, option, linked);
+  if (unitPrice === null) notFound();
   // 배송비 — 어드민 설정(무료/유료/조건부/건별) 전부 반영 (lib/shipping.ts)
   const shippingCost = productShippingFee(product, quantity, unitPrice * quantity);
   const totalAmount = unitPrice * quantity + shippingCost;

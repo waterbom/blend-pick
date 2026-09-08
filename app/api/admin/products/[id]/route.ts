@@ -1,7 +1,9 @@
+import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
+import { linkSettingsError, saveLinkSettings } from "@/lib/admin-secret-link";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -15,10 +17,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const scope = adminProductScopeSql((await currentAdminSite()).key, "category", 2);
+  const scoped = await shopPool.query(`SELECT id FROM products_shop WHERE id=$1 AND ${scope.sql}`, [id, scope.param]);
+  if (!scoped.rows.length) return NextResponse.json({error:"Not found"},{status:404});
   const [product, images, options, addons] = await Promise.all([
     shopPool.query("SELECT * FROM products_shop WHERE id = $1", [id]),
     shopPool.query("SELECT url, sort_order FROM product_images WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
-    shopPool.query("SELECT id, name, extra_price, stock, sort_order, is_active, supply_price FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
+    shopPool.query("SELECT id, name, extra_price, stock, sort_order, is_active, supply_price, link_price FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
     shopPool.query("SELECT id, name, extra_price, is_active FROM product_addons WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
   ]);
 
@@ -29,7 +34,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     extra_images: images.rows.map(r => r.url),
     options: options.rows.map(r => ({
       id: r.id, name: r.name, price: r.extra_price, stock: r.stock, active: r.is_active,
-      supply_price: r.supply_price,
+      supply_price: r.supply_price, link_price: r.link_price,
     })),
     addons: addons.rows.map(r => ({
       name: r.name, price: r.extra_price, active: r.is_active,
@@ -42,7 +47,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const scope = adminProductScopeSql((await currentAdminSite()).key, "category", 2);
+  const scoped = await shopPool.query(`SELECT id FROM products_shop WHERE id=$1 AND ${scope.sql}`, [id, scope.param]);
+  if (!scoped.rows.length) return NextResponse.json({error:"Not found"},{status:404});
   const body = await req.json();
+  if (body.category && !((await currentAdminSite()).key === "sanjipick" ? scope.param.includes(body.category) : !scope.param.includes(body.category))) return NextResponse.json({error:"현재 사이트의 카테고리를 선택해주세요."},{status:400});
+  const linkError = linkSettingsError(body);
+  if (linkError) return NextResponse.json({error:linkError},{status:400});
   const {
     name, brand, description, price, original_price, instant_discount_price,
     supply_price, influencer_rate,
@@ -75,6 +86,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
+    await saveLinkSettings(client, id, body);
 
     await client.query(`
       UPDATE products_shop SET
@@ -93,7 +105,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         manufacturer = $32, origin_country = $33,
         product_condition = $34, manufacture_date = $35,
         main_image = $36, addon_multi = $37, supply_price = $38, influencer_rate = $39,
-        is_visible = $41, link_price = $42,
+        is_visible = COALESCE($41, is_visible), link_price = $42,
         link_code = CASE WHEN $43::boolean THEN NULL ELSE link_code END, -- 비전시 링크 사용을 끄면 코드 해제
         updated_at = NOW()
       WHERE id = $40
@@ -119,7 +131,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       supply_price || null,
       influencer_rate ?? null,
       id,
-      is_visible !== false, // 상품 자체는 항상 전시(기본값) — 화면에서 바꾸지 않는다
+      typeof is_visible === "boolean" ? is_visible : null,
       linkPrice,
       revoke_link === true,
     ]);
@@ -155,15 +167,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (exId) {
         await client.query(
           `UPDATE product_options
-              SET name = $2, value = $3, extra_price = $4, stock = $5, sort_order = $6, is_active = $7, supply_price = $8
+              SET name = $2, value = $3, extra_price = $4, stock = $5, sort_order = $6, is_active = $7, supply_price = $8, link_price = $9
             WHERE id = $1`,
-          [exId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null]
+          [exId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null, opt.link_price === "" ? null : opt.link_price ?? null]
         );
       } else {
         await client.query(
-          `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active, supply_price)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null]
+          `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active, supply_price, link_price)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [id, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null, opt.link_price === "" ? null : opt.link_price ?? null]
         );
       }
     }
@@ -198,6 +210,9 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const scope = adminProductScopeSql((await currentAdminSite()).key, "category", 2);
+  const scoped = await shopPool.query(`SELECT id FROM products_shop WHERE id=$1 AND ${scope.sql}`, [id, scope.param]);
+  if (!scoped.rows.length) return NextResponse.json({error:"Not found"},{status:404});
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");

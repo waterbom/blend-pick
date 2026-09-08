@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
+import { linkSettingsError, saveLinkSettings } from "@/lib/admin-secret-link";
 import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
 
 async function getAdmin() {
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
+  const linkError = linkSettingsError(body);
+  if (linkError) return NextResponse.json({error:linkError},{status:400});
   const {
     name, brand, description, price, original_price, instant_discount_price,
     supply_price, influencer_rate,
@@ -148,9 +151,9 @@ export async function POST(req: Request) {
         const opt = options[i];
         if (opt.name) {
           await client.query(
-            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active, supply_price)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [productId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null]
+            `INSERT INTO product_options (product_id, name, value, extra_price, stock, sort_order, is_active, supply_price, link_price)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [productId, opt.name, opt.name, opt.price ?? 0, opt.stock ?? 0, i, opt.active !== false, opt.supply_price ?? null, opt.link_price === "" ? null : opt.link_price ?? null]
           );
         }
       }
@@ -169,6 +172,7 @@ export async function POST(req: Request) {
       }
     }
 
+    await saveLinkSettings(client, productId, body);
     await client.query("COMMIT");
     return NextResponse.json({ id: productId }, { status: 201 });
   } catch (e) {

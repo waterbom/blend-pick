@@ -67,11 +67,16 @@ export async function cancelShopOrder(
   try {
     await client.query("BEGIN");
     const u = await client.query(
-      `UPDATE orders SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+      `UPDATE orders SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW(),
+         refund_amount_unresolved = refund_amount_unresolved OR $2::boolean
         WHERE id = $1 AND status <> 'cancelled'`,
-      [orderId]
+      [orderId, !refunded]
     );
     if (u.rowCount) {
+      if (refunded && ord.payment_key && !ord.payment_key.startsWith("SIM_")) await client.query(
+        "INSERT INTO order_refund_amounts(source_key,order_id,amount) VALUES($1,$2,$3) ON CONFLICT(source_key) DO NOTHING",
+        [`cancel:${orderId}`,orderId,refundAmount]
+      );
       const its = await client.query(
         `SELECT product_id, option_id, quantity FROM order_items
           WHERE order_id = $1 AND product_id IS NOT NULL`,
