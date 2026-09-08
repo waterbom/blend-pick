@@ -1,0 +1,16 @@
+name: Admin integrity checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  isolated-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:admin-integrity

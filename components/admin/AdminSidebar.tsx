@@ -15,6 +15,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "상품 관리", href: "/admin/products" },
       { label: "판매 관리", href: "/admin/orders" },
+      { label: "결제 확인·복구", href: "/admin/payment-recovery" },
       { label: "배송 관리", href: "/admin/shipments" },
       { label: "리뷰 관리", href: "/admin/reviews" },
       { label: "회원 관리", href: "/admin/members" },

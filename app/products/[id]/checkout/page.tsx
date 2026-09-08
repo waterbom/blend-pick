@@ -21,7 +21,7 @@ async function getProduct(id: string) {
 
 async function getOption(optionId: string) {
   const result = await shopPool.query(
-    `SELECT id, product_id, name, value, extra_price, link_price, stock, is_active FROM product_options WHERE id = $1`,
+    `SELECT id, product_id, name, value, extra_price, link_price, stock, is_active FROM product_options WHERE id = $1 AND removed_at IS NULL`,
     [optionId]
   );
   return result.rows[0] || null;

@@ -33,11 +33,12 @@ before(async()=>{
    products_shop:{product_code:'text',brand:'text',description:'text',original_price:'int',instant_discount_price:'int',sale_type:'text',presale_enabled:'boolean',presale_start_at:'timestamptz',presale_end_at:'timestamptz',tax_type:'text',shipping_carrier:'text',shipping_attr:'text',island_shipping_cost:'int',installation_cost:'int',release_address:'text',return_address:'text',return_cost_oneway:'int',return_cost_roundtrip:'int',exchange_cost_oneway:'int',exchange_cost_roundtrip:'int',as_notes:'text',manufacturer:'text',origin_country:'text',product_condition:'text',manufacture_date:'date',main_image:'text',addon_multi:'boolean',supply_price:'int',influencer_rate:'numeric',influencer_id:'uuid'},
    product_options:{name:'text',sort_order:'int',supply_price:'int'},
    product_addons:{id:'uuid default gen_random_uuid()',sort_order:'int'},
-   orders:{order_number:'text',user_id:'uuid',buyer_name:'text',buyer_phone:'text',buyer_email:'text',recipient_name:'text',recipient_phone:'text',addr_zipcode:'text',addr_address:'text',addr_detail:'text',addr_memo:'text',shipping_fee:'int',payment_method:'text',influencer_id:'uuid',influencer_name:'text',commission_rate:'numeric',cancelled_at:'timestamptz',updated_at:'timestamptz'},
+   orders:{tracking_company:'text',tracking_number:'text',order_number:'text',user_id:'uuid',buyer_name:'text',buyer_phone:'text',buyer_email:'text',recipient_name:'text',recipient_phone:'text',addr_zipcode:'text',addr_address:'text',addr_detail:'text',addr_memo:'text',shipping_fee:'int',payment_method:'text',influencer_id:'uuid',influencer_name:'text',commission_rate:'numeric',cancelled_at:'timestamptz',updated_at:'timestamptz'},
    order_items:{option_id:'uuid',product_name:'text',option_label:'text',unit_price:'int',supply_price:'int'},
  }))for(const [col,type] of Object.entries(cols)) await db.exec(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${type}`);
  for(const table of ['products_shop','product_options','orders','order_items']) await db.exec(`ALTER TABLE ${table} ALTER COLUMN id SET DEFAULT gen_random_uuid()`);
- await db.exec('CREATE TABLE product_images(product_id uuid,url text,sort_order int);');
+ await db.exec('CREATE TABLE product_images(product_id uuid,url text,sort_order int); CREATE TABLE settlements(id uuid,order_id uuid,fee int,created_at timestamptz);');
+ await db.exec(fs.readFileSync('scripts/admin-integrity.sql','utf8'));
 });
 after(()=>db.close());
 test('start inclusive / end exclusive, missing dates and malformed code fail closed',()=>{
@@ -121,28 +122,28 @@ test('shop and cart approval handlers never contact payment API for invalid link
 test('admin create/edit round trip persists period and per-option price, preserves visibility and option id',async()=>{
  const create=load('app/api/admin/products/route.ts',mocks).POST;
  const detail=load('app/api/admin/products/[id]/route.ts',mocks);
- const body={name:'새 사과',price:10000,category:'산지픽',stock:100,status:'active',shipping_type:'free',is_visible:false,link_start_at:start,link_end_at:end,options:[{name:'3kg',price:10000,link_price:7300,stock:30,active:true}],extra_images:[],addons:[]};
+ const body={name:'새 사과',price:10000,supply_price:5000,category:'산지픽',stock:100,status:'active',shipping_type:'free',is_visible:false,link_start_at:start,link_end_at:end,options:[{name:'3kg',price:10000,link_price:7300,stock:30,active:true}],extra_images:[],addons:[]};
  const req=(method,b)=>new Request('https://sanjipick.blendpunch.com/api/admin/products',{method,headers:{'content-type':'application/json'},body:JSON.stringify(b)});
  const made=await create(req('POST',body));assert.equal(made.status,201);const pid=(await made.json()).id;
  const ctx={params:Promise.resolve({id:pid})};
  let read=await (await detail.GET(new Request('https://a'),ctx)).json();assert.equal(read.options[0].link_price,7300);assert.equal(Date.parse(read.link_end_at),Date.parse(end));const oid=read.options[0].id;
- const changed={...body,options:[{...body.options[0],link_price:6900}]};delete changed.is_visible;
+ const changed={...body,expected_updated_at:read.updated_at,options:[{...body.options[0],link_price:6900}]};delete changed.is_visible;
  assert.equal((await detail.PATCH(req('PATCH',changed),ctx)).status,200);
  read=await (await detail.GET(new Request('https://a'),ctx)).json();assert.equal(read.is_visible,false);assert.equal(read.options[0].link_price,6900);assert.equal(read.options[0].id,oid);
  assert.equal((await detail.PATCH(req('PATCH',{...changed,options:[{...body.options[0],link_price:-1}]}),ctx)).status,400);
 });
 test('approved shop and cart persist verified channel, period, option id/name and server unit prices',async()=>{
- const original=global.fetch;global.fetch=async()=>Response.json({method:'카드'});
+ const original=global.fetch;global.fetch=async(url,init)=>{const b=JSON.parse(init.body);return Response.json({method:'카드',paymentKey:b.paymentKey,orderId:b.orderId,totalAmount:b.amount,status:'DONE'});};
  try{
   for(const kind of ['shop','cart']){
    const post=load(`app/api/payment/${kind}-confirm/route.ts`,mocks).POST;
    const checkoutData=kind==='shop'?{productId:id(2),productName:'FORGED',optionLabel:'FORGED',optionId:id(102),quantity:1,unitPrice:12300,linkCode:code,shippingCost:0,totalAmount:12300}:{items:[{product_id:id(2),option_id:id(102),quantity:1,price:1,extra_price:2,name:'FORGED',link_code:code}],shippingCost:0,totalAmount:12300};
-   const res=await post(new NextRequest('https://sanjipick.blendpunch.com/api/payment/'+kind+'-confirm',{method:'POST',headers:{'content-type':'application/json',host:'sanjipick.blendpunch.com'},body:JSON.stringify({paymentKey:'mock-'+kind,orderId:'TEST',amount:12300,checkoutData})}));
+   const res=await post(new NextRequest('https://sanjipick.blendpunch.com/api/payment/'+kind+'-confirm',{method:'POST',headers:{'content-type':'application/json',host:'sanjipick.blendpunch.com'},body:JSON.stringify({paymentKey:'mock-'+kind,orderId:'TEST-'+kind,amount:12300,checkoutData})}));
    assert.equal(res.status,200,JSON.stringify(await res.json()));
    const saved=(await db.query('SELECT o.sales_channel,o.link_end_at,i.unit_price,i.option_id,i.product_name,i.option_label FROM orders o JOIN order_items i ON i.order_id=o.id WHERE payment_key=$1',['mock-'+kind])).rows[0];
    assert.equal(saved.sales_channel,'non_display');assert.equal(saved.unit_price,12300);assert.equal(saved.option_id,id(102));assert.equal(saved.product_name,'테스트 사과');assert.equal(saved.option_label,'5kg');assert.equal(new Date(saved.link_end_at).getTime(),Date.parse(end));
   }
-  await db.exec("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE payment_key LIKE 'mock-%'); DELETE FROM orders WHERE payment_key LIKE 'mock-%';");
+  await db.exec("DELETE FROM payment_attempts; DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE payment_key LIKE 'mock-%'); DELETE FROM orders WHERE payment_key LIKE 'mock-%';");
  }finally{global.fetch=original;}
 });
 test('invalid product/link stops before image, review, related-product reads; invalid metadata reveals no name',async()=>{
@@ -169,13 +170,13 @@ test('refund failure writes nothing; successful cancellation records actual dedu
   global.fetch=async()=>{calls++;return Response.json({message:'mock failure'},{status:400});};
   assert.equal((await cancel(id(90),'test',{deductShipping:true})).ok,false);
   assert.equal((await db.query('SELECT * FROM order_refund_amounts WHERE order_id=$1',[id(90)])).rows.length,0);
-  global.fetch=async()=>{calls++;return Response.json({});};
+  global.fetch=async()=>{calls++;return Response.json({paymentKey:'real-cancel',totalAmount:10000,balanceAmount:3000,status:'PARTIAL_CANCELED'});};
   assert.equal((await cancel(id(90),'test',{deductShipping:true})).ok,true);
   assert.equal((await cancel(id(90),'test',{deductShipping:true})).alreadyCancelled,true);
   const saved=(await db.query('SELECT amount FROM order_refund_amounts WHERE order_id=$1',[id(90)])).rows;
   assert.deepEqual(saved,[{amount:7000}]);assert.equal(calls,2);
  }finally{global.fetch=original;}
- await db.query('DELETE FROM order_refund_amounts WHERE order_id=$1',[id(90)]);await db.query('DELETE FROM orders WHERE id=$1',[id(90)]);
+ await db.query('DELETE FROM order_refund_amounts WHERE order_id=$1',[id(90)]);await db.query('DELETE FROM refund_operations WHERE order_id=$1',[id(90)]);await db.query('DELETE FROM orders WHERE id=$1',[id(90)]);
 });
 test('paid channel totals avoid item fanout; refunds survive expiry/deletion and unknown legacy refunds suppress net',async()=>{
  for(const [n,channel,status,total,key] of [[1,code,'paid',20000,'real1'],[2,null,'cancelled',10000,'real2'],[3,code,'paid',99999,'SIM_test'],[4,code,'return_completed',5000,'real4']]){

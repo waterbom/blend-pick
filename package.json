@@ -11,7 +11,9 @@
     "test:visits": "node --test tests/visit-analytics.cjs tests/visit-analytics-db.cjs tests/prepare-visit-analytics.cjs",
     "test:traffic-live": "node --test tests/traffic-live.cjs",
     "check:monitoring": "npm run test:monitor && npm run test:visits && npm run test:traffic-live && npm run build",
-    "test:secret-links": "node --test tests/secret-link-periods.cjs"
+    "test:secret-links": "node --test tests/secret-link-periods.cjs",
+    "test:admin-integrity": "node --test --test-concurrency=1 tests/admin-auth.cjs tests/today-work.cjs tests/secret-link-periods.cjs tests/admin-integrity.cjs tests/admin-process-review.cjs tests/admin-final-process.cjs",
+    "test:admin-final": "node --test tests/admin-final-process.cjs"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.6.0",

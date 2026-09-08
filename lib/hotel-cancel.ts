@@ -1,3 +1,4 @@
+import { runRefund, RefundError } from '@/lib/refund-operation';
 import shopPool from "@/lib/db-shop";
 import { nextISO, nightsBetween, refundRateFor } from "@/lib/hotel";
 import { sendCancellationSMS } from "@/lib/hotel-notify";
@@ -34,52 +35,30 @@ export async function cancelHotelReservation(
   const refundAmount = opts.fullRefund ? total : Math.round((total * policy.rate) / 100);
   const refundNote = opts.fullRefund ? "전액 환불" : policy.label;
 
-  // 1) 토스 결제 취소 (실결제 건 + 환불액이 있을 때만)
-  if (ord.payment_key && !ord.payment_key.startsWith("SIM_") && refundAmount > 0) {
-    const secretKey = process.env.TOSS_SECRET_KEY;
-    const body: Record<string, unknown> = { cancelReason: `${opts.reasonPrefix} (${refundNote})` };
-    if (refundAmount < total) body.cancelAmount = refundAmount; // 부분 환불
-    const tossRes = await fetch(`https://api.tosspayments.com/v1/payments/${ord.payment_key}/cancel`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-    if (!tossRes.ok) {
-      const e = await tossRes.json().catch(() => ({}));
-      // 이미 취소된 결제는 정상 처리(상태·재고 정리 계속 진행)
-      if (e.code !== "ALREADY_CANCELED_PAYMENT") {
-        return { ok: false, error: e.message || "결제 환불에 실패했습니다.", httpStatus: 400 };
-      }
-    }
-  }
-
-  // 2) 상태 취소 + 재고 복원 (option_label = "객실 · 기간" → 앞이 객실타입)
   const room = String(ord.opt || "").split(" · ")[0];
-  const client = await shopPool.connect();
+  let actualRefund = refundAmount;
   try {
-    await client.query("BEGIN");
-    await client.query(`UPDATE orders SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`, [orderId]);
-    if (room && ord.ci && ord.co) {
-      let cur = ord.ci;
-      while (cur < ord.co) {
-        await client.query(
-          `UPDATE hotel_room_inventory SET booked = GREATEST(booked - 1, 0) WHERE stay_date = $1 AND room_type = $2`,
-          [cur, room]
-        );
-        cur = nextISO(cur);
-      }
-    }
-    await client.query("COMMIT");
-  } catch (e) {
-    await client.query("ROLLBACK");
-    console.error("[hotel-cancel] 재고 복원 실패:", e);
-    // 결제는 이미 환불됨 → 상태는 취소로 처리(재고는 수동 조정)
-    await shopPool.query(`UPDATE orders SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`, [orderId]);
-  } finally {
-    client.release();
+    const result = await runRefund({sourceKey:'hotel:'+orderId,orderId,
+      prepare:async(_client,o)=>{
+        if(o.order_type!=='hotel'||!['paid','confirmed','cancel_requested'].includes(o.status))throw new RefundError('취소 가능한 예약 상태가 아닙니다.');
+        return {amount:refundAmount,reason:`${opts.reasonPrefix} (${refundNote})`};
+      },
+      apply:async(client,o)=>{
+        if(o.status==='cancelled')return;
+        await client.query(`UPDATE orders SET status = 'cancelled', cancelled_at = NOW(), updated_at=NOW(), refund_amount_unresolved=false WHERE id = $1`,[orderId]);
+        if(room && ord.ci && ord.co) {
+          let cur=ord.ci;
+          while(cur<ord.co) {
+            await client.query('UPDATE hotel_room_inventory SET booked = GREATEST(booked - 1, 0) WHERE stay_date = $1 AND room_type = $2',[cur,room]);
+            cur=nextISO(cur);
+          }
+        }
+      }});
+    if(result.alreadyCompleted)return {ok:true,alreadyCancelled:true};
+    actualRefund=result.amount;
+  } catch(e) {
+    console.error('[hotel-cancel] 환불 또는 완료 저장 확인 필요',e);
+    return {ok:false,error:e instanceof RefundError?e.message:'취소 결과 확인이 필요합니다. 같은 예약에서 다시 확인해주세요.',httpStatus:e instanceof RefundError?e.status:503};
   }
 
   // 3) 예약취소 문자 발송 (실패해도 취소·환불엔 영향 없음)
@@ -94,7 +73,7 @@ export async function cancelHotelReservation(
         checkOut: ord.co,
         nights: nightsBetween(ord.ci, ord.co),
         total,
-        refundAmount,
+        refundAmount: actualRefund,
         refundNote,
       });
       smsSent = r.ok;
@@ -104,5 +83,5 @@ export async function cancelHotelReservation(
     }
   }
 
-  return { ok: true, refunded: refundAmount > 0, refundAmount, refundNote, smsSent };
+  return { ok: true, refunded: actualRefund > 0, refundAmount: actualRefund, refundNote, smsSent };
 }

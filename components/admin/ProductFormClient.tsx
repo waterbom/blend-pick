@@ -8,9 +8,9 @@ import { sanjiSecretLinkUrl } from "@/lib/secret-link";
 
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
-interface OptionRow { name: string; price: string; stock: string; active: boolean; sel: boolean; supply: string; linkPrice?: string; }
+interface OptionRow { id?: string; name: string; price: string; stock: string; active: boolean; sel: boolean; supply: string; linkPrice?: string; }
 // 추가옵션(추가상품): 메인 구매 시 함께 살 수 있는 부가상품
-interface AddonRow { name: string; price: string; active: boolean; }
+interface AddonRow { supply: string; name: string; price: string; active: boolean; }
 
 const EMPTY_IMAGES = ["", "", "", "", ""];
 
@@ -31,6 +31,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [images, setImages] = useState<string[]>([...EMPTY_IMAGES]);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
+  const [loadedVersion,setLoadedVersion]=useState<string|null>(null);
   const [options, setOptions] = useState<OptionRow[]>([]);
   const [addons, setAddons] = useState<AddonRow[]>([]);
   const [addonMulti, setAddonMulti] = useState(true);
@@ -176,8 +177,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
         // 5슬롯 고정, 부족하면 빈 문자열로 채움
         const padded = [...allImgs, ...EMPTY_IMAGES].slice(0, 5);
         setImages(padded);
+        if(mode === "edit")setLoadedVersion(data.updated_at??null);
         setOptions(
-          (data.options ?? []).map((o: { name: string; price: number; stock: number; active?: boolean; supply_price?: number | null; link_price?: number | null }) => ({
+          (data.options ?? []).map((o: { id?: string; name: string; price: number; stock: number; active?: boolean; supply_price?: number | null; link_price?: number | null }) => ({
+            id: opts?.stripTagPrefix ? undefined : o.id,
             linkPrice: o.link_price != null ? String(o.link_price) : "",
             name: o.name, price: String(o.price), stock: String(o.stock),
             active: o.active !== false, sel: false,
@@ -185,8 +188,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
           }))
         );
         setAddons(
-          (data.addons ?? []).map((a: { name: string; price: number; active?: boolean }) => ({
-            name: a.name, price: String(a.price), active: a.active !== false,
+          (data.addons ?? []).map((a: { name: string; price: number; active?: boolean; supply_price?: number | null }) => ({
+            name: a.name, price: String(a.price), supply: a.supply_price == null ? "" : String(a.supply_price), active: a.active !== false,
           }))
         );
         setAddonMulti(data.addon_multi !== false);
@@ -294,7 +297,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     setOptions(opts => opts.filter((_, idx) => idx !== i));
     setStockConfirmed(false);
   }
-  function setOption(i: number, key: "name" | "price" | "stock" | "supply", val: string) {
+  function setOption(i: number, key: "name" | "price" | "supply" | "stock" | "supply", val: string) {
     setOptions(opts => opts.map((opt, idx) => idx === i ? { ...opt, [key]: val } : opt));
     if (key === "stock") setStockConfirmed(false);
   }
@@ -330,12 +333,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   // ── 추가옵션(추가상품) ──
   function addAddon() {
-    setAddons(a => [...a, { name: "", price: "", active: true }]);
+    setAddons(a => [...a, { name: "", price: "", supply: "", active: true }]);
   }
   function removeAddon(i: number) {
     setAddons(a => a.filter((_, idx) => idx !== i));
   }
-  function setAddon(i: number, key: "name" | "price", val: string) {
+  function setAddon(i: number, key: "name" | "price" | "supply", val: string) {
     setAddons(a => a.map((row, idx) => idx === i ? { ...row, [key]: val } : row));
   }
   function setAddonActive(i: number, val: boolean) {
@@ -348,6 +351,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       always: "active", groupbuy: "active", preparing: "draft", soldout: "soldout",
     };
     return {
+      expected_updated_at: mode === "edit" ? loadedVersion : undefined,
       name: form.name,
       brand: form.brand || null,
       category: form.category || null,
@@ -393,10 +397,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
       extra_images: images.slice(1).filter(Boolean),
       options: options.filter(o => o.name).map(o => ({
         name: o.name, price: Number(o.price) || 0, stock: Number(o.stock) || 0, active: o.active !== false,
-        supply_price: o.supply ? Number(o.supply) : null,
+        id: o.id, supply_price: o.supply !== "" ? Number(o.supply) : null,
         link_price: useLink && o.linkPrice !== "" && o.linkPrice != null ? Number(o.linkPrice) : null,
       })),
       addons: addons.filter(a => a.name).map(a => ({
+        supply_price: a.supply !== "" ? Number(a.supply) : null,
         name: a.name, price: Number(a.price) || 0, active: a.active !== false,
       })),
       addon_multi: addonMulti,
@@ -410,7 +415,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     const supplyOk = form.supply_price !== "" || (activeOpts.length > 0 && activeOpts.every(o => o.supply !== ""));
     if (!supplyOk) return activeOpts.length > 0
       ? "공급가(매입원가)를 입력해주세요. 상품 공급가를 넣거나, 판매중 옵션마다 공급가를 넣어주세요."
-      : "공급가(매입원가)를 입력해주세요. 비어 있으면 손익 집계에서 이 상품 주문이 빠져요.";
+      : "공급가(매입원가)를 입력해주세요. 비어 있으면 이익을 확정할 수 없어요.";
     return null;
   }
 
@@ -426,6 +431,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     }
     if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setError("비전시 링크 시작·종료 일시를 확인해주세요."); setSaving(false); return; }
 
+    try {
     // 공동구매 + 인플루언서 태그 → 태그별로 상품 복제 등록 (제목 양식 + 개별 공구기간)
     if (mode === "new" && form.sale_type === "groupbuy" && infTags.length > 0) {
       for (const [i, t] of infTags.entries()) {
@@ -478,10 +484,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
     if (res.ok) {
       // 비전시 링크를 켰는데 아직 코드가 없으면 저장과 함께 자동 발급 (등록 직후 / 수정에서 처음 켠 경우)
       if (useLink && isSanjiCat && Date.parse(kstISO(form.link_end_at)!) > Date.now()) {
-        const savedId = mode === "new" ? (await res.json().catch(() => ({}))).id : productId;
+        const saved = await res.json().catch(() => ({}));
+        const savedId = mode === "new" ? saved.id : productId;
         if (savedId) {
           const lr = await fetch(`/api/admin/products/${savedId}/secret-link`, {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({expected_updated_at:saved.updated_at}),
           }).catch(() => null);
           if (!lr || !lr.ok) alert("상품은 저장됐지만 비전시 링크 발급에 실패했어요. 수정 화면에서 「지금 발급」을 눌러주세요.");
         }
@@ -496,7 +503,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           : d.error || (mode === "new" ? "등록 실패" : "수정 실패")
       );
     }
-    setSaving(false);
+    } catch { setError("저장 결과를 확인하지 못했습니다. 상품 목록을 확인한 뒤 다시 시도해주세요."); } finally { setSaving(false); }
   }
 
   // ── 비밀링크 발급/재발급/해제 ────────────────────────────────
@@ -509,10 +516,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
     setLinkBusy(true);
     setError("");
     const res = await fetch(`/api/admin/products/${productId}/secret-link`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({expected_updated_at:loadedVersion}),
     });
     const d = await res.json().catch(() => ({}));
-    if (res.ok) setLinkCode(d.code);
+    if (res.ok) { setLinkCode(d.code); setLoadedVersion(d.updated_at); }
     else setError(res.status === 401 ? SESSION_EXPIRED_MSG : d.error || "비밀링크 발급에 실패했어요.");
     setLinkBusy(false);
   }
@@ -520,8 +527,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
   async function revokeLink() {
     if (!productId || !confirm("해제하면 이 링크는 잘못된 요청으로 표시되고 같은 기간에는 재발급할 수 없습니다. 해제할까요?")) return;
     setLinkBusy(true);
-    const res = await fetch(`/api/admin/products/${productId}/secret-link`, { method: "DELETE" });
-    if (res.ok) setLinkCode(null);
+    const res = await fetch(`/api/admin/products/${productId}/secret-link`, { method: "DELETE", headers: {"Content-Type":"application/json"}, body: JSON.stringify({expected_updated_at:loadedVersion}) });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) { setLinkCode(null); setLoadedVersion(d.updated_at); }
     else setError(res.status === 401 ? SESSION_EXPIRED_MSG : "해제에 실패했어요.");
     setLinkBusy(false);
   }
@@ -537,7 +545,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
   }
 
   async function handleDelete() {
-    if (!confirm("정말 삭제할까요?")) return;
+    if (!confirm("판매를 중단하고 보관할까요? 주문·정산 이력은 유지됩니다.")) return;
     await fetch(`/api/admin/products/${productId}`, { method: "DELETE" });
     router.push("/admin/products");
     router.refresh();
@@ -1073,15 +1081,16 @@ export default function ProductFormClient({ mode, productId }: Props) {
           ) : (
             <>
               <div className="space-y-2">
-                <div className="grid grid-cols-[1fr_110px_92px_28px] gap-2 text-xs text-gray-400">
-                  <span>추가옵션명</span><span>추가금액(원)</span><span>판매상태</span><span />
+                <div className="grid grid-cols-[1fr_100px_100px_92px_28px] gap-2 text-xs text-gray-400">
+                  <span>추가옵션명</span><span>추가금액(원)</span><span>공급가(원)</span><span>판매상태</span><span />
                 </div>
                 {addons.map((ad, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_110px_92px_28px] gap-2 items-center">
+                  <div key={i} className="grid grid-cols-[1fr_100px_100px_92px_28px] gap-2 items-center">
                     <input value={ad.name} onChange={e => setAddon(i, "name", e.target.value)}
                       className={inp} placeholder="예: 아이스팩 추가" />
                     <input value={ad.price} onChange={e => setAddon(i, "price", e.target.value)}
                       type="number" min="0" className={inp} placeholder="1000" />
+                    <input aria-label={`${ad.name} 공급가`} value={ad.supply} onChange={e=>setAddon(i,"supply",e.target.value)} type="number" min="0" className={inp} placeholder="공급가 필수" />
                     <button type="button" onClick={() => setAddonActive(i, !ad.active)}
                       className={`text-xs font-bold px-2 py-1.5 rounded-none border transition-colors ${
                         ad.active

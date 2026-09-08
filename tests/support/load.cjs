@@ -10,6 +10,7 @@ function load(file, mocks = {}, cache = new Map(), sourceReader = f => fs.readFi
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: file })(name => {
     if (Object.hasOwn(mocks, name)) return mocks[name];
     if (['@/lib/db', '@/lib/db-shop'].includes(name)) throw Error('Production database access blocked in tests');
+    if (name.startsWith('@/') && name.endsWith('.cjs')) return require(path.join(root,name.slice(2)));
     if (name.startsWith('@/')) {
       const local = ['.ts', '.tsx'].map(ext => name.slice(2) + ext).find(f => fs.existsSync(path.join(root, f)));
       if (!local) throw Error('Missing local dependency: ' + name);

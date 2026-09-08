@@ -10,6 +10,7 @@ const ALL_FIELDS = [
   { value: "brand",         label: "브랜드" },
   { value: "description",   label: "제품설명" },
   { value: "price",         label: "판매가" },
+  { value: "supply_price", label: "공급가 (필수)" },
   { value: "original_price",label: "정가" },
   { value: "stock",         label: "재고" },
   { value: "category",      label: "카테고리" },

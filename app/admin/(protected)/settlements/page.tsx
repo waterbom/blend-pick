@@ -1,6 +1,6 @@
 import { currentAdminSite } from "@/lib/admin-site";
 import type { SiteKey } from "@/lib/sites";
-import shopPool from "@/lib/db-shop";
+import {settlementView} from "@/lib/settlement-view";
 import Link from "next/link";
 import SiteBadge from "@/components/admin/SiteBadge";
 
@@ -13,50 +13,18 @@ interface SettlementRow {
   site: string | null; // 결제된 사이트 (블랜드픽/산지픽)
   gross_amount: number;
   fee: number;
-  net_amount: number;
+  net_amount: number | null;
   settled_at: string;
   created_at: string;
 }
 
-async function getSettlementStats(site: SiteKey) {
-  const result = await shopPool.query(`
-    SELECT
-      COALESCE(SUM(net_amount) FILTER (
-        WHERE settled_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date
-      ), 0) AS today,
-      COALESCE(SUM(net_amount) FILTER (
-        WHERE settled_at >= date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')
-      ), 0) AS this_week,
-      COALESCE(SUM(net_amount) FILTER (
-        WHERE settled_at >= date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')
-      ), 0) AS this_month,
-      COALESCE(SUM(net_amount), 0) AS total,
-      COALESCE(SUM(fee), 0) AS total_fee
-    FROM settlements s JOIN orders o ON o.id = s.order_id WHERE o.site = $1
-  `, [site]);
-  return result.rows[0];
-}
-
-async function getSettlements(site: SiteKey, period?: string) {
-  let where = "WHERE o.site = $1";
-  if (period === "today") {
-    where += ` AND s.settled_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date`;
-  } else if (period === "week") {
-    where += ` AND s.settled_at >= date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')`;
-  } else if (period === "month") {
-    where += ` AND s.settled_at >= date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')`;
-  }
-
-  const result = await shopPool.query(`
-    SELECT s.id, s.payment_key, s.order_id, s.gross_amount, s.fee, s.net_amount, s.settled_at, s.created_at,
-           o.order_number, o.buyer_name, o.site
-    FROM settlements s
-    LEFT JOIN orders o ON o.id = s.order_id
-    ${where}
-    ORDER BY s.settled_at DESC
-    LIMIT 200
-  `, [site]);
-  return result.rows as SettlementRow[];
+function kstDate(value:string|Date){return new Date(new Date(value).getTime()+9*3600000).toISOString().slice(0,10);}
+function inPeriod(value:string,period?:string){
+ const day=kstDate(value),today=kstDate(new Date()),now=new Date(today+'T00:00:00Z');
+ if(period==='today')return day===today;
+ if(period==='month')return day.slice(0,7)===today.slice(0,7);
+ if(period==='week'){now.setUTCDate(now.getUTCDate()-(now.getUTCDay()+6)%7);return day>=now.toISOString().slice(0,10)&&day<=today;}
+ return true;
 }
 
 export default async function SettlementsPage({
@@ -66,10 +34,11 @@ export default async function SettlementsPage({
 }) {
   const site = (await currentAdminSite()).key;
   const { period } = await searchParams;
-  const [stats, settlements] = await Promise.all([
-    getSettlementStats(site),
-    getSettlements(site, period),
-  ]);
+  const all=await settlementView(site);
+  const sum=(period?:string)=>all.filter(s=>inPeriod(s.settled_at,period)).reduce((n,s)=>n+Number(s.net_amount??0),0);
+  const stats={today:sum('today'),this_week:sum('week'),this_month:sum('month'),total:sum(),total_fee:all.reduce((n,s)=>n+Number(s.fee),0)};
+  const settlements=all.filter(s=>inPeriod(s.settled_at,period)).slice(0,200);
+  const unresolved=all.filter(s=>s.unresolved).length;
 
   const dashboardCards = [
     { key: "today", label: "오늘", amount: Number(stats.today) },
@@ -81,6 +50,7 @@ export default async function SettlementsPage({
   return (
     <div>
       {/* 대시보드 카드 */}
+      <p className="text-sm text-gray-500 mb-4">환불을 반영한 정산 예상액입니다. PG 실제 입금액과는 대조가 필요합니다.{unresolved>0 ? ` 환불 미확인 ${unresolved}건은 합계에서 제외했습니다.` : ""}</p>
       <div className="bg-white rounded-none border border-gray-100 p-6 mb-6">
         <div className="flex items-center gap-2 mb-5">
           <div className="w-8 h-8 bg-[#2D5A27] rounded-none flex items-center justify-center">
@@ -177,7 +147,7 @@ export default async function SettlementsPage({
                     -{Number(s.fee).toLocaleString()}원
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                    {Number(s.net_amount).toLocaleString()}원
+                    {s.net_amount == null ? "환불 확인 필요" : Number(s.net_amount).toLocaleString()+"원"}
                   </td>
                 </tr>
               ))

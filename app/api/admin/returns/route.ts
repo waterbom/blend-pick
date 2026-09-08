@@ -1,3 +1,4 @@
+import { runRefund, RefundError } from '@/lib/refund-operation';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -92,6 +93,13 @@ export async function PATCH(req: Request) {
     const client = await shopPool.connect();
     try {
       await client.query("BEGIN");
+      await client.query('SELECT id FROM orders WHERE id=$1 FOR UPDATE',[ret.order_id]);
+      const current=(await client.query('SELECT status FROM order_returns WHERE id=$1 FOR UPDATE',[id])).rows[0];
+      const pending=await client.query("SELECT 1 FROM refund_operations WHERE order_id=$1 AND status NOT IN ('completed','rejected')",[ret.order_id]);
+      if(!current || current.status!==ret.status || pending.rows.length) {
+        await client.query('ROLLBACK');
+        return NextResponse.json({error:'신청 상태가 변경되었거나 환불 처리 중입니다.'},{status:409});
+      }
       await client.query(`UPDATE order_returns SET status = 'collecting' WHERE id = $1`, [id]);
       await client.query(
         `INSERT INTO order_return_events (return_id, status, note, admin_name) VALUES ($1, 'collecting', $2, $3)`,
@@ -113,98 +121,30 @@ export async function PATCH(req: Request) {
   }
 
   if (action === "complete") {
-    // 반품 완료 = 환불 실행 시점 — 환불 성공 후에만 상태를 바꾼다 (취소 엔진과 같은 순서)
     let refunded = 0;
-    let alreadyRefunded = false; // 이전 시도에서 토스 환불만 성공하고 완료 처리가 안 된 건
-    if (ret.kind === "return") {
-      const amount = Math.floor(Number(refund_amount)) || 0;
-      if (amount < 0 || amount > Number(ret.total_amount)) {
-        return NextResponse.json({ error: "환불 금액이 결제 금액을 벗어났어요." }, { status: 400 });
-      }
-      if (amount > 0 && ret.payment_key && !String(ret.payment_key).startsWith("SIM_")) {
-        const secretKey = process.env.TOSS_SECRET_KEY;
-        const auth = `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`;
-        const body: Record<string, unknown> = { cancelReason: `반품 환불 (${ret.reason})` };
-        if (amount < Number(ret.total_amount)) body.cancelAmount = amount;
-        const tossRes = await fetch(
-          `https://api.tosspayments.com/v1/payments/${ret.payment_key}/cancel`,
-          {
-            method: "POST",
-            headers: { Authorization: auth, "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          }
-        );
-        if (!tossRes.ok) {
-          const e = await tossRes.json().catch(() => ({}));
-          if (e.code === "ALREADY_CANCELED_PAYMENT") {
-            alreadyRefunded = true; // 전액 이미 취소된 결제 — 완료 처리만 진행
-          } else if (e.code === "NOT_CANCELABLE_AMOUNT") {
-            // 잔액 부족 — 이전 시도에서 같은 금액이 '반품 환불'로 이미 취소됐는지 확인하고,
-            // 맞으면 이중 환불 없이 완료 처리만 이어서 진행한다
-            const payRes = await fetch(
-              `https://api.tosspayments.com/v1/payments/${ret.payment_key}`,
-              { headers: { Authorization: auth } }
-            );
-            const pay = await payRes.json().catch(() => ({}));
-            const cancels: { cancelAmount: number; cancelReason?: string }[] = Array.isArray(pay.cancels) ? pay.cancels : [];
-            const sameRefund = cancels.some(
-              (c) => Number(c.cancelAmount) === amount && String(c.cancelReason || "").startsWith("반품 환불")
-            );
-            if (sameRefund) {
-              alreadyRefunded = true;
-            } else {
-              const balance = Number(pay.balanceAmount);
-              return NextResponse.json(
-                {
-                  error:
-                    `토스 취소 가능 잔액이 부족해요` +
-                    (Number.isFinite(balance) ? ` (잔액 ${balance.toLocaleString()}원)` : "") +
-                    `. 이미 취소된 내역이 있는 결제예요 — 잔액 이하 금액으로 다시 입력하거나, 0원으로 완료 처리하세요.`,
-                },
-                { status: 400 }
-              );
-            }
-          } else {
-            return NextResponse.json(
-              { error: e.message || "토스 환불에 실패했어요. 신청 상태는 그대로예요." },
-              { status: 400 }
-            );
-          }
-        }
-      }
-      refunded = amount;
-    }
-
+    let alreadyRefunded = false;
     const doneStatus = ret.kind === "exchange" ? "exchange_completed" : "return_completed";
-    const client = await shopPool.connect();
     try {
-      await client.query("BEGIN");
-      await client.query(`UPDATE order_returns SET status = 'done' WHERE id = $1`, [id]);
-      if (ret.kind === "return" && !alreadyRefunded && ret.payment_key && !String(ret.payment_key).startsWith("SIM_")) await client.query(
-        "INSERT INTO order_refund_amounts(source_key,order_id,amount) VALUES($1,$2,$3) ON CONFLICT(source_key) DO NOTHING",
-        [`return:${id}`,ret.order_id,refunded]
-      );
-      await client.query(
-        `INSERT INTO order_return_events (return_id, status, note, admin_name) VALUES ($1, 'done', $2, $3)`,
-        [
-          id,
-          refunded > 0
-            ? `${refunded.toLocaleString()}원 환불${alreadyRefunded ? " (기존 토스 취소 확인 — 재환불 없음)" : ""}${noteText ? ` — ${noteText}` : ""}`
-            : noteText,
-          adminName,
-        ]
-      );
-      await client.query(
-        `UPDATE orders SET status = $1, updated_at = NOW(), refund_amount_unresolved = refund_amount_unresolved OR $3::boolean WHERE id = $2`,
-        [doneStatus, ret.order_id, alreadyRefunded]
-      );
-      await client.query("COMMIT");
-    } catch (e) {
-      await client.query("ROLLBACK");
-      console.error("[returns] 완료 처리 실패 (환불은 실행됐을 수 있음):", e);
-      return NextResponse.json({ error: "완료 처리 중 오류 — 목록을 새로고침해 확인해주세요." }, { status: 500 });
-    } finally {
-      client.release();
+      const result = await runRefund({sourceKey:`return:${id}`,orderId:ret.order_id,site,
+        prepare:async(client)=>{
+          const current=(await client.query('SELECT status FROM order_returns WHERE id=$1 FOR UPDATE',[id])).rows[0];
+          if(!current || !['requested','collecting'].includes(current.status)) throw new RefundError('이미 처리가 끝난 신청이에요.');
+          const amount=ret.kind==='return'?Number(refund_amount):0;
+          if(!Number.isSafeInteger(amount)||amount<0)throw new RefundError('환불 금액을 0 이상의 정수로 입력해주세요.',400);
+          return {amount,reason:`반품 환불 (${ret.reason})`};
+        },
+        apply:async(client,_order,amount)=>{
+          const current=(await client.query('SELECT status FROM order_returns WHERE id=$1 FOR UPDATE',[id])).rows[0];
+          if(!current || !['requested','collecting'].includes(current.status)) throw new RefundError('신청 상태를 확인해주세요.');
+          await client.query(`UPDATE order_returns SET status = 'done' WHERE id = $1`,[id]);
+          await client.query(`INSERT INTO order_return_events (return_id,status,note,admin_name) VALUES($1,'done',$2,$3)`,[id,amount>0?`${amount.toLocaleString()}원 환불${noteText?` — ${noteText}`:''}`:noteText,adminName]);
+          await client.query('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[doneStatus,ret.order_id]);
+        }});
+      refunded=result.amount;
+      alreadyRefunded=result.alreadyCompleted;
+    } catch(e) {
+      console.error('[returns] 환불 또는 완료 저장 확인 필요',e);
+      return NextResponse.json({error:e instanceof RefundError?e.message:'완료 저장에 실패했습니다. 같은 신청에서 다시 확인해주세요.'},{status:e instanceof RefundError?e.status:500});
     }
 
     // 반품 환불 안내 문자 — 완료 처리 후 발송 (실패해도 완료 자체는 유지)
@@ -230,6 +170,13 @@ export async function PATCH(req: Request) {
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
+      await client.query('SELECT id FROM orders WHERE id=$1 FOR UPDATE',[ret.order_id]);
+      const current=(await client.query('SELECT status FROM order_returns WHERE id=$1 FOR UPDATE',[id])).rows[0];
+      const pending=await client.query("SELECT 1 FROM refund_operations WHERE order_id=$1 AND status NOT IN ('completed','rejected')",[ret.order_id]);
+      if(!current || current.status!==ret.status || pending.rows.length) {
+        await client.query('ROLLBACK');
+        return NextResponse.json({error:'신청 상태가 변경되었거나 환불 처리 중입니다.'},{status:409});
+      }
     await client.query(`UPDATE order_returns SET status = 'rejected' WHERE id = $1`, [id]);
     await client.query(
       `INSERT INTO order_return_events (return_id, status, note, admin_name) VALUES ($1, 'rejected', $2, $3)`,

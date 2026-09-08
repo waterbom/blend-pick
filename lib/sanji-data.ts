@@ -147,7 +147,7 @@ export async function getSanjiImages(productId: string): Promise<string[]> {
 export async function getSanjiOptions(productId: string): Promise<SanjiOption[]> {
   const r = await shopPool.query(
     `SELECT id, name, value, extra_price, stock, is_active, link_price
-       FROM product_options WHERE product_id = $1 ORDER BY sort_order ASC, name ASC`,
+       FROM product_options WHERE product_id = $1 AND removed_at IS NULL ORDER BY sort_order ASC, name ASC`,
     [productId]
   );
   return r.rows as SanjiOption[];

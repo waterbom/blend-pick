@@ -5,6 +5,7 @@ import { BUSINESS_TYPE_LABEL, HOTEL_PAYOUT_CAMPAIGN_ID, type BusinessType, type 
 import { downloadXlsx } from "@/lib/xlsx-download";
 
 interface Row {
+  review_reasons: string[];
   campaign_id: string;
   influencer_id: string;
   product_name: string;
@@ -56,9 +57,9 @@ export default function InfluencerSettlementsClient() {
   });
 
   async function confirm(r: Row) {
-    if (r.rate == null) { alert("공구 관리에서 수수료율을 먼저 설정해주세요."); return; }
+    if (r.commission == null) { alert(r.review_reasons.join(" · ") || "주문 당시 요율을 확인해주세요."); return; }
     if (!r.business_type) { alert("인플루언서 사업자유형을 먼저 설정해주세요."); return; }
-    if (!window.confirm(`${r.influencer_name} / ${r.product_name}\n현재 매출 기준으로 정산을 확정할까요?\n(확정 후 요율이 바뀌어도 이 정산은 변하지 않습니다)`)) return;
+    if (!window.confirm(`${r.influencer_name} / ${r.product_name}\n주문 당시 요율과 환불 반영 금액으로 정산을 확정할까요?\n(확정 후 요율이 바뀌어도 이 정산은 변하지 않습니다)`)) return;
     setActing(true);
     const res = await fetch("/api/admin/influencer-payouts", {
       method: "POST",
@@ -212,7 +213,7 @@ export default function InfluencerSettlementsClient() {
                 <div className="grid grid-cols-3 sm:grid-cols-8 gap-x-4 gap-y-2 text-xs mt-3 pt-3 border-t border-gray-50 tnum">
                   <div><p className="text-gray-400">주문/수량</p><p className="font-bold text-gray-800">{r.orders}건 / {r.qty}개</p></div>
                   <div><p className="text-gray-400">총매출</p><p className="font-bold text-gray-800">{WON(r.gross)}</p></div>
-                  <div><p className="text-gray-400">수수료율</p><p className="font-bold text-[#2D5A27]">{r.rate != null ? `${r.rate}%` : "미설정"}</p></div>
+                  <div><p className="text-gray-400">수수료율</p><p className="font-bold text-[#2D5A27]">{r.rate != null ? `${r.rate}%` : r.commission != null ? "주문별 요율" : "확인 필요"}</p></div>
                   <div><p className="text-gray-400">수수료 (부가세 포함)</p><p className="font-bold text-gray-800">{view ? WON(view.commission) : "—"}</p></div>
                   <div><p className="text-gray-400">공급가액/부가세</p><p className="font-bold text-gray-800">{view ? `${WON(view.supplyValue)} / ${WON(view.vat)}` : "—"}</p></div>
                   <div><p className="text-gray-400">원천징수</p><p className="font-bold text-gray-800">{view ? WON(view.withholding) : "—"}</p></div>

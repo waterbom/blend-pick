@@ -1,14 +1,6 @@
-/**
- * 인플루언서 정산 / 손익 계산 공통 모듈
- *
- * 모든 돈 계산은 이 파일을 거친다. 반올림은 전부 Math.round (원 단위).
- * 클라이언트 확정 예시로 검증: 3,500,000 × 10% → 수수료 350,000
- *   간이:   공급가액 318,182 / 부가세 31,818 → 지급 318,182
- *   프리랜서: 공급가액 318,182 → 원천징수 10,500 → 지급 307,682
- *
- * 수수료/손익 기준 매출 = 주문 total_amount − shipping_fee (고객부담 배송비 제외)
- * 집계 대상 주문 상태 = paid/confirmed/preparing/shipped/delivered (취소 제외)
- * 반올림 시점 = 공구 단위 집계 후 (주문별 아님)
+/** 지급액의 사업자유형별 분해와 화면 공통 상수.
+ * 관리자 재무 집계는 order-finance.ts / influencer-finance.ts에서
+ * 주문 당시 금액·요율과 실제 환불 기록을 사용한다.
  */
 
 export type BusinessType = "general" | "simplified" | "freelancer";
@@ -19,7 +11,7 @@ export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
   freelancer: "프리랜서",
 };
 
-/** 손익/정산 집계에 포함되는 주문 상태 (SQL IN 절용) */
+/** 기존 회원/인플루언서 활동 화면용 상태 목록. 재무 정산 필터로 사용하지 않는다. */
 // awaiting = 예약대기(결제 완료·승인 전) — 돈은 받았으므로 매출·정산에 포함, 취소 시 자동 제외
 // checked_in = 입실 완료 — 매출 확정 상태이므로 당연히 포함 (빠지면 입실 처리 순간 매출이 증발)
 // no_show = 미입실 — 환불하지 않으므로 매출 유지 (환불해줄 경우 취소 처리하면 자동 제외)
@@ -66,31 +58,6 @@ export function calcPayout(commission: number, type: BusinessType): PayoutBreakd
   // 프리랜서: 공급가액 기준 원천징수 3.3% 추가 공제
   const withholding = Math.round(supplyValue * WITHHOLDING_RATE);
   return { commission, supplyValue, vat, withholding, payout: supplyValue - withholding };
-}
-
-/** 매출부가세 = round(총매출 × 10/110) — 판매가는 부가세 포함가 */
-export function calcSalesVat(gross: number): number {
-  return Math.round((gross * 10) / 110);
-}
-
-/** 회사 순이익 (손익표 한 행) */
-export function calcNetProfit(r: {
-  gross: number;        // 총매출 (배송비 제외 상품매출)
-  supplyCost: number;   // 공급가 합계
-  shippingCost: number; // 배송비 (공구별 비용 중 shipping 카테고리)
-  pgFee: number;        // PG수수료
-  otherCosts: number;   // 기타비용 (shipping 제외 카테고리 합)
-  commission: number;   // 인플루언서 수수료
-}): number {
-  return (
-    r.gross -
-    calcSalesVat(r.gross) -
-    r.supplyCost -
-    r.shippingCost -
-    r.pgFee -
-    r.otherCosts -
-    r.commission
-  );
 }
 
 /**

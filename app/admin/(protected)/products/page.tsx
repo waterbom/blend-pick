@@ -19,7 +19,7 @@ async function getProducts(site: SiteKey) {
   const result = await shopPool.query(`
     SELECT id, name, brand, price, stock, status, main_image, product_code, created_at, link_price, link_code, link_start_at, link_end_at
     FROM products_shop
-    WHERE ${c.sql}
+    WHERE ${c.sql} AND archived_at IS NULL
     ORDER BY created_at DESC
   `, [c.param]);
   return result.rows;

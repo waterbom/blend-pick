@@ -24,7 +24,7 @@ const { Pool } = require("pg");
 const API_KEY = process.env.SWEETTRACKER_API_KEY;
 const DB_URL = process.env.SHOP_DATABASE_URL;
 const LIMIT = 80;
-const FEE_RATE = { card: 0.0363, transfer: 0.0165 };
+const {recordDeliverySettlement}=require('../lib/delivery-settlement.cjs');
 // 레거시 텍스트 코드 → 스위트트래커 숫자 코드 (lib/carriers.ts와 동일)
 const LEGACY = { cj: "04", hanjin: "05", lotte: "08", post: "01", logen: "06" };
 
@@ -60,16 +60,18 @@ async function fetchStatus(invoice, code) {
     `SELECT id, order_number, tracking_company, tracking_number, total_amount, payment_method, payment_key
      FROM orders
      WHERE status = 'shipped' AND tracking_number IS NOT NULL
-     ORDER BY created_at ASC
+     ORDER BY tracking_checked_at ASC NULLS FIRST, created_at ASC
      LIMIT $1`,
     [LIMIT]
   );
 
   if (orders.length === 0) { console.log("배송중 주문 없음 — 종료"); await pool.end(); return; }
 
+  let committed=0;
   const deliveredIds = [];
   let failed = 0;
   for (const o of orders) {
+    await pool.query("UPDATE orders SET tracking_checked_at=NOW() WHERE id=$1",[o.id]);
     const code = toCode(o.tracking_company);
     if (!code) { console.log(`  ${o.order_number}: 택배사 미인식(${o.tracking_company})`); failed++; continue; }
     const info = await fetchStatus(o.tracking_number, code);
@@ -83,26 +85,19 @@ async function fetchStatus(invoice, code) {
     try {
       await client.query("BEGIN");
       const { rows: updated } = await client.query(
-        `UPDATE orders SET status = 'delivered'
+        `UPDATE orders SET status = 'delivered', delivered_at=COALESCE(delivered_at,NOW())
          WHERE id = ANY($1::uuid[]) AND status = 'shipped'
          RETURNING id, order_number, total_amount, payment_method, payment_key`,
         [deliveredIds]
       );
       for (const order of updated) {
-        const existing = await client.query(`SELECT id FROM settlements WHERE order_id = $1`, [order.id]);
-        if (existing.rows.length > 0) continue;
-        const rate = FEE_RATE[order.payment_method] ?? FEE_RATE.card;
-        const gross = Number(order.total_amount);
-        const fee = Math.round(gross * rate);
-        await client.query(
-          `INSERT INTO settlements (payment_key, order_id, gross_amount, fee, net_amount, settled_at, created_at)
-           VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-          [order.payment_key || `auto_${order.order_number}`, order.id, gross, fee, gross - fee]
-        );
+        await recordDeliverySettlement(client,order);
       }
       await client.query("COMMIT");
+      committed=updated.length;
     } catch (e) {
       await client.query("ROLLBACK");
+      failed+=deliveredIds.length;
       console.error("배송완료 처리 실패:", e.message);
       process.exitCode = 1;
     } finally {
@@ -110,6 +105,7 @@ async function fetchStatus(invoice, code) {
     }
   }
 
-  console.log(`완료: ${orders.length}건 조회 / ${deliveredIds.length}건 배송완료 전환 / ${failed}건 실패`);
+  console.log(`완료: ${orders.length}건 조회 / ${committed}건 배송완료 전환 / ${failed}건 실패`);
+  if(failed)process.exitCode=1;
   await pool.end();
-})();
+})().catch(e=>{console.error(e);process.exitCode=1;});

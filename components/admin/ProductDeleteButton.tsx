@@ -6,7 +6,7 @@ export default function ProductDeleteButton({ id }: { id: string }) {
   const router = useRouter();
 
   async function handleDelete() {
-    if (!confirm("정말 삭제할까요?")) return;
+    if (!confirm("판매를 중단하고 보관할까요? 주문·정산 이력은 유지됩니다.")) return;
     const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));

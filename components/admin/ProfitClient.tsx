@@ -25,10 +25,11 @@ interface Row {
   other_costs: number;
   commission: number;
   rate: number | null;
-  net_profit: number;
+  net_profit: number | null;
+  review_reasons: string[];
 }
 
-const WON = (n: number) => n.toLocaleString();
+const WON = (n: number | null) => n == null ? "확인 필요" : n.toLocaleString();
 
 export default function ProfitClient() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -106,9 +107,9 @@ export default function ProfitClient() {
           pg_fee: t.pg_fee + r.pg_fee,
           other_costs: t.other_costs + r.other_costs,
           commission: t.commission + r.commission,
-          net_profit: t.net_profit + r.net_profit,
+          net_profit: t.net_profit == null || r.net_profit == null ? null : t.net_profit + r.net_profit,
         }),
-        { orders: 0, gross: 0, sales_vat: 0, supply_cost: 0, shipping_cost: 0, pg_fee: 0, other_costs: 0, commission: 0, net_profit: 0 }
+        { orders: 0, gross: 0, sales_vat: 0, supply_cost: 0, shipping_cost: 0, pg_fee: 0, other_costs: 0, commission: 0, net_profit: 0 as number | null }
       ),
     [visible]
   );
@@ -221,7 +222,7 @@ export default function ProfitClient() {
                   <td className={`${td} text-right text-gray-500`}>
                     −{WON(r.supply_cost)}
                     {r.missing_supply > 0 && (
-                      <span className="text-red-400 ml-1" title={`공급가 미입력 주문 ${r.missing_supply}건 제외됨`}>⚠</span>
+                      <span className="text-red-400 ml-1" title={`공급가 미입력 주문 ${r.missing_supply}건 — 매출 유지, 이익 미확정`}>⚠</span>
                     )}
                   </td>
                   <td className={`${td} text-right text-gray-500`}>−{WON(r.shipping_cost)}</td>
@@ -236,8 +237,8 @@ export default function ProfitClient() {
                       <span className="text-red-400 ml-1" title="수수료율 미설정">⚠</span>
                     )}
                   </td>
-                  <td className={`${td} text-right font-black ${r.net_profit >= 0 ? "text-gray-900" : "text-red-500"}`}>
-                    {WON(r.net_profit)}
+                  <td className={`${td} text-right font-black ${(r.net_profit ?? 0) >= 0 ? "text-gray-900" : "text-red-500"}`}>
+                    <span title={r.review_reasons?.join(" · ")}>{WON(r.net_profit)}</span>
                   </td>
                 </tr>
               ))}
@@ -253,7 +254,7 @@ export default function ProfitClient() {
                 <td className={`${td} text-right font-bold text-gray-600`}>−{WON(total.pg_fee)}</td>
                 <td className={`${td} text-right font-bold text-gray-600`}>−{WON(total.other_costs)}</td>
                 <td className={`${td} text-right font-bold text-gray-600`}>−{WON(total.commission)}</td>
-                <td className={`${td} text-right font-black ${total.net_profit >= 0 ? "text-[#2D5A27]" : "text-red-500"}`}>
+                <td className={`${td} text-right font-black ${(total.net_profit ?? 0) >= 0 ? "text-[#2D5A27]" : "text-red-500"}`}>
                   {WON(total.net_profit)}원
                 </td>
               </tr>
