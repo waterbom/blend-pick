@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import RichEditor from "@/components/admin/RichEditor";
 import { SITES } from "@/lib/sites";
 import { sanjiSecretLinkUrl } from "@/lib/secret-link";
+import { shrinkImage, uploadErrorMessage } from "@/lib/client-image";
 
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
@@ -281,11 +282,17 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   async function handleFileUpload(i: number, file: File) {
     setUploadingSlot(i);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
-    const data = await res.json();
-    if (res.ok) setImage(i, data.url);
+    try {
+      // 업로드 전에 브라우저에서 축소 (휴대폰 원본은 서버 앞단 업로드 한도에 걸릴 수 있음)
+      const fd = new FormData();
+      fd.append("file", await shrinkImage(file));
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.url) setImage(i, data.url);
+      else setError(uploadErrorMessage(res.status, data));
+    } catch {
+      setError("사진 업로드 중 연결이 끊겼어요. 네트워크를 확인하고 다시 시도해주세요.");
+    }
     setUploadingSlot(null);
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { shrinkImage, uploadErrorMessage } from "@/lib/client-image";
 
 /**
  * contenteditable 리치 에디터 (OS sales-pages 상세내용과 동일 방식).
@@ -41,21 +42,25 @@ export default function RichEditor({
   const sync = () => { clean(); onChange(ref.current?.innerHTML || ""); };
 
   // 이미지 파일들 업로드 후 커서 위치에 삽입 (붙여넣기·드래그 공통)
+  // 업로드 전에 브라우저에서 사진을 줄인다 (휴대폰 원본은 서버 앞단 업로드 한도에 걸릴 수 있음). 실패하면 이유를 바로 알려준다.
   async function uploadAndInsert(files: File[]) {
-    for (const file of files) {
-      if (!file.type.startsWith("image/")) continue;
+    for (const raw of files) {
+      if (!raw.type.startsWith("image/")) continue;
+      const file = await shrinkImage(raw);
       const fd = new FormData();
       fd.append("file", file);
       try {
         const res = await fetch(uploadUrl, { method: "POST", body: fd });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.url) {
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.url) {
           ref.current?.focus();
           document.execCommand("insertHTML", false, `<img src="${data.url}" style="max-width:100%;" />`);
           sync();
+        } else {
+          alert(uploadErrorMessage(res.status, data));
         }
       } catch {
-        /* 업로드 실패 시 무시 */
+        alert("사진 업로드 중 연결이 끊겼어요. 네트워크를 확인하고 다시 시도해주세요.");
       }
     }
   }
