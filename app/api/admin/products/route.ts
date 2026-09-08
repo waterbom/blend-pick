@@ -48,7 +48,10 @@ export async function POST(req: Request) {
     manufacturer, origin_country, product_condition, manufacture_date,
     main_image, extra_images, options,
     addons, addon_multi,
+    is_visible, link_price,
   } = body;
+  // 비밀링크 가격 — 0 이상 정수만 (링크 코드는 등록 후 수정 화면에서 발급)
+  const linkPrice = link_price == null || link_price === "" ? null : Math.max(0, Math.round(Number(link_price)) || 0);
 
   if (!name || price == null) {
     return NextResponse.json({ error: "상품명과 가격은 필수입니다" }, { status: 400 });
@@ -85,12 +88,14 @@ export async function POST(req: Request) {
         exchange_cost_oneway, exchange_cost_roundtrip,
         as_notes,
         manufacturer, origin_country, product_condition, manufacture_date,
-        main_image, addon_multi, supply_price, influencer_rate, influencer_id
+        main_image, addon_multi, supply_price, influencer_rate, influencer_id,
+        is_visible, link_price
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
         $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
         $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
-        $31,$32,$33,$34,$35,$36,$37,$38,$39,$40
+        $31,$32,$33,$34,$35,$36,$37,$38,$39,$40,
+        $41,$42
       ) RETURNING id
     `, [
       name, brand || null, description || null,
@@ -114,6 +119,8 @@ export async function POST(req: Request) {
       supply_price || null,
       influencer_rate ?? null,
       body.influencer_id || null,
+      is_visible !== false, // 전시(true) / 비전시·비밀링크 전용(false)
+      linkPrice,
     ]);
 
     const productId = result.rows[0].id;

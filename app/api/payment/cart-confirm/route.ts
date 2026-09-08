@@ -137,9 +137,9 @@ export async function POST(req: NextRequest) {
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at, order_type,
-        influencer_id, influencer_name, commission_rate, site
+        influencer_id, influencer_name, commission_rate, site, link_code
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'paid',$12,$13,NOW(),'shop',
-        $14,$15,$16,$17)
+        $14,$15,$16,$17,$18)
       RETURNING id`,
       [
         orderNumber,
@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
         influencer?.name ?? null,
         influencer ? commissionRate : null,
         paymentSite, // 블랜드픽/산지픽 — 어드민 분리 기준
+        amountCheck.linkCode, // 비밀링크로 링크가가 실제 적용된 결제면 그 코드 (아니면 null)
       ]
     );
 
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
 
     // order_items: 장바구니 아이템 수만큼 INSERT (결제시점 공급가 스냅샷 포함)
     for (const item of items) {
+      // 화면이 들고 온 가격은 이미 위 amountCheck 로 DB 기준(링크가 포함)과 일치 확인됨
       const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
       let supplyPrice: number | null = null;
       let optionLabel: string | null = null;

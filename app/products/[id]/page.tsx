@@ -35,6 +35,20 @@ interface Product {
   influencer_id: string | null; // 소속 인플루언서 (지정 시 그 인플루언서 링크만 귀속)
   sale_start_at: string | null;
   sale_end_at: string | null;
+  is_visible: boolean; // false = 비전시 (목록에 안 나옴, 상세 URL로는 구매 가능 — 검색엔진에는 안 실리게)
+}
+
+// 비전시 상품 상세는 검색엔진 색인 제외 (링크를 받은 사람만 보는 페이지)
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  try {
+    const r = await shopPool.query(`SELECT name, is_visible FROM products_shop WHERE id = $1`, [id]);
+    const p = r.rows[0];
+    if (!p) return {};
+    return { title: p.name, ...(p.is_visible === false ? { robots: { index: false, follow: false } } : {}) };
+  } catch {
+    return {};
+  }
 }
 
 interface ProductAddon {
@@ -74,7 +88,7 @@ async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
             stock, status, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, main_image, addon_multi,
-            influencer_id, sale_start_at, sale_end_at
+            influencer_id, sale_start_at, sale_end_at, is_visible
      FROM products_shop WHERE id = $1`,
     [id]
   );

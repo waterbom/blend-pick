@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
   const amountCheck = await verifySingleAmount({
     productId: checkoutData?.productId, optionId: checkoutData?.optionId, quantity: checkoutData?.quantity,
     unitPrice: checkoutData?.unitPrice, shippingCost: checkoutData?.shippingCost, totalAmount: checkoutData?.totalAmount, amount,
+    linkCode: checkoutData?.linkCode, // 비밀링크(?k=) 결제 — 코드가 맞을 때만 링크가로 검증
   }).catch((e) => ({ ok: false as const, error: "결제 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", detail: String(e) }));
   if (!amountCheck.ok) {
     console.error("[shop-confirm] 금액 불일치로 승인 차단:", amountCheck.detail, { orderId, productId: checkoutData?.productId });
@@ -113,9 +114,9 @@ export async function POST(req: NextRequest) {
         addr_zipcode, addr_address, addr_detail, addr_memo,
         total_amount, shipping_fee,
         status, payment_key, payment_method, paid_at, order_type,
-        influencer_id, influencer_name, commission_rate, site
+        influencer_id, influencer_name, commission_rate, site, link_code
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'paid',$14,$15,NOW(),'shop',
-        $16,$17,$18,$19)
+        $16,$17,$18,$19,$20)
       RETURNING id`,
       [
         orderNumber,
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
         influencer?.name ?? null,
         influencer ? commissionRate : null,
         paymentSite, // 어느 사이트에서 결제됐는지 (블랜드픽/산지픽) — 어드민 분리 기준
+        amountCheck.linkCode, // 비밀링크로 링크가가 실제 적용된 결제면 그 코드 (아니면 null)
       ]
     );
 

@@ -3,8 +3,8 @@ import pool from "@/lib/db";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import ShopCheckoutClient from "@/components/ShopCheckoutClient";
-import { shopUnitPrice } from "@/lib/shop-price";
 import { productShippingFee } from "@/lib/shipping";
+import { cleanLinkCode, linkApplies, linkDelta, linkedUnitPrice } from "@/lib/secret-link";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { phoneVerifyOn } from "@/lib/sms";
@@ -12,7 +12,7 @@ import { phoneVerifyOn } from "@/lib/sms";
 async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, price, original_price, main_image, shipping_type, shipping_cost,
-            free_shipping_threshold, per_unit_shipping_cost, status, stock
+            free_shipping_threshold, per_unit_shipping_cost, status, stock, link_price, link_code
      FROM products_shop WHERE id = $1`,
     [id]
   );
@@ -43,10 +43,10 @@ export default async function ShopCheckoutPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ optionId?: string; quantity?: string; inf?: string }>;
+  searchParams: Promise<{ optionId?: string; quantity?: string; inf?: string; k?: string }>;
 }) {
   const { id } = await params;
-  const { optionId, quantity: qStr, inf } = await searchParams;
+  const { optionId, quantity: qStr, inf, k } = await searchParams;
   const influencer = await getInfluencer(inf);
   const quantity = Math.max(1, parseInt(qStr ?? "1") || 1);
 
@@ -57,7 +57,11 @@ export default async function ShopCheckoutPage({
 
   if (!product) notFound();
 
-  const unitPrice = shopUnitPrice(product.price, option?.extra_price, !!option);
+  // 비밀링크(?k=) — 상품의 link_code 와 맞을 때만 링크가 적용 (틀린 코드는 조용히 전시가로)
+  const code = cleanLinkCode(k);
+  const linked = linkApplies(product, code);
+  const linkCode = linked ? code : null;
+  const unitPrice = linkedUnitPrice(Number(product.price), option?.extra_price, !!option, linkDelta(product, code));
   // 배송비 — 어드민 설정(무료/유료/조건부/건별) 전부 반영 (lib/shipping.ts)
   const shippingCost = productShippingFee(product, quantity, unitPrice * quantity);
   const totalAmount = unitPrice * quantity + shippingCost;
@@ -88,7 +92,9 @@ export default async function ShopCheckoutPage({
             {option && (
               <p className="text-xs mt-0.5" style={{ color: "var(--accent)" }}>{option.name}: {option.value}</p>
             )}
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>수량 {quantity}개</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              수량 {quantity}개{linked ? " · 전용 링크 가격 적용" : ""}
+            </p>
           </div>
           <div className="text-right shrink-0">
             <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{(unitPrice * quantity).toLocaleString()}원</p>
@@ -100,6 +106,7 @@ export default async function ShopCheckoutPage({
 
         <ShopCheckoutClient
           influencerId={influencer?.id ?? null}
+          linkCode={linkCode}
           productId={product.id}
           productName={product.name}
           optionId={option?.id ?? null}

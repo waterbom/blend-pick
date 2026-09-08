@@ -25,6 +25,8 @@ const base = {
   influencer_id: null,
   sale_start_at: null,
   sale_end_at: null,
+  is_visible: true,
+  link_price: null,
 } as const;
 
 const opt = (id: string, name: string, value: string, price: number, stock = 50): SanjiOption => ({ id, name, value, extra_price: price, stock, is_active: true });

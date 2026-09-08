@@ -68,3 +68,13 @@ PGLITE_MODULE=/tmp/blendpick-admin-test/node_modules/@electric-sql/pglite node t
 - `lib/order-amount.ts`: 단품(`verifySingleAmount`)·장바구니(`verifyCartAmount`) 결제 확정 API가 토스 승인 **전에** 상품가·옵션가·추가옵션·배송비를 DB 기준으로 다시 계산해, 화면이 보낸 `totalAmount`/`shippingCost`/`amount`와 하나라도 다르면 400으로 막는다 (승인 전이라 카드 청구 없음).
 - 계산은 화면과 같은 함수(`lib/shop-price.ts shopUnitPrice`, `lib/shipping.ts cartShippingFee`)를 쓴다. 가격이 결제 도중 바뀐 경우도 같은 메시지("결제 금액이 현재 상품 가격과 달라요")로 막히며, 서버 로그에 불일치 상세가 남는다.
 - 검증 시나리오 10개(옵션·조건부 무료·건별 배송비·추가옵션·금액 조작·없는 상품)는 가짜 DB로 확인했다. 호텔·공구(campaign) 결제는 대상이 아니다.
+
+## 전시/비전시 판매 + 비밀링크(링크가격)
+
+- `scripts/secret-link.sql`(배포 마이그레이션 트랜잭션에 포함): `products_shop.is_visible`(기본 true), `link_price`, `link_code`(부분 유니크), `orders.link_code` 추가. 기존 상품은 전부 전시 상태로 유지된다.
+- 전시 판매 상품: 메인·카테고리·검색·상품목록·사이트맵에 노출. 비전시 판매 상품: 그 어디에도 노출되지 않지만 상세 URL·비밀링크로 들어오면 결제·주문·재고 차감이 일반 상품과 똑같이 동작한다. 비전시 상세 페이지는 검색엔진 색인에서 제외(noindex)한다.
+- 목록 제외 조건은 `lib/sale-window.ts`의 `VISIBLE_SQL`로 통일: Shop 메인·/products·오픈 예정 플로팅·사이트맵, 산지픽 메인·검색·"함께 본 상품"·메인 후기가 모두 같은 조건을 쓴다.
+- 링크가격: 상품 수정의 '전시 · 비밀링크' 섹션에서 전시가(판매가)와 별도로 입력한다. 산지픽 상품은 같은 섹션에서 비밀링크(`https://sanjipick.blendpunch.com/p/<id>?k=<코드>`)를 발급·재발급·해제한다(`POST/DELETE /api/admin/products/[id]/secret-link`, 접속 도메인 범위의 상품만). 코드는 16자 난수이며 화면(클라이언트)에는 내려보내지 않는다.
+- 가격 규칙(`lib/secret-link.ts`): 코드가 상품의 `link_code`와 맞고 `link_price`가 있을 때만 적용. 옵션 없는 상품은 링크가 그대로, 옵션 상품은 옵션가마다 `(링크가 − 전시가)` 차액을 똑같이 더한다. 판매 페이지 표시·결제 화면·승인 전 금액 검증(`lib/order-amount.ts`)이 전부 이 함수를 쓴다.
+- 결제 흐름: 산지픽 판매 페이지 → 단품은 `/products/<id>/checkout?k=`, 옵션은 `cartCheckoutData.items[].link_code` → 결제 확정 API가 DB 기준으로 링크가를 다시 계산해 일치할 때만 승인하고 `orders.link_code`에 스냅샷을 남긴다. 틀린 코드는 조용히 전시가로 계산되므로 화면 금액을 조작해도 승인되지 않는다.
+- 어드민 판매 관리 목록은 비밀링크 결제 주문에 '🔗 비밀링크' 표시, 상품 관리 목록은 '비전시' 탭·배지와 링크가를 보여준다.

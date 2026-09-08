@@ -13,7 +13,7 @@ async function getUpcoming() {
       SELECT id, id AS product_id, name AS title, price, main_image,
              sale_start_at AS starts_at, NULL AS influencer_name
       FROM products_shop
-      WHERE status = 'active' AND sale_start_at > NOW() AND category <> ALL($1::text[])
+      WHERE status = 'active' AND is_visible = true AND sale_start_at > NOW() AND category <> ALL($1::text[])
       ORDER BY sale_start_at ASC
       LIMIT 10
     `, [SITES.sanjipick.categories]); // 블랜드픽 전용 플로팅이라 산지픽 오픈 예정은 제외

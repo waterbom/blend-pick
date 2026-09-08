@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { shopUnitPrice } from "@/lib/shop-price";
+import { LINK_PARAM, linkedUnitPrice } from "@/lib/secret-link";
 import { productShippingFee, shippingLabel } from "@/lib/shipping";
 import type { SanjiCard, SanjiOption, SanjiProduct, SanjiReview, SanjiStats } from "@/lib/sanji-data";
 
@@ -26,6 +26,8 @@ export interface SanjiSalesProps {
   stats: SanjiStats;
   others: SanjiCard[];
   influencerId: string | null;
+  linkCode: string | null; // 비밀링크(?k=) — 서버가 상품 코드와 대조해 맞을 때만 넘어온다
+  linkDelta: number;       // 링크가 − 전시가 (링크 미적용이면 0) — 모든 가격 표시·결제에 더한다
   demo?: boolean;
   kakaoUrl: string;
   linkBase: string; // 산지픽 도메인이면 "" · shop 도메인의 /sanji 경로로 보고 있으면 "/sanji"
@@ -57,8 +59,11 @@ function Img({ src, alt, style, className }: { src: string | null; alt: string; 
   return <img src={src!} alt={alt} className={className} style={style} loading="lazy" onError={() => setBad(true)} />;
 }
 
-export default function SanjiSalesPage({ product, images, options, reviews, stats, others, influencerId, demo = false, kakaoUrl, linkBase }: SanjiSalesProps) {
+export default function SanjiSalesPage({ product, images, options, reviews, stats, others, influencerId, linkCode, linkDelta, demo = false, kakaoUrl, linkBase }: SanjiSalesProps) {
   const router = useRouter();
+  // 판매가 — 비밀링크로 들어왔으면 링크가(전시가 + 차액), 아니면 전시가. 옵션가도 같은 차액을 적용 (lib/secret-link.ts)
+  const price = Math.max(0, product.price + linkDelta);
+  const unitOf = (extra: number | null | undefined) => linkedUnitPrice(product.price, extra, true, linkDelta);
 
   // ── 시간창·재고 ─────────────────────────────────────────────
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -73,10 +78,10 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
     startMs && startMs > nowMs ? "upcoming" : endMs && endMs < nowMs ? "ended" : "open";
   const soldout = product.status === "soldout" || product.stock === 0;
   const discount =
-    product.original_price && product.original_price > product.price
-      ? Math.round((1 - product.price / product.original_price) * 100)
+    product.original_price && product.original_price > price
+      ? Math.round((1 - price / product.original_price) * 100)
       : null;
-  const priceGap = product.original_price && product.original_price > product.price ? product.original_price - product.price : 0;
+  const priceGap = product.original_price && product.original_price > price ? product.original_price - price : 0;
   const endLeft = (() => {
     if (!endMs || saleState !== "open") return "";
     const left = endMs - nowMs;
@@ -163,8 +168,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
   const optById = (id: string) => options.find((o) => o.id === id);
   const optDead = (o: SanjiOption) => !o.is_active || o.stock === 0;
   const itemsTotal = hasOptions
-    ? lines.reduce((s, l) => s + shopUnitPrice(product.price, optById(l.optionId)?.extra_price, true) * l.qty, 0)
-    : product.price * qty;
+    ? lines.reduce((s, l) => s + unitOf(optById(l.optionId)?.extra_price) * l.qty, 0)
+    : price * qty;
   const totalCount = hasOptions ? lines.reduce((s, l) => s + l.qty, 0) : qty;
   const shipping = productShippingFee(product, Math.max(1, totalCount), itemsTotal);
   const canBuy = !demo && saleState === "open" && !soldout && (hasOptions ? lines.length > 0 : true);
@@ -183,6 +188,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
     if (!hasOptions) {
       const p = new URLSearchParams({ quantity: String(qty) });
       if (influencerId) p.set("inf", influencerId);
+      if (linkCode) p.set(LINK_PARAM, linkCode); // 결제 화면·승인 검증이 같은 코드로 링크가를 다시 계산
       router.push(`/products/${product.id}/checkout?${p}`);
       return;
     }
@@ -203,16 +209,17 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         id: crypto.randomUUID(),
         product_id: product.id,
         name: product.name,
-        price: product.price,
+        price,
         ...base,
         option_id: o.id,
         option_name: o.name,
         option_value: o.value,
-        extra_price: o.extra_price,
+        extra_price: unitOf(o.extra_price), // 링크 차액 반영된 옵션 단가 (결제 화면 표시용 — 승인 전 서버가 DB로 재계산)
         quantity: l.qty,
+        link_code: linkCode,
       };
     });
-    sessionStorage.setItem("cartCheckoutData", JSON.stringify({ items, totalAmount: itemsTotal, shippingCost: shipping, influencerId }));
+    sessionStorage.setItem("cartCheckoutData", JSON.stringify({ items, totalAmount: itemsTotal, shippingCost: shipping, influencerId, linkCode }));
     router.push("/cart/checkout");
   }
 
@@ -398,9 +405,14 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         </div>
         <div className="sp-price">
           {discount && <span className="rate">{discount}%</span>}
-          <span className="now">{won(product.price)}</span>
-          {product.original_price && product.original_price > product.price && <span className="was">{won(product.original_price)}</span>}
+          <span className="now">{won(price)}</span>
+          {product.original_price && product.original_price > price && <span className="was">{won(product.original_price)}</span>}
         </div>
+        {linkCode && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 10px", borderRadius: 999, background: "#E7EFE3", color: GREEN, fontSize: 12, fontWeight: 700 }}>
+            🔗 전용 링크 가격이 적용됐어요{linkDelta < 0 ? ` · ${won(-linkDelta)} 더 저렴` : ""}
+          </div>
+        )}
         <div className="sp-ship">
           <span className="k">배송</span>
           <span>{shippingLabel(product)} · 산지 직송</span>
@@ -563,7 +575,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
                   return (
                     <button key={o.id} className={`sp-opt${on ? " on" : ""}${dead ? " dead" : ""}`} disabled={dead} onClick={() => toggleLine(o.id)}>
                       <span>{o.value}{dead ? (o.is_active ? " · 품절" : " · 판매중지") : ""}</span>
-                      <span className="p">{won(shopUnitPrice(product.price, o.extra_price, true))}</span>
+                      <span className="p">{won(unitOf(o.extra_price))}</span>
                     </button>
                   );
                 })}

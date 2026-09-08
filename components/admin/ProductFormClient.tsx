@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import RichEditor from "@/components/admin/RichEditor";
+import { SITES } from "@/lib/sites";
+import { sanjiSecretLinkUrl } from "@/lib/secret-link";
 
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
@@ -40,8 +42,15 @@ export default function ProductFormClient({ mode, productId }: Props) {
   const [infList, setInfList] = useState<{ id: string; name: string }[]>([]);
   const [infTags, setInfTags] = useState<{ influencerId: string; start: string; end: string }[]>([]);
 
+  // 비밀링크 코드 — 수정 화면에서 발급/재발급/해제 (저장과 별개로 즉시 반영되는 별도 API)
+  const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const [form, setForm] = useState({
     name: "", brand: "", category: "",
+    is_visible: "true",   // "true" 전시 · "false" 비전시(비밀링크 전용)
+    link_price: "",       // 비밀링크로 들어왔을 때 적용되는 판매가 (비우면 전시가 그대로)
     manufacturer: "", origin_country: "",
     product_condition: "new", manufacture_date: "",
     sale_type: "always",
@@ -120,6 +129,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
           name: opts?.stripTagPrefix ? String(data.name ?? "").replace(/^\[[^\]]*\]\s*/, "") : (data.name ?? ""),
           brand: data.brand ?? "",
           category: data.category ?? "",
+          is_visible: String(data.is_visible !== false),
+          link_price: data.link_price != null ? String(data.link_price) : "",
           manufacturer: data.manufacturer ?? "",
           origin_country: data.origin_country ?? "",
           product_condition: data.product_condition ?? "new",
@@ -176,6 +187,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
           }))
         );
         setAddonMulti(data.addon_multi !== false);
+        // 비밀링크 코드는 복제 등록 시 새 상품으로 따라가지 않는다 (상품마다 별도 발급)
+        setLinkCode(opts?.stripTagPrefix ? null : (data.link_code ?? null));
     }
   }
 
@@ -333,6 +346,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
       name: form.name,
       brand: form.brand || null,
       category: form.category || null,
+      is_visible: form.is_visible !== "false",
+      link_price: form.link_price !== "" ? Number(form.link_price) : null,
       manufacturer: form.manufacturer || null,
       origin_country: form.origin_country || null,
       product_condition: form.product_condition,
@@ -448,6 +463,43 @@ export default function ProductFormClient({ mode, productId }: Props) {
     setSaving(false);
   }
 
+  // ── 비밀링크 발급/재발급/해제 ────────────────────────────────
+  const isSanjiCat = SITES.sanjipick.categories.includes(form.category);
+  const secretUrl = productId && linkCode ? sanjiSecretLinkUrl(productId, linkCode) : "";
+
+  async function issueLink(regenerate = false) {
+    if (!productId) return;
+    if (regenerate && !confirm("새 링크를 발급하면 지금까지 나눠준 링크는 바로 쓸 수 없게 돼요. 계속할까요?")) return;
+    setLinkBusy(true);
+    setError("");
+    const res = await fetch(`/api/admin/products/${productId}/secret-link`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ regenerate }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) setLinkCode(d.code);
+    else setError(res.status === 401 ? SESSION_EXPIRED_MSG : d.error || "비밀링크 발급에 실패했어요.");
+    setLinkBusy(false);
+  }
+
+  async function revokeLink() {
+    if (!productId || !confirm("비밀링크를 해제하면 그 링크로는 더 이상 링크가격이 적용되지 않아요. 해제할까요?")) return;
+    setLinkBusy(true);
+    const res = await fetch(`/api/admin/products/${productId}/secret-link`, { method: "DELETE" });
+    if (res.ok) setLinkCode(null);
+    else setError(res.status === 401 ? SESSION_EXPIRED_MSG : "해제에 실패했어요.");
+    setLinkBusy(false);
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(secretUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      alert("복사에 실패했어요. 링크를 직접 선택해 복사해주세요.");
+    }
+  }
+
   async function handleDelete() {
     if (!confirm("정말 삭제할까요?")) return;
     await fetch(`/api/admin/products/${productId}`, { method: "DELETE" });
@@ -561,8 +613,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
           <fieldset disabled={copyLocked} className={copyLocked ? "opacity-60" : ""}>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { value: "always", label: "상시 판매", sub: "전시 상품" },
-              { value: "groupbuy", label: "공동구매", sub: "비전시 상품" },
+              { value: "always", label: "상시 판매", sub: "기간 없이 계속 판매" },
+              { value: "groupbuy", label: "공동구매", sub: "공구 기간 동안 판매" },
               { value: "preparing", label: "준비중", sub: "공개" },
               { value: "soldout", label: "품절", sub: "" },
             ].map(opt => (
@@ -714,6 +766,87 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 />
               ))}
             </div>
+          </div>
+        </Section>
+
+        {/* ③-1 전시 · 비밀링크 — 비전시 상품은 메인·목록·검색에 안 나오고 링크로만 판매, 링크가격은 전시가와 별도 */}
+        <Section title="전시 · 비밀링크">
+          <div>
+            <label className={lbl}>전시 여부</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "true", label: "전시 판매", sub: "메인·카테고리·검색·상품목록에 노출" },
+                { value: "false", label: "비전시 판매 (비밀링크 전용)", sub: "어디에도 안 나오고 링크로 들어온 사람만 구매" },
+              ].map(opt => (
+                <button key={opt.value} type="button" onClick={() => set("is_visible", opt.value)}
+                  className={`p-3 rounded-none border text-left transition-colors ${
+                    form.is_visible === opt.value ? "border-[#C7D6C0] bg-[#EAF0E6]" : "border-gray-200 hover:border-gray-300"
+                  }`}>
+                  <p className={`text-sm font-semibold ${form.is_visible === opt.value ? "text-[#2D5A27]" : "text-gray-700"}`}>{opt.label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{opt.sub}</p>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">비전시여도 결제·주문·재고 차감은 전시 상품과 똑같이 돌아가요. 상품 상세 주소로 직접 들어오면 구매할 수 있어요.</p>
+          </div>
+          <Grid2>
+            <div>
+              <label className={lbl}>전시가격 (판매가)</label>
+              <input readOnly value={form.price ? `${Number(form.price).toLocaleString()}원` : "아래 판매가에서 입력"} className={`${inp} bg-gray-50 text-gray-500`} tabIndex={-1} />
+              <p className="text-xs text-gray-400 mt-1">일반 방문자에게 보이는 가격 — 아래 「판매가」 칸이 그대로 전시가예요</p>
+            </div>
+            <div>
+              <label className={lbl}>링크가격 (비밀링크 전용가)</label>
+              <input value={form.link_price} onChange={e => set("link_price", e.target.value)}
+                type="number" min="0" className={inp} placeholder="비우면 전시가 그대로" />
+              {form.link_price !== "" && form.price && (
+                <p className="text-xs mt-1 font-medium text-[#2D5A27]">
+                  {Number(form.link_price) < Number(form.price)
+                    ? `→ 링크로 들어오면 ${(Number(form.price) - Number(form.link_price)).toLocaleString()}원 저렴`
+                    : Number(form.link_price) > Number(form.price)
+                      ? `→ 링크로 들어오면 ${(Number(form.link_price) - Number(form.price)).toLocaleString()}원 비쌈`
+                      : "→ 전시가와 같음"}
+                </p>
+              )}
+              <p className="text-xs text-gray-400 mt-1">옵션 상품은 옵션가마다 (링크가 − 전시가) 차액이 똑같이 적용돼요</p>
+            </div>
+          </Grid2>
+          <div>
+            <label className={lbl}>비밀링크</label>
+            {mode === "new" ? (
+              <p className="text-xs text-gray-400">등록 후 수정 화면에서 발급할 수 있어요. 링크가격은 지금 입력해 두면 그대로 저장돼요.</p>
+            ) : !isSanjiCat ? (
+              <p className="text-xs text-gray-400">비밀링크 발급은 산지픽 상품(카테고리가 「산지픽 …」)에서 지원돼요. Shop 상품은 전시/비전시만 설정할 수 있어요.</p>
+            ) : linkCode ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input readOnly value={secretUrl} onFocus={e => e.currentTarget.select()}
+                    className={`${inp} font-mono text-xs bg-gray-50`} />
+                  <button type="button" onClick={copyLink}
+                    className="shrink-0 bg-[#2D5A27] hover:bg-[#244B1F] text-white text-xs font-bold px-3 py-2 rounded-none">
+                    {linkCopied ? "✓ 복사됨" : "링크 복사"}
+                  </button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => issueLink(true)} disabled={linkBusy}
+                    className="text-xs text-gray-500 hover:text-gray-800 underline disabled:opacity-40">새 링크로 재발급</button>
+                  <button type="button" onClick={revokeLink} disabled={linkBusy}
+                    className="text-xs text-red-400 hover:text-red-600 underline disabled:opacity-40">링크 해제</button>
+                </div>
+                <p className="text-xs text-gray-400">
+                  이 링크로 들어온 사람에게만 {form.link_price !== "" ? `링크가격 ${Number(form.link_price).toLocaleString()}원` : "전시가(링크가격 미입력)"}이 적용돼요.
+                  링크가격·전시 여부를 바꿨다면 아래 저장을 눌러야 반영돼요. 재발급하면 이전 링크는 즉시 무효가 돼요.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => issueLink(false)} disabled={linkBusy}
+                  className="border border-[#C7D6C0] text-[#2D5A27] hover:bg-[#EAF0E6] text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
+                  {linkBusy ? "발급 중..." : "🔗 비밀링크 발급"}
+                </button>
+                <p className="text-xs text-gray-400">발급하면 추측할 수 없는 코드가 붙은 산지픽 판매 페이지 주소가 만들어져요.</p>
+              </div>
+            )}
           </div>
         </Section>
 

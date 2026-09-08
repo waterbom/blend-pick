@@ -37,6 +37,7 @@ interface Order {
   tracking_company: string | null;
   tracking_number: string | null;
   influencer_name: string | null;
+  link_code?: string | null; // 비밀링크(링크가)로 결제된 주문이면 그 코드
   created_at: string;
   items: OrderItem[];
 }
@@ -635,7 +636,12 @@ export default function OrdersClient() {
                           <td className="px-4 py-3 text-xs">
                             {o.influencer_name
                               ? <span className="font-medium text-[#2D5A27]">@{o.influencer_name}</span>
-                              : <span className="text-gray-300">—</span>}
+                              : o.link_code
+                                ? <span className="font-medium text-amber-700" title={`비밀링크 코드 ${o.link_code}`}>🔗 비밀링크</span>
+                                : <span className="text-gray-300">—</span>}
+                            {o.influencer_name && o.link_code && (
+                              <span className="ml-1 text-amber-700" title={`비밀링크 코드 ${o.link_code}`}>🔗</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right text-xs font-semibold text-gray-800">
                             {Number(o.total_amount).toLocaleString()}원

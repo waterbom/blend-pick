@@ -7,7 +7,7 @@ import HotelPromoBand from "@/components/HotelPromoBand";
 import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
 import { getTopSellerIds } from "@/lib/best-sellers";
-import { ON_SALE_SQL } from "@/lib/sale-window";
+import { ON_SALE_SQL, VISIBLE_SQL } from "@/lib/sale-window";
 import { SITES } from "@/lib/sites";
 
 // 산지픽 카테고리 상품은 블랜드픽 메인에 섞이지 않게 제외 (산지픽 도메인 메인은 proxy가 /sanji 로 보낸다)
@@ -40,7 +40,7 @@ async function getSellingProducts(): Promise<ShopProduct[]> {
     const result = await shopPool.query(
       `SELECT id, name, brand, price, original_price, stock, status, main_image, shipping_type, shipping_cost
        FROM products_shop
-       WHERE status = 'active' AND ${ON_SALE_SQL} AND category <> ALL($1::text[])
+       WHERE status = 'active' AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[])
        ORDER BY created_at DESC
        LIMIT 8`,
       [SANJI_CATS]
@@ -59,7 +59,7 @@ async function getUpcomingProducts(): Promise<UpcomingProduct[]> {
       `SELECT id, name, brand, main_image,
               to_char(sale_start_at AT TIME ZONE 'Asia/Seoul', 'FMMM. FMDD') AS open_label
        FROM products_shop
-       WHERE status = 'active' AND sale_start_at > NOW() AND category <> ALL($1::text[])
+       WHERE status = 'active' AND ${VISIBLE_SQL} AND sale_start_at > NOW() AND category <> ALL($1::text[])
        ORDER BY sale_start_at ASC
        LIMIT 4`,
       [SANJI_CATS]

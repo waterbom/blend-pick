@@ -56,6 +56,7 @@ export async function GET(req: Request) {
       o.tracking_company,
       o.tracking_number,
       o.influencer_name,
+      o.link_code,
       o.created_at,
       json_agg(
         json_build_object(

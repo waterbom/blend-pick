@@ -5,7 +5,7 @@ import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
 import ProductCarousel from "@/components/ProductCarousel";
 import { SITES } from "@/lib/sites";
-import { ON_SALE_SQL } from "@/lib/sale-window";
+import { ON_SALE_SQL, VISIBLE_SQL } from "@/lib/sale-window";
 
 export const metadata = { title: "Products · BLEND PICK" };
 
@@ -50,7 +50,7 @@ interface Product {
 async function getProducts(category?: string) {
   const params: (string | string[])[] = [SANJI_CATS];
   // 판매 시작이 미래로 예약된 상품은 '판매 중'이 아니라 '오픈 예정'에서 노출, 종료일이 지난 공구는 목록에서 제외
-  let where = `WHERE status = 'active' AND ${ON_SALE_SQL} AND category <> ALL($1::text[])`;
+  let where = `WHERE status = 'active' AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[])`;
   if (category) {
     params.push(category);
     where += ` AND category = $2`;
@@ -65,7 +65,7 @@ async function getProducts(category?: string) {
 
 async function getCategories() {
   const result = await shopPool.query(
-    `SELECT DISTINCT category FROM products_shop WHERE status = 'active' AND ${ON_SALE_SQL} AND category <> ALL($1::text[]) ORDER BY category`,
+    `SELECT DISTINCT category FROM products_shop WHERE status = 'active' AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[]) ORDER BY category`,
     [SANJI_CATS]
   );
   return result.rows.map((r) => r.category as string);
@@ -86,7 +86,7 @@ async function getUpcoming(): Promise<UpcomingProduct[]> {
       SELECT id, name, brand, main_image AS image,
              to_char(sale_start_at AT TIME ZONE 'Asia/Seoul', 'FMMM. FMDD') AS open_label
       FROM products_shop
-      WHERE status = 'active' AND sale_start_at > NOW() AND category <> ALL($1::text[])
+      WHERE status = 'active' AND ${VISIBLE_SQL} AND sale_start_at > NOW() AND category <> ALL($1::text[])
       ORDER BY sale_start_at ASC
       LIMIT 8
     `, [SANJI_CATS]);

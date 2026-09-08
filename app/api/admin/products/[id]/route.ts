@@ -59,6 +59,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     manufacturer, origin_country, product_condition, manufacture_date,
     main_image, extra_images, options,
     addons, addon_multi,
+    is_visible, link_price,
   } = body;
 
   // 옵션이 있으면 대표 재고는 판매중 옵션 재고 합계로 자동 반영 ("재고 확인" 버튼 안 눌러도 항상 일치)
@@ -68,6 +69,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         .filter((o: { name?: string; active?: boolean }) => o?.name && o.active !== false)
         .reduce((s: number, o: { stock?: number }) => s + (Number(o.stock) || 0), 0)
     : stock ?? 0;
+  // 비밀링크 가격 — 0 이상 정수만, 비우면 해제 (링크 코드는 별도 API에서 발급/해제)
+  const linkPrice = link_price == null || link_price === "" ? null : Math.max(0, Math.round(Number(link_price)) || 0);
 
   const client = await shopPool.connect();
   try {
@@ -89,7 +92,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         as_notes = $31,
         manufacturer = $32, origin_country = $33,
         product_condition = $34, manufacture_date = $35,
-        main_image = $36, addon_multi = $37, supply_price = $38, influencer_rate = $39, updated_at = NOW()
+        main_image = $36, addon_multi = $37, supply_price = $38, influencer_rate = $39,
+        is_visible = $41, link_price = $42, updated_at = NOW()
       WHERE id = $40
     `, [
       name, brand || null, description || null,
@@ -113,6 +117,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       supply_price || null,
       influencer_rate ?? null,
       id,
+      is_visible !== false, // 전시(true) / 비전시·비밀링크 전용(false)
+      linkPrice,
     ]);
 
     await client.query("DELETE FROM product_images WHERE product_id = $1", [id]);

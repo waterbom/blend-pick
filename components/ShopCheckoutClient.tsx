@@ -21,10 +21,12 @@ interface Props {
   clientKey: string;
   phoneVerifyRequired?: boolean; // 비회원이면 휴대폰 인증 후 결제
   influencerId?: string | null;
+  linkCode?: string | null; // 비밀링크(?k=)로 들어온 결제 — 서버가 검증한 코드만 전달됨
 }
 
 export default function ShopCheckoutClient({
   influencerId,
+  linkCode = null,
   productId,
   productName,
   optionId,
@@ -89,6 +91,7 @@ export default function ShopCheckoutClient({
 
     const checkoutData = {
       influencerId: influencerId ?? null, // 인플루언서 귀속 (결제 승인 시 서버가 검증 후 도장)
+      linkCode, // 비밀링크 코드 — 승인 전 금액 검증이 이 코드로 링크가를 다시 계산한다
       productId,
       productName,
       optionId,

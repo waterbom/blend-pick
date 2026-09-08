@@ -15,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const r = await shopPool.query(
       `SELECT id, COALESCE(updated_at, created_at) AS updated
          FROM products_shop
-        WHERE status = 'active' AND category = ANY($1::text[])
+        WHERE status = 'active' AND is_visible = true AND category = ANY($1::text[])
         ORDER BY created_at DESC LIMIT 500`,
       [SITES.sanjipick.categories]
     );
