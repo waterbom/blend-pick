@@ -1,0 +1,39 @@
+# 검토용. 자동 설치되지 않음. map/log_format은 nginx http 컨텍스트에 배치.
+# 기존 access_log를 유지하고 대상 server에 아래 별도 로그를 추가한다.
+map $host $bp_traffic_site {
+    default off;
+    shop.blendpunch.com blendpick;
+    sanjipick.blendpunch.com sanjipick;
+}
+map $bp_traffic_site $bp_traffic_enabled { default 1; off 0; }
+# raw IP/쿠키/UA/검색어/주문번호/전체 URL을 기록하지 않고 정해진 분류만 기록.
+map $http_user_agent $bp_traffic_client {
+    default other;
+    ~*Blendpick-ReadOnly-Monitor monitor;
+    ~*(bot|crawler|spider|headless|lighthouse) bot;
+}
+map "$http_purpose:$http_sec_purpose:$http_next_router_prefetch" $bp_traffic_prefetch {
+    default 0;
+    ~*prefetch 1;
+    ~:1$ 1;
+}
+map $request_uri $bp_traffic_route {
+    default other;
+    ~^/(admin|api/admin)(/|\?|$) admin;
+    ~^/(sanji/)?products(/|\?|$) products;
+    ~^/(sanji/)?p/ products;
+    ~^/(sanji/?)?(\?|$) home;
+    ~^/login(/|\?|$) login;
+    ~^/(_next|uploads)(/|\?|$) assets;
+    ~*\.(png|jpg|jpeg|webp|svg|ico|css|js|woff2?|mp4)(\?|$) assets;
+    ~^/api(/|\?|$) api;
+}
+log_format bp_traffic escape=json
+    '{"schema":1,"time":"$time_iso8601","site":"$bp_traffic_site",'
+    '"client":"$bp_traffic_client","route":"$bp_traffic_route",'
+    '"method":"$request_method","status":"$status",'
+    '"bytes":"$bytes_sent","request_bytes":"$request_length",'
+    '"seconds":"$request_time","content_type":"$sent_http_content_type",'
+    '"prefetch":"$bp_traffic_prefetch"}';
+# 각 대상 server 블록에 추가. 하위 location의 access_log 재정의 여부도 검토한다.
+# access_log /var/log/nginx/blendpick-traffic.jsonl bp_traffic buffer=32k flush=5s if=$bp_traffic_enabled;

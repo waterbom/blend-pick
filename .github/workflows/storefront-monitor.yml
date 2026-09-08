@@ -1,0 +1,36 @@
+name: Storefront Monitor
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_run:
+    workflows: ["Deploy to EC2"]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: storefront-monitor
+  cancel-in-progress: false
+jobs:
+  public-pages:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify isolated monitor cases
+        run: node --test tests/storefront-monitor.cjs tests/traffic.cjs
+      - name: Check both storefronts (GET only)
+        run: node scripts/check-storefront.cjs --output-dir monitor-output
+      - name: Keep results even when checks fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-monitor-${{ github.run_id }}-${{ github.run_attempt }}
+          path: monitor-output/
+          retention-days: 14
+          if-no-files-found: error

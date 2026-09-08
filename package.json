@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:monitor": "node --test tests/storefront-monitor.cjs tests/traffic.cjs",
+    "test:visits": "node --test tests/visit-analytics.cjs tests/visit-analytics-db.cjs tests/prepare-visit-analytics.cjs",
+    "check:monitoring": "npm run test:monitor && npm run test:visits && npm run build"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.6.0",
@@ -22,6 +25,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",

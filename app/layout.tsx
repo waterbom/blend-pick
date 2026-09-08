@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import InfRefCookie from "@/components/InfRefCookie";
 import { SiteProvider } from "@/components/SiteContext";
 import MetaPixel from "@/components/MetaPixel";
+import VisitAnalytics from "@/components/VisitAnalytics";
 import { currentSite } from "@/lib/site-server";
 import { SITES } from "@/lib/sites";
 
@@ -61,6 +62,7 @@ export default async function RootLayout({
         <SiteProvider site={site.key}>
           <InfRefCookie />
           <MetaPixel />
+          {process.env.ANALYTICS_ENABLED === "true" && <VisitAnalytics />}
           {children}
           <Footer />
           <GlobalFloating />
