@@ -1,8 +1,10 @@
+import ServerTrafficPanel from '@/components/admin/ServerTrafficPanel';
+import type { ServerTraffic } from '@/lib/server-traffic';
 import { PAGE_LABELS, type VisitSummary } from '@/lib/visit-analytics/rules';
 const format=(v:number)=>v.toLocaleString('ko-KR');
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 const stateText={disabled:'수집 대기',unconfigured:'연결 준비 필요',empty:'기간 내 기록 없음',active:'수집 기록 있음',error:'조회 실패'};
-export default function MonitoringOverview({siteName,summary,example=false}:{siteName:string;summary:VisitSummary;example?:boolean}) {
+export default function MonitoringOverview({siteName,summary,traffic,example=false}:{siteName:string;summary:VisitSummary;traffic?:ServerTraffic;example?:boolean}) {
   const valid=summary.state==='active'||summary.state==='empty';
   return <main className="mx-auto w-full max-w-6xl space-y-7 p-5 md:p-9 text-stone-800">
     <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-1 text-xs font-semibold text-emerald-800">{siteName} · 운영 현황</p><h1 className="text-2xl font-bold tracking-tight">방문·트래픽·자동 점검</h1></div><span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs">{example?'설명용 예시':stateText[summary.state]}</span></header>
@@ -16,10 +18,11 @@ export default function MonitoringOverview({siteName,summary,example=false}:{sit
       </div>}
       <p className="text-xs text-stone-500">마지막 수신: {summary.lastEventAt?time(summary.lastEventAt):'기록 없음'} · 기록이 없다는 것만으로 방문이 없었다고 판단하지 않습니다.</p>
     </section>
-    <section className="grid gap-4 md:grid-cols-2" aria-label="서버 관측 연결 상태">
+    <section className="grid gap-4" aria-label="서버 관측 연결 상태">
       <div className="rounded-xl border border-stone-200 bg-white p-5"><div className="flex justify-between"><h2 className="font-semibold">자동 점검</h2><span className="text-xs text-stone-500">30분 간격 · 배포 후</span></div><p className="mt-3 text-sm text-stone-600">사이트 접속·상품 연결·검색 설정·관리자 접근 차단</p><p className="mt-4 text-xs text-stone-500">두 사이트를 정기적으로 점검합니다. 최신 결과는 점검 실행 기록에서 확인할 수 있습니다.</p><a className="mt-3 inline-block text-xs font-medium text-emerald-800 underline" href="https://github.com/waterbom/blend-pick/actions/workflows/storefront-monitor.yml" target="_blank" rel="noopener noreferrer">점검 실행 기록 보기</a></div>
-      <div className="rounded-xl border border-stone-200 bg-white p-5"><div className="flex justify-between"><h2 className="font-semibold">서버 트래픽</h2><span className="text-xs text-stone-500">로그 연결 대기</span></div><p className="mt-3 text-sm text-stone-600">전체 요청·전송량·오류율·응답 시간</p><p className="mt-4 text-xs text-stone-500">서버 집계 보고서와 방문 통계는 계산 기준이 다릅니다. 운영 로그 수집은 아직 활성화하지 않았습니다.</p></div>
+
     </section>
+    {traffic && <ServerTrafficPanel data={traffic}/>}
     <details className="rounded-xl border border-stone-200 bg-white px-5 py-4 text-sm"><summary className="cursor-pointer font-medium">집계 기준과 제외 항목</summary><div className="mt-4 space-y-2 text-xs leading-6 text-stone-600"><p>방문자는 사이트별 브라우저 식별값 기준입니다. 기기 변경·저장소 초기화·90일 식별값 만료 시 새 방문자로 계산될 수 있습니다. 기간별 방문자는 날짜별 방문자 합계와 다를 수 있습니다.</p><p>세션은 마지막 수집 페이지 조회 이후 30분을 기준으로 나눕니다. 기간 내 조회가 발생한 세션을 셉니다. 화면을 켜 둔 시간이나 스크롤만으로 연장하지 않습니다.</p><p>최초 화면·새로고침·등록된 고객 화면 간 이동을 기록합니다. 쿼리만 바뀐 이동·해시 변경·관리자 화면·식별된 봇·분석 거부 환경은 제외합니다. 결제 완료 화면 조회를 결제 성공으로 계산하지 않습니다.</p><p>IP·실명·이메일·주문번호·URL 검색어는 새 방문 통계에 저장하지 않습니다. 수집 차단·통신 실패로 일부 조회가 누락될 수 있습니다.</p></div></details>
   </main>;
 }

@@ -35,3 +35,4 @@ jobs:
             sudo systemctl restart blend-pick
             sudo systemctl is-active --quiet blend-pick
             echo "Deployment service is active."
+            sudo "$(command -v node)" scripts/install-traffic-monitor.cjs

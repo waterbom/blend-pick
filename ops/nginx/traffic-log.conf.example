@@ -1,5 +1,5 @@
-# 검토용. 자동 설치되지 않음. map/log_format은 nginx http 컨텍스트에 배치.
-# 기존 access_log를 유지하고 대상 server에 아래 별도 로그를 추가한다.
+# 설치 스크립트가 http 컨텍스트에 배치하는 공통 트래픽 로그 형식.
+# 기존 access_log를 유지하고 별도 로그를 추가한다.
 map $host $bp_traffic_site {
     default off;
     shop.blendpunch.com blendpick;
