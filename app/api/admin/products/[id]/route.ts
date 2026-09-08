@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { linkSettingsError, saveLinkSettings } from "@/lib/admin-secret-link";
+import { missingSupply } from "@/lib/product-required";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -80,6 +81,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         .filter((o: { name?: string; active?: boolean }) => o?.name && o.active !== false)
         .reduce((s: number, o: { stock?: number }) => s + (Number(o.stock) || 0), 0)
     : stock ?? 0;
+  // 필수 — 카테고리, 공급가(상품 공급가 또는 판매중 옵션마다) : 손익 집계 누락 방지 (등록 API와 같은 기준)
+  if (!category) return NextResponse.json({ error: "카테고리를 선택해주세요." }, { status: 400 });
+  const supplyMissing = missingSupply(supply_price, options);
+  if (supplyMissing) return NextResponse.json({ error: supplyMissing }, { status: 400 });
+
   // 비밀링크 가격 — 0 이상 정수만, 비우면 해제 (링크 코드는 별도 API에서 발급/해제)
   const linkPrice = link_price == null || link_price === "" ? null : Math.max(0, Math.round(Number(link_price)) || 0);
 
@@ -128,7 +134,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       product_condition || "new", manufacture_date || null,
       main_image || null,
       addon_multi !== false,
-      supply_price || null,
+      supply_price != null && supply_price !== "" ? supply_price : null, // 0원도 값으로 저장 (|| 쓰면 null 돼서 손익에서 빠짐)
       influencer_rate ?? null,
       id,
       typeof is_visible === "boolean" ? is_visible : null,

@@ -403,10 +403,27 @@ export default function ProductFormClient({ mode, productId }: Props) {
     };
   }
 
+  // 손익 집계에 빠지지 않도록 필수 확인 — 카테고리, 공급가(상품 공급가 또는 판매중 옵션마다 공급가)
+  function validateRequired(): string | null {
+    if (!form.category) return "카테고리를 선택해주세요.";
+    const activeOpts = options.filter(o => o.name && o.active !== false);
+    const supplyOk = form.supply_price !== "" || (activeOpts.length > 0 && activeOpts.every(o => o.supply !== ""));
+    if (!supplyOk) return activeOpts.length > 0
+      ? "공급가(매입원가)를 입력해주세요. 상품 공급가를 넣거나, 판매중 옵션마다 공급가를 넣어주세요."
+      : "공급가(매입원가)를 입력해주세요. 비어 있으면 손익 집계에서 이 상품 주문이 빠져요.";
+    return null;
+  }
+
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     setSaving(true);
     setError("");
+    const missing = validateRequired();
+    if (missing) {
+      setError(missing);
+      setSaving(false);
+      return;
+    }
     if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setError("비전시 링크 시작·종료 일시를 확인해주세요."); setSaving(false); return; }
 
     // 공동구매 + 인플루언서 태그 → 태그별로 상품 복제 등록 (제목 양식 + 개별 공구기간)
@@ -590,8 +607,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
               <input value={form.brand} onChange={e => set("brand", e.target.value)} className={inp} />
             </div>
             <div>
-              <label className={lbl}>카테고리</label>
-              <select value={form.category} onChange={e => set("category", e.target.value)} className={inp}>
+              <label className={lbl}>카테고리 *</label>
+              <select value={form.category} onChange={e => set("category", e.target.value)} className={inp} required>
                 <option value="">카테고리 선택</option>
                 {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
               </select>
@@ -906,10 +923,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
           </Grid2>
           <Grid2>
             <div>
-              <label className={lbl}>공급가 (매입원가)</label>
+              <label className={lbl}>공급가 (매입원가) *</label>
               <input value={form.supply_price} onChange={e => set("supply_price", e.target.value)}
-                type="number" min="0" className={inp} placeholder="손익관리용 — 고객에게 노출 안 됨" />
-              <p className="text-xs text-gray-400 mt-1">옵션별 공급가가 다르면 아래 옵션 행에서 개별 입력 (옵션값 우선 적용)</p>
+                type="number" min="0" className={inp} placeholder="손익관리용 — 고객에게 노출 안 됨"
+                required={!options.some(o => o.name && o.active !== false)} />
+              <p className="text-xs text-gray-400 mt-1">손익 집계에 꼭 필요해요. 옵션별 공급가가 다르면 아래 옵션 행마다 개별 입력 (옵션값 우선 적용)</p>
             </div>
             <div>
               <label className={lbl}>인플루언서 수수료율 (%)</label>
@@ -1007,7 +1025,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                     <input value={opt.price} onChange={e => setOption(i, "price", e.target.value)}
                       type="number" min="0" className={inp} placeholder="판매가" />
                     <input value={opt.supply} onChange={e => setOption(i, "supply", e.target.value)}
-                      type="number" min="0" className={inp} placeholder="공급가" />
+                      type="number" min="0" className={inp} placeholder={form.supply_price ? "공급가 (비우면 상품 공급가)" : "공급가 *"} />
                     <input value={opt.stock} onChange={e => setOption(i, "stock", e.target.value)}
                       type="number" min="0" className={inp} placeholder="0" />
                     <button type="button" onClick={() => setOptionActive(i, !opt.active)}

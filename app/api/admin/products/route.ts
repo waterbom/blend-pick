@@ -4,6 +4,7 @@ import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { linkSettingsError, saveLinkSettings } from "@/lib/admin-secret-link";
 import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
+import { missingSupply } from "@/lib/product-required";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -64,6 +65,10 @@ export async function POST(req: Request) {
   const site = (await currentAdminSite()).key;
   const sanjiCats = adminProductScopeSql("sanjipick", "category", 1).param;
   const category = site === "sanjipick" && !sanjiCats.includes(rawCategory || "") ? "산지픽 농산물" : rawCategory;
+  if (!category) return NextResponse.json({ error: "카테고리를 선택해주세요." }, { status: 400 });
+  // 공급가 필수 — 비어 있으면 손익 집계에서 그 상품 주문이 통째로 빠지므로 등록 단계에서 막는다
+  const supplyMissing = missingSupply(supply_price, options);
+  if (supplyMissing) return NextResponse.json({ error: supplyMissing }, { status: 400 });
 
   // 옵션이 있으면 대표 재고는 판매중 옵션 재고 합계로 자동 반영 ("재고 확인" 버튼 안 눌러도 항상 일치)
   const hasOptions = Array.isArray(options) && options.some((o: { name?: string }) => o?.name);
@@ -119,7 +124,7 @@ export async function POST(req: Request) {
       product_condition || "new", manufacture_date || null,
       main_image || null,
       addon_multi !== false,
-      supply_price || null,
+      supply_price != null && supply_price !== "" ? supply_price : null, // 0원도 값으로 저장 (|| 쓰면 null 돼서 손익에서 빠짐)
       influencer_rate ?? null,
       body.influencer_id || null,
       is_visible !== false, // 전시(true) / 비전시·비밀링크 전용(false)
