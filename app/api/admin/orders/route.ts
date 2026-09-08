@@ -75,8 +75,7 @@ export async function GET(req: Request) {
     ${where}
     GROUP BY o.id
     ORDER BY o.created_at DESC
-    LIMIT 500
-  `, params);
+  `, params); // 건수 제한 없음 — 판매·배송 관리는 사이트별 주문 전체를 보여준다 (예전 500건 상한은 화면에서 '500건'으로 잘려 보였음)
 
   return NextResponse.json(result.rows);
 }
