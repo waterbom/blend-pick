@@ -129,7 +129,7 @@ export default function SanjiHome({
     <div className="sh-grid">
       {items.map((p) => (
         <a key={p.id} className="sh-card" href={href(p)}>
-          <div className="th"><Img src={p.main_image} alt={p.name} />{(p.stock === 0 || p.status === "soldout") && <span className="so">품절</span>}</div>
+          <div className="th"><Img src={p.main_image} alt={p.name} />{(p.stock === 0 || p.status === "soldout") && <span className="so">재고 마감</span>}</div>
           <div className="nm">{p.name}</div>
           <div className="pr">{pct(p) > 0 && <em>{pct(p)}%</em>}{won(p.price)}</div>
         </a>
@@ -295,7 +295,7 @@ export default function SanjiHome({
                     </div>
                     <div className="left">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
-                      {p.stock > 0 ? `남은 수량 ${p.stock.toLocaleString()}개` : "품절"}
+                      {p.stock > 0 ? `남은 수량 ${p.stock.toLocaleString()}개` : "재고 마감"}
                     </div>
                     <div className="ttl"><span>{p.name}</span></div>
                     <div className="pr">{pct(p) > 0 && <em>{pct(p)}%</em>}{won(p.price)}</div>

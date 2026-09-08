@@ -74,8 +74,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
   const startMs = product.sale_start_at ? new Date(product.sale_start_at).getTime() : null;
   const endMs = product.sale_end_at ? new Date(product.sale_end_at).getTime() : null;
   const saleState: "upcoming" | "open" | "ended" =
-    startMs && startMs > nowMs ? "upcoming" : endMs && endMs < nowMs ? "ended" : "open";
-  const soldout = product.status === "soldout" || product.stock === 0;
+    startMs && startMs > nowMs ? "upcoming" : endMs && endMs <= nowMs ? "ended" : "open";
+  const soldout = demo || product.status !== "active" || product.stock === 0;
   const discount =
     product.original_price && product.original_price > price
       ? Math.round((1 - price / product.original_price) * 100)
@@ -222,11 +222,11 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
     router.push("/cart/checkout");
   }
 
-  // 예시 화면(demo)은 시트까지 열려 디자인을 볼 수 있고, 마지막 결제 버튼만 잠긴다
+  // 미등록 예시 상품은 구매·선물 선택 창부터 닫는다.
   const ctaLabel =
     saleState === "upcoming" ? "오픈 예정"
     : saleState === "ended" ? "특가 종료"
-    : soldout ? "품절"
+    : soldout ? "재고 마감"
     : "구매하기";
 
   const socialPill =
@@ -368,7 +368,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         {socialPill && <span className="sp-pill">{socialPill}</span>}
         {(soldout || saleState === "ended") && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22, fontWeight: 900, letterSpacing: ".02em" }}>
-            {saleState === "ended" ? "특가 종료" : "품절"}
+            {saleState === "ended" ? "특가 종료" : "재고가 마감되었습니다"}
           </div>
         )}
       </div>
@@ -393,7 +393,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           <span>{product.brand || "산지픽"} · 산지 직송</span>
         </div>
         <h1 className="sp-title">{product.name}</h1>
-        <div className="sp-rating">
+        {!demo && <div className="sp-rating">
           <Stars n={reviews.total ? reviews.average : product.trust ? product.trust.rating : 5} />
           {reviews.total ? (
             <span><b>{reviews.average.toFixed(1)}</b> · 후기 {reviews.total.toLocaleString()}개</span>
@@ -402,7 +402,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           ) : (
             <span style={{ color: MUTED }}>첫 후기를 기다리고 있어요</span>
           )}
-        </div>
+        </div>}
         <div className="sp-price">
           {discount && <span className="rate">{discount}%</span>}
           <span className="now">{won(price)}</span>
@@ -478,7 +478,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
                   <a key={p.id} className="sp-card" href={`${linkBase}/p/${p.id}`}>
                     <div className="th">
                       <Img src={p.main_image} alt={p.name} />
-                      {so && <span className="so">품절</span>}
+                      {so && <span className="so">재고 마감</span>}
                     </div>
                     <div className="nm">{p.name}</div>
                     <div className="pr">{d > 0 && <em>{d}%</em>}{won(p.price)}</div>
@@ -531,7 +531,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           </>
         ) : (
           <div className="sp-empty">
-            {product.trust ? <>{product.trust.source}에서 <b style={{ color: INK }}>★ {product.trust.rating.toFixed(2)} · 리뷰 {product.trust.count.toLocaleString()}건</b>을 받은 상품이에요.<br /></> : null}
+            {!demo && product.trust ? <>{product.trust.source}에서 <b style={{ color: INK }}>★ {product.trust.rating.toFixed(2)} · 리뷰 {product.trust.count.toLocaleString()}건</b>을 받은 상품이에요.<br /></> : null}
             산지픽 첫 후기를 기다리고 있어요. 구매 후 마이페이지에서 남길 수 있습니다.
           </div>
         )}
@@ -552,7 +552,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
             <span>{endLeft ? `마감까지 ${endLeft}` : `${product.stock.toLocaleString()}개 남았어요`}</span>
           </div>
         )}
-        {demo && <div className="sp-urg"><span>오픈 준비 중이에요 · 곧 구매하실 수 있어요</span></div>}
+        {demo && <div className="sp-urg"><span>재고가 마감되었습니다</span></div>}
         <div className="sp-btns">
           <button className="sp-gift" disabled={saleState !== "open" || soldout} onClick={() => setSheet("gift")}>선물하기</button>
           <button className="sp-buy" disabled={saleState !== "open" || soldout} onClick={() => setSheet("buy")}>{ctaLabel}</button>
@@ -610,7 +610,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
               <b>{won(itemsTotal + shipping)}</b>
             </div>
             <button className="sp-buy" style={{ width: "100%" }} disabled={!canBuy || going} onClick={checkout}>
-              {demo ? "오픈 준비 중" : going ? "이동 중..." : sheet === "gift" ? "선물 결제하기" : "바로 구매하기"}
+              {demo ? "재고 마감" : going ? "이동 중..." : sheet === "gift" ? "선물 결제하기" : "바로 구매하기"}
             </button>
           </div>
         </>

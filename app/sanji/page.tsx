@@ -1,6 +1,6 @@
 import SanjiHome from "@/components/sanji/SanjiHome";
 import { getSanjiHomeReviews, getSanjiProducts } from "@/lib/sanji-data";
-import { SANJI_DEMO_CARDS, SANJI_DEMO_REVIEWS } from "@/lib/sanji-demo";
+import { SANJI_DEMO_CARDS } from "@/lib/sanji-demo";
 import { sanjiLinkBase } from "@/lib/sanji-link";
 import { SITES } from "@/lib/sites";
 
@@ -15,7 +15,7 @@ export default async function SanjiRoot() {
     <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
       <SanjiHome
         products={demo ? SANJI_DEMO_CARDS : products}
-        reviews={demo ? SANJI_DEMO_REVIEWS : reviews}
+        reviews={demo ? [] : reviews}
         linkBase={linkBase}
         demo={demo}
         kakaoUrl={SITES.sanjipick.kakaoUrl}

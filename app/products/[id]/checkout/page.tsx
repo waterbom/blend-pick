@@ -1,3 +1,5 @@
+import { verifySingleAmount } from "@/lib/order-amount";
+import { currentSite } from "@/lib/site-server";
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import { notFound } from "next/navigation";
@@ -62,13 +64,26 @@ export default async function ShopCheckoutPage({
   const code = cleanLinkCode(k);
   const linked = linkApplies(product, code);
   if ((k !== undefined && !linked) || (k === undefined && product.is_visible === false)) notFound();
-  if (optionId && (!option || option.product_id !== id || !option.is_active || option.stock < quantity)) notFound();
+  if (optionId && (!option || option.product_id !== id || !option.is_active || (option.stock >= 0 && option.stock < quantity))) notFound();
   const linkCode = linked ? code : null;
   const unitPrice = secretUnitPrice(product, option, linked);
   if (unitPrice === null) notFound();
   // 배송비 — 어드민 설정(무료/유료/조건부/건별) 전부 반영 (lib/shipping.ts)
   const shippingCost = productShippingFee(product, quantity, unitPrice * quantity);
   const totalAmount = unitPrice * quantity + shippingCost;
+  // 결제 승인 때와 같은 규칙으로 결제창 진입 전에도 판매 가능 여부를 확인한다.
+  const check = await verifySingleAmount({
+    site: (await currentSite()).key, productId: id, optionId: option?.id ?? null,
+    quantity, unitPrice, shippingCost, totalAmount, amount: totalAmount, linkCode,
+  });
+  if (!check.ok) return (
+    <main className="min-h-screen px-6 py-12 text-center">
+      <Header />
+      <h1 className="text-xl font-bold mt-12">현재 구매할 수 없는 상품입니다</h1>
+      <p className="mt-3">{check.error}</p>
+      <a href="/" className="inline-block mt-6 underline">상품 다시 확인하기</a>
+    </main>
+  );
   const clientKey = process.env.TOSS_CLIENT_KEY!;
   // 비회원(로그인 안 함)이면 휴대폰 인증 후 결제
   const shopToken = (await cookies()).get("shop_token")?.value;

@@ -28,7 +28,9 @@ jobs:
             git pull --ff-only origin main
             npm ci
             npm run test:admin-integrity
+            node --test tests/payment-launch.cjs
             node scripts/check-admin-auth.cjs
+            node scripts/check-payment-config.cjs
             # 스키마 마이그레이션 (idempotent) — 코드가 새 컬럼을 쓰기 전에 먼저 반영
             node scripts/migrate-order-site.cjs || { echo "::error::orders.site 마이그레이션 실패 — 배포 중단"; exit 1; }
             node scripts/prepare-visit-analytics.cjs

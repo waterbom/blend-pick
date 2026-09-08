@@ -89,6 +89,9 @@ export async function verifyCartAmount(p: {
     const addons = items.filter((it) => !it.product_id || it.is_addon);
     if (!mains.length)
         return { ok: false, error: MISMATCH, detail: "no main product" };
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (mains.some(it => typeof it.product_id !== "string" || !uuid.test(it.product_id)))
+        return { ok: false, error: "재고가 마감되었습니다. 상품을 다시 확인해주세요.", detail: "unregistered product" };
     const productIds = [...new Set(mains.map((it) => it.product_id as string))];
     const [pr, or, ar] = await Promise.all([
         db.query(`SELECT id, name, category, status, stock, supply_price, influencer_rate, tax_type, archived_at, sale_start_at, sale_end_at, is_visible, link_start_at, link_end_at, price, link_price, link_code, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost

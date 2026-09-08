@@ -106,7 +106,7 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: 
           <div className="sc-grid">
             {list.map((p) => (
               <a key={p.id} className="sc-card" href={`${linkBase}/p/${p.id}`}>
-                <div className="th"><Img src={p.main_image} alt={p.name} />{(p.stock === 0 || p.status === "soldout") && <span className="so">품절</span>}</div>
+                <div className="th"><Img src={p.main_image} alt={p.name} />{(p.stock === 0 || p.status === "soldout") && <span className="so">재고 마감</span>}</div>
                 <div className="nm">{p.name}</div>
                 <div className="pr">{pct(p) > 0 && <em>{pct(p)}%</em>}{won(p.price)}</div>
               </a>

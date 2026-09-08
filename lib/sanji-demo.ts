@@ -17,7 +17,7 @@ export interface SanjiDemoProduct {
 
 const base = {
   category: "산지픽",
-  status: "active",
+  status: "soldout",
   shipping_type: "free",
   shipping_cost: 0,
   free_shipping_threshold: null,
@@ -29,7 +29,7 @@ const base = {
   link_price: null,
 } as const;
 
-const opt = (id: string, name: string, value: string, price: number, stock = 50): SanjiOption => ({ id, name, value, extra_price: price, stock, is_active: true });
+const opt = (id: string, name: string, value: string, price: number, stock = 50): SanjiOption => ({ id, name, value, extra_price: price, stock: 0, is_active: false });
 
 const desc = (title: string, lead: string, points: [string, string][], tips: string[]) => `
 <div class="sj-desc">
@@ -53,7 +53,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
       origin: "국산 (충청북도 괴산군)",
       price: 12900,
       original_price: 18000,
-      stock: 137,
+      stock: 0,
       main_image: P("감자", "감자"),
       trust: { rating: 4.6, count: 2022, source: "스마트스토어" },
       description: desc(
@@ -69,7 +69,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
     },
     images: ["감자", "감자1", "감자2", "감자3", "감자4", "감자5", "감자6"].map((f) => P("감자", f)),
     options: [opt("d-p2", "중량", "2kg", 12900), opt("d-p3", "중량", "3kg", 17900), opt("d-p5", "중량", "5kg", 26900), opt("d-p10", "중량", "10kg", 46900)],
-    sold: 1284,
+    sold: 0,
     created_at: at(1),
   },
   {
@@ -81,7 +81,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
       origin: "국산 (충청북도 괴산군)",
       price: 29900,
       original_price: 41000,
-      stock: 84,
+      stock: 0,
       main_image: P("복숭아", "복숭아"),
       trust: { rating: 4.58, count: 176, source: "스마트스토어" },
       description: desc(
@@ -97,7 +97,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
     },
     images: ["복숭아", "복숭아1", "복숭아2", "복숭아3", "복숭아4", "복숭아5", "복숭아6"].map((f) => P("복숭아", f)),
     options: [opt("d-c2", "중량", "2kg (7~9과)", 29900), opt("d-c4", "중량", "4kg (14~18과)", 54900)],
-    sold: 412,
+    sold: 0,
     created_at: at(2),
   },
   {
@@ -109,7 +109,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
       origin: "국산 (충청북도 괴산군)",
       price: 14900,
       original_price: 21000,
-      stock: 52,
+      stock: 0,
       main_image: P("단호박", "단호박1"),
       trust: { rating: 4.62, count: 955, source: "스마트스토어" },
       description: desc(
@@ -125,7 +125,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
     },
     images: ["단호박1", "단호박2", "단호박3", "단호박4", "단호박5"].map((f) => P("단호박", f)),
     options: [opt("d-h3", "중량", "3kg (6~9개)", 14900), opt("d-h5", "중량", "5kg (10~15개)", 22900)],
-    sold: 233,
+    sold: 0,
     created_at: at(3),
   },
   {
@@ -137,7 +137,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
       origin: "국산 (경기도 이천시)",
       price: 24900,
       original_price: 67800,
-      stock: 60,
+      stock: 0,
       main_image: P("배도라지", "배도라지1"),
       trust: { rating: 4.87, count: 53, source: "스마트스토어" },
       description: desc(
@@ -153,7 +153,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
     },
     images: ["배도라지1", "배도라지2", "배도라지3"].map((f) => P("배도라지", f)),
     options: [],
-    sold: 96,
+    sold: 0,
     created_at: at(4),
   },
   {
@@ -165,7 +165,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
       origin: "국산 (충청북도 괴산군)",
       price: 49900,
       original_price: 160000,
-      stock: 40,
+      stock: 0,
       main_image: P("사과", "사과1"),
       trust: { rating: 4.56, count: 156, source: "스마트스토어" },
       description: desc(
@@ -181,7 +181,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
     },
     images: ["사과1", "사과2", "사과3", "사과4", "사과5", "사과6", "사과7"].map((f) => P("사과", f)),
     options: [opt("d-a3", "중량", "3kg 선물세트 (12과)", 49900), opt("d-a5", "중량", "5kg 선물세트 (18~20과)", 74900)],
-    sold: 310,
+    sold: 0,
     created_at: at(0),
   },
   {
@@ -193,7 +193,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
       origin: "국산 (충청북도 괴산군)",
       price: 11900,
       original_price: 20000,
-      stock: 120,
+      stock: 0,
       main_image: P("옥수수", "옥수수"),
       trust: { rating: 4.64, count: 119, source: "스마트스토어" },
       description: desc(
@@ -209,7 +209,7 @@ export const SANJI_DEMO_PRODUCTS: SanjiDemoProduct[] = [
     },
     images: ["옥수수", "옥수수1", "옥수수2", "옥수수3", "옥수수4"].map((f) => P("옥수수", f)),
     options: [],
-    sold: 188,
+    sold: 0,
     created_at: at(5),
   },
 ];
