@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     google: BP.verification.google.length ? BP.verification.google : undefined,
     other: BP.verification.naver.length ? { "naver-site-verification": BP.verification.naver } : undefined,
   },
-  // 카톡·인스타 링크 미리보기 — 로고 이미지 (public/sanji/og.png, 1200×630). 산지픽 레이아웃은 자기 도메인으로 덮어씀
+  // 카톡·인스타 링크 미리보기 — 블랜드픽 전용 이미지 (public/og.png, 1200×630, BLEND PICK 워드마크). 산지픽 레이아웃은 자기 로고로 덮어씀
   openGraph: {
     title: "BLEND PICK — 인플루언서 공구 플랫폼",
     description: "블랜드픽에서 트렌디한 제품을 만나보세요",
@@ -28,9 +28,9 @@ export const metadata: Metadata = {
     siteName: BP.nameEn,
     type: "website",
     locale: "ko_KR",
-    images: [{ url: `https://${BP.host}/sanji/og.png`, width: 1200, height: 630, alt: "BLEND PICK" }],
+    images: [{ url: `https://${BP.host}/og.png`, width: 1200, height: 630, alt: "BLEND PICK" }],
   },
-  twitter: { card: "summary_large_image", images: [`https://${BP.host}/sanji/og.png`] },
+  twitter: { card: "summary_large_image", images: [`https://${BP.host}/og.png`] },
 };
 
 export default async function RootLayout({
