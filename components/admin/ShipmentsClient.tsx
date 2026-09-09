@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
+import { trackingRows, trackingRowIssues, parseTrackingCSV } from "@/lib/shipping-flow";
 import { CORE_CARRIERS, carrierName as libCarrierName } from "@/lib/carriers";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
@@ -15,7 +16,7 @@ interface OrderItem {
   quantity: number;
 }
 
-interface Order {
+export interface ShipmentOrder {
   id: string;
   order_number: string;
   status: string;
@@ -41,23 +42,7 @@ interface Order {
 // 헤더 감지: 첫 줄에 '주문/운송장/order/tracking' 이 있으면 헤더로 보고 스킵
 // (주문번호가 BP… 처럼 문자로 시작해도 데이터가 누락되지 않게)
 function parseTrackingRows(grid: string[][]): { order_number: string; tracking_number: string; carrier_raw?: string }[] {
-  const rows = grid.filter((r) => r.some((c) => c));
-  const hasHeader = /주문|운송장|order|tracking/i.test((rows[0] ?? []).join(","));
-  const results = [];
-  for (let i = hasHeader ? 1 : 0; i < rows.length; i++) {
-    const [a, b, c] = rows[i];
-    if (!a || !b) continue;
-    // 3번째 컬럼(택배사)은 선택 — 있으면 행별 택배사로 사용, 없으면 드롭다운 선택값 적용
-    results.push({ order_number: a, tracking_number: b, carrier_raw: (c || "").trim() || undefined });
-  }
-  return results;
-}
-
-function parseTrackingCSV(text: string) {
-  const grid = text.split("\n").map((l) =>
-    l.trim().split(",").map((c) => c.replace(/^"|"$/g, "").trim())
-  );
-  return parseTrackingRows(grid);
+  return trackingRows(grid);
 }
 
 async function parseTrackingXlsx(buf: ArrayBuffer) {
@@ -104,14 +89,16 @@ const TAB_ACTION: Partial<Record<Tab, { action: string; label: string; color: st
   cancel_requested:   { action: "cancel_confirm",    label: "취소 확인",     color: "bg-red-500 hover:bg-red-600" },
 };
 
-export default function ShipmentsClient({ initialTab = "preparing", initialRequestId }: { initialTab?: "preparing" | "exchange_requested" | "return_requested"; initialRequestId?: string }) {
+export default function ShipmentsClient({ initialTab = "preparing", initialRequestId, sharedOrders, onChanged }: { initialTab?: Tab; initialRequestId?: string; sharedOrders?: ShipmentOrder[]; onChanged?: () => Promise<void> }) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<ShipmentOrder[]>([]);
   // 사이트 필터 (블랜드픽/산지픽) — 산지픽은 농가 발송이라 배송 담당이 달라 따로 볼 수 있게
   const siteFilter = useSiteKey();
+  const [loadError, setLoadError] = useState("");
+  const sourceOrders = sharedOrders ?? allOrders;
   const orders = useMemo(
-    () => (siteFilter ? allOrders.filter((o) => (o.site || "blendpick") === siteFilter) : allOrders),
-    [allOrders, siteFilter]
+    () => (siteFilter ? sourceOrders.filter((o) => (o.site || "blendpick") === siteFilter) : sourceOrders).filter(o => sharedOrders ? o.status === tab : true),
+    [sourceOrders, siteFilter, sharedOrders, tab]
   );
   const siteCounts = useMemo(() => {
     const c: Record<string, number> = { "": allOrders.length, blendpick: 0, sanjipick: 0 };
@@ -130,7 +117,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
     const v = raw.replace(/\s/g, "");
     const byCode = carriers.find((c) => c.code === v);
     if (byCode) return byCode.code;
-    const byName = carriers.find((c) => c.name.replace(/\s/g, "") === v || c.name.replace(/\s/g, "").includes(v) || v.includes(c.name.replace(/\s/g, "")));
+    const byName = carriers.find((c) => c.name.replace(/\s/g, "") === v);
     return byName ? byName.code : null;
   }
   const [trackerKeyMissing, setTrackerKeyMissing] = useState(false);
@@ -146,6 +133,9 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   const [csvRows, setCsvRows] = useState<{ order_number: string; tracking_number: string; carrier_raw?: string }[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ succeeded: number; failed: { order_number: string; reason?: string }[]; smsSent?: number; smsFailed?: number } | null>(null);
+  const [readingFile, setReadingFile] = useState(false);
+  const [fileName, setFileName] = useState("");
+  const fileVersion = useRef(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [delivering, setDelivering] = useState(false);
@@ -158,23 +148,24 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   const [modalTracking, setModalTracking] = useState<Record<string, string>>({});
 
   async function load(status: Tab) {
-    setLoading(true);
     setSelected(new Set());
-    setCsvRows([]);
-    setImportResult(null);
-    // 배송준비 탭엔 주문확인(confirmed) 건도 포함 — 주문확인 후 바로 운송장 입력 가능
-    const q = status === "preparing" ? "confirmed,preparing" : status;
-    const res = await fetch(`/api/admin/orders?status=${q}`);
-    const data = await res.json();
-    setAllOrders(data);
-    setSelected(new Set());
-    setLoading(false);
+    if (sharedOrders) { await onChanged?.(); return; }
+    setLoading(true); setLoadError("");
+    try {
+      const q = status === "preparing" ? "confirmed,preparing" : status;
+      const res = await fetch(`/api/admin/orders?status=${q}`);
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data)) throw Error("배송 목록을 불러오지 못했습니다.");
+      setAllOrders(data);
+    } catch (e) { setLoadError(e instanceof Error ? e.message : "조회 실패"); }
+    finally { setLoading(false); }
   }
-
-  useEffect(() => { load(tab); }, [tab]);
+  useEffect(() => { if (!sharedOrders) void load(tab); else setLoading(false); }, [tab]);
+  useEffect(() => { setSelected(prev => new Set([...prev].filter(id => orders.some(o => o.id === id)))); }, [orders]);
 
   // 택배사 코드표 로드 (스위트트래커 공식 목록, 키 없으면 주요 6사)
   useEffect(() => {
+    if (!["preparing", "shipped"].includes(tab)) return;
     fetch("/api/admin/shipments/carriers")
       .then((r) => r.json())
       .then((d) => {
@@ -197,60 +188,64 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
     });
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const isXlsx = /\.xlsx?$/i.test(file.name);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const data = ev.target?.result;
-      setCsvRows(isXlsx ? await parseTrackingXlsx(data as ArrayBuffer) : parseTrackingCSV(data as string));
-      setImportResult(null);
-    };
-    if (isXlsx) reader.readAsArrayBuffer(file);
-    else reader.readAsText(file, "utf-8");
     e.target.value = "";
+    if (!file || importing) return;
+    const version = ++fileVersion.current;
+    setCsvRows([]); setImportResult(null); setLoadError("");
+    setFileName(file.name); setReadingFile(true);
+    try {
+      const rows = /\.xlsx?$/i.test(file.name)
+        ? await parseTrackingXlsx(await file.arrayBuffer())
+        : parseTrackingCSV(await file.text());
+      if (version !== fileVersion.current) return;
+      if (!rows.length) throw Error("등록할 송장 데이터가 없습니다.");
+      setCsvRows(rows);
+    } catch (e) {
+      if (version === fileVersion.current) {
+        setCsvRows([]);
+        setLoadError(`파일을 읽지 못했습니다. ${e instanceof Error ? e.message : "운송장 양식을 확인해주세요."}`);
+      }
+    } finally { if (version === fileVersion.current) setReadingFile(false); }
   }
 
+  async function submitTracking(rows: { order_number: string; tracking_number: string; carrier: string }[]) {
+    if (importing) return;
+    setImporting(true); setLoadError("");
+    try {
+      const res = await fetch("/api/admin/shipments/import", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }),
+      });
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data.failed)) throw Error(data.error || "송장 등록 결과를 확인하지 못했습니다. 목록 확인 후 재시도해주세요.");
+      setImportResult(data);
+      const failed = new Set(data.failed.map((r: {order_number:string}) => r.order_number));
+      setCsvRows(prev => prev.filter(r => failed.has(r.order_number)));
+      if (!data.failed.length) { setShowTrackModal(false); setModalTracking({}); }
+      await load(tab);
+    } catch (e) { setLoadError(e instanceof Error ? e.message : "송장 등록 실패"); }
+    finally { setImporting(false); }
+  }
   async function handleImport() {
-    if (csvRows.length === 0) return;
-    setImporting(true);
-    const rows = csvRows.map((r) => ({
-      order_number: r.order_number,
-      tracking_number: r.tracking_number,
-      carrier: resolveCarrier(r.carrier_raw) ?? carrierCode,
-    }));
-    const res = await fetch("/api/admin/shipments/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows }),
-    });
-    const data = await res.json();
-    setImportResult(data);
-    setCsvRows([]);
-    await load("preparing");
-    setImporting(false);
+    if (readingFile || importing || !csvRows.length) return;
+    const issues = trackingRowIssues(csvRows);
+    if(sharedOrders) for(const row of csvRows) {
+      const order = sharedOrders.find(o => o.order_number === row.order_number);
+      if(!order || !["preparing", "shipped"].includes(order.status)) issues.push(`${row.order_number}: 발주 확정된 배송준비 또는 배송중 주문인지 확인해주세요.`);
+    }
+    if (issues.length) { setLoadError(issues.join(" · ")); return; }
+    if (csvRows.some(r => r.carrier_raw && !resolveCarrier(r.carrier_raw))) {
+      setLoadError("인식하지 못한 택배사가 있습니다. 파일의 택배사 이름 또는 코드를 수정해주세요."); return;
+    }
+    await submitTracking(csvRows.map(r => ({order_number:r.order_number, tracking_number:r.tracking_number, carrier:resolveCarrier(r.carrier_raw) ?? carrierCode})));
   }
-
-  // 선택 주문에 운송장 직접 입력 → 배송중 (CSV import API 재사용)
   async function handleModalSubmit() {
-    const rows = orders
-      .filter((o) => selected.has(o.id))
-      .map((o) => ({ order_number: o.order_number, carrier: carrierCode, tracking_number: (modalTracking[o.id] || "").trim() }))
-      .filter((r) => r.tracking_number);
-    if (rows.length === 0) { alert("운송장번호를 하나 이상 입력해주세요."); return; }
-    setImporting(true);
-    const res = await fetch("/api/admin/shipments/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows }),
-    });
-    const data = await res.json();
-    setImportResult(data);
-    setShowTrackModal(false);
-    setModalTracking({});
-    await load("preparing");
-    setImporting(false);
+    const rows = orders.filter(o => selected.has(o.id)).map(o => ({order_number:o.order_number, carrier:carrierCode, tracking_number:(modalTracking[o.id] || "").trim()})).filter(r => r.tracking_number);
+    if (!rows.length) { setLoadError("운송장번호를 하나 이상 입력해주세요."); return; }
+    const issues = trackingRowIssues(rows);
+    if (issues.length) { setLoadError(issues.join(" · ")); return; }
+    await submitTracking(rows);
   }
 
   async function handleTrack() {
@@ -268,7 +263,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
       if (data.apiError) {
         alert(`배송추적 조회가 모두 실패했어요.\n\n사유: ${data.apiError}\n\nAPI 사용량(무료 한도) 초과가 흔한 원인이에요 — 스마트택배 플랜/키를 확인해주세요.`);
       }
-      if (data.delivered > 0) await load("shipped");
+      await load("shipped");
     } catch {
       alert("네트워크 문제로 배송추적 요청이 전달되지 않았어요. 다시 시도해주세요.");
     } finally {
@@ -279,14 +274,17 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   async function handleBulkDeliver() {
     if (selected.size === 0) return;
     if (!confirm(`선택한 ${selected.size}건을 배송완료 처리할까요?\n정산이 자동 생성됩니다.`)) return;
-    setDelivering(true);
-    await fetch("/api/admin/shipments/deliver", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderIds: [...selected] }),
-    });
-    await load("shipped");
-    setDelivering(false);
+    setDelivering(true); setLoadError("");
+    try {
+      const res = await fetch("/api/admin/shipments/deliver", {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderIds: [...selected] }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw Error(data.error || "배송완료 처리 실패");
+      if(data.updated !== selected.size) setLoadError(`배송완료 ${data.updated ?? 0}건 반영. 나머지는 현재 주문 상태를 확인해주세요.`);
+      await load("shipped");
+    } catch(e) { setLoadError(e instanceof Error ? e.message : "처리 결과를 확인해주세요."); }
+    finally { setDelivering(false); }
   }
 
   async function handleTabAction(action: string, label: string, deductShipping = false) {
@@ -319,7 +317,9 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
 
   return (
     <div>
+      {loadError && <p role="alert" className="bg-red-50 text-red-700 p-3 mb-3">{loadError} <button className="underline" onClick={() => load(tab)}>목록 다시 확인</button></p>}
       {/* 탭 + 사이트 필터 */}
+      {!sharedOrders && (
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex flex-wrap">
           {TABS.map((t, ti) => (
@@ -339,6 +339,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
         <span className="text-sm font-semibold text-[#2F5D34]">{SITES[siteFilter].name} 주문 {siteCounts[siteFilter] ?? 0}건</span>
       </div>
 
+      )}
       {/* ── 배송준비 탭 ── */}
       {tab === "preparing" && (
         <>
@@ -362,8 +363,9 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
               </select>
             </div>
 
+            {fileName && <p className="text-xs text-gray-600 mb-2" aria-live="polite">선택 파일: {fileName}{readingFile ? " · 읽는 중…" : ""}</p>}
             {csvRows.length === 0 ? (
-              <button onClick={() => fileRef.current?.click()}
+              <button disabled={importing} onClick={() => fileRef.current?.click()}
                 className="w-full border-2 border-dashed border-gray-200 rounded-none py-8 text-sm text-gray-400 hover:border-[#2D5A27] hover:text-[#7A8B6F] transition-colors">
                 엑셀/CSV 파일 선택 또는 클릭
               </button>
@@ -397,11 +399,11 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
                   </table>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={handleImport} disabled={importing}
+                  <button onClick={handleImport} disabled={importing || readingFile}
                     className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-none transition-colors">
                     {importing ? "처리 중..." : `${csvRows.length}건 배송중으로 변경`}
                   </button>
-                  <button onClick={() => setCsvRows([])}
+                  <button disabled={importing} onClick={() => { ++fileVersion.current; setCsvRows([]); setFileName(""); setReadingFile(false); }}
                     className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-none">
                     취소
                   </button>
@@ -409,7 +411,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
               </div>
             )}
 
-            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
+            <input ref={fileRef} disabled={importing} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
 
             {importResult && (
               <div className={`mt-3 px-4 py-3 rounded-none text-sm ${importResult.failed.length > 0 ? "bg-yellow-50" : "bg-green-50"}`}>
@@ -486,7 +488,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
 
       {/* ── 교환·반품 신청 탭 — 신청 상세(사유·사진·수거지) 보고 건별 처리 ── */}
       {(tab === "exchange_requested" || tab === "return_requested") && (
-        <ReturnsPanel key={tab} kind={tab === "exchange_requested" ? "exchange" : "return"} initialRequestId={tab === initialTab ? initialRequestId : undefined} />
+        <ReturnsPanel key={tab} kind={tab === "exchange_requested" ? "exchange" : "return"} compact={!!sharedOrders} refreshKey={sharedOrders} initialRequestId={tab === initialTab ? initialRequestId : undefined} onChanged={() => { void load(tab); }} />
       )}
 
       {/* ── 액션 탭 (취소요청) ── */}
@@ -585,7 +587,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
 function OrderTable({
   orders, loading, selected, onToggleAll, onToggle, onToggleGroup, showTracking = false, emptyText,
 }: {
-  orders: Order[];
+  orders: ShipmentOrder[];
   loading: boolean;
   selected: Set<string>;
   onToggleAll: () => void;
@@ -597,8 +599,8 @@ function OrderTable({
   const carrierName = (code: string | null) =>
     code ? libCarrierName(code) : "—";
 
-  if (loading) return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>;
-  if (orders.length === 0) return <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">{emptyText}</div>;
+  if (loading) return <div className="bg-white rounded-none border border-gray-100 p-6 text-center text-sm text-gray-400">불러오는 중...</div>;
+  if (orders.length === 0) return <div className="bg-white rounded-none border border-gray-100 p-6 text-center text-sm text-gray-400">{emptyText}</div>;
 
   return (
     <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
@@ -606,11 +608,11 @@ function OrderTable({
         <thead className="border-b border-gray-100 bg-gray-50">
           <tr>
             <th className="w-10 px-4 py-3">
-              <input type="checkbox"
+              {onToggleGroup && <input type="checkbox"
                 checked={selected.size === orders.length && orders.length > 0}
                 onChange={onToggleAll}
                 className="w-4 h-4 rounded accent-[#2D5A27]"
-              />
+              />}
             </th>
             <th className="text-left px-4 py-3 text-xs font-medium text-gray-400">주문번호</th>
             <th className="text-left px-4 py-3 text-xs font-medium text-gray-400">주문일</th>
@@ -626,10 +628,10 @@ function OrderTable({
             orders.reduce((m, o) => {
               // 그룹 이름은 본상품 기준 — 추가옵션 행이 첫 줄이어도 그룹이 쪼개지지 않게
               const key = (o.items.find((i) => i.product_id) ?? o.items[0])?.product_name ?? "기타";
-              if (!m.has(key)) m.set(key, [] as Order[]);
+              if (!m.has(key)) m.set(key, [] as ShipmentOrder[]);
               m.get(key)!.push(o);
               return m;
-            }, new Map<string, Order[]>())
+            }, new Map<string, ShipmentOrder[]>())
           ).flatMap(([productName, group]) => [
             (() => {
               const ids = group.map((g) => g.id);
@@ -652,8 +654,8 @@ function OrderTable({
             ...group.map((o) => (
             <tr key={o.id} className={`hover:bg-gray-50 transition-colors ${selected.has(o.id) ? "bg-[#EAF0E6]/40" : ""}`}>
               <td className="px-4 py-3">
-                <input type="checkbox" checked={selected.has(o.id)} onChange={() => onToggle(o.id)}
-                  className="w-4 h-4 rounded accent-[#2D5A27]" />
+                {onToggleGroup && <input type="checkbox" checked={selected.has(o.id)} onChange={() => onToggle(o.id)}
+                  className="w-4 h-4 rounded accent-[#2D5A27]" />}
               </td>
               <td className="px-4 py-3 font-mono text-xs text-gray-500">{o.order_number} <SiteBadge site={o.site} className="ml-1 font-sans" /></td>
               <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
