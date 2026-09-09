@@ -53,3 +53,6 @@ private-uploads/
 
 # 고객 업로드 파일 (리뷰·교환반품 사진 — 런타임 생성, 커밋 금지)
 /public/uploads/
+
+# Private Naver connectivity samples (runtime only)
+.naver-runtime/
