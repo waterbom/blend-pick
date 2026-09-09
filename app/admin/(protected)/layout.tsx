@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const admin = await verifyAdminToken(adminToken);
     if (admin) {
       return (
-        <div className="admin-commerce">
+        <div className="admin-commerce" data-admin-site={site.key}>
           <AdminSidebar siteKey={site.key} />
           <main className="commerce-main"><AdminWorkspaceHeader siteKey={site.key} /><div className="commerce-content">{children}</div></main>
         </div>
