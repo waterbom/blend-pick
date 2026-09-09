@@ -14,3 +14,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:admin-integrity
+      - run: npm run test:admin-charts

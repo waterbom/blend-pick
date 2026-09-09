@@ -1,3 +1,5 @@
+import SalesCharts from '@/components/admin/charts/SalesCharts';
+import { getSalesSummary } from '@/lib/sales-statistics';
 import { currentAdminSite } from "@/lib/admin-site";
 import { SITES, type SiteKey } from "@/lib/sites";
 import shopPool from "@/lib/db-shop";
@@ -5,19 +7,7 @@ import Link from "next/link";
 
 // 대시보드 — KPI 스트립(오늘 매출·주문·진행 공구·정산액) + 처리 대기 큐
 async function getStats(site: SiteKey) {
-  const [kpi, gongu, queue] = await Promise.all([
-    shopPool.query(`
-      SELECT
-        COALESCE(SUM(total_amount) FILTER (
-          WHERE (paid_at AT TIME ZONE 'Asia/Seoul')::date = (NOW() AT TIME ZONE 'Asia/Seoul')::date
-            AND status <> 'cancelled'), 0) AS today_sales,
-        COUNT(*) FILTER (
-          WHERE (paid_at AT TIME ZONE 'Asia/Seoul')::date = (NOW() AT TIME ZONE 'Asia/Seoul')::date) AS today_orders,
-        COUNT(*) FILTER (
-          WHERE (paid_at AT TIME ZONE 'Asia/Seoul')::date = (NOW() AT TIME ZONE 'Asia/Seoul')::date
-            AND status = 'cancelled') AS today_cancels
-      FROM orders WHERE site = $1
-    `, [site]),
+  const [gongu, queue] = await Promise.all([
     shopPool.query(`
       SELECT
         COUNT(*) FILTER (WHERE status = 'active' AND sale_type = 'groupbuy'
@@ -36,19 +26,22 @@ async function getStats(site: SiteKey) {
           WHERE o.site = $1 AND s.settled_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date) AS today_settlement
     `, [site, SITES.sanjipick.categories]),
   ]);
-  return { k: kpi.rows[0], g: gongu.rows[0], q: queue.rows[0] };
+  return { g: gongu.rows[0], q: queue.rows[0] };
 }
 
 const kstToday = () =>
   new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, ". ");
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({searchParams}:{searchParams:Promise<{days?:string}>}) {
   const site = await currentAdminSite();
-  const { k, g, q } = await getStats(site.key);
+  const params = await searchParams;
+  const days = ["1","7","30"].includes(params.days || "") ? Number(params.days) : 7;
+  const [{g,q}, sales] = await Promise.all([getStats(site.key),getSalesSummary(site.key,days).catch(()=>null)]);
 
+  const today = sales?.daily.at(-1);
   const kpis = [
-    { label: "오늘 매출", value: `${Number(k.today_sales).toLocaleString()}원`, sub: `취소 ${Number(k.today_cancels)}건 포함` },
-    { label: "오늘 주문", value: `${Number(k.today_orders)}건`, sub: "결제 기준" },
+    { label: "오늘 순 결제액", value: today?.net == null ? "확인 필요" : `${today.net.toLocaleString()}원`, sub: "배송비 포함 · 확인된 환불 반영" },
+    { label: "오늘 주문", value: today ? `${today.orders}건` : "—", sub: "실제 결제 기준 · 테스트 제외" },
     { label: "진행 중 공구", value: `${Number(g.live_gongu)}건`, sub: `오픈 예정 ${Number(g.upcoming)}건` },
     { label: "오늘 정산액", value: `${Number(q.today_settlement).toLocaleString()}원`, sub: "배송완료 기준" },
   ];
@@ -78,6 +71,8 @@ export default async function AdminDashboard() {
           </div>
         ))}
       </div>
+
+      {sales ? <SalesCharts data={sales}/> : <p role="alert" className="my-6 rounded-lg bg-amber-50 p-4 text-sm">매출 그래프를 불러오지 못했습니다. 새로고침 후 다시 확인해주세요.</p>}
 
       {/* 처리 대기 큐 */}
       <div className="mt-6 bg-white" style={{ border: "1px solid #E2E2DC" }}>

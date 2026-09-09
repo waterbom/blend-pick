@@ -1,3 +1,5 @@
+import MetricChart from '@/components/admin/charts/MetricChart';
+import { settlementPoints } from '@/lib/admin-chart-data';
 import { currentAdminSite } from "@/lib/admin-site";
 import type { SiteKey } from "@/lib/sites";
 import {settlementView} from "@/lib/settlement-view";
@@ -37,7 +39,8 @@ export default async function SettlementsPage({
   const all=await settlementView(site);
   const sum=(period?:string)=>all.filter(s=>inPeriod(s.settled_at,period)).reduce((n,s)=>n+Number(s.net_amount??0),0);
   const stats={today:sum('today'),this_week:sum('week'),this_month:sum('month'),total:sum(),total_fee:all.reduce((n,s)=>n+Number(s.fee),0)};
-  const settlements=all.filter(s=>inPeriod(s.settled_at,period)).slice(0,200);
+  const selected=all.filter(s=>inPeriod(s.settled_at,period));
+  const settlements=selected.slice(0,200);
   const unresolved=all.filter(s=>s.unresolved).length;
 
   const dashboardCards = [
@@ -108,6 +111,7 @@ export default async function SettlementsPage({
         })}
       </div>
 
+      <div className="mb-6"><MetricChart title="정산 예상액·수수료 추이" description="현재 선택 기간 전체 내역 · 한국시간 정산일 기준 · 60일 초과 범위는 월별 · 환불 미확인 구간은 빈 값 · 실제 입금액과 대조 필요" points={settlementPoints(selected)} series={[{label:'정산 예상액',color:'#315e43'},{label:'수수료',color:'#b87a28'}]} unit="won" kind="bar"/></div>
       {/* 정산 목록 테이블 */}
       <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
