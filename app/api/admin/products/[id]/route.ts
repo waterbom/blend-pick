@@ -1,3 +1,4 @@
+import { saveProductLogistics } from "@/lib/product-logistics";
 import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -26,7 +27,7 @@ export async function GET(_: Request, { params }: {
     if (!scoped.rows.length)
         return NextResponse.json({ error: "Not found" }, { status: 404 });
     const [product, images, options, addons] = await Promise.all([
-        shopPool.query("SELECT * FROM products_shop WHERE id = $1", [id]),
+        shopPool.query("SELECT p.*,to_jsonb(p)->>'expected_ship_date' AS expected_ship_date FROM products_shop p WHERE id = $1", [id]),
         shopPool.query("SELECT url, sort_order FROM product_images WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
         shopPool.query("SELECT id, name, extra_price, stock, sort_order, is_active, supply_price, link_price FROM product_options WHERE product_id = $1 AND removed_at IS NULL ORDER BY sort_order ASC", [id]),
         shopPool.query("SELECT id, name, extra_price, is_active, supply_price FROM product_addons WHERE product_id = $1 ORDER BY sort_order ASC", [id]),
@@ -180,6 +181,7 @@ export async function PATCH(req: Request, { params }: {
                 }
             }
         }
+        await saveProductLogistics(client, id, body);
         const saved = await client.query("SELECT updated_at FROM products_shop WHERE id=$1", [id]);
         await client.query("COMMIT");
         return NextResponse.json({ ok: true, updated_at: saved.rows[0].updated_at });

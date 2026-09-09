@@ -1,3 +1,4 @@
+import { postalRanges } from "@/lib/shipping";
 import { SITES, type SiteKey } from "@/lib/sites";
 export const money = (v: unknown) => (typeof v === 'number' || typeof v === 'string' && v.trim() !== '') && Number.isSafeInteger(Number(v)) && Number(v) >= 0 && Number(v) <= 2147483647;
 export function missingSupply(value: unknown, options: unknown): string | null {
@@ -13,6 +14,15 @@ export function productInputError(b: Record<string, unknown>, site: SiteKey): st
         return '상품명과 0 이상의 정수 판매가가 필요합니다.';
     if (typeof b.category !== 'string' || !b.category.trim() || (SITES.sanjipick.categories.includes(b.category) !== (site === 'sanjipick')))
         return '현재 사이트의 카테고리를 선택해주세요.';
+    if(b.supplier_name != null && (typeof b.supplier_name !== 'string' || b.supplier_name.trim().length>120)) return '공급사명을 120자 이내로 입력해주세요.';
+    if(b.expected_ship_date != null && b.expected_ship_date !== '' && (typeof b.expected_ship_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.expected_ship_date) || !Number.isFinite(Date.parse(b.expected_ship_date)) || new Date(b.expected_ship_date).toISOString().slice(0,10)!==b.expected_ship_date)) return '출고 예정일을 확인해주세요.';
+    if(b.shipping_type != null && !['free','paid','conditional_free','per_unit'].includes(String(b.shipping_type))) return '배송비 유형을 확인해주세요.';
+    for(const field of ['free_shipping_threshold','return_cost_oneway','return_cost_roundtrip','exchange_cost_oneway','exchange_cost_roundtrip']){
+      if(b[field]!=null&&b[field]!==''&&!money(b[field]))return '배송·반품·교환 비용은 0 이상의 정수로 입력해주세요.';
+    }
+    if(b.shipping_type==='conditional_free'&&(!money(b.free_shipping_threshold)||Number(b.free_shipping_threshold)<=0))return '무료배송 기준금액을 1원 이상의 정수로 입력해주세요.';
+    if(b.remote_zipcodes!=null&&typeof b.remote_zipcodes!=='string')return '추가 배송 지역을 확인해주세요.';
+    try{const ranges=postalRanges(String(b.remote_zipcodes||''));if(Number(b.island_shipping_cost)>0&&!ranges.length)return '도서산간 추가비를 적용할 우편번호를 입력해주세요.';}catch(e){return (e as Error).message;}
     const supply = missingSupply(b.supply_price, b.options);
     if (supply)
         return supply;

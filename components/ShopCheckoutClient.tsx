@@ -1,5 +1,7 @@
 "use client";
 
+import { useShippingQuote } from "@/lib/use-shipping-quote";
+import ShippingQuoteSummary from "@/components/ShippingQuoteSummary";
 import { validateBuyerName } from "@/lib/validate-name";
 import { tossMobilePhone, payErrorMessage } from "@/lib/pay-utils";
 import { useState } from "react";
@@ -33,8 +35,8 @@ export default function ShopCheckoutClient({
   optionLabel,
   unitPrice,
   quantity,
-  shippingCost,
-  totalAmount,
+  shippingCost: initialShippingCost,
+  totalAmount: initialTotalAmount,
   orderName,
   clientKey,
   phoneVerifyRequired = false,
@@ -55,6 +57,10 @@ export default function ShopCheckoutClient({
     sameAsBuyer: false,
   });
 
+  const delivery=useShippingQuote([{product_id:productId,option_id:optionId,quantity,link_code:linkCode}],form.shippingZipcode,unitPrice*quantity);
+  const shippingCost=delivery.quote?.shippingCost??initialShippingCost;
+  const totalAmount=delivery.quote?.totalAmount??initialTotalAmount;
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
@@ -69,6 +75,7 @@ export default function ShopCheckoutClient({
   }
 
   async function handlePay() {
+    if(!delivery.ready)return;
     if (!privacyAgreed) {
       alert("개인정보 수집·이용에 동의해주세요.");
       return;
@@ -89,6 +96,9 @@ export default function ShopCheckoutClient({
     }
     setLoading(true);
 
+    try{
+    const fresh=await delivery.refresh();
+    if(fresh.totalAmount!==totalAmount||fresh.shippingCost!==shippingCost||fresh.installationCost!==delivery.quote!.installationCost){alert("배송·설치비가 변경되었습니다. 갱신된 금액을 확인하고 다시 결제해주세요.");setLoading(false);return;}
     const checkoutData = {
       influencerId: influencerId ?? null, // 인플루언서 귀속 (결제 승인 시 서버가 검증 후 도장)
       linkCode, // 비밀링크 코드 — 승인 전 금액 검증이 이 코드로 링크가를 다시 계산한다
@@ -98,8 +108,8 @@ export default function ShopCheckoutClient({
       optionLabel: optionLabel || null,
       unitPrice,
       quantity,
-      shippingCost,
-      totalAmount,
+      shippingCost:fresh.shippingCost,
+      totalAmount:fresh.totalAmount,
       customerName: form.customerName,
       customerPhone: form.customerPhone,
       customerEmail: form.customerEmail,
@@ -115,12 +125,11 @@ export default function ShopCheckoutClient({
 
     const orderId = crypto.randomUUID();
 
-    try {
       const tossPayments = await loadTossPayments(clientKey);
       const payment = tossPayments.payment({ customerKey: "ANONYMOUS" });
       await payment.requestPayment({
         method: "CARD",
-        amount: { currency: "KRW", value: totalAmount },
+        amount: { currency: "KRW", value: fresh.totalAmount },
         orderId,
         orderName,
         successUrl: `${window.location.origin}/checkout/shop-success`,
@@ -246,13 +255,10 @@ export default function ShopCheckoutClient({
             <span>상품 금액</span>
             <span>{(unitPrice * quantity).toLocaleString()}원</span>
           </div>
-          <div className="flex justify-between">
-            <span>배송비</span>
-            <span>{shippingCost === 0 ? "무료" : `${shippingCost.toLocaleString()}원`}</span>
-          </div>
+          <ShippingQuoteSummary quote={delivery.quote} error={delivery.error} retry={()=>{void delivery.refresh().catch(()=>{});}} />
           <div className="flex justify-between items-baseline pt-2 mt-1" style={{ borderTop: "1px solid var(--line)" }}>
             <span className="font-bold" style={{ color: "var(--text-primary)" }}>총 결제 금액</span>
-            <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>{totalAmount.toLocaleString()}원</span>
+            <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>{delivery.ready?`${totalAmount.toLocaleString()}원`:"배송지 확인 후 확정"}</span>
           </div>
         </div>
         <div className="mt-3.5">
@@ -260,11 +266,11 @@ export default function ShopCheckoutClient({
         </div>
         <button
           onClick={handlePay}
-          disabled={loading}
+          disabled={loading || !delivery.ready}
           className="w-full text-white font-bold py-4 rounded-2xl transition-all hover:brightness-95 disabled:opacity-40"
           style={{ background: "var(--accent)" }}
         >
-          {loading ? "처리 중..." : `${totalAmount.toLocaleString()}원 결제하기`}
+          {loading ? "처리 중..." : !delivery.ready?"배송비 확인 대기":`${totalAmount.toLocaleString()}원 결제하기`}
         </button>
       </section>
     </div>

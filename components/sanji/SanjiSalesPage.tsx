@@ -218,7 +218,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         link_code: linkCode,
       };
     });
-    sessionStorage.setItem("cartCheckoutData", JSON.stringify({ items, totalAmount: itemsTotal, shippingCost: shipping, influencerId, linkCode }));
+    sessionStorage.setItem("cartCheckoutData", JSON.stringify({ fromCart:false, items, totalAmount: itemsTotal, shippingCost: shipping, influencerId, linkCode }));
     router.push("/cart/checkout");
   }
 
@@ -606,7 +606,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
               </div>
             )}
             <div className="sp-total">
-              <span>총 {totalCount}개{shipping > 0 ? ` · 배송비 ${won(shipping)}` : " · 무료배송"}</span>
+              <span>예상 {totalCount}개 · 지역 추가비·설치비 별도{shipping > 0 ? ` · 배송비 ${won(shipping)}` : " · 무료배송"}</span>
               <b>{won(itemsTotal + shipping)}</b>
             </div>
             <button className="sp-buy" style={{ width: "100%" }} disabled={!canBuy || going} onClick={checkout}>

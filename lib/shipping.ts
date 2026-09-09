@@ -1,81 +1,65 @@
-// 배송비 계산 — 상품 상세·단품 결제·장바구니가 전부 이 함수를 쓴다 (어드민 배송비 설정과 1:1)
-//
-// shipping_type
-//  · free              : 무료
-//  · paid              : shipping_cost 고정
-//  · conditional_free  : 상품 금액이 free_shipping_threshold 이상이면 무료, 미만이면 shipping_cost
-//  · per_unit          : 1건 무료, 2건째부터 건당 per_unit_shipping_cost 추가 (합배송)
-
+// Shared delivery calculation. Regional tariffs are explicit merchant-configured postal ranges.
 export interface ShippingRule {
   shipping_type: string;
   shipping_cost: number | null;
   free_shipping_threshold?: number | null;
   per_unit_shipping_cost?: number | null;
+  supplier_name?: string | null;
+  release_address?: string | null;
+  shipping_carrier?: string | null;
+  island_shipping_cost?: number | null;
+  remote_zipcodes?: string | null;
+  installation_cost?: number | null;
 }
-
-// 한 상품 기준 배송비 — qty: 그 상품 총 수량(옵션 합산), subtotal: 그 상품 금액 합
-export function productShippingFee(r: ShippingRule, qty: number, subtotal: number): number {
-  const cost = Number(r.shipping_cost) || 0;
-  switch (r.shipping_type) {
-    case "free":
-      return 0;
-    case "conditional_free": {
-      const th = Number(r.free_shipping_threshold) || 0;
-      return th > 0 && subtotal >= th ? 0 : cost;
-    }
-    case "per_unit": {
-      const per = Number(r.per_unit_shipping_cost) || 0;
-      return Math.max(0, qty - 1) * per;
-    }
-    default: // paid
-      return cost;
+export function postalRanges(value:string):[string,string][] {
+  if(!value.trim()) return [];
+  if(value.length>12000)throw Error('추가 배송 지역은 12,000자 이내로 입력해주세요.');
+  return value.trim().split(/[\s,;]+/).map(part=>{
+    const m=/^(\d{5})(?:-(\d{5}))?$/.exec(part);
+    if(!m||m[1]>(m[2]||m[1]))throw Error('추가 배송 지역은 5자리 우편번호 또는 시작-종료 범위로 입력해주세요.');
+    return [m[1],m[2]||m[1]];
+  });
+}
+export function regionalShippingFee(r:ShippingRule,zipcode?:string):number {
+  const cost=Number(r.island_shipping_cost)||0;
+  if(!cost)return 0;
+  const ranges=postalRanges(r.remote_zipcodes||'');
+  if(!ranges.length)throw Error('이 상품은 배송비 확인 후 주문할 수 있습니다. 판매자에게 문의해주세요.');
+  if(!zipcode)return 0; // Product-page estimate only; payment verification requires a destination.
+  if(!/^\d{5}$/.test(zipcode))throw Error('주소 검색으로 배송지를 다시 선택해주세요.');
+  return ranges.some(([a,b])=>zipcode>=a&&zipcode<=b)?cost:0;
+}
+export function productShippingFee(r:ShippingRule,qty:number,subtotal:number):number {
+  const cost=Number(r.shipping_cost)||0;
+  switch(r.shipping_type){
+    case 'free':return 0;
+    case 'conditional_free':return Number(r.free_shipping_threshold)>0&&subtotal>=Number(r.free_shipping_threshold)?0:cost;
+    case 'per_unit':return Math.max(0,qty-1)*(Number(r.per_unit_shipping_cost)||0);
+    default:return cost;
   }
 }
-
-// 상품 상세 배송 안내 문구
-export function shippingLabel(r: ShippingRule): string {
-  const cost = Number(r.shipping_cost) || 0;
-  switch (r.shipping_type) {
-    case "free":
-      return "무료배송";
-    case "conditional_free": {
-      const th = Number(r.free_shipping_threshold) || 0;
-      return th > 0
-        ? `${th.toLocaleString()}원 이상 무료배송 (미만 ${cost.toLocaleString()}원)`
-        : `배송비 ${cost.toLocaleString()}원`;
-    }
-    case "per_unit": {
-      const per = Number(r.per_unit_shipping_cost) || 0;
-      return `1건 무료배송 · 2건째부터 건당 ${per.toLocaleString()}원`;
-    }
-    default:
-      return `배송비 ${cost.toLocaleString()}원`;
-  }
+export function shippingLabel(r:ShippingRule):string {
+  const cost=Number(r.shipping_cost)||0,th=Number(r.free_shipping_threshold)||0;
+  const base=r.shipping_type==='free'?'무료배송':r.shipping_type==='conditional_free'&&th>0?`${th.toLocaleString()}원 이상 무료배송 (미만 ${cost.toLocaleString()}원)`:r.shipping_type==='per_unit'?`1건 무료배송 · 2건째부터 건당 ${(Number(r.per_unit_shipping_cost)||0).toLocaleString()}원`:`배송비 ${cost.toLocaleString()}원`;
+  return base+(Number(r.island_shipping_cost)>0?` · 지정 지역 추가 ${Number(r.island_shipping_cost).toLocaleString()}원`:'')+(Number(r.installation_cost)>0?` · 설치비 개당 ${Number(r.installation_cost).toLocaleString()}원`:'');
 }
-
-export interface CartFeeItem extends ShippingRule {
-  product_id: string;
-  quantity: number;
-  unit_price: number; // 옵션 추가금 반영된 단가
+export interface CartFeeItem extends ShippingRule {product_id:string;quantity:number;unit_price:number;}
+const norm=(v:string|null|undefined)=>(v||'').trim().replace(/\s+/g,' ');
+function shippingGroup(r:CartFeeItem):string {
+  const parts=[norm(r.supplier_name),norm(r.release_address),norm(r.shipping_carrier)];
+  return parts.every(Boolean)?JSON.stringify(parts):'product:'+r.product_id;
 }
-
-// 장바구니 배송비 — 같은 상품(옵션 여러 개)은 한 묶음으로 계산.
-//  · paid / conditional_free(미달): 여러 상품이 섞여도 배송비는 한 번만 (가장 큰 값) — 기존 동작 유지
-//  · per_unit: 상품별로 (수량−1)×건별 배송비를 각각 더함
-export function cartShippingFee(items: CartFeeItem[]): number {
-  const groups = new Map<string, { rule: ShippingRule; qty: number; subtotal: number }>();
-  for (const it of items) {
-    const g = groups.get(it.product_id) ?? { rule: it, qty: 0, subtotal: 0 };
-    g.qty += it.quantity;
-    g.subtotal += it.unit_price * it.quantity;
-    groups.set(it.product_id, g);
+export function cartShippingBreakdown(items:CartFeeItem[],zipcode?:string){
+  const products=new Map<string,{rule:CartFeeItem;qty:number;subtotal:number}>();
+  for(const it of items){const g=products.get(it.product_id)||{rule:it,qty:0,subtotal:0};g.qty+=it.quantity;g.subtotal+=it.unit_price*it.quantity;products.set(it.product_id,g);}
+  const bundles=new Map<string,{flat:number;perUnit:number;regional:number}>();
+  for(const g of products.values()){
+    const key=shippingGroup(g.rule),b=bundles.get(key)||{flat:0,perUnit:0,regional:0};
+    const fee=productShippingFee(g.rule,g.qty,g.subtotal);
+    if(g.rule.shipping_type==='per_unit')b.perUnit+=fee;else b.flat=Math.max(b.flat,fee);
+    b.regional=Math.max(b.regional,regionalShippingFee(g.rule,zipcode));bundles.set(key,b);
   }
-  let flat = 0;
-  let perUnit = 0;
-  for (const g of groups.values()) {
-    const fee = productShippingFee(g.rule, g.qty, g.subtotal);
-    if (g.rule.shipping_type === "per_unit") perUnit += fee;
-    else flat = Math.max(flat, fee);
-  }
-  return flat + perUnit;
+  const base=[...bundles.values()].reduce((n,b)=>n+b.flat+b.perUnit,0),regional=[...bundles.values()].reduce((n,b)=>n+b.regional,0);
+  return {base,regional,total:base+regional,bundles:bundles.size};
 }
+export function cartShippingFee(items:CartFeeItem[],zipcode?:string):number{return cartShippingBreakdown(items,zipcode).total;}

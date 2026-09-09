@@ -34,7 +34,7 @@ export async function shopCheckout(req: NextRequest, kind: 'shop' | 'cart') {
         const items: CartAmountItem[] = kind === 'cart' ? (Array.isArray(d.items) ? d.items : []) : [{ product_id: d.productId, option_id: d.optionId, quantity: d.quantity, link_code: d.linkCode }];
         if (!items.length || items.length > 100)
             throw new PurchaseError('상품 목록을 확인해주세요.', 400);
-        const cartIds: string[] = kind === 'cart' ? d.items.map((i: {
+        const cartIds: string[] = kind === 'cart' && d.fromCart !== false ? d.items.map((i: {
             id?: string;
         }) => i.id).filter((id: unknown) => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)) : [];
         if (cartIds.length) {
@@ -62,7 +62,7 @@ export async function shopCheckout(req: NextRequest, kind: 'shop' | 'cart') {
                 throw new PurchaseError('같은 결제가 처리 중입니다. 잠시 후 다시 확인해주세요.');
             const ids = [...new Set(items.filter(i => i.product_id && !i.is_addon).map(i => i.product_id))].sort();
             await c.query('SELECT id FROM products_shop WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE', [ids]);
-            const checked = kind === 'shop' ? await verifySingleAmount({ site, productId: d.productId, optionId: d.optionId, quantity: d.quantity, unitPrice: d.unitPrice, shippingCost: d.shippingCost, totalAmount: d.totalAmount, amount, linkCode: d.linkCode }, c) : await verifyCartAmount({ site, items, totalAmount: d.totalAmount, shippingCost: d.shippingCost, amount }, c);
+            const checked = kind === 'shop' ? await verifySingleAmount({ site, productId: d.productId, optionId: d.optionId, quantity: d.quantity, unitPrice: d.unitPrice, shippingCost: d.shippingCost, shippingZipcode:d.shippingZipcode, totalAmount: d.totalAmount, amount, linkCode: d.linkCode }, c) : await verifyCartAmount({ site, items, totalAmount: d.totalAmount, shippingCost: d.shippingCost, shippingZipcode:d.shippingZipcode, amount }, c);
             if (!checked.ok)
                 throw new PurchaseError(checked.error, 400);
             for (const i of checked.snapshots.filter(i => i.productId).sort((a, b) => a.productId!.localeCompare(b.productId!))) {

@@ -59,8 +59,9 @@ export async function GET(req: Request) {
       o.tracking_number,
       o.influencer_name,
       o.link_code, o.sales_channel, o.link_start_at, o.link_end_at,
-      o.created_at,
-      json_agg(
+      o.created_at, o.paid_at, (o.payment_key IS NOT NULL AND o.payment_key<>'' AND o.payment_key NOT LIKE 'SIM_%') AS payment_verified,
+      EXISTS(SELECT 1 FROM refund_operations r WHERE r.order_id=o.id AND r.status NOT IN ('completed','rejected')) AS pending_refunds,
+      COALESCE(json_agg(
         json_build_object(
           'id', oi.id,
           'product_id', oi.product_id,
@@ -68,11 +69,11 @@ export async function GET(req: Request) {
           'product_code', ps.product_code,
           'option_label', COALESCE(oi.option_label, po.value),
           'unit_price', oi.unit_price,
-          'quantity', oi.quantity
+          'quantity', oi.quantity, 'supplier_name', to_jsonb(ps)->>'supplier_name', 'expected_ship_date', to_jsonb(ps)->>'expected_ship_date'
         ) ORDER BY (oi.product_id IS NULL), oi.id
-      ) AS items
+      ) FILTER (WHERE oi.id IS NOT NULL),'[]'::json) AS items
     FROM orders o
-    JOIN order_items oi ON oi.order_id = o.id
+    LEFT JOIN order_items oi ON oi.order_id = o.id
     LEFT JOIN products_shop ps ON ps.id = oi.product_id
     LEFT JOIN product_options po ON po.id = oi.option_id
     ${where}
@@ -94,6 +95,7 @@ export async function PATCH(req: Request) {
     }
     if (!(await adminOrderIdsBelong(orderIds, site)))
         return NextResponse.json({ error: "이 사이트의 주문을 찾을 수 없습니다." }, { status: 404 });
+    if(action === "dispatch") return NextResponse.json({error:"발주 확정 화면에서 주문을 재확인해주세요."},{status:409});
     const TRANSITIONS: Record<string, {
         from: string;
         to: string;

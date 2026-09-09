@@ -1,3 +1,4 @@
+import { productStage, STAGE_LABEL, linkStage } from "@/lib/admin-workflow";
 import Link from "next/link";
 import shopPool from "@/lib/db-shop";
 import ProductDeleteButton from "@/components/admin/ProductDeleteButton";
@@ -17,7 +18,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 async function getProducts(site: SiteKey) {
   const c = adminProductScopeSql(site, "category", 1);
   const result = await shopPool.query(`
-    SELECT id, name, brand, price, stock, status, main_image, product_code, created_at, link_price, link_code, link_start_at, link_end_at
+    SELECT id, name, brand, category, sale_type, sale_start_at, sale_end_at, price, stock, status, main_image, product_code, created_at, link_price, link_code, link_start_at, link_end_at
     FROM products_shop
     WHERE ${c.sql} AND archived_at IS NULL
     ORDER BY created_at DESC
@@ -28,11 +29,13 @@ async function getProducts(site: SiteKey) {
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string }>;
+  searchParams: Promise<{ f?: string; q?:string; category?:string; sale?:string; link?:string }>;
 }) {
   const site = await currentAdminSite();
   const all = await getProducts(site.key);
-  const { f = "" } = await searchParams;
+  const filters = await searchParams;
+  const f = filters.f ?? "selling";
+  const now = Date.now();
   // 재고 확인 필요 = 판매중인데 재고 0 (이상 상태 경고)
   const warn = all.filter((p) => p.status === "active" && Number(p.stock) === 0);
   // 비전시 링크 = 상품은 평소처럼 전시되고, 전용 가격으로 파는 비공개 링크가 발급된 상품
@@ -44,19 +47,16 @@ export default async function AdminProductsPage({
     warn: warn.length,
     linked: linked.length,
   };
-  const products =
-    f === "active" ? all.filter((p) => p.status === "active")
-    : f === "soldout" ? all.filter((p) => p.status === "soldout")
-    : f === "warn" ? warn
-    : f === "linked" ? linked
-    : all;
-  const TABS = [
-    { key: "", label: `전체 ${counts.all}` },
-    { key: "active", label: `판매중 ${counts.active}` },
-    { key: "soldout", label: `품절 ${counts.soldout}` },
-    ...(site.key === "sanjipick" ? [{ key: "linked", label: `비전시 링크 ${counts.linked}` }] : []),
-    { key: "warn", label: `재고 확인 필요 ${counts.warn}`, warn: true },
-  ];
+  const products = all.filter(p=> {
+    if (f === "active" ? productStage(p,now)!=="selling" : f === "soldout" ? productStage(p,now)!=="closed" : f === "warn" ? !(p.status==="active"&&Number(p.stock)===0) : f === "linked" ? linkStage(p,now)==="없음" : ["ready","selling","closed"].includes(f) && productStage(p,now)!==f) return false;
+    if(filters.category && p.category!==filters.category)return false;
+    if(filters.sale && p.sale_type!==filters.sale)return false;
+    if(filters.link && linkStage(p,now)!==filters.link)return false;
+    return !filters.q || [p.name,p.brand,p.product_code].some(v=>String(v||'').toLowerCase().includes(filters.q!.toLowerCase()));
+  });
+  const TABS = (["ready","selling","closed"] as const).map(key=>({key,label:`${STAGE_LABEL[key]} ${all.filter(p=>productStage(p,now)===key).length}`,warn:false}));
+  function tabUrl(key:string){const p=new URLSearchParams();for(const [k,v] of Object.entries(filters))if(v)p.set(k,v);p.set('f',key);return '/admin/products?'+p;}
+
 
   return (
     <div>
@@ -93,7 +93,7 @@ export default async function AdminProductsPage({
         {TABS.map((t, i) => {
           const active = f === t.key;
           return (
-            <Link key={t.key} href={t.key ? `/admin/products?f=${t.key}` : "/admin/products"}
+            <Link key={t.key} href={tabUrl(t.key)}
               className="px-4 py-2 text-xs font-semibold transition-colors"
               style={{
                 border: "1px solid",
@@ -108,11 +108,19 @@ export default async function AdminProductsPage({
         })}
       </div>
 
+      <form className="mb-4 rounded-xl border bg-white p-4 flex flex-wrap gap-3" action="/admin/products">
+        <input type="hidden" name="f" value={f}/><input name="q" defaultValue={filters.q} placeholder="상품명·브랜드·코드 검색" aria-label="상품 검색" className="border rounded-lg px-3 py-2"/>
+        <details className="text-sm"><summary className="cursor-pointer py-2">상세 필터</summary><div className="flex flex-wrap gap-2 py-2">
+          <select name="category" defaultValue={filters.category||''} aria-label="상품 분류" className="border p-2"><option value="">분류 전체</option>{[...new Set(all.map(p=>p.category).filter(Boolean))].map(c=><option key={c} value={c}>{c}</option>)}</select>
+          <select name="sale" defaultValue={filters.sale||''} aria-label="판매 방식" className="border p-2"><option value="">판매방식 전체</option><option value="always">상시 판매</option><option value="groupbuy">공동구매</option></select>
+          {site.key==='sanjipick'&&<select name="link" defaultValue={filters.link||''} aria-label="비전시 링크" className="border p-2"><option value="">비전시 링크 전체</option>{['없음','예약','사용 중','만료'].map(v=><option key={v}>{v}</option>)}</select>}
+        </div></details><button className="rounded-lg bg-stone-800 text-white px-4 py-2">조회</button><a className="text-sm underline p-2" href="/admin/products?f=all">전체 이력</a>
+      </form>
       {/* 테이블 */}
       <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
         {products.length === 0 ? (
           <div className="text-center py-16 text-gray-400 text-sm">
-            등록된 상품이 없어요
+            조건에 맞는 상품이 없어요
           </div>
         ) : (
           <table className="w-full min-w-[720px] text-sm">
@@ -129,7 +137,8 @@ export default async function AdminProductsPage({
             </thead>
             <tbody className="divide-y divide-gray-50">
               {products.map((p) => {
-                const s = STATUS_LABEL[p.status] ?? { label: p.status, color: "bg-gray-100 text-gray-500" };
+                const stage = productStage(p,now);
+                const s = {label:STAGE_LABEL[stage],color:stage==="selling"?"bg-green-100 text-green-700":"bg-gray-100 text-gray-500"};
                 return (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">

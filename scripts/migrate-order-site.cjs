@@ -41,6 +41,8 @@ const pool = new Pool({ connectionString: conn, ssl: { rejectUnauthorized: false
     await client.query(fs.readFileSync(path.join(__dirname, "secret-link.sql"), "utf8"));
     await client.query(fs.readFileSync(path.join(__dirname, "secret-link-periods.sql"), "utf8"));
     await client.query(fs.readFileSync(path.join(__dirname, "admin-integrity.sql"), "utf8"));
+    await client.query(fs.readFileSync(path.join(__dirname, "admin-workflow.sql"), "utf8"));
+    await client.query(fs.readFileSync(path.join(__dirname, "shipping-fees.sql"), "utf8"));
     await client.query("COMMIT");
     console.log("✅ 사이트별 장바구니·로그인 복귀 준비 완료");
     console.log("✅ 관리자 비용·정산 사이트 분리 준비 완료");

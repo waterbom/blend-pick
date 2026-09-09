@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { orderQueue, dispatchIssues } from "@/lib/admin-workflow";
 import Link from "next/link";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
@@ -16,6 +17,7 @@ interface OrderItem {
   option_label: string | null;
   unit_price: number;
   quantity: number;
+  supplier_name?: string | null; expected_ship_date?: string | null;
 }
 
 interface Order {
@@ -39,6 +41,7 @@ interface Order {
   influencer_name: string | null;
   link_code?: string | null; // 비밀링크(링크가)로 결제된 주문이면 그 코드
   created_at: string;
+  paid_at?: string | null; payment_verified?: boolean; pending_refunds?: boolean; sales_channel?: string;
   items: OrderItem[];
 }
 
@@ -83,7 +86,7 @@ const isCampaign = (o: { order_type: string; influencer_name: string | null }) =
 const COLUMNS = [
   "주문일시", "주문일자", "주문시간", "주문번호", "구매자", "구매자번호",
   "수령인", "수령인번호", "수령인주소", "우편번호", "배송메모",
-  "상품명", "선택옵션", "선택수량", "판매금액", "배송비", "총 결제 금액", "구매 구분", "비전시 링크 코드",
+  "상품명", "선택옵션", "선택수량", "판매금액", "배송비", "총 결제 금액", "구매 구분", "비전시 링크 코드", "발주 공급사", "출고 예정일",
 ];
 
 // 발주용 엑셀(.xlsx) 행 데이터 — 수량·금액은 숫자 셀
@@ -120,14 +123,18 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
         idx === 0 ? Number(o.total_amount) - Number(o.shipping_fee ?? 0) : "",
         idx === 0 ? Number(o.shipping_fee ?? 0) : "",
         idx === 0 ? Number(o.total_amount) : "",
-        o.link_code ? "비전시" : "전시", o.link_code ?? "",
+        (o.sales_channel ?? (o.link_code?"non_display":"display")) === "non_display" ? "비전시" : "전시", o.link_code ?? "", item.supplier_name || "미지정", item.expected_ship_date?.slice(0,10) || "미지정",
       ]);
     });
   }
-  return rows;
+  return rows.sort((a,b)=>String(a[a.length-2]).localeCompare(String(b[b.length-2]),"ko") || String(a[a.length-1]).localeCompare(String(b[b.length-1])));
 }
 
 export default function OrdersClient() {
+  const [queue, setQueue] = useState("ready");
+  const [loadError, setLoadError] = useState("");
+  const [batches, setBatches] = useState<{id:string;request_key:string;created_at:string;order_count:number}[]>([]);
+  const pendingDispatch = useRef<{key:string;ids:string[]} | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -151,28 +158,27 @@ export default function OrdersClient() {
     } catch { /* 배지 갱신 실패는 무시 — 다음 로드에서 다시 시도 */ }
   }
 
-  async function load(status = "") {
-    setLoading(true);
-    const res = await fetch(`/api/admin/orders${status ? `?status=${status}` : ""}`);
-    const data = await res.json();
-    setOrders(data);
-    setSelected(new Set());
-    setLoading(false);
-    loadReqCounts();
+  async function loadBatches(){try{const r=await fetch("/api/admin/dispatches");if(!r.ok)throw Error();const rows=await r.json();setBatches(rows);if(rows.some((b:{request_key:string})=>b.request_key===pendingDispatch.current?.key))pendingDispatch.current=null;}catch{setLoadError("발주 이력을 불러오지 못했습니다. 새로고침해주세요.");}}
+  async function load(_status = "") {
+    setLoading(true);setLoadError("");
+    try{const res=await fetch("/api/admin/orders");const data=await res.json();if(!res.ok||!Array.isArray(data))throw Error();setOrders(data);setSelected(new Set());loadReqCounts();}
+    catch{setOrders([]);setLoadError("주문을 불러오지 못했습니다. 새로고침해주세요.");}
+    finally{setLoading(false);}
   }
-
-  useEffect(() => { load(statusFilter); }, [statusFilter]);
-
+  useEffect(() => { load();loadBatches(); }, []);
   // 검색 — 주문번호·구매자·수령인·연락처·상품명·옵션·인플루언서 통합
   const [query, setQuery] = useState("");
+  useEffect(()=>{setSelected(new Set());},[queue,statusFilter,typeFilter,channelFilter,query]);
   const siteOf = (o: Order) => o.site || "blendpick";
   const visibleOrders = useMemo(() => {
     let list =
       typeFilter === "campaign" ? orders.filter(isCampaign)
       : typeFilter === "shop" ? orders.filter((o) => !isCampaign(o))
       : orders;
+    if(queue!=="history")list=list.filter(o=>orderQueue(o)===queue);
+    if(statusFilter)list=list.filter(o=>o.status===statusFilter);
     if (siteFilter) list = list.filter((o) => siteOf(o) === siteFilter);
-    if (channelFilter) list = list.filter(o=>(o.link_code ? "non_display" : "display") === channelFilter);
+    if (channelFilter) list = list.filter(o=>(o.sales_channel ?? (o.link_code ? "non_display" : "display")) === channelFilter);
     const q = query.trim().toLowerCase();
     if (q) {
       const qDigits = q.replace(/[^0-9]/g, "");
@@ -192,23 +198,7 @@ export default function OrdersClient() {
       );
     }
     return list;
-  }, [orders, typeFilter, siteFilter, query, channelFilter]);
-
-  const typeCounts = useMemo(() => {
-    let shop = 0, campaign = 0;
-    for (const o of orders) {
-      if (isCampaign(o)) campaign++;
-      else shop++;
-    }
-    return { all: orders.length, shop, campaign };
-  }, [orders]);
-
-  // 사이트별 건수 (블랜드픽/산지픽) — 현재 상태 탭 기준
-  const siteCounts = useMemo(() => {
-    const c: Record<string, number> = { "": orders.length, blendpick: 0, sanjipick: 0 };
-    for (const o of orders) c[siteOf(o)] = (c[siteOf(o)] ?? 0) + 1;
-    return c;
-  }, [orders]);
+  }, [orders, typeFilter, siteFilter, query, channelFilter, queue, statusFilter]);
 
   const groups = useMemo(() => {
     const map = new Map<string, Order[]>();
@@ -221,18 +211,6 @@ export default function OrdersClient() {
     }
     return map;
   }, [visibleOrders]);
-
-  const counts = useMemo(() => {
-    const c = {
-      paid: 0, confirmed: 0, preparing: 0, delivered: 0,
-      cancel_requested: 0, exchange_requested: 0, return_requested: 0,
-      total: orders.length,
-    };
-    for (const o of orders) {
-      if (o.status in c) (c as Record<string, number>)[o.status]++;
-    }
-    return c;
-  }, [orders]);
 
   function toggleOrder(id: string) {
     setSelected((prev) => {
@@ -281,12 +259,7 @@ export default function OrdersClient() {
     if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?${extra}`)) return;
     setActing(true);
 
-    if (withCSV) {
-      const selectedOrders = orders.filter((o) => selected.has(o.id));
-      const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      await downloadXlsx(`발주_${date}.xlsx`, COLUMNS, toOrderRows(selectedOrders), "발주");
-    }
-
+    try {
     const res = await fetch("/api/admin/orders", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -296,20 +269,9 @@ export default function OrdersClient() {
     if (!res.ok || d.error) alert(d.error || "처리에 실패했어요.");
 
     await load(statusFilter);
-    setActing(false);
+    } catch { alert("처리 결과를 확인하지 못했습니다. 새로고침해 상태를 확인해주세요."); } finally { setActing(false); }
   }
 
-  const dashTabs = [
-    { key: "paid",      label: "신규주문", count: counts.paid },
-    { key: "confirmed", label: "주문확인", count: counts.confirmed },
-    { key: "preparing", label: "배송준비", count: counts.preparing },
-    { key: "delivered", label: "배송완료", count: counts.delivered },
-  ];
-
-  const filterTabs = [
-    { key: "", label: "전체", count: counts.total },
-    ...dashTabs,
-  ];
   // 고객 신청 탭 — 취소요청은 이 화면에서 바로 승인/차감/반려, 교환·반품은 상세 패널로.
   // 건수는 항상 전체 기준(reqCounts) — 다른 탭을 보고 있어도 대기 건이 보이게
   const requestTabs = [
@@ -317,7 +279,6 @@ export default function OrdersClient() {
     { key: "exchange_requested", label: "교환신청", count: reqCounts.exchange_requested },
     { key: "return_requested",   label: "반품신청", count: reqCounts.return_requested },
   ];
-  const pendingTotal = reqCounts.cancel_requested + reqCounts.exchange_requested + reqCounts.return_requested;
   const isReturnsTab = statusFilter === "exchange_requested" || statusFilter === "return_requested";
 
   // 개별 주문 취소 — 토스 전액 환불 + 상태 취소 + 재고 복원까지 서버가 한 번에 처리
@@ -351,26 +312,21 @@ export default function OrdersClient() {
     downloadXlsx(`발주_${date}.xlsx`, COLUMNS, toOrderRows(selectedOrders), "발주");
   }
 
+  async function downloadBatch(id:string){
+    try{const r=await fetch(`/api/admin/dispatches?id=${id}`);const b=await r.json();if(!r.ok)throw Error();await downloadXlsx(`발주확정_${id.slice(0,8)}.xlsx`,COLUMNS,toOrderRows(b.snapshot),"발주");}
+    catch{alert("파일을 받지 못했습니다. 발주 이력에서 다시 다운로드해주세요.");}
+  }
+  async function handleDispatch(){
+    const ids=[...selected].sort();if(!ids.length||!confirm(`${ids.length}건을 발주 확정할까요? 확정 후 배송준비로 이동합니다. 공급사 전송은 별도로 진행해주세요.`))return;
+    if(pendingDispatch.current&&JSON.stringify(pendingDispatch.current.ids)!==JSON.stringify(ids)){alert("이전 요청 결과부터 발주 이력에서 확인해주세요. 같은 주문 선택으로 다시 시도할 수 있습니다.");return;}
+    const request=pendingDispatch.current??{key:crypto.randomUUID(),ids};pendingDispatch.current=request;setActing(true);
+    try{const r=await fetch("/api/admin/dispatches",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({request_key:request.key,orderIds:request.ids})});const b=await r.json();if(!r.ok){if(r.status<500)pendingDispatch.current=null;throw Error(b.error||"발주에 실패했습니다.");}pendingDispatch.current=null;await load();await loadBatches();await downloadBatch(b.id);}
+    catch(e){alert(e instanceof Error?e.message:"발주 이력에서 처리 결과를 확인해주세요.");await loadBatches();}
+    finally{setActing(false);}
+  }
   const actionButton = () => {
     if (selected.size === 0) return null;
-    if (statusFilter === "paid" || statusFilter === "") {
-      const hasPaid = orders.some((o) => selected.has(o.id) && o.status === "paid");
-      if (hasPaid) return (
-        <button onClick={() => handleBatchAction("confirm", "주문확인")} disabled={acting}
-          className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">
-          주문확인 ({selected.size}건)
-        </button>
-      );
-    }
-    if (statusFilter === "confirmed") return (
-      <button onClick={() => handleBatchAction("dispatch", "발주처리(배송준비)", true)} disabled={acting}
-        className="flex items-center gap-2 bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        발주처리 + 엑셀 ({selected.size}건)
-      </button>
-    );
+    if(queue==="ready")return <button disabled={acting} onClick={handleDispatch} className="bg-[#2D5A27] text-white px-4 py-2 disabled:opacity-50">{acting?"확정 중…":`발주 확정·엑셀 (${selected.size}건)`}</button>;
     // 취소요청 탭 — 배송관리와 같은 3버튼 (전액 환불 / 배송비 차감 / 반려)
     if (statusFilter === "cancel_requested") return (
       <div className="flex items-center gap-2 flex-wrap">
@@ -393,152 +349,20 @@ export default function OrdersClient() {
 
   return (
     <div>
-      <a href="/admin/link-sales" className="inline-block mb-4 text-sm font-semibold text-[#2D5A27] underline">전시·비전시 판매 집계 보기 →</a>
-      <label className="block mb-4 text-sm">구매 구분 <select value={channelFilter} onChange={e=>{setChannelFilter(e.target.value);setSelected(new Set());}} className="ml-2 border border-gray-200 p-2 bg-white"><option value="">전체</option><option value="display">전시</option><option value="non_display">비전시</option></select></label>
-      {/* 대시보드 카드 */}
-      <div className="bg-white rounded-none border border-gray-100 p-6 mb-4">
-        <p className="text-sm font-semibold text-gray-800 mb-4">판매 관리</p>
-        <div className="flex items-center">
-          {dashTabs.map((tab, i) => (
-            <div key={tab.key} className="flex items-center flex-1">
-              <button onClick={() => setStatusFilter(tab.key)} className="flex-1 text-left group">
-                <div className="text-xs text-gray-400 mb-1">{tab.label}</div>
-                <div className="text-2xl font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">
-                  {tab.count}<span className="text-sm font-medium text-gray-400 ml-0.5">건</span>
-                </div>
-              </button>
-              {i < 3 && <div className="mx-4 text-gray-200 text-lg">›</div>}
-            </div>
-          ))}
-        </div>
+      <div className="bg-white border p-5 mb-4 space-y-4">
+        <div className="flex justify-between gap-3 flex-wrap"><h2 className="font-bold">판매 관리 · {SITES[siteFilter].name}</h2><div className="flex gap-4 text-sm underline"><Link href="/admin/shipments">배송 관리</Link><Link href="/admin/link-sales">전시·비전시 집계</Link><button onClick={()=>{load();loadBatches();}}>새로고침</button></div></div>
+        <div className="grid grid-cols-3 gap-2">{[{key:"check",label:"신규 확인"},{key:"ready",label:"발주 대기"},{key:"requests",label:"고객 요청"}].map(t=><button key={t.key} onClick={()=>{setQueue(t.key);setStatusFilter("");}} className={`border p-3 text-left ${queue===t.key?"bg-[#2D5A27] text-white":""}`}><span className="block text-sm">{t.label}</span><strong className="text-xl">{orders.filter(o=>orderQueue(o)===t.key).length}건</strong></button>)}</div>
+        <p className="text-sm text-gray-500">{queue==="ready"?"결제·배송지·상품 수량을 확인한 주문입니다. 발주 확정 시 서버에서 다시 검사합니다. 공급사가 미지정이면 상품 정보에서 보완해주세요.":queue==="check"?"결제 또는 배송 정보 확인이 필요한 주문입니다. 사유를 확인하고 주문 상세에서 보완해주세요.":queue==="requests"?"취소·교환·반품 요청을 확인하고 처리해주세요.":"배송 진행·완료를 포함한 전체 주문 이력입니다."}</p>
+        <div className="flex gap-3 flex-wrap"><input aria-label="주문 검색" value={query} onChange={e=>setQuery(e.target.value)} placeholder="주문번호·이름·상품명 검색" className="border p-2 text-sm" /><button className="text-sm underline" onClick={()=>{setQueue("history");setStatusFilter("");}}>전체 이력</button></div>
+        {queue==="requests"&&<div className="flex gap-2 flex-wrap"><button onClick={()=>setStatusFilter("")} className="border p-2 text-sm">전체 요청</button>{requestTabs.map(t=><button key={t.key} onClick={()=>setStatusFilter(t.key)} className={`border p-2 text-sm ${statusFilter===t.key?"bg-gray-900 text-white":""}`}>{t.label} {t.count}</button>)}</div>}
+        <details className="text-sm"><summary className="cursor-pointer">상세 필터 · 판매 방식 / 구매 구분 / 처리 상태</summary><div className="flex flex-wrap gap-3 pt-3"><label>판매 방식 <select className="border p-2" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="">전체</option><option value="shop">일반 상품</option><option value="campaign">공동구매</option></select></label><label>구매 구분 <select className="border p-2" value={channelFilter} onChange={e=>setChannelFilter(e.target.value)}><option value="">전체</option><option value="display">전시</option><option value="non_display">비전시</option></select></label>{queue==="history"&&<label>처리 상태 <select className="border p-2" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="">전체</option>{Object.entries(STATUS_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>}</div></details>
       </div>
-
-      {/* 고객 신청 대기 알림 — 취소·교환·반품 신청이 있으면 눈에 띄게 */}
-      {pendingTotal > 0 && (
-        <div className="flex items-center gap-3 flex-wrap px-4 py-3 mb-4"
-          style={{ background: "#FDF2F2", border: "1px solid #F0C9C9", borderLeft: "4px solid #DC2626" }}>
-          <span className="flex items-center gap-2 text-sm font-bold" style={{ color: "#B91C1C" }}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
-            고객 신청 {pendingTotal}건이 처리를 기다리고 있어요
-          </span>
-          {requestTabs.filter((t) => t.count > 0).map((t) => (
-            <button key={t.key} onClick={() => setStatusFilter(t.key)}
-              className="text-xs font-bold px-3 py-1.5 transition-colors"
-              style={{
-                background: statusFilter === t.key ? "#B91C1C" : "#fff",
-                color: statusFilter === t.key ? "#fff" : "#B91C1C",
-                border: "1px solid #E5A5A5",
-              }}>
-              {t.label} {t.count}건 →
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* 사이트(블랜드픽/산지픽) · 판매 유형 필터 + 검색 */}
-      <div className="flex items-center gap-3 flex-wrap mb-3">
-        <span className="text-sm font-semibold text-[#2F5D34]">{SITES[siteFilter].name} 주문 {siteCounts[siteFilter] ?? 0}건</span>
-        <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1 w-fit">
-          {[
-            { key: "", label: "전체", count: typeCounts.all },
-            { key: "shop", label: "상품판매", count: typeCounts.shop },
-            { key: "campaign", label: "공동구매", count: typeCounts.campaign },
-          ].map((t) => (
-            <button key={t.key} onClick={() => setTypeFilter(t.key)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-none text-sm font-medium transition-colors ${
-                typeFilter === t.key ? "bg-emerald-600 text-white" : "text-gray-500 hover:bg-gray-50"
-              }`}>
-              {t.label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                typeFilter === t.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
-              }`}>{t.count}</span>
-            </button>
-          ))}
-        </div>
-        {/* 주문 검색 — 현재 탭(상태·유형) 안에서 필터링 */}
-        <div className="relative">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="주문번호 · 이름 · 연락처 · 상품명 검색"
-            className="w-64 sm:w-72 border border-gray-200 rounded-full pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-gray-400 bg-white"
-          />
-          <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
-          </svg>
-          {query && (
-            <button onClick={() => setQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-sm leading-none">
-              ✕
-            </button>
-          )}
-        </div>
-        {query && (
-          <span className="text-xs text-gray-400">{visibleOrders.length}건 검색됨</span>
-        )}
-      </div>
-
-      {/* 상태 필터 탭 + 액션 */}
-      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <div className="flex flex-wrap">
-          {filterTabs.map((tab, ti) => (
-            <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold transition-colors"
-              style={{
-                border: "1px solid",
-                marginLeft: ti > 0 ? "-1px" : 0,
-                background: statusFilter === tab.key ? "#1A1D18" : "#fff",
-                color: statusFilter === tab.key ? "#fff" : "#5C6156",
-                borderColor: statusFilter === tab.key ? "#1A1D18" : "#D6D6CF",
-              }}>
-              {tab.label}
-              {/* 0건이어도 항상 표시 — 숨기면 숫자가 사라진 것처럼 보임 */}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                statusFilter === tab.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
-              }`}>{tab.count}</span>
-            </button>
-          ))}
-          {/* 고객 신청 탭 — 대기 건이 있으면 빨간 강조로 구분 */}
-          {requestTabs.map((tab) => {
-            const hot = tab.count > 0;
-            const active = statusFilter === tab.key;
-            return (
-              <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold transition-colors"
-                style={{
-                  border: "1px solid",
-                  marginLeft: "-1px",
-                  background: active ? (hot ? "#B91C1C" : "#1A1D18") : hot ? "#FDF2F2" : "#fff",
-                  color: active ? "#fff" : hot ? "#B91C1C" : "#5C6156",
-                  borderColor: active ? (hot ? "#B91C1C" : "#1A1D18") : hot ? "#E5A5A5" : "#D6D6CF",
-                }}>
-                {tab.label}
-                <span className="text-xs px-1.5 py-0.5 rounded-full"
-                  style={{
-                    background: active ? "rgba(255,255,255,0.25)" : hot ? "#DC2626" : "#F3F4F6",
-                    color: active ? "#fff" : hot ? "#fff" : "#4B5563",
-                  }}>{tab.count}</span>
-              </button>
-            );
-          })}
-        </div>
-        {actionButton()}
-        {selected.size > 0 && (
-          <button onClick={handleDownloadOnly}
-            className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-bold px-4 py-2 rounded-none transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            엑셀만 다운로드 ({selected.size}건)
-          </button>
-        )}
-      </div>
-
+      {loadError&&<p role="alert" className="text-red-600 mb-3">{loadError}</p>}
+      <details className="border bg-white p-4 mb-4 text-sm"><summary className="cursor-pointer">최근 발주 확정 이력 · 재다운로드</summary><p className="text-gray-500 my-2">확정 당시 데이터로 다시 받습니다. 재다운로드는 상태·재고를 변경하지 않습니다.</p>{batches.length===0?<p>표시할 발주 이력이 없습니다.</p>:batches.map(b=><div key={b.id} className="flex justify-between border-t py-2"><span>{new Date(b.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} · {b.order_count}건</span><button onClick={()=>downloadBatch(b.id)} className="underline">다시 받기</button></div>)}</details>
+      <div className="flex gap-3 mb-3">{actionButton()}{selected.size>0&&<button onClick={handleDownloadOnly} className="border bg-white p-2 text-sm">주문 목록 다운로드 ({selected.size}건)</button>}</div>
       {/* 주문 테이블 — 교환·반품 신청 탭은 사유·사진·수거지를 보고 건별 처리하는 상세 패널로 */}
       {isReturnsTab ? (
-        <ReturnsPanel kind={statusFilter === "exchange_requested" ? "exchange" : "return"} onChanged={loadReqCounts} />
+        <ReturnsPanel kind={statusFilter === "exchange_requested" ? "exchange" : "return"} onChanged={()=>{load();}} />
       ) : loading ? (
         <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>
       ) : visibleOrders.length === 0 ? (
@@ -556,7 +380,7 @@ export default function OrdersClient() {
 
           {[...groups.entries()].map(([productName, groupOrders]) => {
             // 검색 중엔 결과가 접힌 그룹에 숨지 않게 전부 펼침
-            const isExpanded = query.trim() !== "" || expandedGroups.has(productName);
+            const isExpanded = queue === "check" || query.trim() !== "" || expandedGroups.has(productName);
             const groupSelected = groupOrders.every((o) => selected.has(o.id));
             const groupPartial = groupOrders.some((o) => selected.has(o.id)) && !groupSelected;
             const productCode = groupOrders[0]?.items.find((i) => i.product_id)?.product_code;
@@ -613,7 +437,7 @@ export default function OrdersClient() {
                               className="w-4 h-4 rounded accent-[#2D5A27]" />
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                            <Link href={`/admin/orders/${o.id}`} className="hover:text-[#2D5A27]">{o.order_number}</Link>
+                            <Link href={`/admin/orders/${o.id}`} className="hover:text-[#2D5A27]">{o.order_number}</Link>{queue==="check"&&<p className="text-xs text-red-600">{dispatchIssues(o).join(" · ")}</p>}
                             <SiteBadge site={o.site} className="ml-1.5 font-sans" />
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">

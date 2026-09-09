@@ -1,4 +1,4 @@
-import { verifySingleAmount } from "@/lib/order-amount";
+import { quoteCartAmount } from "@/lib/order-amount";
 import { currentSite } from "@/lib/site-server";
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
@@ -69,13 +69,9 @@ export default async function ShopCheckoutPage({
   const unitPrice = secretUnitPrice(product, option, linked);
   if (unitPrice === null) notFound();
   // 배송비 — 어드민 설정(무료/유료/조건부/건별) 전부 반영 (lib/shipping.ts)
-  const shippingCost = productShippingFee(product, quantity, unitPrice * quantity);
-  const totalAmount = unitPrice * quantity + shippingCost;
-  // 결제 승인 때와 같은 규칙으로 결제창 진입 전에도 판매 가능 여부를 확인한다.
-  const check = await verifySingleAmount({
-    site: (await currentSite()).key, productId: id, optionId: option?.id ?? null,
-    quantity, unitPrice, shippingCost, totalAmount, amount: totalAmount, linkCode,
-  });
+  const check = await quoteCartAmount({site:(await currentSite()).key,items:[{product_id:id,option_id:option?.id??null,quantity,link_code:linkCode}],totalAmount:0,shippingCost:0,amount:0});
+  const shippingCost=check.ok?check.quote.shippingCost:0;
+  const totalAmount=check.ok?check.quote.totalAmount:0;
   if (!check.ok) return (
     <main className="min-h-screen px-6 py-12 text-center">
       <Header />

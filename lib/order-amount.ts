@@ -1,6 +1,6 @@
 import { SITES, type SiteKey } from "@/lib/sites";
 import shopPool from "@/lib/db-shop";
-import { cartShippingFee, type CartFeeItem } from "@/lib/shipping";
+import { cartShippingBreakdown, type CartFeeItem } from "@/lib/shipping";
 import { cleanLinkCode, linkApplies, secretUnitPrice, INVALID_LINK } from "@/lib/secret-link";
 // 결제 금액 서버 재계산 — 토스 승인 전에 화면이 보낸 금액이 DB 가격·배송비 규칙과 맞는지 확인한다.
 // 화면(sessionStorage)이나 결제창 요청값을 고쳐도 승인 자체가 막히고, 승인 전이라 카드 청구는 없다.
@@ -20,6 +20,7 @@ export interface VerifiedItem {
 }
 export type AmountCheck = {
     ok: true;
+    quote: { goodsAmount:number; installationCost:number; shippingCost:number; regionalCost:number; totalAmount:number; bundles:number };
     snapshots: VerifiedItem[];
     linkCode: string | null;
     linkStartAt: string | Date | null;
@@ -56,6 +57,7 @@ interface ProductRow {
     shipping_cost: number | null;
     free_shipping_threshold: number | null;
     per_unit_shipping_cost: number | null;
+    supplier_name?:string|null; release_address?:string|null; shipping_carrier?:string|null; island_shipping_cost?:number|null; remote_zipcodes?:string|null; installation_cost?:number|null;
 }
 const n = (v: unknown) => (typeof v === "number" ? v : Number(v));
 const isQty = (v: unknown) => Number.isInteger(n(v)) && n(v) > 0;
@@ -73,13 +75,17 @@ export interface CartAmountItem {
     link_code?: string | null; // 비밀링크로 담긴 줄이면 그 코드 (상품별)
 }
 // 장바구니·상세 '구매하기'(여러 줄) 결제: totalAmount = 상품+추가옵션 합, amount = totalAmount + shippingCost
-export async function verifyCartAmount(p: {
+type CartCalculation = {
     site?: SiteKey;
     items: CartAmountItem[];
     totalAmount: unknown;
     shippingCost: unknown;
     amount: unknown;
-}, db: Pick<typeof shopPool, "query"> = shopPool): Promise<AmountCheck> {
+    shippingZipcode?: string;
+};
+export function verifyCartAmount(p:CartCalculation,db:Pick<typeof shopPool,"query">=shopPool){return calculateCartAmount(p,db,false);}
+export function quoteCartAmount(p:CartCalculation,db:Pick<typeof shopPool,"query">=shopPool){return calculateCartAmount(p,db,true);}
+async function calculateCartAmount(p:CartCalculation,db:Pick<typeof shopPool,"query">,quoteOnly:boolean):Promise<AmountCheck> {
     const items = Array.isArray(p.items) ? p.items : [];
     if (!items.length)
         return { ok: false, error: MISMATCH, detail: "items empty" };
@@ -94,7 +100,10 @@ export async function verifyCartAmount(p: {
         return { ok: false, error: "재고가 마감되었습니다. 상품을 다시 확인해주세요.", detail: "unregistered product" };
     const productIds = [...new Set(mains.map((it) => it.product_id as string))];
     const [pr, or, ar] = await Promise.all([
-        db.query(`SELECT id, name, category, status, stock, supply_price, influencer_rate, tax_type, archived_at, sale_start_at, sale_end_at, is_visible, link_start_at, link_end_at, price, link_price, link_code, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost
+        db.query(`SELECT id, name, category, status, stock, supply_price, influencer_rate, tax_type, archived_at, sale_start_at, sale_end_at, is_visible, link_start_at, link_end_at, price, link_price, link_code, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost,
+         to_jsonb(products_shop)->>'supplier_name' AS supplier_name, to_jsonb(products_shop)->>'release_address' AS release_address,
+         to_jsonb(products_shop)->>'shipping_carrier' AS shipping_carrier, to_jsonb(products_shop)->>'island_shipping_cost' AS island_shipping_cost,
+         to_jsonb(products_shop)->>'remote_zipcodes' AS remote_zipcodes, to_jsonb(products_shop)->>'installation_cost' AS installation_cost
          FROM products_shop WHERE id = ANY($1::uuid[])`, [productIds]),
         productIds.length
             ? db.query(`SELECT id, product_id, value, extra_price, link_price, stock, is_active, supply_price FROM product_options WHERE product_id = ANY($1::uuid[]) AND removed_at IS NULL`, [productIds])
@@ -151,6 +160,7 @@ export async function verifyCartAmount(p: {
             return { ok: false, error: "판매 기간을 확인해주세요.", detail: "closed sale" };
         if (p.site && (SITES.sanjipick.categories.includes(prod.category) ? "sanjipick" : "blendpick") !== p.site)
             return { ok: false, error: INVALID_LINK, detail: "wrong site" };
+        if((prod.shipping_type!=null&&!['free','paid','conditional_free','per_unit'].includes(prod.shipping_type))||['shipping_cost','per_unit_shipping_cost','island_shipping_cost','installation_cost'].some(k=>{const v=Number((prod as unknown as Record<string,unknown>)[k]??0);return !Number.isSafeInteger(v)||v<0;})||(prod.shipping_type==='conditional_free'&&(!Number.isSafeInteger(Number(prod.free_shipping_threshold))||Number(prod.free_shipping_threshold)<=0)))return {ok:false,error:'이 상품은 배송비 확인 후 주문할 수 있습니다. 판매자에게 문의해주세요.',detail:'invalid shipping settings'};
         const code = cleanLinkCode(it.link_code);
         const requested = it.link_code !== undefined && it.link_code !== null;
         const linked = linkApplies(prod, code);
@@ -198,15 +208,27 @@ export async function verifyCartAmount(p: {
         snapshots.set(it, { productId: null, optionId: null, productRef: parent.id, name: `[추가] ${match.name}`, optionLabel: null, unitPrice: n(match.extra_price), quantity: n(it.quantity), supplyPrice: match.supply_price ?? null, commissionRate: parent.influencer_rate == null ? null : Number(parent.influencer_rate), taxType: parent.tax_type ?? null });
         expectedItems += n(match.extra_price) * n(it.quantity);
     }
-    const expectedShipping = cartShippingFee(feeItems);
+    const installationItems:VerifiedItem[]=[];
+    for(const productId of productIds){
+      const prod=products.get(productId)!;const cost=Number(prod.installation_cost)||0;
+      if(cost>0){const qty=mains.filter(i=>i.product_id===productId).reduce((n,i)=>n+Number(i.quantity),0);installationItems.push({productId:null,optionId:null,productRef:prod.id,name:`[설치비] ${prod.name}`,optionLabel:null,unitPrice:cost,quantity:qty,supplyPrice:null,commissionRate:0,taxType:'taxable'});}
+    }
+    const goodsAmount=expectedItems;
+    const installationCost=installationItems.reduce((n,i)=>n+i.unitPrice*i.quantity,0);
+    expectedItems+=installationCost;
+    if(!quoteOnly&&feeItems.some(i=>Number(i.island_shipping_cost)>0)&&!/^\d{5}$/.test(p.shippingZipcode||''))return {ok:false,error:'주소 검색으로 배송지를 다시 선택해주세요.',detail:'destination required'};
+    let shipping:ReturnType<typeof cartShippingBreakdown>;
+    try{shipping=cartShippingBreakdown(feeItems,p.shippingZipcode);}catch(e){return {ok:false,error:(e as Error).message,detail:'shipping configuration'};}
+    const expectedShipping=shipping.total;
     const expectedTotal = expectedItems + expectedShipping;
-    if (n(p.totalAmount) !== expectedItems || n(p.shippingCost) !== expectedShipping || n(p.amount) !== expectedTotal) {
+    if(!Number.isSafeInteger(expectedTotal)||expectedTotal<0||expectedTotal>2147483647)return {ok:false,error:MISMATCH,detail:'amount out of range'};
+    if (!quoteOnly && (n(p.totalAmount) !== expectedItems || n(p.shippingCost) !== expectedShipping || n(p.amount) !== expectedTotal)) {
         return {
             ok: false, error: MISMATCH,
             detail: `items ${p.totalAmount}≠${expectedItems} / shipping ${p.shippingCost}≠${expectedShipping} / amount ${p.amount}≠${expectedTotal}`,
         };
     }
-    return { ok: true, snapshots: items.map(it => snapshots.get(it)!), linkCode: appliedLink, linkStartAt, linkEndAt, units: items.map(it => prices.get(it)!), names: items.map(it => names.get(it)!), optionLabels: items.map(it => labels.get(it) ?? null) };
+    return { ok: true, quote:{goodsAmount,installationCost,shippingCost:expectedShipping,regionalCost:shipping.regional,totalAmount:expectedTotal,bundles:shipping.bundles}, snapshots: [...items.map(it => snapshots.get(it)!),...installationItems], linkCode: appliedLink, linkStartAt, linkEndAt, units: items.map(it => prices.get(it)!), names: items.map(it => names.get(it)!), optionLabels: items.map(it => labels.get(it) ?? null) };
 }
 // 단품 바로 결제: totalAmount = 단가×수량 + 배송비, amount = totalAmount
 export async function verifySingleAmount(p: {
@@ -218,6 +240,7 @@ export async function verifySingleAmount(p: {
     shippingCost: unknown;
     totalAmount: unknown;
     amount: unknown;
+    shippingZipcode?: string;
     linkCode?: unknown; // 비밀링크(?k=)로 들어온 결제면 그 코드
 }, db: Pick<typeof shopPool, "query"> = shopPool): Promise<AmountCheck> {
     if (typeof p.productId !== "string" || !isQty(p.quantity))
@@ -225,7 +248,7 @@ export async function verifySingleAmount(p: {
     const optionId = typeof p.optionId === "string" && p.optionId ? p.optionId : null;
     const code = p.linkCode as string | null | undefined;
     const r = await verifyCartAmount({
-        site: p.site,
+        site: p.site, shippingZipcode:p.shippingZipcode,
         items: [{ product_id: p.productId, option_id: optionId, quantity: n(p.quantity), link_code: code }],
         totalAmount: n(p.totalAmount) - n(p.shippingCost),
         shippingCost: p.shippingCost,

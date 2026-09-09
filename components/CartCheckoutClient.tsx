@@ -1,5 +1,7 @@
 "use client";
 
+import { useShippingQuote } from "@/lib/use-shipping-quote";
+import ShippingQuoteSummary from "@/components/ShippingQuoteSummary";
 import { validateBuyerName } from "@/lib/validate-name";
 import { tossMobilePhone, payErrorMessage } from "@/lib/pay-utils";
 import { useEffect, useState } from "react";
@@ -28,7 +30,7 @@ interface CartItem {
   option_name: string | null;
   option_value: string | null;
   extra_price: number | null;
-  is_addon?: boolean;
+  is_addon?: boolean; link_code?: string | null;
 }
 
 interface CartCheckoutData {
@@ -60,6 +62,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
     shippingMemo: "",
     sameAsBuyer: false,
   });
+  const quoteItems=(checkoutData?.items||[]).map(i=>({product_id:i.product_id,option_id:i.option_id,quantity:i.quantity,price:i.price,is_addon:i.is_addon,name:i.name,link_code:i.link_code}));
+  const expectedGoods=(checkoutData?.items||[]).reduce((n,i)=>n+shopUnitPrice(i.price,i.extra_price,i.option_id!=null)*i.quantity,0);
+  const delivery=useShippingQuote(quoteItems,form.shippingZipcode,expectedGoods);
   const [memoCustom, setMemoCustom] = useState(false); // 배송 메모 "직접 입력" 모드
   // 필드별 인라인 에러 — alert 대신 해당 입력 아래 표시하고 첫 에러로 스크롤
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -102,7 +107,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
   }
 
   async function handlePay() {
-    if (!checkoutData) return;
+    if (!checkoutData || !delivery.ready) return;
 
     // 검증 — alert 대신 필드별 인라인 에러로 모아 보여주고 첫 에러로 스크롤
     const errs: Record<string, string> = {};
@@ -124,6 +129,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
     }
     setLoading(true);
 
+    try{
+    const fresh=await delivery.refresh();
+    if(fresh.totalAmount!==delivery.quote!.totalAmount||fresh.shippingCost!==delivery.quote!.shippingCost||fresh.installationCost!==delivery.quote!.installationCost){setErrors(p=>({...p,pay:"배송·설치비가 변경되었습니다. 갱신된 금액을 확인하고 다시 결제해주세요."}));setLoading(false);return;}
     // Toss에 넘길 주문명: 대표 상품 + "외 N건"
     const firstItem = checkoutData.items[0];
     const orderName =
@@ -134,6 +142,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
     // confirm API에 넘길 전체 데이터를 sessionStorage에 업데이트
     const fullData = {
       ...checkoutData,
+      shippingCost:fresh.shippingCost, totalAmount:fresh.goodsAmount+fresh.installationCost,
       customerName: form.customerName,
       customerPhone: form.customerPhone,
       customerEmail: form.customerEmail,
@@ -148,10 +157,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
     };
     sessionStorage.setItem("cartCheckoutData", JSON.stringify(fullData));
 
-    const grandTotal = checkoutData.totalAmount + checkoutData.shippingCost;
+    const grandTotal = fresh.totalAmount;
     const orderId = crypto.randomUUID();
 
-    try {
       const tossPayments = await loadTossPayments(clientKey);
       const payment = tossPayments.payment({ customerKey: "ANONYMOUS" });
       await payment.requestPayment({
@@ -187,7 +195,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
     );
   }
 
-  const grandTotal = checkoutData.totalAmount + checkoutData.shippingCost;
+  const grandTotal = delivery.quote?.totalAmount ?? expectedGoods;
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-9">
@@ -365,17 +373,14 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
           <div className="px-6 py-5 flex flex-col gap-3 text-[13px]">
           <div className="flex justify-between">
             <span style={{ color: "#6B7263" }}>상품 금액</span>
-            <span className="ds-mono font-semibold">{checkoutData.totalAmount.toLocaleString()}원</span>
+            <span className="ds-mono font-semibold">{expectedGoods.toLocaleString()}원</span>
           </div>
-          <div className="flex justify-between">
-            <span style={{ color: "#6B7263" }}>배송비</span>
-            <span className="ds-mono font-semibold">{checkoutData.shippingCost === 0 ? "무료" : `${checkoutData.shippingCost.toLocaleString()}원`}</span>
-          </div>
+          <ShippingQuoteSummary quote={delivery.quote} error={delivery.error} retry={()=>{void delivery.refresh().catch(()=>{});}} />
           </div>
           <div className="flex items-center justify-between px-6 py-5" style={{ background: "#1C2418" }}>
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 500,
               letterSpacing: "0.3em", color: "#9FBF93" }}>TOTAL — 총 결제 금액</span>
-            <RollingWon value={grandTotal} size={28} />
+            {delivery.ready?<RollingWon value={grandTotal} size={28} />:<span className="text-white text-sm">배송지 확인 후 확정</span>}
           </div>
         </div>
         <div className="mt-3.5">
@@ -386,11 +391,11 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
         </div>
         <button
           onClick={handlePay}
-          disabled={loading}
+          disabled={loading || !delivery.ready}
           className="ds-btn ds-btn-primary w-full mt-3.5"
           style={{ height: "56px", fontSize: "15px" }}
         >
-          {loading ? "처리 중..." : `${grandTotal.toLocaleString()}원 결제하기`}
+          {loading ? "처리 중..." : !delivery.ready?"배송비 확인 대기":`${grandTotal.toLocaleString()}원 결제하기`}
         </button>
         {errors.pay && (
           <p className="mt-2 text-xs text-center" style={{ color: "#B4423C" }}>{errors.pay}</p>
