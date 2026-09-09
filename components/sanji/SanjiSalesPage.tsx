@@ -258,7 +258,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-icon{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.45);border:0;color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
         .sp-slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;aspect-ratio:1/1;background:#E9E4D6}
         .sp-slider::-webkit-scrollbar{display:none}
-        .sp-slide{flex:0 0 100%;scroll-snap-align:start;width:100%;height:100%;object-fit:cover;display:block}
+        .sp-slide{flex:0 0 100%;scroll-snap-align:start;width:100%;height:100%;object-fit:contain;display:block}
         .sp-slider-wrap{position:relative}
         .sp-count{position:absolute;right:14px;bottom:14px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;font-variant-numeric:tabular-nums}
         .sp-pill{position:absolute;left:14px;bottom:14px;display:inline-flex;align-items:center;gap:6px;background:#fff;color:${INK};font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
@@ -301,7 +301,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-row::-webkit-scrollbar{display:none}
         .sp-card{flex:0 0 132px;text-decoration:none;color:inherit}
         .sp-card .th{width:132px;height:132px;border-radius:10px;overflow:hidden;background:#f3f1ec;position:relative}
-        .sp-card .th img{width:100%;height:100%;object-fit:cover;display:block}
+        .sp-card .th img{width:100%;height:100%;object-fit:contain;display:block}
         .sp-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
         .sp-card .nm{font-size:12px;line-height:1.4;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#333}
         .sp-card .pr{margin-top:4px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
@@ -317,7 +317,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-rv .opt{font-size:11px;color:${MUTED};margin-top:6px}
         .sp-rv .tx{font-size:13px;line-height:1.65;color:#333;margin-top:6px;white-space:pre-line;word-break:break-word}
         .sp-rv .ph{display:flex;gap:6px;margin-top:8px}
-        .sp-rv .ph img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:#eee}
+        .sp-rv .ph img{width:72px;height:72px;object-fit:contain;border-radius:6px;background:#eee}
         .sp-bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:20;background:${CREAM};box-shadow:0 -6px 24px rgba(0,0,0,.08)}
         .sp-urg{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#E7EFE3;font-size:12px;font-weight:700;color:${GREEN}}
         .sp-urg span:last-child{color:#4E6B50;font-weight:600;font-variant-numeric:tabular-nums}
@@ -433,7 +433,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         {product.description || images.length > 1 ? (
           <>
             <div className={`sp-desc${descOpen ? "" : " clamp"}`}>
-              {product.description && <div className="html" dangerouslySetInnerHTML={{ __html: product.description }} />}
+              {product.description && <div className="html product-desc" dangerouslySetInnerHTML={{ __html: product.description }} />}
               {images.slice(1).map((src, i) => (
                 <Img key={i} src={src} alt={`상세 ${i + 1}`} style={{ width: "100%", display: "block" }} />
               ))}

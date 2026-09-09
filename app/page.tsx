@@ -148,7 +148,7 @@ export default async function Home() {
                 <Link key={p.id} href={`/products/${p.id}`} className="group block">
                   <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-3" style={{ background: "var(--surface-soft)" }}>
                     <FallbackImg src={p.main_image} alt={p.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      className="w-full h-full object-contain transition-transform duration-300" />
                     {discount != null && !soldOut && (
                       <span className="absolute top-2 left-2 text-white text-xs font-extrabold px-2 py-0.5 rounded-full" style={{ background: "var(--sale)" }}>
                         -{discount}%
@@ -232,7 +232,7 @@ export default async function Home() {
             {upcoming.map((u) => (
               <Link key={u.id} href={`/products/${u.id}`} className="group block rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid var(--line)" }}>
                 <div className="relative w-full aspect-[4/3] overflow-hidden" style={{ background: "var(--surface-soft)" }}>
-                  <FallbackImg src={u.main_image} alt={u.name} className="w-full h-full object-cover" />
+                  <FallbackImg src={u.main_image} alt={u.name} className="w-full h-full object-contain" />
                   <span className="absolute top-2 left-2 text-xs font-extrabold px-2.5 py-1 rounded-full text-white" style={{ background: "var(--accent)" }}>
                     {u.open_label} 오픈
                   </span>

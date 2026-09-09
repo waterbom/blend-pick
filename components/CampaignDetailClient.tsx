@@ -175,7 +175,7 @@ export default function CampaignDetailClient({
       {/* 대표 이미지 */}
       <div className="relative mt-4 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--line)" }}>
         <div className="aspect-square" style={{ background: "var(--surface-soft)" }}>
-          <FallbackImg src={image} alt={name} className="w-full h-full object-cover" />
+          <FallbackImg src={image} alt={name} className="w-full h-full object-contain" />
         </div>
         {hasDiscount && (
           <span

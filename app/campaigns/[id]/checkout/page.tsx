@@ -117,7 +117,7 @@ export default async function CheckoutPage({
             <img
               src={product.product_image}
               alt={product.name}
-              className="w-16 h-16 object-cover rounded-xl"
+              className="w-16 h-16 object-contain rounded-xl"
             />
           )}
           <div className="flex-1 min-w-0">

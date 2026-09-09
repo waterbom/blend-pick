@@ -118,7 +118,7 @@ export default function CartClient() {
               <Link href={`/products/${item.product_id}`} className="shrink-0">
                 <div className="w-16 h-16 rounded-xl overflow-hidden" style={{ background: "var(--cream-dark)" }}>
                   {item.main_image
-                    ? <img src={item.main_image} alt={item.name} className="w-full h-full object-cover" />
+                    ? <img src={item.main_image} alt={item.name} className="w-full h-full object-contain" />
                     : <div className="w-full h-full flex items-center justify-center text-xl">📦</div>}
                 </div>
               </Link>

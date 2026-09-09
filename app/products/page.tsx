@@ -197,7 +197,7 @@ export default async function ShopPage({
                   {/* 이미지 */}
                   <div className={`relative overflow-hidden ${imgH}`} style={{ background: C.surfaceSoft }}>
                     <div style={soldOut ? { filter: "grayscale(.55)", opacity: 0.75, height: "100%" } : { height: "100%" }}>
-                      <FallbackImg src={p.main_image} alt={p.name} className="w-full h-full object-cover" />
+                      <FallbackImg src={p.main_image} alt={p.name} className="w-full h-full object-contain" />
                     </div>
                     {soldOut && (
                       <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(28,36,24,.28)" }}>
@@ -314,7 +314,7 @@ export default async function ShopPage({
                 className="bg-white p-4 lg:p-5 flex flex-col gap-3 transition-colors duration-150 hover:bg-[#FDFCF9]"
                 style={{ outline: `1px solid ${C.hairline}`, outlineOffset: "-0.5px" }}>
                 <div className="h-[110px] lg:h-[140px] overflow-hidden" style={{ background: C.surfaceSoft }}>
-                  <FallbackImg src={u.image} alt={u.name} className="w-full h-full object-cover" />
+                  <FallbackImg src={u.image} alt={u.name} className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <div className="text-[10px] lg:text-[11px] mb-1" style={{ fontFamily: MONO, letterSpacing: ".14em", color: C.green700, fontWeight: 600 }}>

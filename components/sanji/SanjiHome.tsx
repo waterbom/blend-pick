@@ -160,7 +160,7 @@ export default function SanjiHome({
         .sh-ban__dots i.on{width:18px;border-radius:3px;background:#fff}
         .sh-ban__track::-webkit-scrollbar{display:none}
         .sh-ban__item{position:relative;flex:0 0 100%;scroll-snap-align:start;overflow:hidden}
-        .sh-ban__item img,.sh-ban__item .ph{width:100%;height:100%;object-fit:cover;display:block}
+        .sh-ban__item img,.sh-ban__item .ph{width:100%;height:100%;object-fit:contain;display:block}
         .sh-ban__cnt{position:absolute;right:12px;bottom:10px;color:#fff;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(0,0,0,.35);padding:2px 8px;border-radius:999px}
         .sh-sec{padding:28px 16px 8px}
         .sh-sec__h{display:flex;align-items:baseline;justify-content:space-between}
@@ -172,8 +172,8 @@ export default function SanjiHome({
         .sh-bigcard{flex:0 0 78%;scroll-snap-align:start}
         .sh-bigcard:last-child{margin-right:16px}
         .sh-bigcard .th{position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
-        .sh-bigcard .th img{width:100%;height:100%;object-fit:cover;display:block}
-        .sh-bigcard .pill{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.6);color:#fff;font-size:13px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;backdrop-filter:blur(4px)}
+        .sh-bigcard .th img{width:100%;height:100%;object-fit:contain;display:block}
+        .sh-bigcard .pill{display:inline-flex;max-width:100%;margin-top:10px;align-items:center;gap:6px;background:#2F5D34;color:#fff;font-size:13px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:normal}
         .sh-bigcard .pill::before{content:"%";display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${GREEN};font-size:10px}
         .sh-bigcard .left{display:flex;align-items:center;gap:5px;margin-top:12px;font-size:13px;color:#777}
         .sh-bigcard .ttl{margin-top:8px;font-size:18px;font-weight:800;line-height:1.45;word-break:keep-all}
@@ -183,7 +183,7 @@ export default function SanjiHome({
         .sh-bigcard .br{margin-top:2px;font-size:13px;color:#777}
         .sh-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 10px}
         .sh-card .th{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
-        .sh-card .th img{width:100%;height:100%;object-fit:cover;display:block}
+        .sh-card .th img{width:100%;height:100%;object-fit:contain;display:block}
         .sh-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
         .sh-card .nm{margin-top:8px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .sh-card .pr{margin-top:4px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
@@ -199,7 +199,7 @@ export default function SanjiHome({
         .sh-soon .when b{font-size:26px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
         .sh-rv{display:grid;grid-template-columns:130px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid ${LINE}}
         .sh-rv .th{aspect-ratio:1/1;border-radius:8px;overflow:hidden;background:#E9E4D6}
-        .sh-rv .th img{width:100%;height:100%;object-fit:cover;display:block}
+        .sh-rv .th img{width:100%;height:100%;object-fit:contain;display:block}
         .sh-rv .nm{font-size:16px;font-weight:700}
         .sh-rv .meta{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:${MUTED}}
         .sh-rv .tx{margin-top:8px;font-size:14px;line-height:1.55;color:#333;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -291,8 +291,8 @@ export default function SanjiHome({
                   <a key={p.id} className="sh-bigcard" href={href(p)}>
                     <div className="th">
                       <Img src={p.main_image} alt={p.name} />
-                      {gap(p) > 0 && <span className="pill">정가보다 {won(gap(p))} 저렴</span>}
                     </div>
+                    {gap(p) > 0 && <span className="pill">정가보다 {won(gap(p))} 저렴</span>}
                     <div className="left">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
                       {p.stock > 0 ? `남은 수량 ${p.stock.toLocaleString()}개` : "재고 마감"}

@@ -105,7 +105,7 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
             <div className="pc-img absolute inset-0 will-change-transform" aria-hidden>
               {p.main_image && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.main_image} alt="" className="w-full h-full object-cover"
+                <img src={p.main_image} alt="" className="w-full h-full object-contain"
                   style={{ filter: "blur(22px) brightness(.82) saturate(1.05)" }} />
               )}
             </div>

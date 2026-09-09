@@ -36,7 +36,7 @@ export default function SalesPageCard({ page }: { page: SalesPage }) {
         <FallbackImg
           src={page.main_image}
           alt={page.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-contain transition-transform duration-300"
         />
         {isSoldOut && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">

@@ -364,7 +364,7 @@ export default function ProductDetail({
           <FallbackImg
             src={images[0]?.url}
             alt={product.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
           {isSoldout && (
             <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }}>

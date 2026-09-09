@@ -161,7 +161,7 @@ export default async function AdminProductsPage({
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {p.main_image ? (
-                          <img src={p.main_image} alt={p.name} className="w-10 h-10 rounded-none object-cover bg-gray-100" />
+                          <img src={p.main_image} alt={p.name} className="w-10 h-10 rounded-none object-contain bg-gray-100" />
                         ) : (
                           <div className="w-10 h-10 rounded-none bg-gray-100 flex items-center justify-center text-gray-300 text-lg">□</div>
                         )}

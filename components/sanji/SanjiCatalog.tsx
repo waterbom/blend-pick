@@ -64,7 +64,7 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: 
         .sc-sub{margin:0 0 14px;font-size:13px;color:${MUTED}}
         .sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 10px}
         .sc-card .th{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
-        .sc-card .th img{width:100%;height:100%;object-fit:cover;display:block}
+        .sc-card .th img{width:100%;height:100%;object-fit:contain;display:block}
         .sc-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
         .sc-card .nm{margin-top:8px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .sc-card .pr{margin-top:4px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}

@@ -219,7 +219,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
                   style={{ border: "1px solid #E4E1D6", background: "var(--cream-dark)" }}
                 >
                   {item.main_image
-                    ? <img src={item.main_image} alt={item.name} className="w-full h-full object-cover" />
+                    ? <img src={item.main_image} alt={item.name} className="w-full h-full object-contain" />
                     : <div className="w-full h-full" style={{ background: "repeating-linear-gradient(45deg,#F6F4EE 0 8px,#EDEAE0 8px 16px)" }} />}
                 </div>
                 <div className="flex-1 min-w-0">

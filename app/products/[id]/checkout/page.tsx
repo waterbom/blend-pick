@@ -99,7 +99,7 @@ export default async function ShopCheckoutPage({
         {/* 상품 요약 */}
         <div className="bg-white rounded-2xl p-5 mb-4 flex gap-4 items-center" style={{ border: "1px solid var(--line)" }}>
           {product.main_image && (
-            <img src={product.main_image} alt={product.name} className="w-16 h-16 object-cover rounded-xl" />
+            <img src={product.main_image} alt={product.name} className="w-16 h-16 object-contain rounded-xl" />
           )}
           <div className="flex-1 min-w-0">
             <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>{product.brand}</p>
