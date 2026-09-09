@@ -14,7 +14,8 @@
     "test:secret-links": "node --test tests/secret-link-periods.cjs",
     "test:admin-integrity": "node --test --test-concurrency=1 tests/admin-auth.cjs tests/today-work.cjs tests/secret-link-periods.cjs tests/admin-integrity.cjs tests/admin-process-review.cjs tests/admin-final-process.cjs",
     "test:admin-charts": "node --test tests/admin-charts.cjs",
-    "test:admin-final": "node --test tests/admin-final-process.cjs"
+    "test:admin-final": "node --test tests/admin-final-process.cjs",
+    "test:admin-workflow": "node --test tests/admin-workflow.cjs"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.6.0",

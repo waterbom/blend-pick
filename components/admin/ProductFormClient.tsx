@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import RichEditor from "@/components/admin/RichEditor";
+import { suggestCategories } from "@/lib/admin-workflow";
 import { SITES } from "@/lib/sites";
 import { sanjiSecretLinkUrl } from "@/lib/secret-link";
 import { shrinkImage, uploadErrorMessage } from "@/lib/client-image";
@@ -13,6 +14,10 @@ interface OptionRow { id?: string; name: string; price: string; stock: string; a
 // 추가옵션(추가상품): 메인 구매 시 함께 살 수 있는 부가상품
 interface AddonRow { supply: string; name: string; price: string; active: boolean; }
 
+const STEP_TITLES = ["기본 정보", "가격·옵션", "판매 설정", "배송·최종 확인"];
+const StepContext = createContext(0);
+const SECTION_STEP: Record<string, number> = {"상품코드로 복제 등록":0,"기본 정보":0,"이미지":0,"상세 페이지":0,"판매가":1,"재고 & 옵션":1,"추가옵션 (추가상품)":1,"판매 상태":2,"비전시 링크":2,"배송":3,"반품 & 교환":3,"A/S 특이사항":3};
+const SHIPPING_KEYS = ["shipping_type", "shipping_cost", "shipping_carrier", "free_shipping_threshold", "per_unit_shipping_cost", "island_shipping_cost", "release_address", "return_address", "return_cost_oneway", "return_cost_roundtrip", "exchange_cost_oneway", "exchange_cost_roundtrip"] as const;
 const EMPTY_IMAGES = ["", "", "", "", ""];
 
 // 관리자 토큰 만료(401) 시 안내 — 새 탭 재로그인이면 이 화면의 입력 내용은 그대로 유지된다
@@ -26,6 +31,9 @@ interface Props {
 
 export default function ProductFormClient({ mode, productId }: Props) {
   const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [manualStatus, setManualStatus] = useState("draft");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -58,6 +66,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     manufacturer: "", origin_country: "",
     product_condition: "new", manufacture_date: "",
     sale_type: "always",
+    supplier_name: "", expected_ship_date: "",
     presale_enabled: "false",
     presale_start_at: "", presale_end_at: "",
     original_price: "", discount_rate: "", price: "",
@@ -86,8 +95,13 @@ export default function ProductFormClient({ mode, productId }: Props) {
   });
 
   useEffect(() => {
-    fetch("/api/admin/categories").then(r => r.json()).then(setCategories).catch(() => {});
+    fetch("/api/admin/categories").then(async r => {if(!r.ok)throw new Error();return r.json();}).then(d=>{if(Array.isArray(d))setCategories(d);}).catch(() => setError("상품 분류를 불러오지 못했습니다. 새로고침해주세요."));
   }, []);
+
+  useEffect(()=>{
+    if(mode!=="new")return;
+    try{const raw=localStorage.getItem(`product-shipping:${location.hostname}`);if(!raw)return;const values=JSON.parse(raw);setForm(f=>({...f,...Object.fromEntries(SHIPPING_KEYS.filter(k=>typeof values[k]==="string").map(k=>[k,values[k]]))}));setNotice("저장된 배송 기본값을 적용했습니다.");}catch{/* The form's normal defaults remain available. */}
+  },[mode]);
 
   // 인플루언서 목록 (공동구매 태그용 — 등록 모드에서만)
   useEffect(() => {
@@ -129,6 +143,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
         }
         const rawAttr = data.shipping_attr || "standard";
         const isCustomAttr = rawAttr !== "standard";
+        setManualStatus(opts?.stripTagPrefix ? "draft" : (["inactive","ended"].includes(data.status)?"soldout":data.status ?? "draft"));
         setForm({
           name: opts?.stripTagPrefix ? String(data.name ?? "").replace(/^\[[^\]]*\]\s*/, "") : (data.name ?? ""),
           brand: data.brand ?? "",
@@ -139,7 +154,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
           origin_country: data.origin_country ?? "",
           product_condition: data.product_condition ?? "new",
           manufacture_date: data.manufacture_date ? String(data.manufacture_date).slice(0, 10) : "",
-          sale_type: data.sale_type ?? "always",
+          sale_type: data.sale_type === "groupbuy" ? "groupbuy" : "always",
+          supplier_name: data.supplier_name ?? "", expected_ship_date: data.expected_ship_date ? String(data.expected_ship_date).slice(0,10) : "",
           presale_enabled: String(data.presale_enabled ?? false),
           presale_start_at: utcToKSTLocal(data.presale_start_at),
           presale_end_at: utcToKSTLocal(data.presale_end_at),
@@ -354,9 +370,6 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   function buildPayload() {
     const shippingAttrValue = form.shipping_attr === "custom" ? form.shipping_attr_custom : "standard";
-    const statusMap: Record<string, string> = {
-      always: "active", groupbuy: "active", preparing: "draft", soldout: "soldout",
-    };
     return {
       expected_updated_at: mode === "edit" ? loadedVersion : undefined,
       name: form.name,
@@ -371,7 +384,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
       product_condition: form.product_condition,
       manufacture_date: form.manufacture_date || null,
       sale_type: form.sale_type,
-      status: statusMap[form.sale_type] ?? "active",
+      status: manualStatus,
+      supplier_name: form.supplier_name.trim() || null, expected_ship_date: form.expected_ship_date || null,
       presale_enabled: form.presale_enabled === "true",
       presale_start_at: kstISO(form.presale_start_at),
       presale_end_at: kstISO(form.presale_end_at),
@@ -417,9 +431,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   // 손익 집계에 빠지지 않도록 필수 확인 — 카테고리, 공급가(상품 공급가 또는 판매중 옵션마다 공급가)
   function validateRequired(): string | null {
-    if (!form.category) return "카테고리를 선택해주세요.";
+    if (!form.name.trim()) { setStep(0); return "상품명을 입력해주세요."; }
+    if (!form.category) { setStep(0); return "카테고리를 선택해주세요."; }
+    if (form.price === "" || !Number.isFinite(Number(form.price)) || Number(form.price) < 0) { setStep(1); return "판매가를 확인해주세요."; }
     const activeOpts = options.filter(o => o.name && o.active !== false);
     const supplyOk = form.supply_price !== "" || (activeOpts.length > 0 && activeOpts.every(o => o.supply !== ""));
+    if (!supplyOk) setStep(1);
     if (!supplyOk) return activeOpts.length > 0
       ? "공급가(매입원가)를 입력해주세요. 상품 공급가를 넣거나, 판매중 옵션마다 공급가를 넣어주세요."
       : "공급가(매입원가)를 입력해주세요. 비어 있으면 이익을 확정할 수 없어요.";
@@ -436,7 +453,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       setSaving(false);
       return;
     }
-    if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setError("비전시 링크 시작·종료 일시를 확인해주세요."); setSaving(false); return; }
+    if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setStep(2); setError("비전시 링크 시작·종료 일시를 확인해주세요."); setSaving(false); return; }
 
     try {
     // 공동구매 + 인플루언서 태그 → 태그별로 상품 복제 등록 (제목 양식 + 개별 공구기간)
@@ -582,7 +599,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <nav aria-label="상품 등록 단계" className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">{STEP_TITLES.map((title,i)=><button type="button" key={title} aria-current={step===i?"step":undefined} onClick={()=>setStep(i)} className={`border p-3 text-sm text-left ${step===i?"bg-[#2D5A27] text-white":"bg-white"}`}>{i+1}. {title}</button>)}</nav>
+      <StepContext.Provider value={step}>
+      <form noValidate onSubmit={handleSubmit} className="space-y-4">
 
         {/* 상품코드 복제 등록 — 기존 상품 정보를 그대로 불러와 새 상품으로 등록 */}
         {mode === "new" && (
@@ -625,8 +644,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
               <label className={lbl}>카테고리 *</label>
               <select value={form.category} onChange={e => set("category", e.target.value)} className={inp} required>
                 <option value="">카테고리 선택</option>
+                {mode==="edit"&&form.category&&!categories.some(c=>c.name===form.category)&&<option value={form.category}>{form.category} (기존 분류)</option>}
                 {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
               </select>
+              {suggestCategories(form.name,categories).filter(c=>c!==form.category).map(c=><button type="button" key={c} className="text-xs underline mr-2 mt-2" onClick={()=>set("category",c)}>상품명 기준 추천: {c}</button>)}
             </div>
           </Grid2>
           <Grid2>
@@ -661,13 +682,14 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
         {/* ② 판매 상태 */}
         <Section title="판매 상태">
+          <label className="block text-sm">운영 상태 <select className="border p-2 ml-2" value={manualStatus} onChange={e=>setManualStatus(e.target.value)}><option value="draft">판매 준비</option><option value="active">판매 허용</option><option value="soldout">판매 중지·품절</option></select></label>
+          <p className="text-xs text-gray-500">판매 허용 상품만 기간·재고에 따라 판매됩니다. 재고를 채워도 수동 판매 중지는 해제되지 않습니다.</p>
           <fieldset disabled={copyLocked} className={copyLocked ? "opacity-60" : ""}>
           <div className="grid grid-cols-2 gap-2">
             {[
               { value: "always", label: "상시 판매", sub: "기간 없이 계속 판매" },
               { value: "groupbuy", label: "공동구매", sub: "공구 기간 동안 판매" },
-              { value: "preparing", label: "준비중", sub: "공개" },
-              { value: "soldout", label: "품절", sub: "" },
+
             ].map(opt => (
               <button key={opt.value} type="button" onClick={() => set("sale_type", opt.value)}
                 className={`p-3 rounded-none border text-left transition-colors ${
@@ -1123,6 +1145,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
         {/* ⑥ 배송 */}
         <Section title="배송">
+          <div className="flex gap-3 text-sm"><button type="button" className="underline" onClick={()=>{try{localStorage.setItem(`product-shipping:${location.hostname}`,JSON.stringify(Object.fromEntries(SHIPPING_KEYS.map(k=>[k,form[k]]))));setNotice("이 사이트의 배송 기본값을 저장했습니다.");}catch{setNotice("브라우저 저장 공간을 사용할 수 없습니다.");}}}>현재 배송값을 기본값으로 저장</button><button type="button" className="underline" onClick={()=>{try{const raw=localStorage.getItem(`product-shipping:${location.hostname}`);if(!raw){setNotice("저장된 배송 기본값이 없습니다.");return;}const values=JSON.parse(raw);setForm(f=>({...f,...Object.fromEntries(SHIPPING_KEYS.filter(k=>typeof values[k]==="string").map(k=>[k,values[k]]))}));setNotice("배송 기본값을 불러왔습니다. 저장 전에 확인해주세요.");}catch{setNotice("배송 기본값을 불러오지 못했습니다.");}}}>배송 기본값 불러오기</button></div>
+          {notice&&<p role="status" className="text-sm text-green-700">{notice}</p>}
+          <Grid2><label className="text-sm">발주 공급사<input className="block border p-2 w-full" maxLength={120} value={form.supplier_name} onChange={e=>set("supplier_name",e.target.value)} placeholder="실제 발주할 공급사" /></label><label className="text-sm">출고 예정일<input className="block border p-2 w-full" type="date" value={form.expected_ship_date} onChange={e=>set("expected_ship_date",e.target.value)} /></label></Grid2>
           <div>
             <label className={lbl}>배송 방법</label>
             <div className="border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-400 bg-gray-50">택배</div>
@@ -1276,14 +1301,17 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
         </fieldset>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {step===3&&<div className="border p-4 bg-white text-sm space-y-2"><strong>저장 전 확인</strong><p>{form.name||"상품명 미입력"} · {form.category||"분류 미선택"} · {Number(form.price).toLocaleString()}원</p><p>{manualStatus==="draft"?"판매 준비":manualStatus==="active"?"판매 허용":"판매 중지"} / {form.sale_type==="groupbuy"?"공동구매":"상시 판매"} / 비전시 링크 {useLink?"사용":"미사용"}</p><p>공급사: {form.supplier_name||"미지정"} · 출고 예정: {form.expected_ship_date||"미지정"}</p><p className="text-gray-500">기존 상품 복제 시 재고·가격·판매 기간을 다시 확인해주세요.</p></div>}
+        {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
 
         <div className="flex gap-3 pb-8">
           <button type="button" onClick={() => router.back()}
             className="flex-1 border border-gray-200 text-gray-600 font-bold py-2.5 rounded-none text-sm hover:bg-gray-50 transition-colors">
             취소
           </button>
-          <button type="submit" disabled={saving}
+          {step>0&&<button type="button" className="border px-4" onClick={()=>setStep(step-1)}>이전</button>}
+          {step<3&&<button type="button" className="bg-[#2D5A27] text-white px-6" onClick={()=>setStep(step+1)}>다음</button>}
+          <button type="submit" hidden={step!==3} disabled={saving}
             className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] text-white font-bold py-2.5 rounded-none text-sm transition-colors disabled:opacity-50">
             {saving
               ? (mode === "new" ? "등록 중..." : "저장 중...")
@@ -1294,6 +1322,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           </button>
         </div>
       </form>
+      </StepContext.Provider>
 
       {/* 상세 페이지 전체화면 모달 */}
       {detailFullscreen && (
@@ -1402,8 +1431,9 @@ function ImageSlot({
 }
 
 function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+  const step = useContext(StepContext);
   return (
-    <div className="bg-white rounded-none border border-gray-100 p-6 space-y-4">
+    <div hidden={(SECTION_STEP[title]??0)!==step} className="bg-white rounded-none border border-gray-100 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{title}</p>
         {action}

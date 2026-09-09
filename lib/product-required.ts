@@ -13,6 +13,8 @@ export function productInputError(b: Record<string, unknown>, site: SiteKey): st
         return '상품명과 0 이상의 정수 판매가가 필요합니다.';
     if (typeof b.category !== 'string' || !b.category.trim() || (SITES.sanjipick.categories.includes(b.category) !== (site === 'sanjipick')))
         return '현재 사이트의 카테고리를 선택해주세요.';
+    if(b.supplier_name != null && (typeof b.supplier_name !== 'string' || b.supplier_name.trim().length>120)) return '공급사명을 120자 이내로 입력해주세요.';
+    if(b.expected_ship_date != null && b.expected_ship_date !== '' && (typeof b.expected_ship_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.expected_ship_date) || !Number.isFinite(Date.parse(b.expected_ship_date)) || new Date(b.expected_ship_date).toISOString().slice(0,10)!==b.expected_ship_date)) return '출고 예정일을 확인해주세요.';
     const supply = missingSupply(b.supply_price, b.options);
     if (supply)
         return supply;

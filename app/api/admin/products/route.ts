@@ -1,3 +1,4 @@
+import { saveProductLogistics } from "@/lib/product-logistics";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -148,6 +149,7 @@ export async function POST(req: Request) {
             }
         }
         await saveLinkSettings(client, productId, body);
+        await saveProductLogistics(client, productId, body);
         const saved = await client.query("SELECT updated_at FROM products_shop WHERE id=$1", [productId]);
         await client.query("COMMIT");
         return NextResponse.json({ id: productId, updated_at: saved.rows[0].updated_at }, { status: 201 });
