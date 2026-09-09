@@ -20,7 +20,7 @@ interface OrderItem {
   supplier_name?: string | null; expected_ship_date?: string | null;
 }
 
-interface Order {
+export interface Order {
   id: string;
   order_number: string;
   status: string;
@@ -130,7 +130,7 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
   return rows.sort((a,b)=>String(a[a.length-2]).localeCompare(String(b[b.length-2]),"ko") || String(a[a.length-1]).localeCompare(String(b[b.length-1])));
 }
 
-export default function OrdersClient() {
+export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?: Order[]; onChanged?: () => Promise<void>} = {}) {
   const [queue, setQueue] = useState("ready");
   const [loadError, setLoadError] = useState("");
   const [batches, setBatches] = useState<{id:string;request_key:string;created_at:string;order_count:number}[]>([]);
@@ -160,12 +160,14 @@ export default function OrdersClient() {
 
   async function loadBatches(){try{const r=await fetch("/api/admin/dispatches");if(!r.ok)throw Error();const rows=await r.json();setBatches(rows);if(rows.some((b:{request_key:string})=>b.request_key===pendingDispatch.current?.key))pendingDispatch.current=null;}catch{setLoadError("발주 이력을 불러오지 못했습니다. 새로고침해주세요.");}}
   async function load(_status = "") {
+    if(sharedOrders){await onChanged?.();return;}
     setLoading(true);setLoadError("");
     try{const res=await fetch("/api/admin/orders");const data=await res.json();if(!res.ok||!Array.isArray(data))throw Error();setOrders(data);setSelected(new Set());loadReqCounts();}
     catch{setOrders([]);setLoadError("주문을 불러오지 못했습니다. 새로고침해주세요.");}
     finally{setLoading(false);}
   }
-  useEffect(() => { load();loadBatches(); }, []);
+  useEffect(() => { if(!sharedOrders)load();loadBatches(); }, []);
+  useEffect(() => {if(sharedOrders){setOrders(sharedOrders);setLoading(false);setSelected(prev=>new Set([...prev].filter(id=>sharedOrders.some(o=>o.id===id && orderQueue(o)==="ready"))));}},[sharedOrders]);
   // 검색 — 주문번호·구매자·수령인·연락처·상품명·옵션·인플루언서 통합
   const [query, setQuery] = useState("");
   useEffect(()=>{setSelected(new Set());},[queue,statusFilter,typeFilter,channelFilter,query]);
@@ -349,7 +351,7 @@ export default function OrdersClient() {
 
   return (
     <div>
-      <div className="bg-white border p-5 mb-4 space-y-4">
+      {!sharedOrders && <div className="bg-white border p-5 mb-4 space-y-4">
         <div className="flex justify-between gap-3 flex-wrap"><h2 className="font-bold">판매 관리 · {SITES[siteFilter].name}</h2><div className="flex gap-4 text-sm underline"><Link href="/admin/shipments">배송 관리</Link><Link href="/admin/link-sales">전시·비전시 집계</Link><button onClick={()=>{load();loadBatches();}}>새로고침</button></div></div>
         <div className="grid grid-cols-3 gap-2">{[{key:"check",label:"신규 확인"},{key:"ready",label:"발주 대기"},{key:"requests",label:"고객 요청"}].map(t=><button key={t.key} onClick={()=>{setQueue(t.key);setStatusFilter("");}} className={`border p-3 text-left ${queue===t.key?"bg-[#2D5A27] text-white":""}`}><span className="block text-sm">{t.label}</span><strong className="text-xl">{orders.filter(o=>orderQueue(o)===t.key).length}건</strong></button>)}</div>
         <p className="text-sm text-gray-500">{queue==="ready"?"결제·배송지·상품 수량을 확인한 주문입니다. 발주 확정 시 서버에서 다시 검사합니다. 공급사가 미지정이면 상품 정보에서 보완해주세요.":queue==="check"?"결제 또는 배송 정보 확인이 필요한 주문입니다. 사유를 확인하고 주문 상세에서 보완해주세요.":queue==="requests"?"취소·교환·반품 요청을 확인하고 처리해주세요.":"배송 진행·완료를 포함한 전체 주문 이력입니다."}</p>
@@ -357,6 +359,7 @@ export default function OrdersClient() {
         {queue==="requests"&&<div className="flex gap-2 flex-wrap"><button onClick={()=>setStatusFilter("")} className="border p-2 text-sm">전체 요청</button>{requestTabs.map(t=><button key={t.key} onClick={()=>setStatusFilter(t.key)} className={`border p-2 text-sm ${statusFilter===t.key?"bg-gray-900 text-white":""}`}>{t.label} {t.count}</button>)}</div>}
         <details className="text-sm"><summary className="cursor-pointer">상세 필터 · 판매 방식 / 구매 구분 / 처리 상태</summary><div className="flex flex-wrap gap-3 pt-3"><label>판매 방식 <select className="border p-2" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="">전체</option><option value="shop">일반 상품</option><option value="campaign">공동구매</option></select></label><label>구매 구분 <select className="border p-2" value={channelFilter} onChange={e=>setChannelFilter(e.target.value)}><option value="">전체</option><option value="display">전시</option><option value="non_display">비전시</option></select></label>{queue==="history"&&<label>처리 상태 <select className="border p-2" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="">전체</option>{Object.entries(STATUS_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>}</div></details>
       </div>
+      }
       {loadError&&<p role="alert" className="text-red-600 mb-3">{loadError}</p>}
       <details className="border bg-white p-4 mb-4 text-sm"><summary className="cursor-pointer">최근 발주 확정 이력 · 재다운로드</summary><p className="text-gray-500 my-2">확정 당시 데이터로 다시 받습니다. 재다운로드는 상태·재고를 변경하지 않습니다.</p>{batches.length===0?<p>표시할 발주 이력이 없습니다.</p>:batches.map(b=><div key={b.id} className="flex justify-between border-t py-2"><span>{new Date(b.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} · {b.order_count}건</span><button onClick={()=>downloadBatch(b.id)} className="underline">다시 받기</button></div>)}</details>
       <div className="flex gap-3 mb-3">{actionButton()}{selected.size>0&&<button onClick={handleDownloadOnly} className="border bg-white p-2 text-sm">주문 목록 다운로드 ({selected.size}건)</button>}</div>
@@ -380,7 +383,7 @@ export default function OrdersClient() {
 
           {[...groups.entries()].map(([productName, groupOrders]) => {
             // 검색 중엔 결과가 접힌 그룹에 숨지 않게 전부 펼침
-            const isExpanded = queue === "check" || query.trim() !== "" || expandedGroups.has(productName);
+            const isExpanded = !!sharedOrders || queue === "check" || query.trim() !== "" || expandedGroups.has(productName);
             const groupSelected = groupOrders.every((o) => selected.has(o.id));
             const groupPartial = groupOrders.some((o) => selected.has(o.id)) && !groupSelected;
             const productCode = groupOrders[0]?.items.find((i) => i.product_id)?.product_code;
