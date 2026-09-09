@@ -358,13 +358,13 @@ export default function ProductDetail({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
         {/* 대표 이미지 */}
         <div
-          className="relative w-full aspect-square overflow-hidden"
+          className="relative w-full self-start overflow-hidden"
           style={{ background: "var(--cream-dark)", border: "1px solid #E4E1D6" }}
         >
           <FallbackImg
             src={images[0]?.url}
             alt={product.name}
-            className="w-full h-full object-contain"
+            className="w-full h-auto object-contain"
           />
           {isSoldout && (
             <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }}>

@@ -251,14 +251,15 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp{position:relative;max-width:480px;margin:0 auto;background:${CREAM};min-height:100svh;font-family:'Noto Sans KR',-apple-system,sans-serif;color:${INK};letter-spacing:-.01em;padding-bottom:132px}
         .sp *{box-sizing:border-box}
         .sp button{font-family:inherit;cursor:pointer}
-        .sp-top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:12px 14px}
+        .sp-top{position:relative;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:12px 14px}
         .sp-brand{display:inline-flex;align-items:center;gap:7px;background:rgba(251,248,241,.92);color:${GREEN};font-weight:900;font-size:13px;padding:4px 12px 4px 4px;border-radius:999px;backdrop-filter:blur(6px);text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.15)}
         .sp-brand img{height:34px;width:auto;display:block}
         .sp-icons{display:flex;gap:8px}
         .sp-icon{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.45);border:0;color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
-        .sp-slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;aspect-ratio:1/1;background:#E9E4D6}
+        .sp-slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:flex-start;background:#E9E4D6}
         .sp-slider::-webkit-scrollbar{display:none}
-        .sp-slide{flex:0 0 100%;scroll-snap-align:start;width:100%;height:100%;object-fit:contain;display:block}
+        div.sp-slide{aspect-ratio:1/1}
+        .sp-slide{flex:0 0 100%;scroll-snap-align:start;width:100%;height:auto;object-fit:contain;display:block}
         .sp-slider-wrap{position:relative}
         .sp-count{position:absolute;right:14px;bottom:14px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;font-variant-numeric:tabular-nums}
         .sp-pill{position:absolute;left:14px;bottom:14px;display:inline-flex;align-items:center;gap:6px;background:#fff;color:${INK};font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
@@ -300,8 +301,9 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding:0 16px 4px;margin:0 -16px}
         .sp-row::-webkit-scrollbar{display:none}
         .sp-card{flex:0 0 132px;text-decoration:none;color:inherit}
-        .sp-card .th{width:132px;height:132px;border-radius:10px;overflow:hidden;background:#f3f1ec;position:relative}
-        .sp-card .th img{width:100%;height:100%;object-fit:contain;display:block}
+        .sp-card .th{width:132px;border-radius:10px;overflow:hidden;background:#f3f1ec;position:relative}
+        .sp-card .th>div[aria-hidden="true"]{aspect-ratio:1/1}
+        .sp-card .th img{width:100%;height:auto;object-fit:contain;display:block}
         .sp-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
         .sp-card .nm{font-size:12px;line-height:1.4;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#333}
         .sp-card .pr{margin-top:4px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
