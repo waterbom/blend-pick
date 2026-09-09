@@ -48,3 +48,24 @@ test('visit chart never draws a collection error as zero visitors',()=>{
  const View=load('components/admin/charts/VisitCharts.tsx').default;
  assert.equal(renderToStaticMarkup(React.createElement(View,{data:{state:'error',daily:[],pages:[]}})),'');
 });
+for(const route of ['visits','traffic','monitoring']) test(`${route} denies unauthenticated access before site/data access`,async()=>{
+ const Page=load(`app/admin/(protected)/${route}/page.tsx`,{'next/headers':{cookies:async()=>({get:()=>undefined})},'next/navigation':{redirect:()=>{throw Error('LOGIN')}},'@/lib/auth':{verifyAdminToken:async()=>null},'@/lib/admin-site':{currentAdminSite:()=>{throw Error('site lookup before auth')}},'@/lib/visit-analytics/store':{getVisitSummary:()=>{throw Error('visit query before auth')}},'@/lib/server-traffic':{getServerTraffic:()=>{throw Error('traffic read before auth')}}}).default;
+ await assert.rejects(Page({searchParams:Promise.resolve({})}),/LOGIN/);
+});
+test('dashboard contains only daily sales and order charts with links to detailed pages',()=>{
+ const View=load('components/admin/charts/SalesCharts.tsx').default;
+ const data=summarizeSales([],7,new Date('2026-09-09T04:00:00Z'));
+ const html=renderToStaticMarkup(React.createElement(View,{data}));
+ assert.equal((html.match(/<svg/g)||[]).length,2);assert.match(html,/href="\/admin\/link-sales"/);assert.doesNotMatch(html,/전시·비전시 매출 비교/);
+});
+test('visits-only view excludes server traffic and automatic check panels',()=>{
+ const View=load('components/admin/MonitoringOverview.tsx').default;
+ const data={state:'empty',days:7,from:'2026-09-03T00:00:00Z',to:'2026-09-09T04:00:00Z',daily:[],pages:[],totals:{visitors:0,sessions:0,pageviews:0},lastEventAt:null};
+ const html=renderToStaticMarkup(React.createElement(View,{siteName:'산지픽',summary:data,visitsOnly:true}));
+ assert.match(html,/방문 통계/);assert.doesNotMatch(html,/자동 점검|서버 트래픽|점검 실행 기록/);
+});
+for(const route of ['visits','traffic']) test(`${route} loads only its own site's requested statistics`,async()=>{
+ let called=0;
+ const mocks={'next/headers':{cookies:async()=>({get:()=>({value:'test-admin'})})},'next/navigation':{redirect:()=>{throw Error('unexpected login')}},'@/lib/auth':{verifyAdminToken:async()=>({role:'admin'})},'@/lib/admin-site':{currentAdminSite:async()=>({key:'sanjipick',name:'산지픽'})},'@/components/admin/MonitoringOverview':()=>null,'@/components/admin/ServerTrafficPanel':()=>null,'@/lib/visit-analytics/store':{getVisitSummary:async(site,days)=>{assert.equal(route,'visits');assert.equal(site,'sanjipick');assert.equal(days,30);called++;return {}; }},'@/lib/server-traffic':{getServerTraffic:async(site,days)=>{assert.equal(route,'traffic');assert.equal(site,'sanjipick');assert.equal(days,30);called++;return {};}}};
+ const Page=load(`app/admin/(protected)/${route}/page.tsx`,mocks).default;await Page({searchParams:Promise.resolve({days:'30'})});assert.equal(called,1);
+});

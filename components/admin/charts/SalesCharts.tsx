@@ -7,8 +7,7 @@ export default function SalesCharts({data}:{data:SalesSummary}) {
     <div className="grid gap-4 xl:grid-cols-2">
       <MetricChart title="일별 결제액·환불액" description="선택 기간 주문의 환불을 현재까지 반영합니다. 환불 발생일 기준 현금 흐름과 다릅니다." points={data.daily.map(d=>({label:d.label.slice(5),values:[d.gross,d.refunds,d.net]}))} series={[{label:'총 결제액',color:'#3876a4'},{label:'확인된 환불액',color:'#bb513b'},{label:'순 결제액',color:'#315e43'}]} unit="won"/>
       <MetricChart title="일별 결제 건수" points={data.daily.map(d=>({label:d.label.slice(5),values:[d.orders]}))} series={[{label:'결제 건수',color:'#315e43'}]} kind="bar"/>
-      <MetricChart title="전시·비전시 매출 비교" points={data.channels.map(d=>({label:d.label,values:[d.gross,d.refunds,d.net]}))} series={[{label:'총 결제액',color:'#3876a4'},{label:'환불액',color:'#bb513b'},{label:'순 결제액',color:'#315e43'}]} kind="bar" unit="won"/>
-      <MetricChart title="전시·비전시 주문 비교" points={data.channels.map(d=>({label:d.label,values:[d.orders]}))} series={[{label:'결제 건수',color:'#b87a28'}]} kind="bar"/>
     </div>
+    <div className="flex flex-wrap gap-4 text-sm text-emerald-800"><a href="/admin/link-sales" className="underline">전시·비전시 판매 비교 →</a><a href="/admin/profit" className="underline">공구별 손익·비용 →</a><a href="/admin/settlements" className="underline">정산 추이 →</a></div>
   </section>;
 }

@@ -8,7 +8,7 @@ const routes:Record<string,string>={home:'메인',products:'상품',login:'로�
 export default function ServerTrafficPanel({data}:{data:ServerTraffic}) {
   const total=data.totals;
   return <section className="space-y-4" aria-labelledby="traffic-title"><div className="flex flex-wrap items-center justify-between gap-3"><h2 id="traffic-title" className="text-lg font-semibold">서버 트래픽</h2><span className={`rounded-full px-3 py-1 text-xs ${data.state==='ready'?'bg-emerald-50 text-emerald-800':'bg-amber-50 text-amber-900'}`}>{labels[data.state]}</span></div>
-    <p className="text-xs text-stone-500">최근 집계: {data.generatedAt?time(data.generatedAt):'기록 없음'} · 30분 간격 · 선택한 방문 통계 기간과 동일</p>
+    <p className="text-xs text-stone-500">최근 집계: {data.generatedAt?time(data.generatedAt):'기록 없음'} · 30분 간격 · 선택한 조회 기간 기준</p>
     {data.state!=='ready'&&<p role="status" className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{data.state==='stale'?'45분 이상 새 집계가 없습니다. 마지막 정상 집계값을 표시합니다.':data.state==='error'?'최근 집계 또는 결과 조회에 문제가 있습니다. 표시된 값의 집계 시각을 확인해 주세요.':'아직 집계 파일을 읽지 못했습니다. 0건으로 계산하지 않습니다.'}</p>}
     {total&&<><div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[['전체 요청',num(total.requests)+'건'],['보낸 데이터',bytes(total.sentBytes)],['서버 오류율',total.error5xxPercent===null?'—':num(total.error5xxPercent)+'%'],['평균 처리 시간',total.averageMs===null?'—':num(total.averageMs)+'ms']].map(([label,value])=><div key={label} className="rounded-xl border border-stone-200 bg-white p-5"><p className="text-xs text-stone-500">{label}</p><p className="mt-3 text-xl font-semibold tabular-nums">{value}</p></div>)}</div>
     <TrafficCharts key={data.days} data={data}/>
