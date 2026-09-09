@@ -1,13 +1,13 @@
 // 브라우저에서 업로드 전에 사진을 줄인다 — 어드민 상품 이미지·상세 에디터 공용.
 // 휴대폰 사진(3~8MB)을 그대로 올리면 서버 앞단(nginx) 업로드 한도에 걸리거나 상세 페이지가 무거워진다.
 // 긴 변 maxDim 이하·JPEG 품질 quality 로 다시 인코딩. GIF(애니메이션)와 작은 파일은 그대로 둔다.
-export async function shrinkImage(file: File, opts: { maxDim?: number; quality?: number; skipBelow?: number } = {}): Promise<File> {
+export async function shrinkImage(file: File, opts: { maxWidth?: number; maxDim?: number; quality?: number; skipBelow?: number } = {}): Promise<File> {
   const { maxDim = 1600, quality = 0.86, skipBelow = 700 * 1024 } = opts;
   if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
   if (file.size <= skipBelow) return file;
   try {
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, opts.maxWidth ? opts.maxWidth / bitmap.width : maxDim / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * scale));
     const h = Math.max(1, Math.round(bitmap.height * scale));
     const canvas = document.createElement("canvas");

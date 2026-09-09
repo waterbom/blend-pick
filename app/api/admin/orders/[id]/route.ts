@@ -6,6 +6,7 @@ import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { cancelShopOrder } from "@/lib/order-cancel";
 import { recordDeliverySettlement } from "@/lib/delivery-settlement.cjs";
+import { validateTracking } from '@/lib/tracking-validation';
 async function getAdmin() {
     const cookieStore = await cookies();
     const token = cookieStore.get("admin_token")?.value;
@@ -25,7 +26,16 @@ export async function PATCH(request: Request, { params }: {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const site = (await currentAdminSite()).key;
     const { id } = await params;
-    const { action, status, tracking_company, tracking_number } = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: '요청 본문을 확인해주세요.' }, { status: 400 });
+    const { action, status } = body;
+    let { tracking_company, tracking_number } = body;
+    if (action === 'repair_tracking' || tracking_company !== undefined || tracking_number !== undefined) {
+        const checked = validateTracking(tracking_company, tracking_number);
+        if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
+        tracking_company = checked.carrier;
+        tracking_number = checked.number;
+    }
     if (!(await adminOrderIdsBelong([id], site)))
         return NextResponse.json({ error: "이 사이트의 주문을 찾을 수 없습니다." }, { status: 404 });
     // 배송중 누락 보완은 상태 전환·문자·정산 없이 송장 두 필드만 변경한다.
@@ -53,7 +63,7 @@ export async function PATCH(request: Request, { params }: {
         return NextResponse.json(result, result.ok ? undefined : { status: result.httpStatus });
     }
     const transitions: Record<string, string[]> = { confirmed: ['paid'], preparing: ['paid', 'confirmed'], shipped: ['paid', 'confirmed', 'preparing'], delivered: ['shipped'], cancel_requested: ['paid', 'confirmed', 'preparing'] };
-    if (!transitions[status])
+    if (typeof status !== 'string' || !Object.hasOwn(transitions, status))
         return NextResponse.json({ error: '해당 처리는 교환·반품 신청 상세에서 진행해주세요.' }, { status: 409 });
     const client = await shopPool.connect();
     try {

@@ -31,6 +31,8 @@ jobs:
             npm run test:admin-charts
             npm run test:admin-workflow
             npm run test:shipping
+            npm run test:process-edges
+            npm run test:images
             node --test tests/payment-launch.cjs
             node scripts/check-admin-auth.cjs
             node scripts/check-payment-config.cjs
@@ -42,4 +44,5 @@ jobs:
             sudo systemctl restart blend-pick
             sudo systemctl is-active --quiet blend-pick
             echo "Deployment service is active."
+            node scripts/check-upload-serving.cjs
             sudo "$(command -v node)" scripts/install-traffic-monitor.cjs

@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import pool from "@/lib/db";
 import CheckoutClient from "@/components/CheckoutClient";
+import { currentSite } from '@/lib/site-server';
+import { campaignBelongsToSite } from '@/lib/campaign-checkout';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/auth';
+import { phoneVerifyOn } from '@/lib/sms';
 
 interface SetOption {
   name: string;
@@ -13,6 +18,7 @@ interface Product {
   id: string;
   name: string;
   brand: string;
+  category: string | null;
   consumer_price: number;
   groupbuy_price: number;
   product_image: string | null;
@@ -24,7 +30,7 @@ interface Product {
 async function getProduct(id: string): Promise<Product | null> {
   try {
     const result = await pool.query(
-      `SELECT id, name, brand, consumer_price, groupbuy_price,
+      `SELECT id, name, brand, category, consumer_price, groupbuy_price,
               product_image, shipping_type, shipping_cost, set_options
        FROM products
        WHERE id = $1 AND status = 'active' AND visibility_status = 'active'`,
@@ -44,7 +50,9 @@ async function getCampaign(productId: string, influencerId?: string) {
       `SELECT c.id AS campaign_id, c.influencer_id, i.name AS influencer_name
        FROM campaigns c
        JOIN influencers i ON i.id = c.influencer_id
-       WHERE c.product_id = $1 AND c.influencer_id = $2 AND c.is_archived = false`,
+       WHERE c.product_id = $1 AND c.influencer_id = $2 AND c.is_archived = false
+         AND c.start_date <= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date
+         AND c.end_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date`,
       [productId, influencerId]
     );
     return result.rows[0] || null;
@@ -64,7 +72,7 @@ export default async function CheckoutPage({
   const { opt, qty, influencer_id } = await searchParams;
   const product = await getProduct(id);
 
-  if (!product) notFound();
+  if (!product || !campaignBelongsToSite(product.category, (await currentSite()).key)) notFound();
 
   // 인플루언서 연결 검증 (없거나 위조면 null — 주문은 인플루언서 없이 진행)
   const campaign = await getCampaign(id, influencer_id);
@@ -75,7 +83,8 @@ export default async function CheckoutPage({
       : product.consumer_price;
 
   // 선택 옵션 → 가격은 DB의 set_options에서 재조회(클라이언트 값 신뢰 X)
-  const optIndex = opt != null ? parseInt(opt, 10) : NaN;
+  const optIndex = opt != null && /^\d+$/.test(opt) ? Number(opt) : NaN;
+  if (opt != null && (!Number.isSafeInteger(optIndex) || !product.set_options?.[optIndex])) notFound();
   const selectedOption =
     !Number.isNaN(optIndex) && product.set_options && product.set_options[optIndex]
       ? product.set_options[optIndex]
@@ -93,6 +102,9 @@ export default async function CheckoutPage({
     : product.name;
 
   const clientKey = process.env.TOSS_CLIENT_KEY!;
+  const shopToken = (await cookies()).get('shop_token')?.value;
+  const loggedIn = shopToken ? !!(await verifyToken(shopToken)) : false;
+  const phoneVerifyRequired = phoneVerifyOn() && !loggedIn;
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -133,8 +145,10 @@ export default async function CheckoutPage({
           productName={orderName}
           unitPrice={unitPrice}
           quantity={quantity}
+          optionIndex={selectedOption ? optIndex : null}
           shippingCost={shippingCost}
           clientKey={clientKey}
+          phoneVerifyRequired={phoneVerifyRequired}
           campaignId={campaign?.campaign_id}
           influencerId={campaign?.influencer_id}
           influencerName={campaign?.influencer_name}

@@ -11,6 +11,7 @@ interface Props {
   productName: string;
   unitPrice: number;
   quantity?: number;
+  optionIndex?: number | null;
   shippingCost: number;
   clientKey: string;
   phoneVerifyRequired?: boolean; // 비회원이면 휴대폰 인증 후 결제
@@ -24,6 +25,7 @@ export default function CheckoutClient({
   productName,
   unitPrice,
   quantity = 1,
+  optionIndex = null,
   shippingCost,
   clientKey,
   phoneVerifyRequired = false,
@@ -86,6 +88,7 @@ export default function CheckoutClient({
       productName,
       unitPrice,
       quantity,
+      optionIndex,
       shippingCost,
       totalAmount,
       campaignId: campaignId || null,

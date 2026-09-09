@@ -3,6 +3,8 @@ import type { SiteKey } from "@/lib/sites";
 import type { VerifiedItem } from "@/lib/order-amount";
 import { normalizePaymentMethod } from "@/lib/payment-fees.cjs";
 export interface PurchaseSnapshot {
+    orderType?: 'shop' | 'campaign';
+    campaignId?: string | null;
     orderNumber: string;
     userId: string | null;
     buyerName: string;
@@ -90,8 +92,8 @@ async function finish(a: PaymentAttempt, method: string, approvedAt: string) {
         const s = a.snapshot;
         const order = await c.query(`INSERT INTO orders(order_number,user_id,buyer_name,buyer_phone,buyer_email,recipient_name,recipient_phone,
  addr_zipcode,addr_address,addr_detail,addr_memo,total_amount,shipping_fee,status,payment_key,payment_method,paid_at,order_type,
- influencer_id,influencer_name,commission_rate,site,link_code,link_start_at,link_end_at)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'paid',$14,$15,$23,'shop',$16,$17,$18,$19,$20,$21,$22) RETURNING id`, [s.orderNumber, s.userId, s.buyerName, s.buyerPhone, s.buyerEmail, s.recipientName, s.recipientPhone, s.zipcode, s.address, s.detail, s.memo, a.amount, s.shipping, a.payment_key, normalizePaymentMethod(method), s.influencerId, s.influencerName, s.influencerId ? s.items[0]?.commissionRate : null, a.site, s.linkCode, s.linkStartAt, s.linkEndAt, approvedAt]);
+ influencer_id,influencer_name,commission_rate,site,link_code,link_start_at,link_end_at,campaign_id)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'paid',$14,$15,$23,$24,$16,$17,$18,$19,$20,$21,$22,$25) RETURNING id`, [s.orderNumber, s.userId, s.buyerName, s.buyerPhone, s.buyerEmail, s.recipientName, s.recipientPhone, s.zipcode, s.address, s.detail, s.memo, a.amount, s.shipping, a.payment_key, normalizePaymentMethod(method), s.influencerId, s.influencerName, s.influencerId ? s.items[0]?.commissionRate : null, a.site, s.linkCode, s.linkStartAt, s.linkEndAt, approvedAt, s.orderType ?? 'shop', s.campaignId ?? null]);
         const id = order.rows[0].id;
         for (const i of s.items)
             await c.query(`INSERT INTO order_items(order_id,product_id,option_id,product_ref,product_name,option_label,unit_price,quantity,supply_price,commission_rate,tax_type)

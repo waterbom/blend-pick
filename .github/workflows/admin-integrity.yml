@@ -17,3 +17,5 @@ jobs:
       - run: npm run test:admin-charts
       - run: npm run test:admin-workflow
       - run: npm run test:shipping
+      - run: npm run test:process-edges
+      - run: npm run test:images

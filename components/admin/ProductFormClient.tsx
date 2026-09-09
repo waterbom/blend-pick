@@ -49,6 +49,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
   const [addonMulti, setAddonMulti] = useState(true);
   const [stockConfirmed, setStockConfirmed] = useState(false);
   const [detailFullscreen, setDetailFullscreen] = useState(false);
+  const [detailUploading, setDetailUploading] = useState(false);
 
   // 공동구매 인플루언서 태그 — 태그 1명당 상품 1개씩 복제 등록
   // 제목은 [이름 X 브랜드] 상품명 양식으로 자동, 공구기간(판매기간)만 태그별 개별 입력
@@ -448,6 +449,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
+    if (detailUploading) { setError("상세 이미지 업로드가 끝난 뒤 저장해주세요."); return; }
     setSaving(true);
     setError("");
     const missing = validateRequired();
@@ -1291,7 +1293,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
         {/* ⑨ 상세 페이지 */}
         <Section title="상세 페이지" action={
-          <button type="button" onClick={() => setDetailFullscreen(true)}
+          <button type="button" disabled={detailUploading} onClick={() => setDetailFullscreen(true)}
             className="text-xs border border-gray-200 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-none transition-colors">
             전체화면 편집 ↗
           </button>
@@ -1300,6 +1302,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           <RichEditor
             value={form.detail_html}
             onChange={v => set("detail_html", v)}
+            onUploadingChange={setDetailUploading}
             className="min-h-[240px] max-h-[520px] overflow-auto border border-gray-200 rounded-none p-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C7D6C0] [&_img]:max-w-full [&_img]:rounded-none"
             style={{ lineHeight: 1.6 }}
             placeholder="여기에 상세 내용을 붙여넣으세요"
@@ -1318,7 +1321,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           </button>
           {step>0&&<button type="button" className="border px-4" onClick={()=>setStep(step-1)}>이전</button>}
           {step<4&&<button type="button" className="bg-[#2D5A27] text-white px-6" onClick={()=>setStep(step+1)}>다음</button>}
-          <button type="submit" hidden={step!==4} disabled={saving}
+          <button type="submit" hidden={step!==4} disabled={saving || detailUploading}
             className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] text-white font-bold py-2.5 rounded-none text-sm transition-colors disabled:opacity-50">
             {saving
               ? (mode === "new" ? "등록 중..." : "저장 중...")
@@ -1339,7 +1342,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
               <p className="text-sm font-bold text-gray-800">상세 페이지 편집</p>
               <p className="text-xs text-gray-400 mt-0.5">복사해 붙여넣거나(Ctrl+V) 사진 파일을 끌어다 놓으면 들어가요</p>
             </div>
-            <button type="button" onClick={() => setDetailFullscreen(false)}
+            <button type="button" disabled={detailUploading} onClick={() => setDetailFullscreen(false)}
               className="bg-gray-900 text-white text-sm font-bold px-5 py-2 rounded-none hover:bg-gray-700 transition-colors">
               완료
             </button>
@@ -1347,6 +1350,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           <RichEditor
             value={form.detail_html}
             onChange={v => set("detail_html", v)}
+            onUploadingChange={setDetailUploading}
             className="flex-1 p-6 text-sm overflow-auto focus:outline-none [&_img]:max-w-full [&_img]:rounded-none"
             style={{ lineHeight: 1.7 }}
             placeholder="여기에 상세 내용을 붙여넣으세요"

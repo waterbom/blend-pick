@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CORE_CARRIERS, carrierName } from "@/lib/carriers";
+import { validateTracking } from '@/lib/tracking-validation';
 
 export default function TrackingForm({
   orderId,
@@ -36,7 +37,8 @@ export default function TrackingForm({
   const canCancel = currentStatus === "paid";
 
   async function handleSaveTracking() {
-    if (!company || !number.trim()) return;
+    const checked = validateTracking(company, number);
+    if (!checked.ok) { alert(checked.error); return; }
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/orders/${orderId}`, {

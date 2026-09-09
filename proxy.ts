@@ -9,6 +9,13 @@ import { SITES, siteFromHost, siteFromPath, type SiteKey } from "@/lib/sites";
 //    · /api, /_next, 정적 파일, 공용 페이지(/products, /checkout, /login …)는 그대로 — 두 사이트가 공유
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  // Runtime uploads are not part of Next's startup public-file inventory.
+  // Serve image bytes on demand on either domain, keeping saved /uploads URLs.
+  if (pathname.startsWith('/uploads/') && /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(pathname)) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/api/uploaded-images/' + pathname.slice('/uploads/'.length);
+    return NextResponse.rewrite(url);
+  }
 
   if (pathname.startsWith("/admin")) {
     const adminToken = req.cookies.get("admin_token")?.value;
