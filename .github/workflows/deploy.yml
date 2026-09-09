@@ -28,6 +28,7 @@ jobs:
             git pull --ff-only origin main
             npm ci
             npm run test:admin-integrity
+            npm run test:admin-charts
             node --test tests/payment-launch.cjs
             node scripts/check-admin-auth.cjs
             node scripts/check-payment-config.cjs

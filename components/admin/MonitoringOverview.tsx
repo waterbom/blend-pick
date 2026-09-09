@@ -1,28 +1,30 @@
+import VisitCharts from '@/components/admin/charts/VisitCharts';
 import ServerTrafficPanel from '@/components/admin/ServerTrafficPanel';
 import type { ServerTraffic } from '@/lib/server-traffic';
 import { PAGE_LABELS, type VisitSummary } from '@/lib/visit-analytics/rules';
 const format=(v:number)=>v.toLocaleString('ko-KR');
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 const stateText={disabled:'수집 대기',unconfigured:'연결 준비 필요',empty:'기간 내 기록 없음',active:'수집 기록 있음',error:'조회 실패'};
-export default function MonitoringOverview({siteName,summary,traffic,example=false}:{siteName:string;summary:VisitSummary;traffic?:ServerTraffic;example?:boolean}) {
+export default function MonitoringOverview({siteName,summary,traffic,example=false,visitsOnly=false}:{siteName:string;summary:VisitSummary;traffic?:ServerTraffic;example?:boolean;visitsOnly?:boolean}) {
   const valid=summary.state==='active'||summary.state==='empty';
   return <main className="mx-auto w-full max-w-6xl space-y-7 p-5 md:p-9 text-stone-800">
-    <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-1 text-xs font-semibold text-emerald-800">{siteName} · 운영 현황</p><h1 className="text-2xl font-bold tracking-tight">방문·트래픽·자동 점검</h1></div><span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs">{example?'설명용 예시':stateText[summary.state]}</span></header>
-    {example && <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">미리보기 수치는 예시입니다. 운영 배포·실제 수집은 시작하지 않았습니다.</div>}
+    <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-1 text-xs font-semibold text-emerald-800">{siteName} · 운영 현황</p><h1 className="text-2xl font-bold tracking-tight">{visitsOnly?'방문 통계':'방문·트래픽·자동 점검'}</h1></div><span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs">{example?'설명용 예시':stateText[summary.state]}</span></header>
+    {example && <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">미리보기 수치는 설명용 예시입니다. 실제 운영 통계와 무관합니다.</div>}
     <section className="space-y-4" aria-labelledby="visits-title">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 id="visits-title" className="text-lg font-semibold">방문 통계</h2><p className="mt-1 text-xs text-stone-500">{time(summary.from)} ~ {time(summary.to)} · 한국시간</p></div><nav aria-label="통계 기간" className="flex rounded-lg border border-stone-200 bg-white p-1">{[1,7,30].map(d=><a key={d} href={`?days=${d}`} aria-current={summary.days===d?'page':undefined} className={`rounded-md px-3 py-2 text-xs ${summary.days===d?'bg-emerald-900 text-white':'text-stone-600'}`}>{d===1?'오늘':`최근 ${d}일`}</a>)}</nav></div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{[['방문자','visitors','브라우저 기준 · 기간 내 중복 제외'],['세션','sessions','30분 이상 조회가 없으면 새 방문'],['페이지 조회','pageviews','수집 대상 화면의 열람 횟수']].map(([label,key,hint])=><div key={key} className="rounded-xl border border-stone-200 bg-white p-5"><p className="text-sm text-stone-600">{label}</p><p className="my-3 text-3xl font-semibold tabular-nums">{valid&&summary.totals?format(summary.totals[key as keyof typeof summary.totals]):'—'}</p><p className="text-xs text-stone-500">{hint}</p></div>)}</div>
-      {!valid ? <div role="status" className="rounded-xl border border-stone-200 bg-stone-50 p-5"><p className="font-medium">{stateText[summary.state]}</p><p className="mt-2 text-sm text-stone-600">{summary.state==='error'?'통계를 불러오지 못했습니다. 잠시 후 새로고침하거나 연결 상태를 확인해 주세요.':summary.state==='unconfigured'?'통계 저장소와 수집 설정을 연결한 뒤 기록을 시작할 수 있습니다.':'수집을 활성화하면 방문자·세션·페이지 조회가 이곳에 표시됩니다.'}</p></div> : <div className="grid gap-4 lg:grid-cols-2">
+      <VisitCharts data={summary}/>
+      {!valid ? <div role="status" className="rounded-xl border border-stone-200 bg-stone-50 p-5"><p className="font-medium">{stateText[summary.state]}</p><p className="mt-2 text-sm text-stone-600">{summary.state==='error'?'통계를 불러오지 못했습니다. 잠시 후 새로고침하거나 연결 상태를 확인해 주세요.':summary.state==='unconfigured'?'통계 저장소와 수집 설정을 연결한 뒤 기록을 시작할 수 있습니다.':'수집을 활성화하면 방문자·세션·페이지 조회가 이곳에 표시됩니다.'}</p></div> : <details className="rounded-xl border border-stone-200 bg-white p-4 text-sm"><summary className="cursor-pointer font-medium">방문 통계 상세표</summary><div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="overflow-hidden rounded-xl border border-stone-200 bg-white"><h3 className="border-b border-stone-100 px-5 py-4 text-sm font-semibold">어떤 화면을 많이 보나요?</h3>{summary.pages.length?<table className="w-full text-left text-sm"><thead className="bg-stone-50 text-xs text-stone-500"><tr><th className="px-5 py-3">화면</th><th className="px-5 py-3 text-right">조회</th></tr></thead><tbody>{summary.pages.map(p=><tr key={p.page} className="border-t border-stone-100"><td className="px-5 py-3">{PAGE_LABELS[p.page]||'기타'}</td><td className="px-5 py-3 text-right tabular-nums">{format(p.views)}</td></tr>)}</tbody></table>:<p className="p-5 text-sm text-stone-500">선택한 기간에 수집된 조회 기록이 없습니다.</p>}</div>
         <div className="overflow-auto rounded-xl border border-stone-200 bg-white"><h3 className="border-b border-stone-100 px-5 py-4 text-sm font-semibold">날짜별 방문</h3><table className="w-full whitespace-nowrap text-right text-sm"><thead className="bg-stone-50 text-xs text-stone-500"><tr><th className="px-4 py-3 text-left">날짜</th><th className="px-4 py-3">방문자</th><th className="px-4 py-3">세션</th><th className="px-4 py-3">조회</th></tr></thead><tbody>{summary.daily.map(d=><tr key={d.day} className="border-t border-stone-100"><td className="px-4 py-3 text-left">{d.day.slice(5)}</td><td className="px-4 py-3">{format(d.visitors)}</td><td className="px-4 py-3">{format(d.sessions)}</td><td className="px-4 py-3">{format(d.pageviews)}</td></tr>)}</tbody></table>{!summary.daily.length&&<p className="p-5 text-sm text-stone-500">수집된 기록이 없습니다.</p>}</div>
-      </div>}
+      </div></details>}
       <p className="text-xs text-stone-500">마지막 수신: {summary.lastEventAt?time(summary.lastEventAt):'기록 없음'} · 기록이 없다는 것만으로 방문이 없었다고 판단하지 않습니다.</p>
     </section>
-    <section className="grid gap-4" aria-label="서버 관측 연결 상태">
+    {!visitsOnly && <section className="grid gap-4" aria-label="서버 관측 연결 상태">
       <div className="rounded-xl border border-stone-200 bg-white p-5"><div className="flex justify-between"><h2 className="font-semibold">자동 점검</h2><span className="text-xs text-stone-500">30분 간격 · 배포 후</span></div><p className="mt-3 text-sm text-stone-600">사이트 접속·상품 연결·검색 설정·관리자 접근 차단</p><p className="mt-4 text-xs text-stone-500">두 사이트를 정기적으로 점검합니다. 최신 결과는 점검 실행 기록에서 확인할 수 있습니다.</p><a className="mt-3 inline-block text-xs font-medium text-emerald-800 underline" href="https://github.com/waterbom/blend-pick/actions/workflows/storefront-monitor.yml" target="_blank" rel="noopener noreferrer">점검 실행 기록 보기</a></div>
 
-    </section>
-    {traffic && <ServerTrafficPanel data={traffic}/>}
+    </section>}
+    {!visitsOnly && traffic && <ServerTrafficPanel data={traffic}/>}
     <details className="rounded-xl border border-stone-200 bg-white px-5 py-4 text-sm"><summary className="cursor-pointer font-medium">집계 기준과 제외 항목</summary><div className="mt-4 space-y-2 text-xs leading-6 text-stone-600"><p>방문자는 사이트별 브라우저 식별값 기준입니다. 기기 변경·저장소 초기화·90일 식별값 만료 시 새 방문자로 계산될 수 있습니다. 기간별 방문자는 날짜별 방문자 합계와 다를 수 있습니다.</p><p>세션은 마지막 수집 페이지 조회 이후 30분을 기준으로 나눕니다. 기간 내 조회가 발생한 세션을 셉니다. 화면을 켜 둔 시간이나 스크롤만으로 연장하지 않습니다.</p><p>최초 화면·새로고침·등록된 고객 화면 간 이동을 기록합니다. 쿼리만 바뀐 이동·해시 변경·관리자 화면·식별된 봇·분석 거부 환경은 제외합니다. 결제 완료 화면 조회를 결제 성공으로 계산하지 않습니다.</p><p>IP·실명·이메일·주문번호·URL 검색어는 새 방문 통계에 저장하지 않습니다. 수집 차단·통신 실패로 일부 조회가 누락될 수 있습니다.</p></div></details>
   </main>;
 }

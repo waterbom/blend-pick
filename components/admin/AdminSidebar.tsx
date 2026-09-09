@@ -9,12 +9,14 @@ type NavGroup = { caption: string; items: { label: string; href: string }[] };
 
 // 그룹핑된 메뉴 — 사이트별로 사이드바 팔레트·로고가 갈리고, 산지픽에는 숙박(예약 관리) 메뉴가 없다
 const NAV_GROUPS: NavGroup[] = [
-  { caption: "OVERVIEW", items: [{ label: "대시보드", href: "/admin" }, { label: "오늘 처리할 일", href: "/admin/operations" }, { label: "방문·트래픽·점검", href: "/admin/monitoring" }] },
+  { caption: "OVERVIEW", items: [{ label: "대시보드", href: "/admin" }, { label: "오늘 처리할 일", href: "/admin/operations" }] },
+  { caption: "통계·점검", items: [{ label: "방문 통계", href: "/admin/visits" }, { label: "서버 트래픽", href: "/admin/traffic" }, { label: "자동 점검", href: "/admin/monitoring" }] },
   {
     caption: "커머스",
     items: [
       { label: "상품 관리", href: "/admin/products" },
       { label: "판매 관리", href: "/admin/orders" },
+      { label: "전시·비전시 판매", href: "/admin/link-sales" },
       { label: "결제 확인·복구", href: "/admin/payment-recovery" },
       { label: "배송 관리", href: "/admin/shipments" },
       { label: "리뷰 관리", href: "/admin/reviews" },

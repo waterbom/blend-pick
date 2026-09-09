@@ -1,3 +1,4 @@
+import MetricChart from '@/components/admin/charts/MetricChart';
 import {currentAdminSite} from "@/lib/admin-site";
 import {getLinkSales} from "@/lib/link-sales";
 export const dynamic="force-dynamic";
@@ -19,6 +20,10 @@ export default async function LinkSales({searchParams}:{searchParams:Promise<{fr
       <button className="bg-[#2D5A27] text-white px-5 py-2">조회</button>
     </form>
     <p className="text-sm text-gray-500">한국시간 결제일 기준 · 배송비 포함 결제액 · 선택 기간의 주문에 발생한 환불은 현재까지 반영합니다. 테스트 결제와 미결제는 제외합니다.</p>
+    <div className="grid gap-4 xl:grid-cols-2">
+      <MetricChart title="전시·비전시 결제액" points={["display","non_display"].map(c=>{const r=rows.find(x=>x.sales_channel===c);return {label:c==="display"?"전시":"비전시",values:[Number(r?.gross??0),Number(r?.refunds??0),r?.unresolved?null:Number(r?.net??0)]};})} series={[{label:'총 결제액',color:'#3876a4'},{label:'환불액',color:'#bb513b'},{label:'순 결제액',color:'#315e43'}]} unit="won" kind="bar"/>
+      <MetricChart title="전시·비전시 주문 건수" points={["display","non_display"].map(c=>({label:c==="display"?"전시":"비전시",values:[Number(rows.find(x=>x.sales_channel===c)?.orders??0)]}))} series={[{label:'결제 건수',color:'#315e43'}]} kind="bar"/>
+    </div>
     <div className="overflow-x-auto bg-white border border-gray-200"><table className="w-full text-sm text-left"><thead><tr>{["구매 구분","결제 건수","주문 수량","총 결제액","확인된 환불액","순 결제액"].map(h=><th key={h} className="p-4 whitespace-nowrap">{h}</th>)}</tr></thead><tbody>
       {["display","non_display"].map(channel=>{const r=rows.find(x=>x.sales_channel===channel);return <tr key={channel} className="border-t border-gray-100"><td className="p-4 font-bold">{channel==="display"?"전시":"비전시"}</td><td className="p-4">{r?.orders??0}건</td><td className="p-4">{r?.units??0}개</td><td className="p-4">{won(r?.gross??"0")}</td><td className="p-4">{won(r?.refunds??"0")}</td><td className="p-4">{r?.unresolved ? <span className="text-amber-700">환불 대조 필요 {r.unresolved}건</span>:won(r?.net??"0")}</td></tr>;})}
     </tbody></table></div>
