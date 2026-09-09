@@ -317,7 +317,12 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
 
   return (
     <div>
-      {loadError && <p role="alert" className="bg-red-50 text-red-700 p-3 mb-3">{loadError} <button className="underline" onClick={() => load(tab)}>목록 다시 확인</button></p>}
+      {loadError && (
+        <p role="alert" className="mb-3 px-4 py-3 text-xs font-semibold flex items-center gap-3 flex-wrap" style={{ background: "#FDF2F2", border: "1px solid #F0C9C9", color: "#B91C1C" }}>
+          {loadError}
+          <button className="border border-red-200 bg-white text-red-600 font-bold px-3 py-1 rounded-none hover:bg-red-50" onClick={() => load(tab)}>목록 다시 확인</button>
+        </p>
+      )}
       {/* 탭 + 사이트 필터 */}
       {!sharedOrders && (
       <div className="flex flex-wrap items-center gap-3 mb-4">

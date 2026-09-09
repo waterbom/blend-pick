@@ -328,7 +328,7 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
   }
   const actionButton = () => {
     if (selected.size === 0) return null;
-    if(queue==="ready")return <button disabled={acting} onClick={handleDispatch} className="bg-[#2D5A27] text-white px-4 py-2 disabled:opacity-50">{acting?"확정 중…":`발주 확정·엑셀 (${selected.size}건)`}</button>;
+    if(queue==="ready")return <button disabled={acting} onClick={handleDispatch} className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">{acting?"확정 중…":`발주 확정 · 엑셀 (${selected.size}건)`}</button>;
     // 취소요청 탭 — 배송관리와 같은 3버튼 (전액 환불 / 배송비 차감 / 반려)
     if (statusFilter === "cancel_requested") return (
       <div className="flex items-center gap-2 flex-wrap">
@@ -351,18 +351,78 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
 
   return (
     <div>
-      {!sharedOrders && <div className="bg-white border p-5 mb-4 space-y-4">
-        <div className="flex justify-between gap-3 flex-wrap"><h2 className="font-bold">판매 관리 · {SITES[siteFilter].name}</h2><div className="flex gap-4 text-sm underline"><Link href="/admin/shipments">배송 관리</Link><Link href="/admin/link-sales">전시·비전시 집계</Link><button onClick={()=>{load();loadBatches();}}>새로고침</button></div></div>
-        <div className="grid grid-cols-3 gap-2">{[{key:"check",label:"신규 확인"},{key:"ready",label:"발주 대기"},{key:"requests",label:"고객 요청"}].map(t=><button key={t.key} onClick={()=>{setQueue(t.key);setStatusFilter("");}} className={`border p-3 text-left ${queue===t.key?"bg-[#2D5A27] text-white":""}`}><span className="block text-sm">{t.label}</span><strong className="text-xl">{orders.filter(o=>orderQueue(o)===t.key).length}건</strong></button>)}</div>
-        <p className="text-sm text-gray-500">{queue==="ready"?"결제·배송지·상품 수량을 확인한 주문입니다. 발주 확정 시 서버에서 다시 검사합니다. 공급사가 미지정이면 상품 정보에서 보완해주세요.":queue==="check"?"결제 또는 배송 정보 확인이 필요한 주문입니다. 사유를 확인하고 주문 상세에서 보완해주세요.":queue==="requests"?"취소·교환·반품 요청을 확인하고 처리해주세요.":"배송 진행·완료를 포함한 전체 주문 이력입니다."}</p>
-        <div className="flex gap-3 flex-wrap"><input aria-label="주문 검색" value={query} onChange={e=>setQuery(e.target.value)} placeholder="주문번호·이름·상품명 검색" className="border p-2 text-sm" /><button className="text-sm underline" onClick={()=>{setQueue("history");setStatusFilter("");}}>전체 이력</button></div>
-        {queue==="requests"&&<div className="flex gap-2 flex-wrap"><button onClick={()=>setStatusFilter("")} className="border p-2 text-sm">전체 요청</button>{requestTabs.map(t=><button key={t.key} onClick={()=>setStatusFilter(t.key)} className={`border p-2 text-sm ${statusFilter===t.key?"bg-gray-900 text-white":""}`}>{t.label} {t.count}</button>)}</div>}
-        <details className="text-sm"><summary className="cursor-pointer">상세 필터 · 판매 방식 / 구매 구분 / 처리 상태</summary><div className="flex flex-wrap gap-3 pt-3"><label>판매 방식 <select className="border p-2" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="">전체</option><option value="shop">일반 상품</option><option value="campaign">공동구매</option></select></label><label>구매 구분 <select className="border p-2" value={channelFilter} onChange={e=>setChannelFilter(e.target.value)}><option value="">전체</option><option value="display">전시</option><option value="non_display">비전시</option></select></label>{queue==="history"&&<label>처리 상태 <select className="border p-2" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="">전체</option>{Object.entries(STATUS_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>}</div></details>
+      {/* 상단 — 처리 큐 · 검색 · 필터 (어드민 공통 규격: 각진 카드 · 회색 경계선 · 딥그린 강조) */}
+      {!sharedOrders && <div className="bg-white rounded-none border border-gray-100 p-6 mb-4 space-y-5">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="ds-mono text-[10px] font-semibold text-gray-400" style={{ letterSpacing: "0.2em" }}>ORDERS</p>
+            <h2 className="text-sm font-bold text-gray-800 mt-1">판매 관리 · {SITES[siteFilter].name}</h2>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link href="/admin/shipments" className="border border-gray-200 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-none hover:bg-gray-50 transition-colors bg-white">배송 관리</Link>
+            <Link href="/admin/link-sales" className="border border-gray-200 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-none hover:bg-gray-50 transition-colors bg-white">전시 · 비전시 집계</Link>
+            <button onClick={()=>{load();loadBatches();}} className="border border-gray-200 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-none hover:bg-gray-50 transition-colors bg-white">새로고침</button>
+          </div>
+        </div>
+        {/* 처리 큐 — 대시보드 KPI 타일과 같은 격자 */}
+        <div className="grid grid-cols-3 gap-px" style={{ background: "#E2E2DC", border: "1px solid #E2E2DC" }}>
+          {[{key:"check",label:"신규 확인",sub:"결제·배송 정보 점검"},{key:"ready",label:"발주 대기",sub:"검증 완료 · 발주 확정"},{key:"requests",label:"고객 요청",sub:"취소 · 교환 · 반품"}].map(t=>{
+            const on = queue===t.key; const n = orders.filter(o=>orderQueue(o)===t.key).length;
+            return (
+              <button key={t.key} onClick={()=>{setQueue(t.key);setStatusFilter("");}}
+                className="text-left p-4 transition-colors" style={{ background: on ? "#EAF0E6" : "#fff" }}>
+                <p className="ds-mono text-[10px] mb-2" style={{ letterSpacing: "0.2em", color: on ? "#2D5A27" : "#8F948A" }}>{t.label}</p>
+                <p className="text-2xl font-extrabold tnum" style={{ color: on ? "#2D5A27" : "#1A1D18" }}>{n}<span className="text-sm font-medium ml-0.5" style={{ color: on ? "#2D5A27" : "#8F948A" }}>건</span></p>
+                <p className="text-xs mt-1" style={{ color: "#8F948A" }}>{t.sub}</p>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-500">{queue==="ready"?"결제·배송지·상품 수량을 확인한 주문입니다. 발주 확정 시 서버에서 다시 검사합니다. 공급사가 미지정이면 상품 정보에서 보완해주세요.":queue==="check"?"결제 또는 배송 정보 확인이 필요한 주문입니다. 사유를 확인하고 주문 상세에서 보완해주세요.":queue==="requests"?"취소·교환·반품 요청을 확인하고 처리해주세요.":"배송 진행·완료를 포함한 전체 주문 이력입니다."}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input aria-label="주문 검색" value={query} onChange={e=>setQuery(e.target.value)} placeholder="주문번호 · 이름 · 상품명 검색"
+            className="w-72 border border-gray-200 rounded-none px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]" />
+          <button onClick={()=>{setQueue("history");setStatusFilter("");}}
+            className={`px-4 py-2 text-xs font-semibold rounded-none border transition-colors ${queue==="history" ? "bg-[#1A1D18] text-white border-[#1A1D18]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>전체 이력</button>
+          <details className="text-xs ml-auto">
+            <summary className="cursor-pointer select-none font-bold text-gray-500 hover:text-gray-800 py-2">상세 필터 · 판매 방식 / 구매 구분{queue==="history" ? " / 처리 상태" : ""}</summary>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <select className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)} aria-label="판매 방식"><option value="">판매방식 전체</option><option value="shop">일반 상품</option><option value="campaign">공동구매</option></select>
+              <select className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700" value={channelFilter} onChange={e=>setChannelFilter(e.target.value)} aria-label="구매 구분"><option value="">구매구분 전체</option><option value="display">전시</option><option value="non_display">비전시</option></select>
+              {queue==="history"&&<select className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} aria-label="처리 상태"><option value="">처리상태 전체</option>{Object.entries(STATUS_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>}
+            </div>
+          </details>
+        </div>
+        {queue==="requests"&&<div className="flex flex-wrap">
+          {[{key:"",label:"전체 요청",count:null as number|null},...requestTabs].map((t,i)=>{
+            const on = statusFilter===t.key;
+            return (
+              <button key={t.key} onClick={()=>setStatusFilter(t.key)} className="px-4 py-2 text-xs font-semibold transition-colors"
+                style={{ border: "1px solid", marginLeft: i > 0 ? "-1px" : 0, background: on ? "#1A1D18" : "#fff", color: on ? "#fff" : "#5C6156", borderColor: on ? "#1A1D18" : "#D6D6CF" }}>
+                {t.label}{t.count != null ? ` ${t.count}` : ""}
+              </button>
+            );
+          })}
+        </div>}
       </div>
       }
-      {loadError&&<p role="alert" className="text-red-600 mb-3">{loadError}</p>}
-      <details className="border bg-white p-4 mb-4 text-sm"><summary className="cursor-pointer">최근 발주 확정 이력 · 재다운로드</summary><p className="text-gray-500 my-2">확정 당시 데이터로 다시 받습니다. 재다운로드는 상태·재고를 변경하지 않습니다.</p>{batches.length===0?<p>표시할 발주 이력이 없습니다.</p>:batches.map(b=><div key={b.id} className="flex justify-between border-t py-2"><span>{new Date(b.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} · {b.order_count}건</span><button onClick={()=>downloadBatch(b.id)} className="underline">다시 받기</button></div>)}</details>
-      <div className="flex gap-3 mb-3">{actionButton()}{selected.size>0&&<button onClick={handleDownloadOnly} className="border bg-white p-2 text-sm">주문 목록 다운로드 ({selected.size}건)</button>}</div>
+      {loadError&&<p role="alert" className="mb-3 px-4 py-3 text-xs font-semibold" style={{ background: "#FDF2F2", border: "1px solid #F0C9C9", color: "#B91C1C" }}>{loadError}</p>}
+      <details className="bg-white rounded-none border border-gray-100 px-5 py-3 mb-4 text-xs">
+        <summary className="cursor-pointer select-none font-bold text-gray-600 hover:text-gray-900">최근 발주 확정 이력 · 재다운로드</summary>
+        <p className="text-gray-400 mt-2 mb-1">확정 당시 데이터로 다시 받습니다. 재다운로드는 상태·재고를 변경하지 않습니다.</p>
+        {batches.length===0
+          ? <p className="text-gray-400 py-2">표시할 발주 이력이 없습니다.</p>
+          : batches.map(b=>(
+            <div key={b.id} className="flex items-center justify-between border-t border-gray-100 py-2">
+              <span className="ds-mono text-gray-600">{new Date(b.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} · {b.order_count}건</span>
+              <button onClick={()=>downloadBatch(b.id)} className="font-bold text-[#2D5A27] hover:text-[#244B1F]">다시 받기 ↓</button>
+            </div>
+          ))}
+      </details>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {actionButton()}
+        {selected.size>0&&<button onClick={handleDownloadOnly} className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-bold px-4 py-2 rounded-none transition-colors">주문 목록 다운로드 ({selected.size}건)</button>}
+      </div>
       {/* 주문 테이블 — 교환·반품 신청 탭은 사유·사진·수거지를 보고 건별 처리하는 상세 패널로 */}
       {isReturnsTab ? (
         <ReturnsPanel kind={statusFilter === "exchange_requested" ? "exchange" : "return"} onChanged={()=>{load();}} />

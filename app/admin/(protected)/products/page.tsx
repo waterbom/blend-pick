@@ -23,7 +23,8 @@ async function getProducts(site: SiteKey) {
     WHERE ${c.sql} AND archived_at IS NULL
     ORDER BY created_at DESC
   `, [c.param]);
-  return result.rows;
+  // 조회 시각도 함께 — 판매 단계·링크 상태 판정 기준 (렌더 중 Date.now() 호출을 피해 데이터 로딩 단계에서 한 번만)
+  return { rows: result.rows, now: Date.now() };
 }
 
 export default async function AdminProductsPage({
@@ -32,14 +33,13 @@ export default async function AdminProductsPage({
   searchParams: Promise<{ f?: string; q?:string; category?:string; sale?:string; link?:string }>;
 }) {
   const site = await currentAdminSite();
-  const all = await getProducts(site.key);
+  const { rows: all, now } = await getProducts(site.key);
   const filters = await searchParams;
   const f = filters.f ?? "selling";
-  const now = Date.now();
   // 재고 확인 필요 = 판매중인데 재고 0 (이상 상태 경고)
   const warn = all.filter((p) => p.status === "active" && Number(p.stock) === 0);
   // 비전시 링크 = 상품은 평소처럼 전시되고, 전용 가격으로 파는 비공개 링크가 발급된 상품
-  const linked = all.filter((p) => !!p.link_code && p.link_end_at && new Date(p.link_end_at).getTime() > Date.now());
+  const linked = all.filter((p) => !!p.link_code && p.link_end_at && new Date(p.link_end_at).getTime() > now);
   const counts = {
     all: all.length,
     active: all.filter((p) => p.status === "active").length,
@@ -108,13 +108,30 @@ export default async function AdminProductsPage({
         })}
       </div>
 
-      <form className="mb-4 rounded-xl border bg-white p-4 flex flex-wrap gap-3" action="/admin/products">
-        <input type="hidden" name="f" value={f}/><input name="q" defaultValue={filters.q} placeholder="상품명·브랜드·코드 검색" aria-label="상품 검색" className="border rounded-lg px-3 py-2"/>
-        <details className="text-sm"><summary className="cursor-pointer py-2">상세 필터</summary><div className="flex flex-wrap gap-2 py-2">
-          <select name="category" defaultValue={filters.category||''} aria-label="상품 분류" className="border p-2"><option value="">분류 전체</option>{[...new Set(all.map(p=>p.category).filter(Boolean))].map(c=><option key={c} value={c}>{c}</option>)}</select>
-          <select name="sale" defaultValue={filters.sale||''} aria-label="판매 방식" className="border p-2"><option value="">판매방식 전체</option><option value="always">상시 판매</option><option value="groupbuy">공동구매</option></select>
-          {site.key==='sanjipick'&&<select name="link" defaultValue={filters.link||''} aria-label="비전시 링크" className="border p-2"><option value="">비전시 링크 전체</option>{['없음','예약','사용 중','만료'].map(v=><option key={v}>{v}</option>)}</select>}
-        </div></details><button className="rounded-lg bg-stone-800 text-white px-4 py-2">조회</button><a className="text-sm underline p-2" href="/admin/products?f=all">전체 이력</a>
+      {/* 검색·상세 필터 — 어드민 공통 규격 (각진 카드 · 회색 경계선 · 딥그린 버튼) */}
+      <form className="mb-4 bg-white rounded-none border border-gray-100 p-4 flex flex-wrap items-center gap-2" action="/admin/products">
+        <input type="hidden" name="f" value={f} />
+        <input name="q" defaultValue={filters.q} placeholder="상품명 · 브랜드 · 코드 검색" aria-label="상품 검색"
+          className="w-64 border border-gray-200 rounded-none px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]" />
+        <select name="category" defaultValue={filters.category || ""} aria-label="상품 분류"
+          className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]">
+          <option value="">분류 전체</option>
+          {[...new Set(all.map((p) => p.category).filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select name="sale" defaultValue={filters.sale || ""} aria-label="판매 방식"
+          className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]">
+          <option value="">판매방식 전체</option><option value="always">상시 판매</option><option value="groupbuy">공동구매</option>
+        </select>
+        {site.key === "sanjipick" && (
+          <select name="link" defaultValue={filters.link || ""} aria-label="비전시 링크"
+            className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]">
+            <option value="">비전시 링크 전체</option>
+            {["없음", "예약", "사용 중", "만료"].map((v) => <option key={v}>{v}</option>)}
+          </select>
+        )}
+        <button className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors">조회</button>
+        <Link href="/admin/products?f=all" className="text-xs font-bold text-gray-500 hover:text-gray-800 px-2 py-2">전체 이력</Link>
+        <span className="ml-auto ds-mono text-[11px] text-gray-400">{products.length}개 표시</span>
       </form>
       {/* 테이블 */}
       <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
@@ -169,7 +186,7 @@ export default async function AdminProductsPage({
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {Number(p.price).toLocaleString()}원
-                      {p.link_code && p.link_end_at && new Date(p.link_end_at).getTime() > Date.now() && (
+                      {p.link_code && p.link_end_at && new Date(p.link_end_at).getTime() > now && (
                         <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-[#2D5A27]" title="비전시 링크로 들어왔을 때 적용되는 가격">
                           비전시 · 옵션별 설정
                           <SecretLinkCopy url={sanjiSecretLinkUrl(p.id, p.link_code)} />
