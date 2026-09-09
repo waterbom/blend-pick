@@ -78,7 +78,7 @@ export default function ShippingFlowClient({initialTab, initialRequestId}: {init
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "#1A1D18" }}>{SITES[site].name} 배송 관리</h1>
+          <h1 className="text-xl font-bold" style={{ color: "#1A1D18" }}>{SITES[site].name} {site === "sanjipick" ? "농가 출고·배송" : "배송 관리"}</h1>
           <p className="text-xs text-gray-400 mt-0.5">
             화면을 보는 동안 1분마다 현황 갱신 · 마지막 조회 <span className="ds-mono">{updated || '대기 중'}</span> (한국시간) · 배송 추적은 매일 07:30 · 19:30 자동 실행
           </p>
@@ -131,7 +131,7 @@ export default function ShippingFlowClient({initialTab, initialRequestId}: {init
       {stages.filter(stage => stage.key !== 'ready').map((stage, idx) => (
         <section key={stage.key} id={`flow-${stage.key}`} className="scroll-mt-6">
           <SectionTitle n={`0${idx + 2}`} title={stage.title}
-            sub={stage.key === 'preparing' ? '발주 확정 이력에서 엑셀을 받아 공급사에 전달 → 회신받은 송장을 등록하면 상태가 갱신됩니다' : stage.note} />
+            sub={stage.key === 'preparing' ? (site === 'sanjipick' ? '출고 농가·예정일 확인 → 발주 엑셀 전달 → 회신 송장 등록' : '발주 확정 이력에서 엑셀을 받아 공급사에 전달 → 회신받은 송장을 등록하면 상태가 갱신됩니다') : stage.note} />
           <ShipmentsClient initialTab={stage.key} sharedOrders={orders} onChanged={afterChange}/>
         </section>
       ))}

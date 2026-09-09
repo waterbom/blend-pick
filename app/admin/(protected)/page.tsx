@@ -55,17 +55,18 @@ export default async function AdminDashboard({searchParams}:{searchParams:Promis
   return (
     <div>
       <div className="flex items-baseline justify-between mb-6">
-        <h1 className="text-xl font-bold" style={{ color: "#1A1D18" }}>{site.name} 대시보드</h1>
+        <h1 className="text-xl font-bold" style={{ color: "#1A1D18" }}>{site.name} 운영 요약</h1>
         <span className="ds-mono text-xs" style={{ color: "#8F948A" }}>{kstToday()} 기준</span>
       </div>
 
       <Link href="/admin/operations" className="block mb-6 rounded-lg bg-[#244B1F] px-5 py-4 text-white">오늘 처리할 일 · 미출고, 송장 누락, 재고, 교환·반품 확인 →</Link>
 
+      <nav aria-label="자주 처리하는 업무" className="commerce-flow-links"><Link href="/admin/products/new">상품 등록</Link><Link href="/admin/orders">주문 확인</Link><Link href="/admin/shipments">출고·송장 처리</Link><Link href="/admin/settlements">결제 정산</Link></nav>
       {/* KPI 스트립 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px" style={{ background: "#E2E2DC", border: "1px solid #E2E2DC" }}>
         {kpis.map((c) => (
           <div key={c.label} className="bg-white p-5">
-            <p className="ds-mono text-[10px] mb-2.5" style={{ letterSpacing: "0.2em", color: "#8F948A" }}>{c.label}</p>
+            <p className="ds-mono text-xs mb-2.5" style={{ letterSpacing: "0.2em", color: "#8F948A" }}>{c.label}</p>
             <p className="text-2xl font-extrabold tnum" style={{ color: "#1A1D18" }}>{c.value}</p>
             <p className="text-xs mt-1" style={{ color: "#8F948A" }}>{c.sub}</p>
           </div>
