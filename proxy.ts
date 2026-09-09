@@ -62,7 +62,8 @@ export function proxy(req: NextRequest) {
     // /products 목록만 산지픽 전용 (검색) — /products/<id>, /products/<id>/checkout 은 공용 그대로
     const ownList = pathname === "/products";
     // 검색엔진용 robots.txt / sitemap.xml 은 산지픽 전용 파일로 (app/sanji/robots.ts, sitemap.ts)
-    const seoFile = pathname === "/robots.txt" || pathname === "/sitemap.xml";
+    // 브라우저가 주소 없이 바로 찾는 /favicon.ico 도 산지픽 아이콘(public/sanji/favicon.ico)으로
+    const seoFile = pathname === "/robots.txt" || pathname === "/sitemap.xml" || pathname === "/favicon.ico";
     if (seoFile) {
       const url = req.nextUrl.clone();
       url.pathname = bp + pathname;

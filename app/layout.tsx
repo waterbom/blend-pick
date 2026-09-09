@@ -20,6 +20,14 @@ export const metadata: Metadata = {
     google: BP.verification.google.length ? BP.verification.google : undefined,
     other: BP.verification.naver.length ? { "naver-site-verification": BP.verification.naver } : undefined,
   },
+  // 탭 아이콘 — 사이트별로 갈리도록 파일 규칙(app/icon.png) 대신 설정으로 지정 (산지픽 레이아웃이 자기 아이콘으로 덮어씀)
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: "/apple-icon.png",
+  },
   // 카톡·인스타 링크 미리보기 — 블랜드픽 전용 이미지 (public/og.png, 1200×630, BLEND PICK 워드마크). 산지픽 레이아웃은 자기 로고로 덮어씀
   openGraph: {
     title: "BLEND PICK — 인플루언서 공구 플랫폼",

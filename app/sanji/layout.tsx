@@ -23,6 +23,14 @@ export async function generateMetadata(): Promise<Metadata> {
     description: "산지에서 바로, 제철 그대로 집 앞까지. 농가 직송·중간유통 ZERO·수확 당일 발송 — 인플루언서가 직접 검증한 농산물 공동구매, 산지픽.",
     alternates: { canonical: path || "/" },
     robots: onSanjiHost ? { index: true, follow: true } : { index: false, follow: false },
+    // 탭 아이콘 — 산지픽 로고 (루트 레이아웃의 블랜드픽 아이콘을 덮어씀). 산지픽 도메인의 /favicon.ico 직접 요청은 proxy가 이 파일로 보낸다
+    icons: {
+      icon: [
+        { url: "/sanji/favicon.ico", sizes: "any" },
+        { url: "/sanji/icon-512.png", type: "image/png", sizes: "512x512" },
+      ],
+      apple: "/sanji/apple-icon.png",
+    },
     verification: {
       google: S.verification.google.length ? S.verification.google : undefined,
       other: S.verification.naver.length ? { "naver-site-verification": S.verification.naver } : undefined,
