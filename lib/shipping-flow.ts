@@ -1,4 +1,5 @@
 import { dispatchIssues, orderQueue, type DispatchOrder } from '@/lib/admin-workflow';
+import { validTrackingNumber } from '@/lib/tracking-validation';
 
 export type FlowOrder = DispatchOrder & {
   id: string; tracking_company?: string | null; tracking_number?: string | null;
@@ -39,7 +40,7 @@ export function trackingRowIssues(rows: TrackingRow[]): string[] {
   return rows.flatMap((row, index) => {
     const errors: string[] = [];
     if (!row.order_number || !row.tracking_number) errors.push(`${index+1}행: 주문번호 또는 운송장번호 누락`);
-    if (row.tracking_number && !/^\d+(?:-\d+)*$/.test(row.tracking_number)) errors.push(`${index+1}행: 운송장번호 형식 확인 필요`);
+    if (row.tracking_number && !validTrackingNumber(row.tracking_number)) errors.push(`${index+1}행: 운송장번호 형식 확인 필요`);
     if (seen.has(row.order_number)) errors.push(`${index+1}행: 주문번호 중복 (${row.order_number})`);
     seen.add(row.order_number);
     return errors;

@@ -36,7 +36,7 @@ test('F1 refund in flight must block a competing shipment transition',async()=>{
  await product();await order();let enter,release;const ready=new Promise(r=>enter=r),gate=new Promise(r=>release=r);
  global.fetch=async()=>{enter();await gate;return Response.json({paymentKey:'mock-10',totalAmount:100000,balanceAmount:0,status:'CANCELED'});};
  const cancel=load('lib/order-cancel.ts',mocks).cancelShopOrder(id(10),'관리자 취소',{site});await ready;
- let shipped;try {shipped=await api('admin/orders/[id]').PATCH(req('/x','PATCH',{status:'shipped',tracking_company:'04',tracking_number:'test-tracking'}),ctx(10));}finally{release();}
+ let shipped;try {shipped=await api('admin/orders/[id]').PATCH(req('/x','PATCH',{status:'shipped',tracking_company:'04',tracking_number:'001234567890'}),ctx(10));}finally{release();}
  const cancelled=await cancel;const o=(await query('SELECT status,shipped_at,tracking_number FROM orders')).rows[0];
  observe('F1',{shipResponse:shipped.status,cancelOk:cancelled.ok,finalStatus:o.status,shipmentRecorded:!!o.shipped_at,trackingRecorded:!!o.tracking_number});
  assert.equal(shipped.status,409,'환불 진행 중인 주문을 발송 처리하면 안 된다');
@@ -81,7 +81,7 @@ test('F5 foreign-site and unauthenticated return completion cannot create refund
 test('F6 new product through payment shipment delivery return and revenue report',async()=>{
  const {pid}=await createForm(baseForm());const d=checkout();d.checkoutData.productId=pid;mockApprove();const paid=await api('payment/shop-confirm').POST(req('/x','POST',d));assert.equal(paid.status,200);
  const o=(await query('SELECT id,payment_key FROM orders')).rows[0],context={params:Promise.resolve({id:o.id})};const detail=api('admin/orders/[id]');
- for(const status of ['confirmed','preparing','shipped','delivered'])assert.equal((await detail.PATCH(req('/x','PATCH',{status,tracking_company:'04',tracking_number:'test-tracking'}),context)).status,200);
+ for(const status of ['confirmed','preparing','shipped','delivered'])assert.equal((await detail.PATCH(req('/x','PATCH',{status,tracking_company:'04',tracking_number:'001234567890'}),context)).status,200);
  await query("UPDATE orders SET status='return_requested' WHERE id=$1",[o.id]);await query("INSERT INTO order_returns(id,order_id,kind,status,prev_status,reason) VALUES($1,$2,'return','requested','delivered','부분 반품')",[id(50),o.id]);
  const returns=api('admin/returns');assert.equal((await returns.PATCH(req('/x','PATCH',{id:id(50),action:'collect'}))).status,200);
  global.fetch=async()=>Response.json({paymentKey:o.payment_key,totalAmount:100000,balanceAmount:70000,status:'PARTIAL_CANCELED'});assert.equal((await returns.PATCH(req('/x','PATCH',{id:id(50),action:'complete',refund_amount:30000}))).status,200);

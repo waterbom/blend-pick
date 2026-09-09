@@ -20,6 +20,7 @@ function load(file, mocks = {}, cache = new Map()) {
   const localRequire = name => {
     if (Object.hasOwn(mocks, name)) return mocks[name];
     if (name === '@/lib/db' || name === '@/lib/db-shop') throw Error('Unmocked production database');
+    if (name.startsWith('@/') && name.endsWith('.cjs')) return require(path.join(root,name.slice(2)));
     if (name.startsWith('@/')) return load(['.ts', '.tsx'].map(ext => name.slice(2) + ext).find(f => fs.existsSync(path.join(root, f))), mocks, cache);
     return require(name);
   };
@@ -43,6 +44,7 @@ const mocks = {
   'next/link': ({ children, ...props }) => React.createElement('a', props, children),
   '@/lib/db-shop': pool,
   '@/lib/db': { query: async sql => {
+    if (sql.includes('FROM products WHERE')) return {rows:[{id:product,name:'Fruit',category:site==='sanjipick'?'산지픽':'생활',consumer_price:10000,groupbuy_price:10000,shipping_type:'free',shipping_cost:0,set_options:null}]};
     if (sql.includes('FROM campaigns')) return { rows: [{ id: campaign, commission_rate: 5, influencer_id: influencer, influencer_name: 'Partner', product_name: 'Fruit', business_type: 'freelancer', start_date: '2026-01-01', end_date: '2026-12-31' }] };
     if (sql.includes('FROM influencers')) return { rows: [{ id: influencer, name: 'Partner', business_type: 'freelancer' }] };
     if (sql.includes('COUNT(*)')) return { rows: [{ total: 1 }] };
@@ -75,8 +77,13 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
       addr_zipcode text, addr_address text, addr_detail text, addr_memo text, payment_key text, payment_method text,
       tracking_company text, tracking_number text, created_at timestamptz DEFAULT NOW(), paid_at timestamptz DEFAULT NOW(),
       updated_at timestamptz, shipped_at timestamptz, delivered_at timestamptz, cancelled_at timestamptz,
-      stay_check_in date, stay_check_out date
+      link_code text, sales_channel text, link_start_at timestamptz, link_end_at timestamptz, stay_check_in date, stay_check_out date
     );
+
+    CREATE TABLE finance_revisions(site text PRIMARY KEY,version bigint DEFAULT 0);
+    INSERT INTO finance_revisions(site) VALUES('blendpick'),('sanjipick');
+
+    CREATE TABLE product_addons(product_id uuid,name text,extra_price int,is_active boolean);
     CREATE TABLE products_shop (id uuid PRIMARY KEY, name text, product_code text, category text, status text, stock integer,
       sale_type text, sale_start_at timestamptz, sale_end_at timestamptz, influencer_rate numeric, supply_price integer,
       return_cost_roundtrip integer);
@@ -87,7 +94,7 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
     CREATE TABLE reviews (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid REFERENCES orders(id), product_id uuid,
       buyer_name text, rating integer, content text, images text[], is_hidden boolean DEFAULT false, created_at timestamptz DEFAULT NOW());
     CREATE TABLE settlements (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id uuid, payment_key text, gross_amount integer,
-      fee integer, net_amount integer, settled_at timestamptz DEFAULT NOW(), created_at timestamptz DEFAULT NOW());
+      fee integer, net_amount integer, fee_estimated boolean DEFAULT true, settled_at timestamptz DEFAULT NOW(), created_at timestamptz DEFAULT NOW());
     CREATE TABLE order_returns (id uuid PRIMARY KEY, order_id uuid, kind text, status text, items jsonb, reason text, detail text,
       photos jsonb, pickup_address text, pickup_detail text, fee_agreed boolean, prev_status text, created_at timestamptz DEFAULT NOW());
     CREATE TABLE order_return_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), return_id uuid, status text, note text,
@@ -104,6 +111,10 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
       VALUES ('${id(80)}','${campaign}','${influencer}','pending',500);
     INSERT INTO campaign_costs(campaign_id,category,amount) VALUES ('${campaign}','shipping',100);
   `);
+  await db.exec(`ALTER TABLE products_shop ADD COLUMN price int DEFAULT 10000, ADD COLUMN is_visible boolean DEFAULT true, ADD COLUMN tax_type text DEFAULT 'taxable', ADD COLUMN link_price int, ADD COLUMN link_code text, ADD COLUMN shipping_type text DEFAULT 'free', ADD COLUMN shipping_cost int DEFAULT 0, ADD COLUMN free_shipping_threshold int, ADD COLUMN per_unit_shipping_cost int, ADD COLUMN updated_at timestamptz;
+    ALTER TABLE product_options ADD COLUMN extra_price int, ADD COLUMN is_active boolean DEFAULT true;`);
+  await db.exec(fs.readFileSync(path.join(root,'scripts/secret-link-periods.sql'),'utf8'));
+  await db.exec(fs.readFileSync(path.join(root,'scripts/admin-integrity.sql'),'utf8'));
   await test('migration is idempotent, preserves history and allows separate site snapshots', async () => {
     const sql = fs.readFileSync(path.join(root, 'scripts/admin-site.sql'), 'utf8');
     await db.exec(`BEGIN;${sql}COMMIT;`); await db.exec(`BEGIN;${sql}COMMIT;`);
@@ -115,9 +126,9 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
   });
   for (const [n, brand, amount, status] of [[1,'blendpick',11000,'paid'],[2,'sanjipick',22000,'paid'],[3,'blendpick',33000,'shipped'],[4,'sanjipick',44000,'shipped']]) {
     await db.query(`INSERT INTO orders(id,order_number,site,user_id,influencer_id,campaign_id,commission_rate,total_amount,status,buyer_name,payment_key,payment_method)
-      VALUES($1,$2,$3,$4,$5,$6,5,$7,$8,'Customer','SIM_TEST','card')`, [id(n), `TEST-${n}`, brand, user, influencer, campaign, amount, status]);
+      VALUES($1,$2,$3,$4,$5,$6,5,$7,$8,'Customer','isolated-fixture','card')`, [id(n), `TEST-${n}`, brand, user, influencer, campaign, amount, status]);
     await db.query('INSERT INTO order_items(order_id,product_id,product_name,unit_price,quantity,supply_price) VALUES ($1,$2,\'Fruit\',$3,1,1000)', [id(n), product, amount]);
-    await db.query('INSERT INTO settlements(order_id,payment_key,gross_amount,fee,net_amount) VALUES ($1,\'SIM_TEST\',$2,100,$2-100)', [id(n),amount]);
+    await db.query('INSERT INTO settlements(order_id,payment_key,gross_amount,fee,net_amount) VALUES ($1,\'isolated-fixture\',$2,100,$2-100)', [id(n),amount]);
   }
   for (const [n, o] of [[31,3],[41,4]]) {
     await db.query("INSERT INTO order_returns(id,order_id,kind,status,reason,prev_status) VALUES($1,$2,'return','requested','기타','shipped')", [id(n),id(o)]);
@@ -176,8 +187,8 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
       assert.equal(member.orders.length,2);assert.ok(member.orders.every(o=>[own,own+2].some(n=>o.order_number===`TEST-${n}`)));
     });
     await test(`${site}: dashboard and settlement SQL totals are scoped`,async()=>{
-      const dashboard=renderToStaticMarkup(await load('app/admin/(protected)/page.tsx',mocks).default());
-      assert.ok(dashboard.includes(sites[site].name+' 대시보드'));
+      const dashboard=renderToStaticMarkup(await load('app/admin/(protected)/page.tsx',mocks).default({searchParams:Promise.resolve({})}));
+      assert.ok(dashboard.includes(sites[site].name+' 운영 요약'));
       assert.ok(dashboard.includes(site==='sanjipick'?'66,000':'44,000'));
       for (const period of [undefined,'today','week','month']) {
         const settlement=renderToStaticMarkup(await load('app/admin/(protected)/settlements/page.tsx',mocks).default({searchParams:Promise.resolve({period})}));
@@ -199,15 +210,16 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
       assert.equal((await patch.PATCH(req('/api/admin/influencer-payouts/x',{status:'paid'},'PATCH'),{params:Promise.resolve({id:id(site==='sanjipick'?80:81)})})).status,404);
     });
     await test(`${site}: order and cart payment still call Toss and save the correct site`,async()=>{
+      await db.query('UPDATE products_shop SET category=$1',[site==='sanjipick'?'산지픽':'생활']);
       for (const endpoint of ['shop-confirm','cart-confirm','confirm']) {
-        global.fetch=async(url,opts)=>{assert.equal(url,'https://api.tosspayments.com/v1/payments/confirm');assert.equal(JSON.parse(opts.body).amount,10000);return Response.json({method:'card'});};
+        global.fetch=async(url,opts)=>{assert.equal(url,'https://api.tosspayments.com/v1/payments/confirm');assert.equal(JSON.parse(opts.body).amount,10000);return Response.json({method:'card',status:'DONE',totalAmount:10000,paymentKey:JSON.parse(opts.body).paymentKey,orderId:JSON.parse(opts.body).orderId});};
         const cd={productId:product,productName:'Fruit',unitPrice:10000,quantity:1,totalAmount:10000,shippingCost:0,customerName:'Test',customerPhone:'01000000000',shippingAddress:'Test',campaignId:campaign,items:[{id:id(200),product_id:product,name:'Fruit',unit_price:10000,price:10000,quantity:1}]};
         if (endpoint === 'cart-confirm') {
           await db.query('DELETE FROM cart');
           await db.query('INSERT INTO cart(id,user_id,site) VALUES ($1,$2,$3),($4,$2,$5),($6,$7,$3)',[id(200),user,site,id(201),site==='sanjipick'?'blendpick':'sanjipick',id(202),id(999)]);
         }
         const {POST}=load(`app/api/payment/${endpoint}/route.ts`,mocks);
-        const result=await(await POST(req(`/api/payment/${endpoint}`,{paymentKey:`MOCK_${site}_${endpoint}`,orderId:`MOCK_${endpoint}`,amount:10000,checkoutData:cd}))).json();
+        const result=await(await POST(req(`/api/payment/${endpoint}`,{paymentKey:`MOCK_${site}_${endpoint}`,orderId:`MOCK_${site}_${endpoint}`,amount:10000,checkoutData:cd}))).json();
         assert.equal(result.ok,true,JSON.stringify(result));
         const saved=(await db.query('SELECT site, order_number FROM orders WHERE payment_key=$1',[`MOCK_${site}_${endpoint}`])).rows[0];
         assert.equal(saved.site,site);assert.ok(saved.order_number.startsWith(site==='sanjipick'?'SJ-':'BP-'));
@@ -224,8 +236,8 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
     const res=proxy(new NextRequest('https://sanjipick.blendpunch.com/api/admin/reservations',{headers:{host:'sanjipick.blendpunch.com'}}));assert.equal(res.status,404);
     const hotel=load('app/api/admin/reservations/route.ts',mocks);assert.equal((await hotel.GET(req('/api/admin/reservations'))).status,404);
     const Sidebar=load('components/admin/AdminSidebar.tsx',mocks).default;
-    const html=renderToStaticMarkup(React.createElement(Sidebar,{siteKey:'sanjipick'}));assert.match(html,/SANJI PICK/);assert.doesNotMatch(html,/예약 관리/);
-    const shop=renderToStaticMarkup(React.createElement(Sidebar,{siteKey:'blendpick'}));assert.match(shop,/예약 관리/);
+    const html=renderToStaticMarkup(React.createElement(Sidebar,{siteKey:'sanjipick'}));assert.match(html,/산지픽 판매자센터/);assert.doesNotMatch(html,/href="\/admin\/reservations"/);
+    const shop=renderToStaticMarkup(React.createElement(Sidebar,{siteKey:'blendpick'}));assert.match(shop,/href="\/admin\/reservations"/);
   });
   await test('site-signed extra-payment link is rejected on the other site before Toss',async()=>{
     const {signPayLink,verifyPayLink}=load('lib/pay-link.ts');

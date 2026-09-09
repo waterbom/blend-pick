@@ -20,6 +20,7 @@ function load(file, mocks = {}, cache = new Map()) {
   const localRequire = name => {
     if (Object.hasOwn(mocks, name)) return mocks[name];
     if (name === '@/lib/db' || name === '@/lib/db-shop') throw Error('Unmocked production database');
+    if (name.startsWith('@/') && name.endsWith('.cjs')) return require(path.join(root,name.slice(2)));
     if (name.startsWith('@/')) return load(['.ts', '.tsx'].map(ext => name.slice(2) + ext).find(f => fs.existsSync(path.join(root, f))), mocks, cache);
     return require(name);
   };
@@ -50,7 +51,7 @@ function req(siteKey, path, cookie = '', body) {
 }
 (async () => {
   await db.exec(`
-    CREATE TABLE products_shop (id uuid PRIMARY KEY, name text, brand text, price integer, main_image text, shipping_type text, shipping_cost integer, free_shipping_threshold integer, per_unit_shipping_cost integer, status text, stock integer);
+    CREATE TABLE products_shop (id uuid PRIMARY KEY, name text, brand text, price integer, main_image text, shipping_type text, shipping_cost integer, free_shipping_threshold integer, per_unit_shipping_cost integer, status text, stock integer, supplier_name text, release_address text, shipping_carrier text);
     CREATE TABLE product_options (id uuid PRIMARY KEY, name text, value text, extra_price integer);
     CREATE TABLE cart (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, product_id uuid, option_id uuid, quantity integer, created_at timestamptz DEFAULT NOW(), UNIQUE(user_id, product_id, option_id));
     INSERT INTO products_shop (id, name) VALUES ('${product}', 'Fruit');

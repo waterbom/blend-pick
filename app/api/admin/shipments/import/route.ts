@@ -7,6 +7,7 @@ import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { smsConfigured } from "@/lib/sms";
 import { sendShipmentSMS } from "@/lib/ship-notify";
+import { validateTracking } from '@/lib/tracking-validation';
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -23,12 +24,21 @@ export async function POST(req: Request) {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
 
-  const { rows } = await req.json() as {
-    rows: { order_number: string; carrier: string; tracking_number: string }[];
-  };
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: '요청 본문을 확인해주세요.' }, { status: 400 });
+  const { rows } = body;
 
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: "데이터가 없습니다" }, { status: 400 });
+  }
+
+  // Reject the whole ambiguous batch before any writes or notification queues.
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const number = typeof row?.order_number === 'string' ? row.order_number.trim() : '';
+    if (!number) continue;
+    if (seen.has(number)) return NextResponse.json({ error: '주문번호가 중복되었습니다. 주문당 송장 한 행만 남겨주세요.' }, { status: 400 });
+    seen.add(number);
   }
 
   const results: { order_number: string; success: boolean; reason?: string }[] = [];
@@ -42,21 +52,16 @@ export async function POST(req: Request) {
     for (const row of rows) {
       const order_number = typeof row?.order_number === 'string' ? row.order_number.trim() : '';
       const tracking_number = typeof row?.tracking_number === 'string' ? row.tracking_number.trim() : '';
-      const carrier = typeof row?.carrier === 'string' ? toCarrierCode(row.carrier.trim()) : null;
       if (!order_number || !tracking_number) {
         results.push({ order_number: order_number ?? "", success: false, reason: "주문번호 또는 운송장번호 누락" });
         continue;
       }
-      // 엑셀 지수 표기(6.99528E+11)가 들어오면 뒷자리가 유실된 번호 — 저장하면 문자·조회가 다 깨진다
-      if (!/^\d+(?:-\d+)*$/.test(tracking_number)) {
-        results.push({ order_number, success: false, reason: `운송장번호 형식 오류(${tracking_number}) — 엑셀 셀 서식을 텍스트로 바꿔 다시 업로드해주세요` });
+      const checked = validateTracking(row?.carrier, tracking_number);
+      if (!checked.ok) {
+        results.push({ order_number, success: false, reason: checked.error });
         continue;
       }
-
-      if (!carrier) {
-        results.push({ order_number, success: false, reason: '택배사 코드가 없거나 형식이 올바르지 않습니다' });
-        continue;
-      }
+      const carrier = checked.carrier;
 
       // 결제완료~상품준비중 어느 단계든 운송장이 등록되면 배송중으로 전환
       const { rowCount, rows: updated } = await client.query(

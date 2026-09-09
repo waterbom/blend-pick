@@ -1,117 +1,99 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { shrinkImage, uploadErrorMessage } from "@/lib/client-image";
+import { useEffect, useRef, useState } from 'react';
+import { shrinkImage, uploadErrorMessage } from '@/lib/client-image';
+import { cleanEditorHTML, editorHTML, editorRange, imageSource, insertEditorFragment, PENDING_IMAGE, transferImages } from '@/lib/rich-editor';
 
-/**
- * contenteditable 리치 에디터 (OS sales-pages 상세내용과 동일 방식).
- * - 스마트스토어 등에서 글씨+이미지를 드래그 복사 후 Ctrl+V → 서식·이미지 HTML 그대로 붙여넣음(네이티브)
- * - 순수 이미지(스크린샷 등)만 붙여넣으면 업로드 후 <img> 삽입(base64 방지)
- */
-export default function RichEditor({
-  value,
-  onChange,
-  className = "",
-  style,
-  placeholder,
-  uploadUrl = "/api/admin/upload",
-}: {
-  value: string;
-  onChange: (html: string) => void;
-  className?: string;
-  style?: React.CSSProperties;
-  placeholder?: string;
-  uploadUrl?: string;
+export default function RichEditor({ value, onChange, className = '', style, placeholder, uploadUrl = '/api/admin/upload', onUploadingChange }: {
+  value: string; onChange: (html: string) => void; className?: string; style?: React.CSSProperties;
+  placeholder?: string; uploadUrl?: string; onUploadingChange?: (uploading: boolean) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-
-  // 영상·iframe 등은 상세에서 재생 불가(검은 박스)인 데다 편집기에서 선택·삭제도 안 되므로 항상 제거
-  const clean = () => {
-    ref.current?.querySelectorAll("video, iframe, script, embed, object, source, track").forEach((n) => n.remove());
-  };
-
-  // 외부 값 변경(초기 로드 등) 반영 — 편집 중(포커스)엔 커서 튐 방지 위해 건드리지 않음
+  const count = useRef(0), internalDrag = useRef(false), mounted = useRef(true);
+  const change = useRef(onChange), uploadChange = useRef(onUploadingChange);
+  change.current = onChange; uploadChange.current = onUploadingChange;
+  const [uploading, setUploading] = useState(false), [error, setError] = useState('');
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
     const el = ref.current;
-    if (el && document.activeElement !== el && el.innerHTML !== (value || "")) {
-      el.innerHTML = value || "";
-      clean(); // 기존에 저장된 영상 태그도 편집 화면에 여는 순간 정리 → 저장하면 사라짐
+    if (el && !count.current && document.activeElement !== el && editorHTML(el) !== (value || '')) {
+      el.replaceChildren(cleanEditorHTML(value || ''));
     }
   }, [value]);
+  const sync = () => { if (ref.current) change.current(editorHTML(ref.current)); };
+  function pending(delta: number) {
+    count.current += delta;
+    if (mounted.current) { setUploading(count.current > 0); uploadChange.current?.(count.current > 0); }
+  }
 
-  const sync = () => { clean(); onChange(ref.current?.innerHTML || ""); };
-
-  // 이미지 파일들 업로드 후 커서 위치에 삽입 (붙여넣기·드래그 공통)
-  // 업로드 전에 브라우저에서 사진을 줄인다 (휴대폰 원본은 서버 앞단 업로드 한도에 걸릴 수 있음). 실패하면 이유를 바로 알려준다.
-  async function uploadAndInsert(files: File[]) {
-    for (const raw of files) {
-      if (!raw.type.startsWith("image/")) continue;
-      const file = await shrinkImage(raw);
-      const fd = new FormData();
-      fd.append("file", file);
+  // Insert placeholders synchronously at the drop/paste position, then replace
+  // those exact nodes. Moving focus while the network is busy cannot move images.
+  async function receive(data: DataTransfer, range: Range) {
+    const el = ref.current; if (!el) return;
+    const files = transferImages(data), html = data.getData('text/html');
+    const uri = data.getData('text/uri-list').split(/\r?\n/).find(line => line && !line.startsWith('#'));
+    const fragment = html ? cleanEditorHTML(html) : document.createDocumentFragment();
+    if (!html && !files.length && uri) {
+      const src = imageSource(uri); if (src) { const img = document.createElement('img'); img.src = src; fragment.append(img); }
+    }
+    const images = Array.from(fragment.querySelectorAll('img'));
+    while (images.length < files.length) { const img = document.createElement('img'); fragment.append(img); images.push(img); }
+    const jobs: { marker: HTMLElement; img: HTMLImageElement; file?: File; src?: string }[] = [];
+    images.forEach((img, i) => {
+      img.style.maxWidth = '100%'; img.style.height = 'auto';
+      const src = img.getAttribute('src') || '', file = files[i];
+      if (file || src.startsWith('data:') || src.startsWith('blob:')) {
+        const marker = document.createElement('span'); marker.setAttribute(PENDING_IMAGE, 'true');
+        marker.contentEditable = 'false'; marker.textContent = '이미지 업로드 중…';
+        marker.style.cssText = 'display:inline-block;padding:12px;background:#f1f5f0;color:#46633f';
+        img.replaceWith(marker); jobs.push({ marker, img, file, src });
+      } else if (!src) { img.remove(); setError('이 이미지는 직접 읽을 수 없어요. 사진 파일을 끌어다 놓거나 이미지 자체를 복사해주세요.'); }
+    });
+    if (jobs.length) pending(jobs.length);
+    insertEditorFragment(el, fragment, range); sync();
+    for (const job of jobs) {
       try {
-        const res = await fetch(uploadUrl, { method: "POST", body: fd });
-        const data = await res.json().catch(() => null);
-        if (res.ok && data?.url) {
-          ref.current?.focus();
-          document.execCommand("insertHTML", false, `<img src="${data.url}" style="max-width:100%;" />`);
-          sync();
-        } else {
-          alert(uploadErrorMessage(res.status, data));
+        let raw = job.file;
+        if (!raw) {
+          const response = await fetch(job.src!); const blob = await response.blob();
+          raw = new File([blob], 'pasted-image', { type: blob.type });
         }
-      } catch {
-        alert("사진 업로드 중 연결이 끊겼어요. 네트워크를 확인하고 다시 시도해주세요.");
-      }
+        const file = await shrinkImage(raw, { maxWidth: 1600 });
+        const fd = new FormData(); fd.append('file', file);
+        const res = await fetch(uploadUrl, { method: 'POST', body: fd });
+        const result = await res.json().catch(() => null);
+        if (!res.ok || typeof result?.url !== 'string') throw Error(uploadErrorMessage(res.status, result));
+        const src = imageSource(result.url);
+        if (!src || /^(data:|blob:)/.test(src)) throw Error('업로드된 이미지 주소를 확인하지 못했어요. 다시 시도해주세요.');
+        // Do not resurrect a placeholder the user already removed.
+        if (mounted.current && el.contains(job.marker)) {
+          job.img.setAttribute('src', result.url); job.marker.replaceWith(job.img); sync();
+        }
+      } catch (e) {
+        job.marker.remove();
+        if (mounted.current) { setError(e instanceof Error ? e.message : '사진 업로드에 실패했어요. 다시 시도해주세요.'); sync(); }
+      } finally { pending(-1); }
     }
   }
-
-  async function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
-    const cd = e.clipboardData;
-    const html = cd.getData("text/html");
-    // 서식/이미지 포함 HTML → 네이티브 붙여넣기 그대로 (스마트스토어 복사 대응)
-    if (html && html.trim()) {
-      setTimeout(sync, 0);
-      return;
-    }
-    // 순수 이미지만 → 업로드 후 삽입
-    const files = Array.from(cd.items)
-      .filter((it) => it.type.startsWith("image/"))
-      .map((it) => it.getAsFile())
-      .filter((f): f is File => !!f);
-    if (files.length) {
-      e.preventDefault();
-      await uploadAndInsert(files);
-    }
+  function handles(data: DataTransfer) {
+    return transferImages(data).length > 0 || !!data.getData('text/html').trim() || !!data.getData('text/uri-list').trim();
   }
-
-  // 탐색기에서 사진 파일을 끌어다 놓으면 업로드 후 놓은 자리에 삽입
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    const files = Array.from(e.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
-    if (!files.length) return; // 텍스트 드래그 등은 브라우저 기본 동작 유지
-    e.preventDefault();
-    // 놓은 좌표에 커서를 옮겨 그 자리에 들어가게 (미지원 브라우저는 기존 커서 위치)
-    const range = document.caretRangeFromPoint?.(e.clientX, e.clientY);
-    if (range) {
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    }
-    uploadAndInsert(files);
-  }
-
   return (
-    <div
-      ref={ref}
-      contentEditable
-      suppressContentEditableWarning
-      onInput={sync}
-      onBlur={sync}
-      onPaste={handlePaste}
-      onDrop={handleDrop}
-      onDragOver={(e) => { if (e.dataTransfer?.types.includes("Files")) e.preventDefault(); }}
-      className={className}
-      style={style}
-      data-placeholder={placeholder}
-    />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div ref={ref} contentEditable suppressContentEditableWarning role="textbox" aria-label={placeholder || '상세 내용'} aria-multiline="true" aria-busy={uploading}
+        onInput={sync} onBlur={sync}
+        onPaste={e => { if (!handles(e.clipboardData) || !ref.current) return; e.preventDefault(); setError(''); void receive(e.clipboardData, editorRange(ref.current)); }}
+        onDragStart={() => { internalDrag.current = true; }} onDragEnd={() => { internalDrag.current = false; }}
+        onDrop={e => {
+          if (internalDrag.current) { internalDrag.current = false; return; }
+          if (!ref.current || !handles(e.dataTransfer)) return;
+          e.preventDefault(); setError(''); void receive(e.dataTransfer, editorRange(ref.current, { x: e.clientX, y: e.clientY }));
+        }}
+        onDragOver={e => { if (['Files','text/html','text/uri-list'].some(type => e.dataTransfer.types.includes(type))) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+        onErrorCapture={e => { if (e.target instanceof HTMLImageElement) setError('이미지를 불러오지 못했어요. 외부 사이트에서 차단한 이미지라면 사진 파일을 직접 끌어다 놓아주세요.'); }}
+        className={className} style={style} data-placeholder={placeholder} />
+      {uploading && <p role="status" className="mt-2 text-xs text-green-700">사진을 업로드하고 있어요. 완료되면 저장할 수 있습니다.</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
+    </div>
   );
 }
