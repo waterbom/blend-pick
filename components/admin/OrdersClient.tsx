@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { orderQueue, dispatchIssues } from "@/lib/admin-workflow";
 import Link from "next/link";
+import OrderQuickView from "@/components/admin/OrderQuickView";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
 import SiteBadge from "@/components/admin/SiteBadge";
@@ -356,7 +357,7 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="ds-mono text-[10px] font-semibold text-gray-400" style={{ letterSpacing: "0.2em" }}>ORDERS</p>
-            <h2 className="text-sm font-bold text-gray-800 mt-1">판매 관리 · {SITES[siteFilter].name}</h2>
+            <h2 className="text-sm font-bold text-gray-800 mt-1">전체 주문 · {SITES[siteFilter].name}</h2>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Link href="/admin/shipments" className="border border-gray-200 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-none hover:bg-gray-50 transition-colors bg-white">배송 관리</Link>
@@ -500,7 +501,7 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
                               className="w-4 h-4 rounded accent-[#2D5A27]" />
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                            <Link href={`/admin/orders/${o.id}`} className="hover:text-[#2D5A27]">{o.order_number}</Link>{queue==="check"&&<p className="text-xs text-red-600">{dispatchIssues(o).join(" · ")}</p>}
+                            <OrderQuickView order={o} />{queue==="check"&&<p className="text-xs text-red-600">{dispatchIssues(o).join(" · ")}</p>}
                             <SiteBadge site={o.site} className="ml-1.5 font-sans" />
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">

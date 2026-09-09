@@ -1,3 +1,5 @@
+import '../commerce.css';
+import AdminWorkspaceHeader from '@/components/admin/AdminWorkspaceHeader';
 import { currentAdminSite } from "@/lib/admin-site";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -14,9 +16,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const admin = await verifyAdminToken(adminToken);
     if (admin) {
       return (
-        <div className="min-h-screen md:flex" style={{ background: site.key === "sanjipick" ? "#F3F0E8" : "#F3F4F6" }}>
+        <div className="admin-commerce">
           <AdminSidebar siteKey={site.key} />
-          <main className="flex-1 p-4 md:p-8 overflow-auto">{children}</main>
+          <main className="commerce-main"><AdminWorkspaceHeader siteKey={site.key} /><div className="commerce-content">{children}</div></main>
         </div>
       );
     }

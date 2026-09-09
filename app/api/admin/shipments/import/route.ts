@@ -1,3 +1,4 @@
+import { toCarrierCode } from '@/lib/carriers';
 import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/refund-fulfillment';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -39,14 +40,21 @@ export async function POST(req: Request) {
     await client.query("BEGIN");
 
     for (const row of rows) {
-      const { order_number, carrier, tracking_number } = row;
+      const order_number = typeof row?.order_number === 'string' ? row.order_number.trim() : '';
+      const tracking_number = typeof row?.tracking_number === 'string' ? row.tracking_number.trim() : '';
+      const carrier = typeof row?.carrier === 'string' ? toCarrierCode(row.carrier.trim()) : null;
       if (!order_number || !tracking_number) {
         results.push({ order_number: order_number ?? "", success: false, reason: "주문번호 또는 운송장번호 누락" });
         continue;
       }
       // 엑셀 지수 표기(6.99528E+11)가 들어오면 뒷자리가 유실된 번호 — 저장하면 문자·조회가 다 깨진다
-      if (/[eE][+-]?\d/.test(tracking_number) || /[^0-9-]/.test(tracking_number)) {
+      if (!/^\d+(?:-\d+)*$/.test(tracking_number)) {
         results.push({ order_number, success: false, reason: `운송장번호 형식 오류(${tracking_number}) — 엑셀 셀 서식을 텍스트로 바꿔 다시 업로드해주세요` });
+        continue;
+      }
+
+      if (!carrier) {
+        results.push({ order_number, success: false, reason: '택배사 코드가 없거나 형식이 올바르지 않습니다' });
         continue;
       }
 
@@ -67,13 +75,20 @@ export async function POST(req: Request) {
 
       if ((rowCount ?? 0) === 0) {
         const existing = await client.query(
-          `SELECT status FROM orders WHERE order_number = $1 AND site = $2`,
+          `SELECT status, tracking_company, tracking_number FROM orders WHERE order_number = $1 AND site = $2 FOR UPDATE`,
           [order_number, site]
         );
         const st = existing.rows[0]?.status;
         if (!st) {
           results.push({ order_number, success: false, reason: "주문 없음" });
-        } else if (st === "shipped" || st === "delivered") {
+        } else if (st === "delivered") {
+          const previous = existing.rows[0];
+          if (previous.tracking_number === tracking_number && toCarrierCode(previous.tracking_company) === carrier) {
+            results.push({ order_number, success: true });
+          } else {
+            results.push({ order_number, success: false, reason: '배송완료 주문의 송장은 일괄 업로드로 변경할 수 없습니다' });
+          }
+        } else if (st === "shipped") {
           // 이미 배송 단계인 주문은 운송장 정보만 갱신
           await client.query(
             `UPDATE orders SET tracking_company = $2, tracking_number = $3 WHERE order_number = $1 AND site = $4`,

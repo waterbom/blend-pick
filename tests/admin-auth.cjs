@@ -99,7 +99,7 @@ function load(file, mocks) {
   });
   await test('admin layout rejects customer-token fallback and other-email admin tokens', async () => {
     for (const cookies of [{ shop_token: await auth.signToken({ ...admin, role: 'admin' }), admin_token: 'invalid' }, { admin_token: await signed({ ...admin, email: 'personal@example.com' }) }]) {
-      const layout = load('app/admin/(protected)/layout.tsx', { '@/lib/admin-site': { currentAdminSite: async () => ({ key: 'sanjipick' }) }, 'next/headers': { cookies: async () => ({ get: key => cookies[key] ? { value: cookies[key] } : undefined }) }, 'next/navigation': { redirect: url => { throw Error(`REDIRECT:${url}`); } }, '@/lib/auth': auth, '@/components/admin/AdminSidebar': () => null }).default;
+      const layout = load('app/admin/(protected)/layout.tsx', { '@/lib/admin-site': { currentAdminSite: async () => ({ key: 'sanjipick' }) }, 'next/headers': { cookies: async () => ({ get: key => cookies[key] ? { value: cookies[key] } : undefined }) }, 'next/navigation': { redirect: url => { throw Error(`REDIRECT:${url}`); } }, '@/lib/auth': auth, '@/components/admin/AdminSidebar': () => null, '@/components/admin/AdminWorkspaceHeader': () => null, '../commerce.css': {} }).default;
       await assert.rejects(() => layout({ children: null }), /REDIRECT:\/login/);
     }
   });

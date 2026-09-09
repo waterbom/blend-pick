@@ -5,7 +5,7 @@ import { currentAdminSite } from '@/lib/admin-site';
 import shopPool from '@/lib/db-shop';
 import { SITES } from '@/lib/sites';
 async function admin() { const t = (await cookies()).get('admin_token')?.value; return t ? verifyAdminToken(t) : null; }
-export async function GET(req?: Request) {
+export async function GET(req: Request) {
     if (!await admin())
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const site = (await currentAdminSite()).key, all = req ? new URL(req.url).searchParams.get('all') === '1' : false;
