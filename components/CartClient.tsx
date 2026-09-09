@@ -14,6 +14,7 @@ interface CartItem {
   brand: string;
   price: number;
   main_image: string | null;
+  supplier_name?:string|null;release_address?:string|null;shipping_carrier?:string|null;
   shipping_type: string;
   shipping_cost: number;
   free_shipping_threshold: number | null;
@@ -69,7 +70,7 @@ export default function CartClient() {
   // 배송비 — 상품별 어드민 설정 반영 (건별 배송비는 같은 상품 수량 합산으로 2개째부터 추가)
   const shippingCost = cartShippingFee(
     availableItems.map((i) => ({
-      product_id: i.product_id,
+      product_id: i.product_id, supplier_name:i.supplier_name,release_address:i.release_address,shipping_carrier:i.shipping_carrier,
       quantity: i.quantity,
       unit_price: shopUnitPrice(i.price, i.extra_price, i.option_id != null),
       shipping_type: i.shipping_type,
@@ -182,7 +183,7 @@ export default function CartClient() {
             <span>{totalAmount.toLocaleString()}원</span>
           </div>
           <div className="flex justify-between">
-            <span>배송비</span>
+            <span>기본 배송비 (지역 추가비·설치비 별도)</span>
             <span>{shippingCost === 0 ? "무료" : `${shippingCost.toLocaleString()}원`}</span>
           </div>
           <div
@@ -206,7 +207,7 @@ export default function CartClient() {
               sessionStorage.setItem(
                 "cartCheckoutData",
                 JSON.stringify({
-                  items: availableItems,
+                  fromCart:true, items: availableItems,
                   totalAmount,
                   shippingCost,
                 })
@@ -214,7 +215,7 @@ export default function CartClient() {
               router.push("/cart/checkout");
             }}
           >
-            구매하기 ({(totalAmount + shippingCost).toLocaleString()}원)
+            배송지 입력·결제 ({(totalAmount + shippingCost).toLocaleString()}원)
           </button>
         )}
 

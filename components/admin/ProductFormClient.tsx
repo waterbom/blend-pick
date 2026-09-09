@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import RichEditor from "@/components/admin/RichEditor";
+import { productInputError } from "@/lib/product-required";
+import { useSiteKey } from "@/components/SiteContext";
 import { suggestCategories } from "@/lib/admin-workflow";
 import { SITES } from "@/lib/sites";
 import { sanjiSecretLinkUrl } from "@/lib/secret-link";
@@ -17,7 +19,7 @@ interface AddonRow { supply: string; name: string; price: string; active: boolea
 const STEP_TITLES = ["기본 정보", "가격·옵션", "판매 설정", "배송·최종 확인"];
 const StepContext = createContext(0);
 const SECTION_STEP: Record<string, number> = {"상품코드로 복제 등록":0,"기본 정보":0,"이미지":0,"상세 페이지":0,"판매가":1,"재고 & 옵션":1,"추가옵션 (추가상품)":1,"판매 상태":2,"비전시 링크":2,"배송":3,"반품 & 교환":3,"A/S 특이사항":3};
-const SHIPPING_KEYS = ["shipping_type", "shipping_cost", "shipping_carrier", "free_shipping_threshold", "per_unit_shipping_cost", "island_shipping_cost", "release_address", "return_address", "return_cost_oneway", "return_cost_roundtrip", "exchange_cost_oneway", "exchange_cost_roundtrip"] as const;
+const SHIPPING_KEYS = ["shipping_type", "shipping_cost", "shipping_carrier", "free_shipping_threshold", "per_unit_shipping_cost", "island_shipping_cost", "remote_zipcodes", "release_address", "return_address", "return_cost_oneway", "return_cost_roundtrip", "exchange_cost_oneway", "exchange_cost_roundtrip"] as const;
 const EMPTY_IMAGES = ["", "", "", "", ""];
 
 // 관리자 토큰 만료(401) 시 안내 — 새 탭 재로그인이면 이 화면의 입력 내용은 그대로 유지된다
@@ -31,6 +33,7 @@ interface Props {
 
 export default function ProductFormClient({ mode, productId }: Props) {
   const router = useRouter();
+  const currentSiteKey=useSiteKey();
   const [step, setStep] = useState(0);
   const [manualStatus, setManualStatus] = useState("draft");
   const [notice, setNotice] = useState("");
@@ -82,7 +85,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
     shipping_carrier: "04",
     shipping_attr: "standard",
     shipping_attr_custom: "",
-    island_shipping_cost: "0",
+    island_shipping_cost: "0", remote_zipcodes: "",
     installation_cost: "0",
     release_address: "",
     return_address: "",
@@ -176,7 +179,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           shipping_carrier: data.shipping_carrier ?? "04",
           shipping_attr: isCustomAttr ? "custom" : "standard",
           shipping_attr_custom: isCustomAttr ? rawAttr : "",
-          island_shipping_cost: String(data.island_shipping_cost ?? 0),
+          island_shipping_cost: String(data.island_shipping_cost ?? 0), remote_zipcodes: data.remote_zipcodes ?? "",
           installation_cost: String(data.installation_cost ?? 0),
           release_address: data.release_address ?? "",
           return_address: data.return_address ?? "",
@@ -404,7 +407,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       per_unit_shipping_cost: Number(form.per_unit_shipping_cost) || 0,
       shipping_carrier: form.shipping_carrier || null,
       shipping_attr: shippingAttrValue,
-      island_shipping_cost: Number(form.island_shipping_cost) || 0,
+      island_shipping_cost: Number(form.island_shipping_cost) || 0, remote_zipcodes: form.remote_zipcodes,
       installation_cost: Number(form.installation_cost) || 0,
       release_address: form.release_address || null,
       return_address: form.return_address || null,
@@ -453,6 +456,8 @@ export default function ProductFormClient({ mode, productId }: Props) {
       setSaving(false);
       return;
     }
+    const invalid=productInputError(buildPayload(),currentSiteKey);
+    if(invalid){setStep(3);setError(invalid);setSaving(false);return;}
     if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setStep(2); setError("비전시 링크 시작·종료 일시를 확인해주세요."); setSaving(false); return; }
 
     try {
@@ -1229,11 +1234,13 @@ export default function ProductFormClient({ mode, productId }: Props) {
             <input value={form.island_shipping_cost} onChange={e => set("island_shipping_cost", e.target.value)}
               type="number" min="0" className={inp} placeholder="0 (미적용)" />
           </div>
+          <div><label className={lbl}>추가 배송비 적용 우편번호</label><textarea className={inp} value={form.remote_zipcodes} onChange={e=>set("remote_zipcodes",e.target.value)} placeholder="택배사 계약 기준 5자리 번호 또는 시작-종료 범위, 쉼표로 구분" maxLength={12000}/><p className="text-xs text-gray-500 mt-1">도서산간 추가비가 있으면 필수입니다. 택배사 계약상 추가 요금 지역을 입력하세요. 해당 우편번호에만 자동 부과합니다.</p></div>
+          <p className="text-xs text-gray-500">같은 공급사·출고지·택배사 상품은 고정 배송비 중 큰 금액으로 묶습니다. 정보가 하나라도 없으면 상품별로 계산합니다. 조건부 무료는 각 상품 금액 기준입니다.</p>
           <div>
-            <label className={lbl}>별도 설치비 (원)</label>
+            <label className={lbl}>개당 설치비 (원)</label>
             <input value={form.installation_cost} onChange={e => set("installation_cost", e.target.value)}
               type="number" min="0" className={inp} placeholder="0 (없음)" />
-            <p className="text-xs text-gray-400 mt-1">실링팬 등 설치가 필요한 제품에 적용</p>
+            <p className="text-xs text-gray-400 mt-1">설치가 포함된 상품에 적용합니다. 상품 수량만큼 결제에 합산되며 배송비와 별도로 표시합니다. 설치비의 공급원가 확인 전에는 순이익이 미확정으로 표시됩니다.</p>
           </div>
           <div>
             <label className={lbl}>출고지 주소</label>

@@ -16,3 +16,4 @@ jobs:
       - run: npm run test:admin-integrity
       - run: npm run test:admin-charts
       - run: npm run test:admin-workflow
+      - run: npm run test:shipping

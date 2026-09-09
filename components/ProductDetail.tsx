@@ -31,6 +31,7 @@ interface Product {
   shipping_cost: number;
   free_shipping_threshold: number | null;
   per_unit_shipping_cost?: number | null;
+  island_shipping_cost?:number|null; installation_cost?:number|null;
   main_image: string | null;
 }
 
@@ -336,7 +337,7 @@ export default function ProductDetail({
     const items = [...mainItems, ...addonItems];
     sessionStorage.setItem(
       "cartCheckoutData",
-      JSON.stringify({ items, totalAmount: grandTotal, shippingCost, influencerId: influencerId ?? null })
+      JSON.stringify({ fromCart:false, items, totalAmount: grandTotal, shippingCost, influencerId: influencerId ?? null })
     );
     router.push("/cart/checkout");
   }
@@ -554,7 +555,7 @@ export default function ProductDetail({
           {(itemsTotal > 0 && (hasOptions ? lines.length > 0 : true)) && (
             <div className="flex items-baseline justify-between mb-5 pt-1">
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                총 {totalCount}개{addonCount > 0 ? ` + 추가옵션 ${addonCount}개` : ""}
+                상품 {totalCount}개 · 배송·설치비 별도{addonCount > 0 ? ` + 추가옵션 ${addonCount}개` : ""}
               </span>
               <RollingWon value={grandTotal} size={28} color="#1C2418" />
             </div>
