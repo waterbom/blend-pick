@@ -15,18 +15,19 @@ export function useSiteKey(): SiteKey {
   return useContext(SiteCtx);
 }
 
-// 공용 페이지 상단 워드마크 — 산지픽이면 직사각 로고 이미지, 아니면 BLEND PICK 텍스트
+// 공용 페이지 상단 워드마크 — 사이트별 직사각 로고 이미지 (산지픽 public/sanji/logo-wide.png · 블랜드픽 public/logo-wide.png)
 // 어두운 바탕(로그인 밴드)에선 크림 바탕이 깔린 버전, 밝은 바탕에선 투명 버전
 export function BrandMark({ onDark = false, size = 17 }: { onDark?: boolean; size?: number }) {
   const site = useSiteKey();
-  if (site === "sanjipick") {
-    return (
-      <img
-        src={onDark ? "/sanji/logo-wide-cream.png" : "/sanji/logo-wide.png"}
-        alt="산지픽 SANJI PICK"
-        style={{ height: size + 30, width: "auto", display: "block", borderRadius: onDark ? 8 : 0 }}
-      />
-    );
-  }
-  return <span className="font-extrabold" style={{ fontSize: size, letterSpacing: "0.06em", color: onDark ? "#fff" : "var(--text-primary)" }}>BLEND PICK</span>;
+  const sanji = site === "sanjipick";
+  const src = sanji
+    ? (onDark ? "/sanji/logo-wide-cream.png" : "/sanji/logo-wide.png")
+    : (onDark ? "/logo-wide-cream.png" : "/logo-wide.png");
+  return (
+    <img
+      src={src}
+      alt={sanji ? "산지픽 SANJI PICK" : "BLEND PICK"}
+      style={{ height: size + (sanji ? 30 : 22), width: "auto", display: "block", borderRadius: onDark ? 8 : 0 }}
+    />
+  );
 }

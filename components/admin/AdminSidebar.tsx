@@ -100,9 +100,9 @@ function Logo({ siteKey }: { siteKey: SiteKey }) {
     );
   }
   return (
-    <Link href="/" className="block px-6 py-6" style={{ borderBottom: `1px solid ${t.line}` }}>
-      <p className="font-extrabold text-[15px] text-white" style={{ letterSpacing: "0.06em" }}>{SITES.blendpick.nameEn}</p>
-      <p className="ds-mono text-[10px] mt-1" style={{ letterSpacing: "0.24em", color: t.sub }}>ADMIN</p>
+    <Link href="/" className="block px-6 py-5" style={{ borderBottom: `1px solid ${t.line}` }}>
+      <img src="/logo-wide-cream.png" alt="BLEND PICK" className="h-12 w-auto rounded-md" />
+      <p className="ds-mono text-[10px] mt-2" style={{ letterSpacing: "0.24em", color: t.sub }}>BLEND PICK ADMIN</p>
     </Link>
   );
 }
@@ -142,7 +142,7 @@ export default function AdminSidebar({ siteKey = "blendpick" }: { siteKey?: Site
             </>
           ) : (
             <>
-              <span className="text-xs text-gray-400 font-bold tracking-widest uppercase mr-1.5">{SITES.blendpick.nameEn}</span>
+              <img src="/logo-wide.png" alt="BLEND PICK" className="h-8 w-auto" />
               <span className="text-sm font-black text-gray-900">Admin</span>
             </>
           )}

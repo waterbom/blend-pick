@@ -94,8 +94,9 @@ export default function HeaderClient({
               <img src="/sanji/logo-wide.png" alt="산지픽 SANJI PICK" className="h-[52px] w-auto" />
             </Link>
           ) : (
-            <Link href="/" className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
-              BLEND PICK
+            <Link href="/" className="flex items-center" aria-label="BLEND PICK 홈">
+              {/* 블랜드픽 로고 — public/logo-wide.png (투명 배경 워드마크, 원본 public/logo-full.png) */}
+              <img src="/logo-wide.png" alt="BLEND PICK" className="h-10 sm:h-12 w-auto" />
             </Link>
           )}
 
