@@ -1,3 +1,4 @@
+import { recordTracking } from "@/lib/shipment-outbox.cjs";
 import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/refund-fulfillment';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -25,7 +26,7 @@ async function fetchTrackingStatus(apiKey: string, trackingNumber: string, carri
         url.searchParams.set("t_key", apiKey);
         url.searchParams.set("t_code", carrierCode);
         url.searchParams.set("t_invoice", trackingNumber);
-        const res = await fetch(url.toString(), { next: { revalidate: 0 } });
+        const res = await fetch(url.toString(), { next: { revalidate: 0 }, signal: AbortSignal.timeout(15000) });
         if (!res.ok)
             return { error: `HTTP ${res.status}` };
         const data = await res.json();
@@ -77,6 +78,7 @@ export async function POST() {
         await shopPool.query("UPDATE orders SET tracking_checked_at=NOW() WHERE id=$1 AND site=$2", [order.id, site]);
         const code = toCarrierCode(order.tracking_company);
         if (!code) {
+            await recordTracking(shopPool,order,"택배사 미인식");
             failed++;
             results.push({ order_number: order.order_number, status: `택배사 미인식 (${order.tracking_company ?? "없음"}) — 운송장 다시 등록 필요` });
             continue;
@@ -84,12 +86,14 @@ export async function POST() {
         attempted++;
         const info = await fetchTrackingStatus(apiKey, order.tracking_number, code);
         if ("error" in info) {
+            await recordTracking(shopPool,order,"배송 조회 실패");
             failed++;
             if (!firstError)
                 firstError = info.error;
             results.push({ order_number: order.order_number, status: `조회 실패 — ${info.error}` });
             continue;
         }
+        await recordTracking(shopPool,order,null);
         results.push({ order_number: order.order_number, status: info.statusText || (info.delivered ? "배송완료" : "배송중") });
         if (info.delivered)
             deliveredIds.push(order.id);

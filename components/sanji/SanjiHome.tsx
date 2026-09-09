@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SanjiCard, SanjiHomeReview } from "@/lib/sanji-data";
 import { SANJI_BANNERS, bannerSrc, bannerTarget } from "@/lib/sanji-banners";
+import { useRouter } from "next/navigation";
+import { storefrontSale } from "@/lib/storefront-sale";
 import { sanjiKind } from "@/lib/sanji-kind";
 
 // 산지픽 메인 (sanjipick.blendpunch.com/) — 오늘과일(쿠마) 메인 구성을 산지픽 톤으로.
@@ -61,11 +63,19 @@ export default function SanjiHome({
   products: SanjiCard[]; reviews: SanjiHomeReview[]; linkBase: string; demo?: boolean; kakaoUrl: string;
 }) {
   const href = (p: SanjiCard) => `${linkBase}/p/${p.id}`;
-  const now = Date.now();
-  const isUpcoming = (p: SanjiCard) => !!p.sale_start_at && new Date(p.sale_start_at).getTime() > now;
-  const isOpen = (p: SanjiCard) => !isUpcoming(p) && !(p.sale_end_at && new Date(p.sale_end_at).getTime() < now);
-  const live = useMemo(() => products.filter(isOpen), [products]); // eslint-disable-line react-hooks/exhaustive-deps
-  const upcoming = useMemo(() => products.filter(isUpcoming).sort((a, b) => new Date(a.sale_start_at!).getTime() - new Date(b.sale_start_at!).getTime()), [products]); // eslint-disable-line react-hooks/exhaustive-deps
+  const router = useRouter();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const refresh = () => { tick(); if (!document.hidden) router.refresh(); };
+    const timer = setInterval(tick, 1000);
+    const poll = setInterval(refresh, 60000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { clearInterval(timer); clearInterval(poll); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [router]);
+  const live = useMemo(() => products.filter(p => storefrontSale(p, now) === "open"), [products, now]);
+  const upcoming = useMemo(() => products.filter(p => storefrontSale(p, now) === "upcoming").sort((a,b) => Date.parse(a.sale_start_at!) - Date.parse(b.sale_start_at!)), [products, now]);
   const newest = useMemo(() => [...live].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [live]);
   // 탭 분기 — 카테고리 '산지픽 해산물'만 해산물, 나머지는 농산물 (판매량 순)
   const produce = useMemo(() => live.filter((p) => sanjiKind(p.category) === "produce").sort((a, b) => b.sold - a.sold), [live]);
@@ -75,10 +85,10 @@ export default function SanjiHome({
   const [tab, setTab] = useState<0 | 1 | 2>(0);
 
   // 배너 슬라이드 — lib/sanji-banners 의 광고 배너 5장, 3초 자동 넘김, 누르면 상품 상세
-  const banners = useMemo(() => SANJI_BANNERS.map((b) => {
-    const t = bannerTarget(b, products);
-    return { ...b, href: t ? `${linkBase}/p/${t.id}` : live[0] ? href(live[0]) : (linkBase || "/") };
-  }), [products, live, linkBase]); // eslint-disable-line react-hooks/exhaustive-deps
+  const banners = useMemo(() => SANJI_BANNERS.flatMap(b => {
+    const t = bannerTarget(b, products, now);
+    return t ? [{ ...b, href: `${linkBase}/p/${t.id}`, productId: t.id }] : [];
+  }), [products, linkBase, now]);
   const sliderRef = useRef<HTMLDivElement>(null);
   const [slide, setSlide] = useState(0);
   const touching = useRef(false);
@@ -263,7 +273,7 @@ export default function SanjiHome({
                 onMouseLeave={() => { touching.current = false; }}
               >
                 {banners.map((b) => (
-                  <a key={b.file} className="sh-ban__item" href={b.href} aria-label={b.alt}>
+                  <a key={b.file} className="sh-ban__item" href={b.href} data-banner-product={b.productId} aria-label={b.alt}>
                     <Img src={bannerSrc(b)} alt={b.alt} />
                   </a>
                 ))}

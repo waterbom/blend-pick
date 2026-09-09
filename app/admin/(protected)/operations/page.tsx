@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyAdminToken } from "@/lib/auth";
 import { currentAdminSite } from "@/lib/admin-site";
+import { getAutomationWork } from "@/lib/automation-work";
 import { getTodayWork } from "@/lib/operations";
 import TodayWork from "@/components/admin/TodayWork";
 
@@ -11,6 +12,6 @@ export default async function OperationsPage() {
   const token = (await cookies()).get("admin_token")?.value;
   if (!token || !(await verifyAdminToken(token))) redirect("/login?redirect=%2Fadmin%2Foperations");
   const site = await currentAdminSite();
-  const groups = await getTodayWork(site.key);
+  const groups = [...await getTodayWork(site.key), ...await getAutomationWork(site.key)];
   return <TodayWork siteName={site.name} groups={groups} updatedAt={new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} />;
 }

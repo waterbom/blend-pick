@@ -95,7 +95,7 @@ async function pendingRefund(orderId=id(10)) {
 }
 test('J1 shipment import rolls back the entire mixed batch and sends no SMS on refund conflict',async()=>{
  await product();await order(10);await order(11);await pendingRefund();let messages=0;
- const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true},'@/lib/ship-notify':{sendShipmentSMS:async()=>{messages++;return {ok:true};}}});
+ const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{messages++;return {ok:true};}}});
  const response=await route.POST(req('/x','POST',{rows:[{order_number:'ORDER11',carrier:'04',tracking_number:'111111'},{order_number:'ORDER10',carrier:'04',tracking_number:'222222'}]}));
  assert.equal(response.status,409);assert.equal(messages,0);assert.ok((await query('SELECT status,tracking_number FROM orders')).rows.every(o=>o.status==='paid'&&o.tracking_number===null));
 });

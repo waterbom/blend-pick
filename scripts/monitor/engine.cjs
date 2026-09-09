@@ -1,6 +1,8 @@
 // 공개 GET 및 인증 없는 접근 제한 확인만 수행. 쿠키·인증정보·DB·결제·문자 미사용.
 const { SITES, POLICY, PROBES } = require('./config.cjs');
 const ISSUE = {
+  IMAGE: ['fail', '상품 이미지가 이미지 응답으로 반환되지 않습니다.', '업로드 파일·이미지 URL·서빙 경로를 확인하세요.'],
+  BANNER: ['fail', '배너의 지정 상품과 연결 주소가 다릅니다.', '배너 상품 연결을 확인하세요.'],
   NETWORK: ['fail', '응답을 받지 못했습니다.', '호스팅 상태와 도메인·인증서·네트워크 연결을 확인하세요.'],
   TIMEOUT: ['fail', '15초 안에 응답 읽기를 완료하지 못했습니다.', '서버 부하와 느린 상품 조회를 확인하세요.'],
   HTTP: ['fail', '예상하지 않은 HTTP 응답입니다.', '해당 경로를 열어 보고 서버 오류·배포 로그를 확인하세요.'],
@@ -97,7 +99,7 @@ async function request(site, probe, fetcher, policy, clock) {
         return { status, body: '', durationMs: clock() - started, issues: [issue('HTTP', ` HTTP ${status}`)], retryable: status >= 500 || status === 429 };
       }
       const body = await readBounded(response, controller, policy.maxBodyBytes);
-      return { status, body, robotsHeader: response.headers.get('x-robots-tag') || '', durationMs: clock() - started, issues: [], retryable: false };
+      return { status, body, contentType: response.headers.get('content-type') || '', robotsHeader: response.headers.get('x-robots-tag') || '', durationMs: clock() - started, issues: [], retryable: false };
     }
   } catch (error) {
     const code = error.message === 'TOO_LARGE' ? 'TOO_LARGE' : timedOut ? 'TIMEOUT' : 'NETWORK';
@@ -107,6 +109,8 @@ async function request(site, probe, fetcher, policy, clock) {
 function analyze(site, probe, response) {
   const result = [...response.issues]; const body = response.body;
   if (result.length) return result;
+  if (probe.kind === "image" && (!/^image\//i.test(response.contentType || "") || !body.length)) result.push(issue("IMAGE"));
+  if (probe.kind === "page") for (const m of body.matchAll(/<a\b[^>]*>/gi)) {const a=attrs(m[0]); if(a["data-banner-product"] && productPath(a.href || "",site.origin)?.split("/").pop() !== a["data-banner-product"]) result.push(issue("BANNER"));}
   if (['page','login','product'].includes(probe.kind)) {
     if (!/<html(?:\s|>)/i.test(body) || !/<body(?:\s|>)/i.test(body)) result.push(issue('HTML'));
     if (!/<title\b[^>]*>\s*[^\s<][\s\S]*?<\/title>/i.test(body)) result.push(issue('TITLE'));
@@ -148,14 +152,23 @@ async function inspect(site, probe, options) {
   return { row, body: response.body };
 }
 async function checkSite(site, options) {
-  const checks = []; const samples = new Set();
+  const checks = []; const samples = new Set(); const extra=new Set(), images=new Set();
   for (const probe of PROBES) {
     const { row, body } = await inspect(site, probe, options); checks.push(row);
-    if (probe.kind === 'page') links(body, site.origin).forEach(p => samples.add(p));
+    if (probe.kind === 'page') {
+      links(body, site.origin).forEach(p => samples.add(p));
+      for(const m of body.matchAll(/<a\b[^>]*>/gi)) {try {const u=new URL(attrs(m[0]).href || '',site.origin);if(u.origin===site.origin && !u.search && /^\/(brands|cart|faq|terms|privacy|contact)\/?$/.test(u.pathname)) extra.add(u.pathname);}catch{}}
+      for(const m of body.matchAll(/<img\b[^>]*>/gi)) {try {const u=new URL(attrs(m[0]).src || '',site.origin);if(u.origin===site.origin && !u.search && /^\/(uploads|sanji)\//.test(u.pathname)) images.add(u.pathname);}catch{}}
+    }
     if (probe.kind === 'sitemap') sitemapLocations(body).map(value => productPath(value, site.origin)).filter(Boolean).forEach(p => samples.add(p));
   }
   const selected = [...samples].filter(p => !/\/p\/demo/i.test(p)).slice(0, options.policy.productSamples);
-  for (const [index, path] of selected.entries()) checks.push((await inspect(site, { key: 'product-' + (index + 1), title: '상품 상세 표본 ' + (index + 1), kind: 'product', path }, options)).row);
+  for (const [index, path] of selected.entries()) {
+    const result=await inspect(site, { key: 'product-' + (index + 1), title: '상품 상세 표본 ' + (index + 1), kind: 'product', path }, options);checks.push(result.row);
+    for(const m of result.body.matchAll(/<img\b[^>]*>/gi)) {try {const u=new URL(attrs(m[0]).src || '',site.origin);if(u.origin===site.origin && !u.search && /^\/(uploads|sanji)\//.test(u.pathname)) images.add(u.pathname);}catch{}}
+  }
+  for(const [index,path] of [...extra].slice(0,8).entries()) checks.push((await inspect(site,{key:'link-'+index,title:'공개 연결 확인',path,kind:'page'},options)).row);
+  for(const [index,path] of [...images].slice(0,6).entries()) checks.push((await inspect(site,{key:'image-'+index,title:'상품 이미지 확인',path,kind:'image'},options)).row);
   if (!selected.length) checks.push({ key: 'product-samples', title: '상품 상세 표본', path: '/products', status: 'skip', attempts: [], issues: [], httpStatus: null, durationMs: null, note: '허용된 상품 링크를 찾지 못해 미검사입니다. 상품이 실제로 없는지는 이 결과만으로 확정할 수 없습니다.' });
   return { ...site, checks };
 }

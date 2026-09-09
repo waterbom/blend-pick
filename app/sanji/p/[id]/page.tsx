@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import SanjiSalesPage from "@/components/sanji/SanjiSalesPage";
 import { getSanjiProduct, loadSanjiSalesPage } from "@/lib/sanji-data";
-import { SANJI_DEMO_CARDS, demoById } from "@/lib/sanji-demo";
 import { sanjiLinkBase } from "@/lib/sanji-link";
 import { SITES } from "@/lib/sites";
 
@@ -16,7 +15,7 @@ type Search = { inf?: string; k?: string };
 export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Search> }): Promise<Metadata> {
   const { id } = await params;
   const { k } = await searchParams;
-  if (id.startsWith("demo")) return k !== undefined ? {title:"잘못된 요청입니다",robots:{index:false,follow:false}} : { title: demoById(id).product.name };
+  if (id.startsWith("demo")) return {title:"상품을 찾을 수 없습니다",robots:{index:false,follow:false}};
   const p = await getSanjiProduct(id).catch(() => null);
   if (!p || (k !== undefined && !linkApplies(p, cleanLinkCode(k))) || (k === undefined && p.is_visible === false)) return {title:"잘못된 요청입니다",robots:{index:false,follow:false}};
   const S = SITES.sanjipick;
@@ -43,26 +42,7 @@ export default async function SanjiProductPage({
 }) {
   const { id } = await params;
   const { inf, k } = await searchParams;
-  // 메인 예시 카드(demo-*)에서 들어온 경우 — 예시 판매 페이지 (구매 잠김)
-  if (id.startsWith("demo")) {
-    if (k !== undefined) notFound();
-    const d = demoById(id);
-    const data = {
-      product: d.product,
-      images: d.images,
-      options: d.options,
-      reviews: { total: 0, average: 0, list: [] },
-      stats: { buyers: 0, sold: d.sold, rebuyers: 0 },
-      others: SANJI_DEMO_CARDS.filter((c) => c.id !== d.product.id),
-      influencerId: null,
-      linkCode: null,
-    };
-    return (
-      <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
-        <SanjiSalesPage {...data} demo kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={await sanjiLinkBase()} />
-      </main>
-    );
-  }
+  if (id.startsWith("demo")) notFound();
   const [data, linkBase] = await Promise.all([loadSanjiSalesPage(id, inf, k), sanjiLinkBase()]);
   if (!data) notFound();
   return (

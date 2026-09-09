@@ -70,6 +70,7 @@ const mocks={'@/lib/db-shop':pool};
     'next/navigation':{redirect:()=>{throw Error('LOGIN_REDIRECT')}},
     '@/lib/auth':{verifyAdminToken:async()=>null},
     '@/lib/admin-site':{currentAdminSite:async()=>{queries++;throw Error('Must authorize first')}},
+    '@/lib/automation-work':{getAutomationWork:async()=>{queries++;throw Error('Must authorize first')}},
     '@/lib/operations':{getTodayWork:async()=>{queries++;throw Error('Must authorize first')}}
    }).default;
    await assert.rejects(page(),/LOGIN_REDIRECT/);assert.equal(queries,0);

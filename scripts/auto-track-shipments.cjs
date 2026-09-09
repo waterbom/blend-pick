@@ -24,6 +24,7 @@ const { Pool } = require("pg");
 const API_KEY = process.env.SWEETTRACKER_API_KEY;
 const DB_URL = process.env.SHOP_DATABASE_URL;
 const LIMIT = 80;
+const {recordTracking}=require('../lib/shipment-outbox.cjs');
 const {recordDeliverySettlement}=require('../lib/delivery-settlement.cjs');
 // 레거시 텍스트 코드 → 스위트트래커 숫자 코드 (lib/carriers.ts와 동일)
 const LEGACY = { cj: "04", hanjin: "05", lotte: "08", post: "01", logen: "06" };
@@ -40,7 +41,7 @@ async function fetchStatus(invoice, code) {
     url.searchParams.set("t_key", API_KEY);
     url.searchParams.set("t_code", code);
     url.searchParams.set("t_invoice", invoice);
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), {signal:AbortSignal.timeout(15000)});
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || data.status === false) return null;
@@ -60,6 +61,7 @@ async function fetchStatus(invoice, code) {
     `SELECT id, order_number, tracking_company, tracking_number, total_amount, payment_method, payment_key
      FROM orders
      WHERE status = 'shipped' AND tracking_number IS NOT NULL
+     AND NOT EXISTS(SELECT 1 FROM shipment_tracking_checks c WHERE c.order_id=orders.id AND c.tracking_number=orders.tracking_number AND c.next_attempt_at>NOW())
      ORDER BY tracking_checked_at ASC NULLS FIRST, created_at ASC
      LIMIT $1`,
     [LIMIT]
@@ -73,9 +75,10 @@ async function fetchStatus(invoice, code) {
   for (const o of orders) {
     await pool.query("UPDATE orders SET tracking_checked_at=NOW() WHERE id=$1",[o.id]);
     const code = toCode(o.tracking_company);
-    if (!code) { console.log(`  ${o.order_number}: 택배사 미인식(${o.tracking_company})`); failed++; continue; }
+    if (!code) { console.log(`  ${o.order_number}: 택배사 미인식(${o.tracking_company})`); await recordTracking(pool,o,"택배사 미인식"); failed++; continue; }
     const info = await fetchStatus(o.tracking_number, code);
-    if (!info) { console.log(`  ${o.order_number}: 조회 실패`); failed++; continue; }
+    if (!info) { console.log(`  ${o.order_number}: 조회 실패`); await recordTracking(pool,o,"배송 조회 실패"); failed++; continue; }
+    await recordTracking(pool,o,null);
     console.log(`  ${o.order_number}: ${info.text || (info.delivered ? "배송완료" : "배송중")}`);
     if (info.delivered) deliveredIds.push(o.id);
   }

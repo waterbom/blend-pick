@@ -18,7 +18,8 @@
     "test:admin-workflow": "node --test tests/admin-workflow.cjs",
     "test:shipping": "node --test tests/shipping-fees.cjs",
     "test:process-edges": "node --test --test-concurrency=1 tests/full-process-edges.cjs",
-    "test:images": "node --test tests/uploaded-images.cjs"
+    "test:images": "node --test tests/uploaded-images.cjs",
+    "test:commerce-automation": "node --test tests/commerce-automation.cjs tests/storefront-monitor.cjs"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.6.0",

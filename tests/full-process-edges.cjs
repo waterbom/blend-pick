@@ -46,20 +46,20 @@ for (const key of ['blendpick','sanjipick']) {
     observe('invalid-repair',{site:key,http:res.status,saved:(await native('SELECT tracking_number FROM orders')).rows[0]});assert.equal(res.status,400);
   });
   test(`${key}: conflicting duplicate rows must not notify a different invoice from the saved one`,async()=>{
-    await seed();const sent=[];const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true},'@/lib/ship-notify':{sendShipmentSMS:async(_,v)=>{sent.push(v.trackingNumber);return {ok:true};}}});
+    await seed();const sent=[];const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async(_,v)=>{sent.push(v.match(/운송장번호: ([^\n]+)/)[1]);return {ok:true};}}});
     const res=await route.POST(req('/x','POST',{rows:['111111111111','222222222222'].map(tracking_number=>({order_number:'ORDER10',carrier:'04',tracking_number}))}));
     const body=await res.json(),saved=(await native('SELECT tracking_number FROM orders')).rows[0].tracking_number;
     observe('conflicting-duplicate-invoices',{site:key,http:res.status,body,sent,saved});assert.equal(res.status,400);assert.equal(sent.length,0);assert.equal(saved,null);assert.equal((await native('SELECT status FROM orders')).rows[0].status,'paid');
   });
   test(`${key}: batch DB failure rolls back all rows and sends no SMS`,async()=>{
     await seed();await order(11);await native('UPDATE orders SET site=$1',[key]);let sent=0;
-    const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true},'@/lib/ship-notify':{sendShipmentSMS:async()=>{sent++;return{ok:true};}}});
+    const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{sent++;return{ok:true};}}});
     hook=async(sql,p,run)=>{if(sql.includes('UPDATE orders')&&p[0]==='ORDER11')throw Error('INJECTED_DB_FAILURE');return run(sql,p);};
     const res=await route.POST(req('/x','POST',{rows:[10,11].map(n=>({order_number:'ORDER'+n,carrier:'04',tracking_number:'001234567890'}))}));hook=null;
     assert.equal(res.status,500);assert.equal(sent,0);assert.ok((await native('SELECT status,tracking_number FROM orders')).rows.every(o=>o.status==='paid'&&o.tracking_number===null));
   });
   test(`${key}: shipment SMS failure remains reported and reimport does not resend`,async()=>{
-    await seed();let calls=0;const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true},'@/lib/ship-notify':{sendShipmentSMS:async()=>{calls++;return{ok:false,error:'INJECTED_SMS_FAILURE'};}}});
+    await seed();let calls=0;const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{calls++;return{ok:false,error:'INJECTED_SMS_FAILURE'};}}});
     const body={rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'001234567890'}]};
     const first=await(await route.POST(req('/x','POST',body))).json(),retry=await(await route.POST(req('/x','POST',body))).json();
     observe('sms-recovery-limitation',{site:key,first,retry,calls});assert.equal(first.smsFailed,1);assert.equal(first.succeeded,1);assert.equal(calls,1);assert.equal(retry.smsSent,0);

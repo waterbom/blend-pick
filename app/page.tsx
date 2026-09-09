@@ -2,7 +2,6 @@ import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import Header from "@/components/Header";
 import ShopHeroBanner from "@/components/ShopHeroBanner";
-import TrendByAI from "@/components/TrendByAI";
 import HotelPromoBand from "@/components/HotelPromoBand";
 import FallbackImg from "@/components/FallbackImg";
 import Link from "next/link";
@@ -253,7 +252,7 @@ export default async function Home() {
       </section>
 
       {/* BLEND PICK TREND BY AI */}
-      <TrendByAI />
+      {/* 실제 트렌드 데이터 연동 전에는 예시 점수·구독 링크를 공개하지 않습니다. */}
     </main>
   );
 }

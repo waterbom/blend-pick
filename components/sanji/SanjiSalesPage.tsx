@@ -8,7 +8,7 @@ import type { SanjiCard, SanjiOption, SanjiProduct, SanjiReview, SanjiStats } fr
 
 // 산지픽 판매 페이지 — 랜딩 없이 곧바로 상품을 파는 모바일 화면.
 // 위에서부터: 상품 슬라이드(재구매 알림) → 한정특가 잔여 바 → 제목·평점·가격 → 탭(설명/정보/후기)
-// → 상품설명(더보기) → 상품정보 → 함께 본 상품 → 후기 카드 → 하단 고정 "특가 종료 후 N원 비싸져요" + 선물하기/구매하기.
+// → 상품설명(더보기) → 상품정보 → 함께 본 상품 → 후기 카드 → 하단 고정 현재 할인 안내 + 선물하기/구매하기.
 // 구매는 블랜드픽 결제 흐름(/products/[id]/checkout, /cart/checkout)을 그대로 탄다.
 
 const GREEN = "#2F5D34"; // 로고 그린
@@ -396,10 +396,10 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         </div>
         <h1 className="sp-title">{product.name}</h1>
         {!demo && <div className="sp-rating">
-          <Stars n={reviews.total ? reviews.average : product.trust ? product.trust.rating : 5} />
+          {(reviews.total > 0 || (product.trust && product.trust.count > 0)) && <Stars n={reviews.total ? reviews.average : product.trust!.rating} />}
           {reviews.total ? (
             <span><b>{reviews.average.toFixed(1)}</b> · 후기 {reviews.total.toLocaleString()}개</span>
-          ) : product.trust ? (
+          ) : product.trust && product.trust.count > 0 ? (
             <span><b>{product.trust.rating.toFixed(2)}</b> · {product.trust.source} 리뷰 {product.trust.count.toLocaleString()}건</span>
           ) : (
             <span style={{ color: MUTED }}>첫 후기를 기다리고 있어요</span>
@@ -550,7 +550,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       <div className="sp-bottom">
         {saleState === "open" && !soldout && !demo && (priceGap > 0 || product.stock > 0) && (
           <div className="sp-urg">
-            <span>{priceGap > 0 ? `이번 수확분까지만 이 가격 · 이후 ${won(priceGap)} 올라요` : "산지 직송가로 판매 중"}</span>
+            <span>{priceGap > 0 ? `정가 대비 ${won(priceGap)} 할인` : "산지 직송가로 판매 중"}</span>
             <span>{endLeft ? `마감까지 ${endLeft}` : `${product.stock.toLocaleString()}개 남았어요`}</span>
           </div>
         )}

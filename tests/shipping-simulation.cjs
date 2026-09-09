@@ -23,7 +23,7 @@ async function product(n=1,price=100000,stock=20){await query("INSERT INTO produ
 async function order(n=10,total=100000,status='paid',pid=1){await query("INSERT INTO orders(id,site,order_type,order_number,paid_at,status,total_amount,shipping_fee,payment_key,payment_method,influencer_id,influencer_name,commission_rate) VALUES($1,'sanjipick','shop',$2,NOW(),$3,$4,0,$5,'계좌이체',$6,'테스트 인플루언서',10)",[id(n),'ORDER'+n,status,total,'mock-'+n,id(999)]);if(pid!==null)await query("INSERT INTO order_items(order_id,product_id,product_ref,product_name,quantity,unit_price,supply_price,tax_type) VALUES($1,$2,$2,$3,1,$4,20000,'taxable')",[id(n),id(pid),'상품'+pid,total]);}
 test('S1 CSV -> import -> repeat -> tracking -> settlement is single and site isolated',async()=>{
  await product();await order();await query("UPDATE orders SET buyer_phone='01000000000'");let sent=0;
- const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true},'@/lib/ship-notify':{sendShipmentSMS:async()=>{sent++;return {ok:true};}}});
+ const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{sent++;return {ok:true};}}});
  const rows=load('lib/shipping-flow.ts').parseTrackingCSV('주문번호,운송장번호\nORDER10,0012345678').map(r=>({...r,carrier:'04'}));
  for(let i=0;i<2;i++){const r=await route.POST(req('/x','POST',{rows}));assert.equal(r.status,200);assert.equal((await r.json()).succeeded,1);}
  assert.equal(sent,1);assert.equal((await query('SELECT tracking_number FROM orders')).rows[0].tracking_number,'0012345678');

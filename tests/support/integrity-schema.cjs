@@ -29,4 +29,5 @@ module.exports=async function(db,id){
  `);
 
 await db.exec(fs.readFileSync('scripts/admin-integrity.sql','utf8'));
+ await db.exec(require('node:fs').readFileSync(require('node:path').join(__dirname,'../../ops/sql/commerce-automation.sql'),'utf8'));
 };

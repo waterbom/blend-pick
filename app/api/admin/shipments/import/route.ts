@@ -6,7 +6,9 @@ import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { smsConfigured } from "@/lib/sms";
-import { sendShipmentSMS } from "@/lib/ship-notify";
+import { shipmentSMSText } from "@/lib/ship-notify";
+import { sendSMS } from "@/lib/sms";
+import { enqueue, processQueue } from "@/lib/shipment-outbox.cjs";
 import { validateTracking } from '@/lib/tracking-validation';
 
 async function getAdmin() {
@@ -46,6 +48,7 @@ export async function POST(req: Request) {
   const toNotify: { order_number: string; name: string; phone: string; carrier: string | null; tracking_number: string; site: string | null }[] = [];
 
   const client = await shopPool.connect();
+  let committed=false, released=false;
   try {
     await client.query("BEGIN");
 
@@ -106,11 +109,11 @@ export async function POST(req: Request) {
         }
       } else {
         results.push({ order_number, success: true });
-        if (updated[0]?.phone) {
+        if (updated[0]) {
           toNotify.push({
             order_number,
             name: updated[0].name || "",
-            phone: updated[0].phone,
+            phone: updated[0].phone || "",
             carrier: carrier || null,
             tracking_number,
             site: updated[0].site as string | null,
@@ -119,38 +122,24 @@ export async function POST(req: Request) {
       }
     }
 
+    for (const n of toNotify) await enqueue(client,n.order_number,site,n.tracking_number,shipmentSMSText({buyerName:n.name,orderNumber:n.order_number,carrier:n.carrier,trackingNumber:n.tracking_number,site}));
     await client.query("COMMIT");
-
-    // 발송 안내 문자 — 배송 처리는 이미 확정됐으므로 문자 실패는 건수로만 보고 (처리를 막지 않음)
-    let smsSent = 0;
-    let smsFailed = 0;
-    if (smsConfigured()) {
-      for (const n of toNotify) {
-        try {
-          const r = await sendShipmentSMS(n.phone, {
-            buyerName: n.name,
-            orderNumber: n.order_number,
-            carrier: n.carrier,
-            trackingNumber: n.tracking_number,
-            site: n.site,
-          });
-          if (r.ok) smsSent++;
-          else { smsFailed++; console.error(`[shipments] 발송 문자 실패 ${n.order_number}:`, r.error); }
-        } catch (e) {
-          smsFailed++;
-          console.error(`[shipments] 발송 문자 실패 ${n.order_number}:`, e);
-        }
-      }
+    committed=true; client.release(); released=true;
+    // Queue was committed with shipment; worker can recover if this process stops here.
+    let smsSent=0, smsFailed=0;
+    if (smsConfigured()) for (const n of toNotify) {
+      try { const counts=await processQueue(shopPool,sendSMS,{limit:1,site,orderNumber:n.order_number});smsSent+=counts.sent;smsFailed+=counts.failed; }
+      catch { smsFailed++; console.error("Shipment notification queue deferred"); }
     }
 
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success);
     return NextResponse.json({ ok: true, succeeded, failed, smsSent, smsFailed });
   } catch (e) {
-    await client.query("ROLLBACK");
+    if (!committed) await client.query("ROLLBACK");
     console.error("운송장 임포트 실패:", e);
     return NextResponse.json({ error: isRefundFulfillmentConflict(e) ? REFUND_FULFILLMENT_MESSAGE : "Internal server error" }, { status: isRefundFulfillmentConflict(e) ? 409 : 500 });
   } finally {
-    client.release();
+    if (!released) client.release();
   }
 }

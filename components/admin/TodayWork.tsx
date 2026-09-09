@@ -26,7 +26,7 @@ export default function TodayWork({ siteName, groups, updatedAt }: { siteName: s
       @media(max-width:700px){.today-work .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.today-work h1{font-size:25px}.today-work .metric{padding:14px 12px}.today-work details{padding:0 16px}.today-work .row{grid-template-columns:1fr;gap:12px}.today-work .action{justify-self:start}.today-work .steps{display:block}.today-work .steps li+li{margin-top:6px}.today-work .brief{padding:18px}.today-work .brief strong{font-size:16px}}
     `}</style>
     <header><div><span className="brand">{siteName} 운영</span><h1>오늘 처리할 일</h1><p>{updatedAt} 기준 · 사유를 확인하고 해당 처리 화면으로 이동하세요.</p></div><a className="refresh" href="/admin/operations">목록 새로고침</a></header>
-    <div className="brief"><strong>{count ? `확인할 항목 ${count}건 · 송장 누락과 품절부터 확인하세요` : '현재 기준에 해당하는 확인 항목이 없습니다'}</strong><p>‘먼저 확인’은 배송 조회가 막힌 주문과 재고 0개 상품입니다. 나머지는 각 항목의 정렬 순서대로 확인하세요.</p></div>
+    <div className="brief"><strong>{count ? `확인할 항목 ${count}건 · 결제·배송 예외부터 확인하세요` : '현재 기준에 해당하는 확인 항목이 없습니다'}</strong><p>‘먼저 확인’은 결제·발송 확인, 배송 조회 문제, 재고 0개 상품입니다. 나머지는 각 항목의 정렬 순서대로 확인하세요.</p></div>
     <nav className="metrics" aria-label="업무별 바로가기">{groups.map(group => <a className="metric" href={`#work-${group.key}`} key={group.key}><p>{group.title}</p><strong>{group.total}<span style={{ fontSize: 15, fontWeight: 500 }}>건</span></strong><p>{group.total ? group.sortLabel : '확인할 항목 없음'}</p></a>)}</nav>
     {groups.map(group => <details key={group.key} id={`work-${group.key}`} open={group.total > 0}>
       <summary>{group.title} · {group.total}건</summary><p className="explain">{group.explanation}</p>

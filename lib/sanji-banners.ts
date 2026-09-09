@@ -1,9 +1,10 @@
+import { storefrontSale } from "@/lib/storefront-sale";
 import type { SanjiCard } from "@/lib/sanji-data";
 
 // 산지픽 메인 상단 배너 — public/sanji/banners/ 에 아래 파일명 그대로 올리면 된다 (1200×760 권장, PNG).
 // 3초마다 자동으로 넘어가고, 누르면 상품 상세(/p/<id>)로 간다.
 //   - productId 를 적어두면 그 상품으로 바로 연결
-//   - 없으면 keyword 가 상품명에 들어있는 산지픽 상품(등록순 최신) 을 찾아 연결, 그것도 없으면 메인 상품 목록으로
+//   - 없으면 keyword 가 상품명에 들어있는 산지픽 상품(등록순 최신) 을 찾아 연결, 해당 판매 상품이 없으면 배너 숨김
 export interface SanjiBanner {
   file: string;      // public/sanji/banners/ 아래 파일명
   alt: string;
@@ -23,8 +24,9 @@ export function bannerSrc(b: SanjiBanner) {
   return "/sanji/banners/" + encodeURIComponent(b.file);
 }
 
-// 배너 → 연결할 상품 (없으면 null → 메인 상품 목록으로)
-export function bannerTarget(b: SanjiBanner, products: SanjiCard[]): SanjiCard | null {
-  if (b.productId) return products.find((p) => p.id === b.productId) ?? ({ id: b.productId } as SanjiCard);
+// 판매 중인 실제 상품만 연결. 없으면 null → 배너 숨김.
+export function bannerTarget(b: SanjiBanner, products: SanjiCard[], now = Date.now()): SanjiCard | null {
+  products = products.filter(p => storefrontSale(p, now) === "open");
+  if (b.productId) return products.find((p) => p.id === b.productId) ?? null;
   return products.find((p) => p.name.includes(b.keyword)) ?? null;
 }

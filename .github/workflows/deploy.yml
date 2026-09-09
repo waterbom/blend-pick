@@ -33,11 +33,13 @@ jobs:
             npm run test:shipping
             npm run test:process-edges
             npm run test:images
+            npm run test:commerce-automation
             node --test tests/payment-launch.cjs
             node scripts/check-admin-auth.cjs
             node scripts/check-payment-config.cjs
             # 스키마 마이그레이션 (idempotent) — 코드가 새 컬럼을 쓰기 전에 먼저 반영
             node scripts/migrate-order-site.cjs || { echo "::error::orders.site 마이그레이션 실패 — 배포 중단"; exit 1; }
+            node scripts/prepare-commerce-automation.cjs
             node scripts/check-shipping-config.cjs
             node scripts/prepare-visit-analytics.cjs
             npm run build

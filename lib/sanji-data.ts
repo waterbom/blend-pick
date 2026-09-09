@@ -1,3 +1,4 @@
+import { storefrontSale } from "@/lib/storefront-sale";
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import { SITES } from "@/lib/sites";
@@ -103,7 +104,7 @@ export async function getSanjiProducts(): Promise<SanjiCard[]> {
     );
     return r.rows as SanjiCard[];
   } catch {
-    return [];
+    throw new Error("SANJI_CATALOG_UNAVAILABLE");
   }
 }
 
@@ -235,7 +236,7 @@ export async function loadSanjiSalesPage(productId: string, inf?: string, k?: st
     options: resolvedOptions.map(({link_price: _privatePrice, ...o})=>o),
     reviews,
     stats,
-    others: all.filter((p) => p.id !== product.id),
+    others: all.filter((p) => p.id !== product.id && storefrontSale(p) === "open"),
     influencerId: attributed,
     linkCode: linked ? code : null,
   };
