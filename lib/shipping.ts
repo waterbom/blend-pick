@@ -24,7 +24,7 @@ export function regionalShippingFee(r:ShippingRule,zipcode?:string):number {
   const cost=Number(r.island_shipping_cost)||0;
   if(!cost)return 0;
   const ranges=postalRanges(r.remote_zipcodes||'');
-  if(!ranges.length)throw Error('이 상품은 배송비 확인 후 주문할 수 있습니다. 판매자에게 문의해주세요.');
+  if(!ranges.length)return 0; // Optional region configuration: do not guess a surcharge destination.
   if(!zipcode)return 0; // Product-page estimate only; payment verification requires a destination.
   if(!/^\d{5}$/.test(zipcode))throw Error('주소 검색으로 배송지를 다시 선택해주세요.');
   return ranges.some(([a,b])=>zipcode>=a&&zipcode<=b)?cost:0;

@@ -1236,7 +1236,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
             <input value={form.island_shipping_cost} onChange={e => set("island_shipping_cost", e.target.value)}
               type="number" min="0" className={inp} placeholder="0 (미적용)" />
           </div>
-          <div><label className={lbl}>추가 배송비 적용 우편번호</label><textarea className={inp} value={form.remote_zipcodes} onChange={e=>set("remote_zipcodes",e.target.value)} placeholder="택배사 계약 기준 5자리 번호 또는 시작-종료 범위, 쉼표로 구분" maxLength={12000}/><p className="text-xs text-gray-500 mt-1">도서산간 추가비가 있으면 필수입니다. 택배사 계약상 추가 요금 지역을 입력하세요. 해당 우편번호에만 자동 부과합니다.</p></div>
+          <div><label className={lbl}>추가 배송비 적용 우편번호 (선택)</label><textarea className={inp} value={form.remote_zipcodes} onChange={e=>set("remote_zipcodes",e.target.value)} placeholder="5자리 번호 또는 시작-종료 범위, 쉼표로 구분" maxLength={12000}/><p className="text-xs text-gray-500 mt-1">비워도 상품을 저장할 수 있습니다. 비워두면 추가배송비는 자동 부과하지 않으며, 입력한 경우 해당 지역에만 적용합니다.</p></div>
           <p className="text-xs text-gray-500">같은 공급사·출고지·택배사 상품은 고정 배송비 중 큰 금액으로 묶습니다. 정보가 하나라도 없으면 상품별로 계산합니다. 조건부 무료는 각 상품 금액 기준입니다.</p>
           <div>
             <label className={lbl}>개당 설치비 (원)</label>

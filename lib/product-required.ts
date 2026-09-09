@@ -22,7 +22,7 @@ export function productInputError(b: Record<string, unknown>, site: SiteKey): st
     }
     if(b.shipping_type==='conditional_free'&&(!money(b.free_shipping_threshold)||Number(b.free_shipping_threshold)<=0))return '무료배송 기준금액을 1원 이상의 정수로 입력해주세요.';
     if(b.remote_zipcodes!=null&&typeof b.remote_zipcodes!=='string')return '추가 배송 지역을 확인해주세요.';
-    try{const ranges=postalRanges(String(b.remote_zipcodes||''));if(Number(b.island_shipping_cost)>0&&!ranges.length)return '도서산간 추가비를 적용할 우편번호를 입력해주세요.';}catch(e){return (e as Error).message;}
+    try{postalRanges(String(b.remote_zipcodes||''));}catch(e){return (e as Error).message;}
     const supply = missingSupply(b.supply_price, b.options);
     if (supply)
         return supply;
