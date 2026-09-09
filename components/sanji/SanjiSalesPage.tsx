@@ -95,7 +95,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
   const onSlideScroll = () => {
     const el = sliderRef.current;
     if (!el) return;
-    setSlide(Math.round(el.scrollLeft / el.clientWidth));
+    if (el.clientWidth) setSlide(Math.max(0, Math.min((images.length || 1) - 1, Math.round(el.scrollLeft / el.clientWidth))));
   };
   const slides = images.length ? images : [null];
 
@@ -256,10 +256,12 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-brand img{height:34px;width:auto;display:block}
         .sp-icons{display:flex;gap:8px}
         .sp-icon{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.45);border:0;color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
-        .sp-slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:flex-start;background:#E9E4D6}
+        .sp-slider{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:flex-start;background:#E9E4D6}
         .sp-slider::-webkit-scrollbar{display:none}
-        div.sp-slide{aspect-ratio:1/1}
-        .sp-slide{flex:0 0 100%;scroll-snap-align:start;width:100%;height:auto;object-fit:contain;display:block}
+        .sp-slide{flex:0 0 100%;scroll-snap-align:start;width:100%;min-width:0;height:0;overflow:visible}
+        .sp-slide[data-active="true"]{height:auto}
+        .sp-slide>img{display:block;width:100%;height:auto;object-fit:contain}
+        .sp-slide>div{width:100%;aspect-ratio:1/1}
         .sp-slider-wrap{position:relative}
         .sp-count{position:absolute;right:14px;bottom:14px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;font-variant-numeric:tabular-nums}
         .sp-pill{position:absolute;left:14px;bottom:14px;display:inline-flex;align-items:center;gap:6px;background:#fff;color:${INK};font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
@@ -363,7 +365,9 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         </div>
         <div className="sp-slider" ref={sliderRef} onScroll={onSlideScroll}>
           {slides.map((src, i) => (
-            <Img key={i} src={src} alt={`${product.name} ${i + 1}`} className="sp-slide" />
+            <div key={`${i}-${src}`} className="sp-slide" data-active={i === slide} aria-hidden={i !== slide}>
+              <Img src={src} alt={`${product.name} ${i + 1}`} />
+            </div>
           ))}
         </div>
         {slides.length > 1 && <span className="sp-count">{slide + 1}/{slides.length}</span>}

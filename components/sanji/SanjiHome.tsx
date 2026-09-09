@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SanjiCard, SanjiHomeReview } from "@/lib/sanji-data";
-import { SANJI_BANNERS, bannerSrc, bannerTarget } from "@/lib/sanji-banners";
 import { useRouter } from "next/navigation";
 import { storefrontSale } from "@/lib/storefront-sale";
 import { sanjiKind } from "@/lib/sanji-kind";
@@ -84,14 +83,18 @@ export default function SanjiHome({
 
   const [tab, setTab] = useState<0 | 1 | 2>(0);
 
-  // 배너 슬라이드 — lib/sanji-banners 의 광고 배너 5장, 3초 자동 넘김, 누르면 상품 상세
-  const banners = useMemo(() => SANJI_BANNERS.flatMap(b => {
-    const t = bannerTarget(b, products, now);
-    return t ? [{ ...b, href: `${linkBase}/p/${t.id}`, productId: t.id }] : [];
-  }), [products, linkBase, now]);
+  // 공개 판매 상품 중 대표이미지가 있는 최신 등록 5개를 자동 노출합니다.
+  const banners = useMemo(() => newest.filter(p => p.main_image?.trim()).slice(0, 5).map(p => ({
+    productId: p.id, src: p.main_image!, alt: p.name, href: `${linkBase}/p/${p.id}`,
+  })), [newest, linkBase]);
   const sliderRef = useRef<HTMLDivElement>(null);
   const [slide, setSlide] = useState(0);
   const touching = useRef(false);
+  const bannerIds = banners.map(b => b.productId).join(",");
+  useEffect(() => {
+    setSlide(0);
+    sliderRef.current?.scrollTo({ left: 0, behavior: "instant" });
+  }, [bannerIds]);
   const onSlide = () => {
     const el = sliderRef.current;
     if (el) setSlide(Math.round(el.scrollLeft / el.clientWidth));
@@ -273,13 +276,13 @@ export default function SanjiHome({
                 onMouseLeave={() => { touching.current = false; }}
               >
                 {banners.map((b) => (
-                  <a key={b.file} className="sh-ban__item" href={b.href} data-banner-product={b.productId} aria-label={b.alt}>
-                    <Img src={bannerSrc(b)} alt={b.alt} />
+                  <a key={b.productId} className="sh-ban__item" href={b.href} data-banner-product={b.productId} aria-label={b.alt}>
+                    <Img src={b.src} alt={b.alt} />
                   </a>
                 ))}
               </div>
               <div className="sh-ban__dots" aria-hidden>
-                {banners.map((b, i) => <i key={b.file} className={i === slide ? "on" : ""} />)}
+                {banners.map((b, i) => <i key={b.productId} className={i === slide ? "on" : ""} />)}
               </div>
               <span className="sh-ban__cnt">{slide + 1}/{banners.length}</span>
             </div>
