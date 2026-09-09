@@ -107,6 +107,7 @@ function firstSegment(pathname: string) {
 }
 
 export const config = {
-  // _next 내부 자원과 파비콘 등은 제외 — 나머지 전 경로에서 실행 (사이트 판별 헤더를 항상 붙이기 위해)
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // _next 내부 자원은 제외 — 나머지 전 경로에서 실행 (사이트 판별 헤더를 항상 붙이기 위해)
+  // /favicon.ico 는 산지픽 도메인에서 산지픽 아이콘으로 리라이트해야 하므로 제외하지 않는다
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
