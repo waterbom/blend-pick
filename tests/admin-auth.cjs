@@ -112,6 +112,7 @@ function load(file, mocks) {
     const redirect = url => { throw Error(`REDIRECT:${url}`); };
     const token = await auth.signAdminToken(admin);
     const pageMocks = {
+      '@/lib/account-filters': load('lib/account-filters.ts', {}),
       '@/lib/auth': auth,
       'next/headers': { cookies: async () => ({ get: key => key === 'admin_token' ? { value: token } : undefined }) },
       'next/navigation': { redirect }, '@/lib/site-server': { currentSite: async () => ({ key: 'blendpick' }) },
@@ -123,7 +124,7 @@ function load(file, mocks) {
     };
     for (const file of ['app/mypage/page.tsx', 'components/sanji/SanjiMyPage.tsx']) {
       const page = load(file, pageMocks).default;
-      await assert.rejects(() => page(), /REDIRECT:\/admin$/);
+      await assert.rejects(() => page({}), /REDIRECT:\/admin$/);
     }
   });
   console.log(`${count} authentication checks passed. No production access.`);
