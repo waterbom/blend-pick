@@ -8,6 +8,7 @@ import { cleanLinkCode, linkApplies, secretUnitPrice } from "@/lib/secret-link";
 // 루트(/)는 가장 최근 등록된 산지픽 상품을 곧바로 판매 페이지로 보여주고, 나머지는 "함께 본 상품"으로 깔린다.
 
 export interface SanjiProduct {
+  expected_ship_date?:string|null;
   id: string;
   name: string;
   brand: string;
@@ -131,7 +132,7 @@ export async function getSanjiProduct(id: string): Promise<(SanjiProduct & { lin
   const r = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price, stock, status,
             shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, island_shipping_cost, installation_cost,
-            main_image, influencer_id, sale_start_at, sale_end_at, is_visible, link_price, link_code, link_start_at, link_end_at
+            main_image, influencer_id, sale_start_at, sale_end_at, is_visible, link_price, link_code, link_start_at, link_end_at, to_jsonb(products_shop)->>'expected_ship_date' AS expected_ship_date
        FROM products_shop WHERE id = $1 AND category = ANY($2::text[])`,
     [id, SITES.sanjipick.categories]
   );

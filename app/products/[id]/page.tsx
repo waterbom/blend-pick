@@ -6,6 +6,8 @@ import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import ProductDetail from "@/components/ProductDetail";
 import RefundPolicy from "@/components/RefundPolicy";
+import { expectedShipLabel } from "@/lib/checkout-draft";
+import { shippingLabel } from "@/lib/shipping";
 
 // 인플루언서 전용 링크(?inf=) 검증 — 존재하는 인플루언서만 귀속 (호텔 공구와 동일 패턴)
 async function getInfluencer(inf?: string): Promise<{ id: string; name: string } | null> {
@@ -19,6 +21,7 @@ async function getInfluencer(inf?: string): Promise<{ id: string; name: string }
 }
 
 interface Product {
+  expected_ship_date?:string|null;
   id: string;
   name: string;
   brand: string;
@@ -90,7 +93,7 @@ async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
             stock, status, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, island_shipping_cost, installation_cost, main_image, addon_multi,
-            influencer_id, sale_start_at, sale_end_at, is_visible
+            influencer_id, sale_start_at, sale_end_at, is_visible, to_jsonb(products_shop)->>'expected_ship_date' AS expected_ship_date
      FROM products_shop WHERE id = $1`,
     [id]
   );
@@ -234,7 +237,7 @@ export default async function ProductDetailPage({
         loggedIn={loggedIn}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <RefundPolicy />
+        <RefundPolicy shipping={shippingLabel(product)} schedule={expectedShipLabel(product.expected_ship_date)} />
       </div>
     </main>
   );

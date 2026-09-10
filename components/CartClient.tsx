@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shopUnitPrice } from "@/lib/shop-price";
+import { GuestMergeError,readGuestCart,writeGuestCart,removeGuestItems,mergeGuestCart, type GuestItem } from "@/lib/guest-cart";
+import { useSiteKey } from "@/components/SiteContext";
+import { optionText } from "@/lib/buyer-flow";
 import { cartShippingFee } from "@/lib/shipping";
 
 interface CartItem {
@@ -29,41 +32,55 @@ interface CartItem {
 
 export default function CartClient() {
   const router = useRouter();
+  const site = useSiteKey();
+  const [guest,setGuest]=useState(false);
+  const [error,setError]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [mergeNotice,setMergeNotice]=useState('');
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function fetchCart() {
-    const res = await fetch("/api/cart");
-    if (res.status === 401) {
-      router.push("/login?redirect=%2Fcart");
-      return;
-    }
-    const data = await res.json();
-    setItems(data.items || []);
-    setLoading(false);
+    setError("");setMergeNotice('');setLoading(true);
+    try{
+      let res=await fetch('/api/cart');
+      const isGuest=res.status===401;setGuest(isGuest);
+      let rows:CartItem[];
+      if(isGuest)rows=readGuestCart(site) as unknown as CartItem[];
+      else{
+        if(!res.ok)throw Error('장바구니를 불러오지 못했습니다.');
+        let unmerged=false;
+        try{await mergeGuestCart(site);}catch(e){if(!(e instanceof GuestMergeError)||!e.reconciled)throw e;unmerged=true;setGuest(true);setMergeNotice('합치지 못한 비회원 항목입니다. 수량을 줄이거나 삭제한 뒤 다시 합쳐주세요. 기존 회원 장바구니는 유지됩니다.');}
+        if(unmerged)rows=readGuestCart(site) as unknown as CartItem[];
+        else{res=await fetch('/api/cart');if(!res.ok)throw Error('장바구니를 불러오지 못했습니다.');rows=(await res.json()).items||[];}
+      }
+      if(rows.length){
+        const resolved=await fetch('/api/cart/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:rows})});
+        if(!resolved.ok)throw Error('현재 가격과 재고를 확인하지 못했습니다.');
+        const current=(await resolved.json()).items;
+        rows=rows.map((i,n)=>current[n]?.unavailable?{...i,status:'soldout',stock:0}:{...i,...current[n]});
+      }
+      setItems(rows);
+    }catch(e){setError((e as Error).message);}finally{setLoading(false);}
   }
-
-  useEffect(() => { fetchCart(); }, []);
-
-  async function updateQty(cartId: string, quantity: number) {
-    await fetch("/api/cart", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cart_id: cartId, quantity }),
-    });
-    setItems((prev) => prev.map((i) => i.id === cartId ? { ...i, quantity } : i));
+  useEffect(()=>{fetchCart();},[site]);
+  async function change(cartId:string,quantity:number|null){
+    if(busy)return;setBusy(true);setError('');
+    try{
+      if(guest){
+        if(quantity===null)removeGuestItems(site,[cartId]);
+        else writeGuestCart(site,readGuestCart(site).map(i=>i.id===cartId?{...i,id:crypto.randomUUID(),quantity}:i));
+      }else{
+        const res=await fetch('/api/cart',{method:quantity===null?'DELETE':'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({cart_id:cartId,quantity})});
+        if(!res.ok)throw Error('변경하지 못했습니다. 다시 시도해주세요.');
+      }
+      await fetchCart();window.dispatchEvent(new Event('cart-change'));
+    }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
+  const updateQty=(id:string,q:number)=>change(id,q);
+  const removeItem=(id:string)=>change(id,null);
 
-  async function removeItem(cartId: string) {
-    await fetch("/api/cart", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cart_id: cartId }),
-    });
-    setItems((prev) => prev.filter((i) => i.id !== cartId));
-  }
-
-  const availableItems = items.filter((i) => i.status !== "soldout" && i.stock > 0);
+  const availableItems = items.filter((i) => i.status !== "soldout" && i.stock !== 0);
   const totalAmount = availableItems.reduce((sum, i) => {
     return sum + shopUnitPrice(i.price, i.extra_price, i.option_id != null) * i.quantity;
   }, 0);
@@ -88,6 +105,8 @@ export default function CartClient() {
     );
   }
 
+  if (error) return <div className="p-8" role="alert">{error}<button onClick={fetchCart} className="underline ml-3">다시 시도</button>{readGuestCart(site).length>0&&<button className="underline ml-3" onClick={()=>{writeGuestCart(site,[]);fetchCart();}}>비회원 보관 항목 비우기</button>}</div>;
+
   if (items.length === 0) {
     return (
       <div className="text-center py-32">
@@ -105,6 +124,8 @@ export default function CartClient() {
         장바구니 <span className="text-base font-medium" style={{ color: "var(--text-muted)" }}>({items.length})</span>
       </h1>
 
+      {mergeNotice&&<p role="status" className="mb-3 text-sm">{mergeNotice} <button onClick={fetchCart} className="underline">다시 합치기</button></p>}
+      {guest&&<p className="mb-4 text-sm">로그인 없이 주문할 수 있습니다. 담은 상품은 이 브라우저에 7일간 보관되며 로그인 후 장바구니에서 합쳐집니다.</p>}
       <div className="space-y-3 mb-6">
         {items.map((item) => {
           const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
@@ -128,19 +149,19 @@ export default function CartClient() {
                 <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{item.name}</p>
                 {item.option_value && (
                   <p className="text-xs mt-0.5" style={{ color: "var(--accent)" }}>
-                    {item.option_name}: {item.option_value}
+                    {optionText(item.option_name,item.option_value)}
                   </p>
                 )}
                 {isSoldout && (
-                  <p className="text-xs mt-0.5 font-medium text-red-400">품절</p>
+                  <p className="text-xs mt-0.5 font-medium text-red-400">판매 상태·수량 확인 필요</p>
                 )}
 
                 <div className="flex items-center justify-between mt-3">
                   {/* 수량 조절 */}
-                  {!isSoldout && (
+                  {(
                     <div className="flex items-center rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
                       <button
-                        onClick={() => updateQty(item.id, Math.max(1, item.quantity - 1))}
+                        disabled={busy} onClick={() => updateQty(item.id, Math.max(1, item.quantity - 1))}
                         className="w-7 h-7 flex items-center justify-center text-base hover:bg-gray-50 transition-colors"
                         style={{ color: "var(--text-secondary)" }}
                       >−</button>
@@ -148,7 +169,7 @@ export default function CartClient() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQty(item.id, item.quantity + 1)}
+                        disabled={busy} onClick={() => updateQty(item.id, item.quantity + 1)}
                         className="w-7 h-7 flex items-center justify-center text-base hover:bg-gray-50 transition-colors"
                         style={{ color: "var(--text-secondary)" }}
                       >+</button>
@@ -161,7 +182,7 @@ export default function CartClient() {
                       {(unitPrice * item.quantity).toLocaleString()}원
                     </span>
                     <button
-                      onClick={() => removeItem(item.id)}
+                      disabled={busy} onClick={() => removeItem(item.id)}
                       className="text-xs transition-colors hover:text-red-400"
                       style={{ color: "var(--text-muted)" }}
                     >
@@ -190,7 +211,7 @@ export default function CartClient() {
             className="flex justify-between items-baseline pt-3"
             style={{ borderTop: "1px solid var(--line)" }}
           >
-            <span className="font-bold" style={{ color: "var(--text-primary)" }}>총 결제 금액</span>
+            <span className="font-bold" style={{ color: "var(--text-primary)" }}>예상 금액 · 배송지 입력 후 확정</span>
             <span className="text-lg font-extrabold" style={{ color: "var(--accent)" }}>{(totalAmount + shippingCost).toLocaleString()}원</span>
           </div>
         </div>
@@ -207,7 +228,7 @@ export default function CartClient() {
               sessionStorage.setItem(
                 "cartCheckoutData",
                 JSON.stringify({
-                  fromCart:true, items: availableItems,
+                  fromCart:!guest, guestCartSite:guest?site:undefined, guestCartIds:guest?availableItems.map(i=>i.id):undefined, items: availableItems,
                   totalAmount,
                   shippingCost,
                 })

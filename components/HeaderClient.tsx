@@ -1,19 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { readGuestCart } from "@/lib/guest-cart";
+import { useSiteKey } from "@/components/SiteContext";
 import { useState, useEffect } from "react";
 
 function CartCount() {
+  const site=useSiteKey();
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    fetch("/api/cart")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.items) setCount(data.items.length);
-      })
-      .catch(() => {});
-  }, []);
+    let active=true;
+    const refresh=()=>fetch('/api/cart').then(r=>r.ok?r.json():null).then(data=>{if(active)setCount((data?.items?.length||0)+readGuestCart(site).length);}).catch(()=>{if(active)setCount(readGuestCart(site).length);});
+    refresh();window.addEventListener('cart-change',refresh);window.addEventListener('storage',refresh);
+    return()=>{active=false;window.removeEventListener('cart-change',refresh);window.removeEventListener('storage',refresh);};
+  }, [site]);
 
   if (count === 0) return null;
 
@@ -200,7 +201,8 @@ export default function HeaderClient({
             )
           ) : (
             <Link
-              href={isSanji ? "/login?redirect=%2Fsanji%2Fmypage" : "/login"}
+              href="/login"
+              onClick={(e) => { e.preventDefault(); window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`; }}
               className="text-[13px] font-medium transition-colors duration-200"
               style={{ color: "var(--text-secondary)" }}
               onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "var(--text-primary)"; }}
@@ -209,7 +211,7 @@ export default function HeaderClient({
               로그인
             </Link>
           )}
-          {user && !isAdmin && (
+          {!isAdmin && (
             <Link
               href="/cart"
               className="relative text-[13px] font-medium transition-colors duration-200"

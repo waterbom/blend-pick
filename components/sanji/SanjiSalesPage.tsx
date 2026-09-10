@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { expectedShipLabel } from "@/lib/checkout-draft";
+import { addGuestItems } from "@/lib/guest-cart";
+import { submitCartItems } from "@/lib/buyer-flow";
+import { optionText } from "@/lib/buyer-flow";
 import { LINK_PARAM } from "@/lib/secret-link";
 import { productShippingFee, shippingLabel } from "@/lib/shipping";
 import type { SanjiCard, SanjiOption, SanjiProduct, SanjiReview, SanjiStats } from "@/lib/sanji-data";
@@ -179,6 +183,21 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
   }
   function setLineQty(id: string, q: number) {
     setLines((prev) => prev.map((l) => (l.optionId === id ? { ...l, qty: Math.max(1, q) } : l)));
+  }
+
+  const [cartBusy,setCartBusy] = useState(false);
+  async function addToCart(){
+    if(!canBuy||cartBusy||linkCode)return;
+    setCartBusy(true);
+    try{
+      const selections=hasOptions?lines.map(l=>({option_id:l.optionId,quantity:l.qty})):[{option_id:null,quantity:qty}];
+      const payloads=selections.map(i=>({product_id:product.id,...i}));
+      const result=await submitCartItems(payloads,body=>fetch('/api/cart',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
+      if(result.unauthorized){addGuestItems('sanjipick',payloads.slice(result.completed).map(i=>{const o=options.find(o=>o.id===i.option_id);return {...product,...i,option_name:o?.name||null,option_value:o?.value||null,extra_price:o?.extra_price??null};}));}
+      else if(result.error){if(result.completed)setLines(prev=>prev.slice(result.completed));flash(result.error);return;}
+      window.dispatchEvent(new Event('cart-change'));setSheet(null);flash('장바구니에 담았습니다. 상단 장바구니에서 확인해주세요.');
+    }catch{flash('장바구니 저장에 실패했습니다. 바로 구매를 이용해주세요.');}
+    finally{setCartBusy(false);}
   }
 
   function checkout() {
@@ -414,11 +433,19 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           <span className="now">{won(price)}</span>
           {product.original_price && product.original_price > price && <span className="was">{won(product.original_price)}</span>}
         </div>
+        {options.length > 0 && <div style={{ marginTop: 12, padding: 12, background: "#E7EFE3", borderRadius: 8, fontSize: 13, lineHeight: 1.6 }}>
+          <strong>옵션별 구성·등급과 가격을 확인해주세요</strong>
+          <p style={{ margin: "4px 0 8px" }}>상품명과 이미지에는 여러 옵션이 함께 소개될 수 있습니다. 실제 구성·등급은 선택한 옵션을 기준으로 확인해주세요.</p>
+          {options.filter(o => o.is_active && o.stock !== 0).map(o => <div key={o.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
+            <span>{optionText(o.name, o.value)}</span><strong style={{ whiteSpace: "nowrap" }}>{won(unitOf(o.extra_price))}</strong>
+          </div>)}
+        </div>}
         {linkCode && (
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 10px", borderRadius: 999, background: "#E7EFE3", color: GREEN, fontSize: 12, fontWeight: 700 }}>
             전용 링크 가격이 적용됐어요
           </div>
         )}
+        <p style={{fontSize:13,marginTop:12}}>{expectedShipLabel(product.expected_ship_date)}</p>
         <div className="sp-ship">
           <span className="k">배송</span>
           <span>{shippingLabel(product)} · 산지 직송</span>
@@ -615,6 +642,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
               <span>예상 {totalCount}개 · 지역 추가비·설치비 별도{shipping > 0 ? ` · 배송비 ${won(shipping)}` : " · 무료배송"}</span>
               <b>{won(itemsTotal + shipping)}</b>
             </div>
+            {!linkCode && <button type="button" disabled={!canBuy||cartBusy} onClick={addToCart} style={{width:'100%',padding:12,marginBottom:8,border:'1px solid #2F5D34',borderRadius:10,background:'#fff',color:GREEN}}>{cartBusy?'담는 중…':'장바구니에 담기'}</button>}
             <button className="sp-buy" style={{ width: "100%" }} disabled={!canBuy || going} onClick={checkout}>
               {demo ? "재고 마감" : going ? "이동 중..." : sheet === "gift" ? "선물 결제하기" : "바로 구매하기"}
             </button>

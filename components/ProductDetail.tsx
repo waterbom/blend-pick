@@ -9,6 +9,10 @@ import { productShippingFee, shippingLabel } from "@/lib/shipping";
 import ReviewSection, { type ReviewSummary } from "@/components/ReviewSection";
 import DsSelect from "@/components/DsSelect";
 import RollingWon from "@/components/RollingWon";
+import { expectedShipLabel } from "@/lib/checkout-draft";
+import { addGuestItems } from "@/lib/guest-cart";
+import { useSiteKey } from "@/components/SiteContext";
+import { submitCartItems } from "@/lib/buyer-flow";
 
 function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number, influencerId?: string | null) {
   const params = new URLSearchParams({ quantity: String(quantity) });
@@ -18,6 +22,7 @@ function buildCheckoutUrl(productId: string, optionId: string | null, quantity: 
 }
 
 interface Product {
+  expected_ship_date?:string|null;
   id: string;
   name: string;
   brand: string;
@@ -116,12 +121,32 @@ export default function ProductDetail({
   reviewSummary?: ReviewSummary;
 }) {
   const router = useRouter();
+  const siteKey = useSiteKey();
   const [lines, setLines] = useState<SelectedLine[]>([]);
   const [quantity, setQuantity] = useState(1); // 옵션 없는 상품용
   const [soloAddons, setSoloAddons] = useState<Record<string, number>>({}); // 옵션 없는 상품용 추가옵션 (id → 수량)
   const [cartLoading, setCartLoading] = useState(false);
   const [cartDone, setCartDone] = useState(false);
+  const [cartError, setCartError] = useState("");
   const [buyLoading, setBuyLoading] = useState(false);
+
+  useEffect(() => {
+    const key = `purchase-resume:${product.id}`;
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return;
+      sessionStorage.removeItem(key);
+      const saved = JSON.parse(raw);
+      if (!Number.isFinite(saved.at) || Date.now() - saved.at > 30 * 60_000) return;
+      if (Number.isSafeInteger(saved.quantity) && saved.quantity > 0) setQuantity(Math.min(saved.quantity, product.stock < 0 ? saved.quantity : product.stock));
+      if (Array.isArray(saved.lines)) setLines(saved.lines.flatMap((line: SelectedLine) => {
+        const option = options.find(o => o.id === line.optionId && !optUnavailable(o));
+        if (!option || !Number.isSafeInteger(line.qty) || line.qty < 1) return [];
+        return [{ optionId: option.id, qty: Math.min(line.qty, option.stock < 0 ? line.qty : option.stock), addons: {} }];
+      }));
+      setCartError("선택한 상품을 복원했습니다. 옵션과 수량을 확인한 뒤 장바구니에 담아주세요.");
+    } catch { /* Storage unavailable: product remains usable. */ }
+  }, [product.id, product.stock, options]);
 
   // 맨 위로 버튼 — 한 화면 이상 내려가면 우하단에 표시 (기존 플로팅 버튼들 위)
   const [showTop, setShowTop] = useState(false);
@@ -235,22 +260,37 @@ export default function ProductDetail({
   }
 
   async function handleAddCart() {
-    if (!canBuy) return;
+    if (!canBuy || cartLoading) return;
+    if (addonCount > 0) {
+      setCartError("추가상품을 함께 선택한 주문은 ‘바로 구매’로 진행해주세요. 선택한 구성은 그대로 주문서에 전달됩니다.");
+      return;
+    }
     setCartLoading(true);
+    setCartDone(false);
+    setCartError("");
     try {
       const payloads = hasOptions
         ? lines.map((l) => ({ product_id: product.id, option_id: l.optionId, quantity: l.qty }))
         : [{ product_id: product.id, option_id: null, quantity }];
-      for (const body of payloads) {
-        const res = await fetch("/api/cart", {
+      const result = await submitCartItems(payloads, body => fetch("/api/cart", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-        });
-        if (res.status === 401) {
-          router.push("/login");
-          return;
+        }));
+      if (result.error) {
+        const remaining = hasOptions ? lines.slice(result.completed) : lines;
+        if (hasOptions && result.completed) setLines(remaining);
+        setCartError(`${result.completed ? `${result.completed}개 옵션은 담겼습니다. ` : ""}${result.error}`);
+        if (result.unauthorized) {
+          try {
+            addGuestItems(siteKey, payloads.slice(result.completed).map(body => {
+              const o = options.find(o => o.id === body.option_id);
+              return {...product,...body,option_name:o?.name||null,option_value:o?.value||null,extra_price:o?.extra_price??null};
+            }));
+            setCartError("");setCartDone(true);
+          } catch { setCartError("브라우저에 장바구니를 저장하지 못했습니다. 바로 구매로 진행해주세요."); }
         }
+        return;
       }
       setCartDone(true);
       setTimeout(() => setCartDone(false), 2000);
@@ -403,6 +443,7 @@ export default function ProductDetail({
             )}
           </div>
 
+          <p className="text-sm mt-3">{expectedShipLabel(product.expected_ship_date)}</p>
           {/* 배송 */}
           <div className="py-3 mb-4 text-sm" style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", color: "var(--text-secondary)" }}>
             {shippingLabel(product)}
@@ -594,6 +635,9 @@ export default function ProductDetail({
                 : buyLoading ? "이동중..." : isSoldout ? "품절" : "바로 구매"}
             </button>
           </div>
+
+          {cartError && <p role="alert" className="mt-3 text-sm" style={{ color: "var(--text-primary)" }}>{cartError} <Link href="/cart" className="underline">장바구니 확인</Link></p>}
+          {cartDone && <p role="status" className="mt-3 text-sm"><Link href="/cart" className="underline">장바구니 보기 →</Link></p>}
 
           {/* 오픈 카운트다운 — 시간이 되면 이 화면 그대로 버튼이 자동 활성화됨 */}
           {countdown && (

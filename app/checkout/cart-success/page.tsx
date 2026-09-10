@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { CHECKOUT_DRAFT_KEY } from "@/lib/checkout-draft";
+import { removeGuestItems } from "@/lib/guest-cart";
 import { fbqTrack } from "@/lib/analytics";
 
 interface OrderResult {
@@ -38,6 +40,10 @@ function CartSuccessContent() {
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
+          try {
+            sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+            if(['blendpick','sanjipick'].includes(checkoutData.guestCartSite)&&Array.isArray(checkoutData.guestCartIds))removeGuestItems(checkoutData.guestCartSite,checkoutData.guestCartIds);
+          } catch { /* Payment succeeded even if local cleanup is unavailable. */ }
           sessionStorage.removeItem("cartCheckoutData");
           setResult(data);
           // 메타 광고 전환 — 결제 완료(Purchase) 이벤트

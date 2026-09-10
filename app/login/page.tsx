@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BrandMark } from "@/components/SiteContext";
+import { internalReturnPath } from "@/lib/buyer-flow";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,7 +14,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const r = new URLSearchParams(window.location.search).get("redirect");
-    if (r && r.startsWith("/")) setRedirect(r);
+    if (r) setRedirect(internalReturnPath(r));
   }, []);
 
   async function handleEmailLogin(e: React.SyntheticEvent) {

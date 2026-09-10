@@ -334,7 +334,7 @@ export default function SanjiHome({
           {/* 신상품 가로 */}
           {newest.length > 0 && (
             <div className="sh-sec">
-              <div className="sh-sec__h"><h2>🌱 새로 들어온 산지 상품</h2><a href="#" onClick={(e) => { e.preventDefault(); setTab(2); window.scrollTo({ top: 0 }); }}>전체 보기 ›</a></div>
+              <div className="sh-sec__h"><h2>🌱 새로 들어온 산지 상품</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div>
               <p className="sh-sec__sub">직접 먹어보고 골라 이번 주 새로 올린 상품</p>
               <div className="sh-row">
                 {newest.slice(0, 8).map((p) => (

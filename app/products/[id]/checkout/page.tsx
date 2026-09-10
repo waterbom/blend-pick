@@ -11,6 +11,10 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { phoneVerifyOn } from "@/lib/sms";
 
+export async function generateMetadata(){
+ const site=await currentSite();return {title:{absolute:`주문 / 결제 · ${site.name}`},robots:{index:false,follow:false}};
+}
+
 async function getProduct(id: string) {
   const result = await shopPool.query(
     `SELECT id, name, brand, price, original_price, main_image, shipping_type, shipping_cost,
@@ -93,32 +97,6 @@ export default async function ShopCheckoutPage({
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-        <h1 className="text-2xl font-extrabold tracking-tight mb-6" style={{ color: "var(--text-primary)" }}>주문 / 결제</h1>
-
-        {/* 상품 요약 */}
-        <div className="bg-white rounded-2xl p-5 mb-4 flex gap-4 items-center" style={{ border: "1px solid var(--line)" }}>
-          {product.main_image && (
-            <img src={product.main_image} alt={product.name} className="w-16 h-16 object-contain rounded-xl" />
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>{product.brand}</p>
-            <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{product.name}</p>
-            {option && (
-              <p className="text-xs mt-0.5" style={{ color: "var(--accent)" }}>{option.name}: {option.value}</p>
-            )}
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-              수량 {quantity}개{linked ? " · 전용 링크 가격 적용" : ""}
-            </p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{(unitPrice * quantity).toLocaleString()}원</p>
-            {shippingCost > 0 && (
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>배송비 {shippingCost.toLocaleString()}원</p>
-            )}
-          </div>
-        </div>
-
         <ShopCheckoutClient
           influencerId={influencer?.id ?? null}
           linkCode={linkCode}
@@ -134,7 +112,6 @@ export default async function ShopCheckoutPage({
           clientKey={clientKey}
           phoneVerifyRequired={phoneVerifyRequired}
         />
-      </div>
     </main>
   );
 }

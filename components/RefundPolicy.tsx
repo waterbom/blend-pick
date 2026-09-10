@@ -2,7 +2,7 @@ const SECTIONS: { title: string; items: string[] }[] = [
   {
     title: "배송",
     items: [
-      "배송 방법: 택배 · 배송 지역: 전국 · 배송비: 무료",
+      "배송 방법: 택배 · 배송 지역: 전국 · 배송비: 주문서에서 확인",
       "배송 기간: 결제 확인 후 3~7일 이내 출고",
       "산간·도서 지방은 추가 배송비가 발생할 수 있습니다.",
     ],
@@ -34,7 +34,10 @@ const SECTIONS: { title: string; items: string[] }[] = [
   },
 ];
 
-export default function RefundPolicy() {
+export default function RefundPolicy({ shipping, schedule }: { shipping?: string; schedule?:string } = {}) {
+  const sections = SECTIONS.map(sec => sec.title === "배송" && shipping
+    ? { ...sec, items: [`배송 방법: 택배 · 배송 지역: 전국 · ${shipping}`, schedule || sec.items[1], ...sec.items.slice(2)] }
+    : sec);
   return (
     <div className="mt-12 pt-8" style={{ borderTop: "1px solid var(--line)" }}>
       <h2 className="text-base font-bold mb-5" style={{ color: "var(--text-primary)" }}>
@@ -42,7 +45,7 @@ export default function RefundPolicy() {
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-        {SECTIONS.map((sec) => (
+        {sections.map((sec) => (
           <div key={sec.title}>
             <p className="text-sm font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
               {sec.title}

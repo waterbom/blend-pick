@@ -3,6 +3,12 @@ import CartCheckoutClient from "@/components/CartCheckoutClient";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { phoneVerifyOn } from "@/lib/sms";
+import { currentSite } from "@/lib/site-server";
+
+export async function generateMetadata() {
+  const site = await currentSite();
+  return { title: { absolute: `주문 / 결제 · ${site.key === "sanjipick" ? "산지픽" : "블랜드픽"}` }, robots: { index: false, follow: false } };
+}
 
 export default async function CartCheckoutPage() {
   const clientKey = process.env.TOSS_CLIENT_KEY!;
