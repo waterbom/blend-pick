@@ -17,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { id } = await params;
   const site = await currentSite();
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => null)) ?? {};
 
   const kind = body.kind === "exchange" ? "exchange" : body.kind === "return" ? "return" : null;
   if (!kind) return NextResponse.json({ error: "교환/반품 유형을 선택해주세요." }, { status: 400 });
@@ -86,11 +86,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // 신청 상품 검증 — 이 주문의 항목인지 + 수량이 주문 수량을 넘지 않는지
   const reqItems = (Array.isArray(body.items) ? body.items : [])
     .map((it: { item_id?: unknown; quantity?: unknown }) => ({
-      item_id: String(it.item_id || ""),
-      quantity: Math.floor(Number(it.quantity)) || 0,
+      item_id: String(it?.item_id || ""),
+      quantity: Number(it?.quantity),
     }))
-    .filter((it: { item_id: string; quantity: number }) => it.item_id && it.quantity > 0);
-  if (!reqItems.length) {
+    ;
+  if (!reqItems.length || reqItems.some((it: {quantity:number}) => !Number.isSafeInteger(it.quantity)||it.quantity<1) || new Set(reqItems.map((it: {item_id:string}) => it.item_id)).size !== reqItems.length) {
     return NextResponse.json({ error: "교환·반품할 상품을 선택해주세요." }, { status: 400 });
   }
   const oi = await shopPool.query(
@@ -122,6 +122,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const client = await shopPool.connect();
   try {
     await client.query("BEGIN");
+    const locked = await client.query('SELECT status FROM orders WHERE id=$1 AND site=$2 FOR UPDATE',[id,site.key]);
+    if (!locked.rows[0] || !['shipped','delivered'].includes(locked.rows[0].status)) {
+      await client.query('ROLLBACK');
+      return NextResponse.json({error:'주문 상태가 변경되었습니다. 다시 확인해주세요.'},{status:409});
+    }
+    const busy = await client.query("SELECT 1 FROM order_returns WHERE order_id=$1 AND status IN ('requested','collecting') UNION ALL SELECT 1 FROM refund_operations WHERE order_id=$1 AND status NOT IN ('completed','rejected') LIMIT 1",[id]);
+    if (busy.rows.length) {
+      await client.query('ROLLBACK');
+      return NextResponse.json({error:'이미 처리 중인 신청이 있습니다.'},{status:409});
+    }
+    order.status=locked.rows[0].status;
     const r = await client.query(
       `INSERT INTO order_returns
          (order_id, kind, reason, detail, items, photos, pickup_address, pickup_detail, fee_agreed, prev_status)

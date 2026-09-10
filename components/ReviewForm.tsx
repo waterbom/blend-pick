@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState,useRef,useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PhoneVerifyField from "@/components/PhoneVerifyField";
 
@@ -14,9 +14,14 @@ const INK = "#1C2418", GREEN = "#244B1F", HAIR = "#E4E1D6";
 const STAR_HINTS = ["별점을 선택해 주세요", "별로예요", "아쉬워요", "보통이에요", "좋아요", "아주 좋아요"];
 const CHIPS = ["아이가 좋아해요", "구성이 알차요", "배송이 빨라요"];
 
+function ReviewPreview({file}:{file:File}){
+ const [url,setUrl]=useState("");
+ useEffect(()=>{const next=URL.createObjectURL(file);setUrl(next);return ()=>URL.revokeObjectURL(next);},[file]);
+ return url?<img src={url} alt="첨부할 리뷰 사진" className="w-full h-full object-contain"/>:null;
+}
 export default function ReviewForm({
-  productId, loggedIn, onClose, doneHref,
-}: { productId: string; loggedIn: boolean; onClose?: () => void; doneHref?: string }) {
+  productId, orderId, loggedIn, onClose, doneHref,
+}: { productId: string; orderId?:string; loggedIn: boolean; onClose?: () => void; doneHref?: string }) {
   const router = useRouter();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -26,18 +31,24 @@ export default function ReviewForm({
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const submitting=useRef(false);
+  const [fileError,setFileError]=useState("");
   const preview = hover || rating;
 
   function pickFiles(list: FileList | null) {
     if (!list) return;
-    setFiles((prev) => [...prev, ...Array.from(list)].slice(0, 3));
+    const allowed=["image/jpeg","image/png","image/webp","image/gif","image/heic","image/heif"];
+    const incoming=Array.from(list);
+    const valid=incoming.filter(f=>allowed.includes(f.type)&&f.size>0&&f.size<=8*1024*1024);
+    setFileError(valid.length!==incoming.length?"8MB 이하의 이미지 파일만 추가할 수 있습니다.":files.length+valid.length>3?"사진은 최대 3장까지 추가할 수 있습니다.":"");
+    setFiles(prev=>[...prev,...valid].slice(0,3));
   }
 
   async function submit() {
-    if (rating < 1) return;
+    if (submitting.current || rating < 1) return;
     if (content.trim().length < 5) { alert("리뷰 내용을 5자 이상 입력해주세요."); return; }
     if (!loggedIn && !phoneVerified) { alert("주문 시 입력한 휴대폰 번호로 인증해주세요."); return; }
-    setBusy(true);
+    submitting.current=true;setBusy(true);
     try {
       const urls: string[] = [];
       for (const f of files) {
@@ -50,7 +61,7 @@ export default function ReviewForm({
       }
       const res = await fetch("/api/reviews", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, rating, content: content.trim(), images: urls }),
+        body: JSON.stringify({ product_id: productId, order_id:orderId, rating, content: content.trim(), images: urls }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { alert(d.error || "리뷰 등록에 실패했어요."); return; }
@@ -58,8 +69,9 @@ export default function ReviewForm({
       onClose?.();
       if (doneHref) router.push(doneHref);
       router.refresh();
+    } catch { alert("리뷰 저장 결과를 확인하지 못했습니다. 주문 내역에서 확인 후 다시 시도해주세요.");
     } finally {
-      setBusy(false);
+      submitting.current=false;setBusy(false);
     }
   }
 
@@ -99,7 +111,7 @@ export default function ReviewForm({
         <div className="flex gap-1.5 mt-2 flex-wrap">
           {CHIPS.map((c) => (
             <button key={c} type="button"
-              onClick={() => setContent((p) => (p ? `${p} ${c}` : c))}
+              onClick={() => setContent((p) => (p ? `${p} ${c}` : c).slice(0,1000))}
               className="text-[11.5px] px-2.5 py-1.5"
               style={{ border: `1px solid ${HAIR}`, color: "#6B7263", background: "#fff" }}>
               + {c}
@@ -108,6 +120,7 @@ export default function ReviewForm({
         </div>
       </div>
 
+      {fileError&&<p role="alert" className="text-sm">{fileError}</p>}
       {/* 사진 첨부 — 88px 슬롯, 모바일은 갤러리/카메라 자동 연동 */}
       <div>
         <div className="flex items-center gap-2 mb-1.5">
@@ -117,7 +130,7 @@ export default function ReviewForm({
         <div className="flex gap-2">
           {files.map((f, i) => (
             <div key={i} className="relative w-[88px] h-[88px]" style={{ border: `1px solid ${HAIR}` }}>
-              <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
+              <ReviewPreview file={f}/>
               <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))}
                 className="absolute top-0 right-0 w-5 h-5 text-white text-[11px] leading-none"
                 style={{ background: INK }} aria-label="사진 제거">✕</button>
@@ -143,7 +156,7 @@ export default function ReviewForm({
         <div className="p-4 space-y-2" style={{ background: "#F6F4EE" }}>
           <p className="text-[11px] font-bold tracking-[0.14em]" style={{ color: "#7A8B6F" }}>구매자 확인</p>
           <p className="text-[12px]" style={{ color: "#6B7263" }}>주문 시 입력한 휴대폰 번호로 본인 확인이 필요해요</p>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric"
+          <input value={phone} onChange={(e) => {setPhone(e.target.value);setPhoneVerified(false);}} inputMode="numeric"
             placeholder="01012345678"
             className="w-full px-3.5 ds-mono text-[13px] bg-white focus:outline-none"
             style={{ ...inputStyle, height: 44 }} />

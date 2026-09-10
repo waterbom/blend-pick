@@ -3,8 +3,8 @@ import shopPool from "@/lib/db-shop";
 import type { SiteKey } from "@/lib/sites";
 import { financialOrders, orderAmounts } from "@/lib/order-finance";
 import { calcPayout, HOTEL_PAYOUT_CAMPAIGN_ID, HOTEL_LABEL, type BusinessType } from "@/lib/settlement";
-export async function influencerFinance(site: SiteKey, db: import('pg').Pool | import('pg').PoolClient = shopPool) {
-    const [orders, payouts] = await Promise.all([financialOrders(site,undefined,undefined,db), db.query('SELECT * FROM influencer_payouts WHERE site=$1', [site])]);
+export async function influencerFinance(site: SiteKey, db: import('pg').Pool | import('pg').PoolClient = shopPool, scope?: { influencerId: string; from?: string; to?: string }) {
+    const [orders, payouts] = await Promise.all([financialOrders(site,scope?.from,scope?.to,db,scope?.influencerId), db.query('SELECT * FROM influencer_payouts WHERE site=$1 AND ($2::uuid IS NULL OR influencer_id=$2)', [site,scope?.influencerId??null])]);
     type Bucket = {
         campaign_id: string;
         influencer_id: string;

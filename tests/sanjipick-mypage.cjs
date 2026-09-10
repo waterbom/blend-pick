@@ -137,16 +137,17 @@ function request(url, cookie) {
         '@/lib/db': { query: async () => ({ rows: [{ nickname: '테스트 고객', role: 'influencer' }] }) },
         '@/lib/customer-orders': { getOrders: async (user, site) => { assert.equal(site, 'sanjipick'); return [fixture]; } },
       });
-      const html = renderToStaticMarkup(await Page());
+      const html = renderToStaticMarkup(await Page({}));
       assert.match(html, /산지픽 마이페이지/);
-      assert.doesNotMatch(html, /호텔|OS 구독|\/influencer/);
+      assert.doesNotMatch(html, /호텔|OS 구독/);
+      assert.match(html,/인플루언서 활동/);
       assert.ok(html.includes(`href="${base}/p/peach-1"`));
       assert.ok(html.includes(`href="${base}/mypage/returns/new?order=order-1"`));
-      assert.ok(html.includes(`href="${base}/mypage/reviews/new?product=peach-1"`));
+      assert.ok(html.includes(`href="${base}/mypage/reviews/new?product=peach-1&amp;order=order-1"`));
       assert.match(html, /29,000/);
     });
   }
-  await test('shop account preserves hotel and subscription sections', async () => {
+  await test('shop account preserves hotel and removes inactive subscription', async () => {
     const { default: Page } = load('app/mypage/page.tsx', {
       ...baseMocks,
       '@/lib/site-server': { currentSite: async () => sites.SITES.blendpick },
@@ -155,9 +156,9 @@ function request(url, cookie) {
       '@/lib/db-shop': { query: async sql => { assert.match(sql, /o.site = 'blendpick'/); return { rows: [] }; } },
       '@/lib/customer-orders': { getOrders: async (user, site) => { assert.equal(site, 'blendpick'); return []; } },
     });
-    const html = renderToStaticMarkup(await Page());
+    const html = renderToStaticMarkup(await Page({}));
     assert.match(html, /호텔 예약 내역/);
-    assert.match(html, /OS 구독/);
+    assert.doesNotMatch(html, /OS 구독/);
     assert.doesNotMatch(html, /산지픽 마이페이지/);
   });
   await test('same-site paid order still reaches cancellation service', async () => {
@@ -187,7 +188,7 @@ function request(url, cookie) {
       '@/lib/sanji-link': { sanjiLinkBase: async () => '/sanji' },
       '@/lib/db': {}, '@/lib/customer-orders': {},
     });
-    await assert.rejects(Page, /REDIRECT:\/login\?redirect=%2Fsanji%2Fmypage/);
+    await assert.rejects(()=>Page({}), /REDIRECT:\/login\?redirect=%2Fsanji%2Fmypage/);
   });
   await test('logout returns to the configured sanji host and clears its cookie', async () => {
     const { GET } = load('app/api/auth/logout/route.ts', { '@/lib/site-server': { currentSite: async () => sites.SITES.sanjipick } });

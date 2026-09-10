@@ -35,9 +35,11 @@ export interface FinanceOrder {
     fee_estimated: boolean;
     items: FinanceItem[];
 }
-export async function financialOrders(site: SiteKey, from?: string | null, to?: string | null, db: Pool | PoolClient = shopPool): Promise<FinanceOrder[]> {
+export async function financialOrders(site: SiteKey, from?: string | null, to?: string | null, db: Pool | PoolClient = shopPool, influencerId?: string): Promise<FinanceOrder[]> {
     const args: unknown[] = [site];
+    if (influencerId) args.push(influencerId);
     const filters = ["o.site=$1", "o.paid_at IS NOT NULL", "o.payment_key IS NOT NULL", "o.payment_key NOT LIKE 'SIM_%'"];
+    if (influencerId) filters.push('o.influencer_id=$2');
     if (from) {
         args.push(from);
         filters.push(`o.paid_at >= ($${args.length}::date::timestamp AT TIME ZONE 'Asia/Seoul')`);

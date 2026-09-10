@@ -18,7 +18,7 @@ function maskName(name: string) {
  * 회원은 주문 이력(user_id), 비회원은 휴대폰 인증(phone_verified 쿠키)의 번호로 본인 주문을 확인.
  */
 export async function POST(req: Request) {
-  const { product_id, rating, content, images } = await req.json();
+  const { product_id, order_id, rating, content, images } = (await req.json().catch(()=>null)) ?? {};
 
   const r = Number(rating);
   if (!product_id || !Number.isInteger(r) || r < 1 || r > 5) {
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
     params.push(normPhone(verifiedPhone!));
     conds.push(`regexp_replace(o.buyer_phone, '[^0-9]', '', 'g') = $${params.length}`);
   }
+  if(order_id){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(order_id)))return NextResponse.json({error:"주문을 확인해주세요."},{status:400});params.push(order_id);conds.push(`o.id = $${params.length}`);}
   const ord = await shopPool.query(
     `SELECT o.id, o.buyer_name
        FROM orders o JOIN order_items oi ON oi.order_id = o.id
@@ -72,11 +73,15 @@ export async function POST(req: Request) {
     );
   }
 
-  await shopPool.query(
+  try {
+  const inserted=await shopPool.query(
     `INSERT INTO reviews (product_id, order_id, buyer_name, rating, content, images)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (order_id,product_id) WHERE order_id IS NOT NULL DO NOTHING RETURNING id`,
     [product_id, order.id, maskName(order.buyer_name), r, text, imgs]
   );
 
+  if (!inserted.rows.length) return NextResponse.json({error:"이미 작성된 후기입니다. 주문 내역을 확인해주세요."},{status:409});
   return NextResponse.json({ ok: true });
+  } catch {return NextResponse.json({error:"리뷰 저장 결과를 확인하지 못했습니다. 주문 내역을 확인해주세요."},{status:503});}
 }

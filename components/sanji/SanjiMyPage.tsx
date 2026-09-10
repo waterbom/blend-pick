@@ -1,3 +1,4 @@
+import type {AccountQuery} from "@/lib/account-filters";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -11,7 +12,8 @@ import CustomerOrders from "@/components/CustomerOrders";
 import WithdrawButton from "@/components/WithdrawButton";
 
 // 회원 계정은 공유하지만 구매 화면과 주문 데이터는 산지픽으로 한정한다.
-export default async function SanjiMyPage() {
+export default async function SanjiMyPage({searchParams=Promise.resolve({})}:{searchParams?:Promise<AccountQuery>}) {
+  const query=await searchParams;
   const base = await sanjiLinkBase();
   // 공용 카카오 콜백이 shop 호스트로 돌아와도 산지픽 화면을 유지한다.
   const loginHref = `/login?redirect=${encodeURIComponent("/sanji/mypage")}`;
@@ -23,13 +25,13 @@ export default async function SanjiMyPage() {
   if (!payload) redirect(loginHref);
 
   const { rows } = await pool.query(
-    "SELECT name, nickname FROM shop_users WHERE id = $1 AND is_active = true",
+    "SELECT name, nickname, role FROM shop_users WHERE id = $1 AND is_active = true",
     [payload.id]
   );
   const user = rows[0];
   if (!user) redirect(loginHref);
 
-  const orders = await getOrders(payload.id, "sanjipick");
+  const orders = await getOrders(payload.id, "sanjipick",query);
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)", color: "var(--text-primary)" }}>
@@ -43,11 +45,12 @@ export default async function SanjiMyPage() {
               <a href="#orders" className="px-5 py-4 font-bold" style={{ color: "var(--accent)", background: "var(--surface-soft)" }}>주문·배송 조회</a>
               <a href="#help" className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>취소·교환·반품 안내</a>
               <Link href={`${base}/products`} className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>제철 상품 둘러보기</Link>
+              {user.role==="influencer"&&<Link href="/influencer" className="px-5 py-4">인플루언서 활동</Link>}
               <a href="/api/auth/logout" className="px-5 py-4" style={{ borderTop: "1px solid var(--line)", color: "var(--text-muted)" }}>로그아웃</a>
             </nav>
           </aside>
           <div className="min-w-0">
-            <CustomerOrders orders={orders} sanjiBase={base} />
+            <CustomerOrders orders={orders} sanjiBase={base} query={query} />
             <section id="help" className="ds-card p-5 sm:p-6 scroll-mt-24">
               <h2 className="text-lg font-bold mb-3">취소·교환·반품 안내</h2>
               <p className="text-base leading-relaxed" style={{ color: "var(--text-secondary)" }}>

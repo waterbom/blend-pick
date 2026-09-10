@@ -50,7 +50,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   // 발송 전(운송장 등록 전) → 즉시 취소 (토스 전액 환불 + 재고 복원 — 환불 실패 시 상태 유지)
   // shipped(운송장 등록됨) → 취소요청 (어드민이 출고 여부 확인 후 승인/반려)
   if (["paid", "confirmed", "preparing"].includes(order.status)) {
-    const r = await cancelShopOrder(id, "고객 주문 취소");
+    const r = await cancelShopOrder(id, "고객 주문 취소", {site:site.key,customerRequest:true});
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.httpStatus });
     return NextResponse.json({
       ok: true,
@@ -61,11 +61,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     });
   }
 
-  await shopPool.query(
-    `UPDATE orders SET status = 'cancel_requested', updated_at = NOW() WHERE id = $1`,
-    [id]
+  const changed = await shopPool.query(
+    `UPDATE orders SET status = 'cancel_requested', updated_at = NOW() WHERE id = $1 AND site = $2 AND status = 'shipped'
+       AND NOT EXISTS (SELECT 1 FROM refund_operations ro WHERE ro.order_id=orders.id AND ro.status NOT IN ('completed','rejected')) RETURNING id`,
+    [id, site.key]
   );
 
+  if (!changed.rows.length) return NextResponse.json({error:"주문 상태가 변경되었습니다. 다시 확인해주세요."},{status:409});
   return NextResponse.json({
     ok: true,
     status: "cancel_requested",
