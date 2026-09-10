@@ -1,3 +1,4 @@
+import type {AccountQuery} from "@/lib/account-filters";
 import { currentSite } from "@/lib/site-server";
 import { getOrders } from "@/lib/customer-orders";
 import CustomerOrders from "@/components/CustomerOrders";
@@ -51,12 +52,14 @@ async function getHotelReservations(userId: string) {
     );
     return result.rows;
   } catch {
-    return [];
+    return null;
   }
 }
 
-export default async function MyPage() {
-  if ((await currentSite()).key === "sanjipick") return <SanjiMyPage />;
+export const metadata={title:"마이페이지",robots:{index:false,follow:false}};
+export default async function MyPage({searchParams=Promise.resolve({})}:{searchParams?:Promise<AccountQuery>}={}) {
+  const query=await searchParams;
+  if ((await currentSite()).key === "sanjipick") return <SanjiMyPage searchParams={Promise.resolve(query)} />;
   const cookieStore = await cookies();
   const adminToken = cookieStore.get("admin_token")?.value;
   if (adminToken && await verifyAdminToken(adminToken)) redirect("/admin");
@@ -67,16 +70,16 @@ export default async function MyPage() {
   if (!payload) redirect("/login");
 
   const result = await pool.query(
-    "SELECT id, name, nickname, profile_image, role, role_status FROM shop_users WHERE id = $1",
+    "SELECT id, name, nickname, profile_image, role, role_status FROM shop_users WHERE id = $1 AND is_active = true",
     [payload.id]
   );
   const user = result.rows[0];
   if (!user) redirect("/login");
 
   // 인플루언서는 마이페이지 대신 인플루언서 탭으로
-  if (user.role === "influencer") redirect("/influencer");
+  // 구매 내역은 역할과 무관하게 유지한다.
 
-  const orders = await getOrders(payload.id, "blendpick");
+  const orders = await getOrders(payload.id, "blendpick",query);
   const hotelReservations = await getHotelReservations(payload.id);
   const roleInfo = ROLE_LABEL[user.role] ?? ROLE_LABEL.customer;
 
@@ -115,16 +118,17 @@ export default async function MyPage() {
         <nav className="ds-card mt-4 flex flex-col">
           <a href="#orders" className="px-5 py-3 text-[13px] font-bold" style={{ color: "var(--accent-hover)", borderLeft: "2px solid var(--accent-hover)", background: "var(--surface-soft)" }}>주문 내역</a>
           <a href="#hotel" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-secondary)", borderTop: "1px solid var(--line-soft)" }}>호텔 예약 내역</a>
-          <a href="#subscribe" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-secondary)", borderTop: "1px solid var(--line-soft)" }}>OS 구독</a>
+          {user.role==="influencer"&&<a href="/influencer" className="px-5 py-3 text-sm">인플루언서 활동</a>}
           <a href="/api/auth/logout" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--line-soft)" }}>로그아웃</a>
         </nav>
         </aside>
 
         <div className="min-w-0">
+        <CustomerOrders orders={orders} query={query} />
         {/* 호텔 예약 내역 */}
         <section id="hotel" className="mb-10">
           <div className="ds-section-title mb-4"><span>호텔 예약 내역</span></div>
-          {hotelReservations.length === 0 ? (
+          {hotelReservations===null ? <div role="alert">호텔 예약을 불러오지 못했습니다. <a href="?">다시 조회</a></div> : hotelReservations.length === 0 ? (
             <div className="ds-card p-5 text-sm" style={{ color: "var(--text-muted)" }}>
               호텔 예약 내역이 없습니다.
             </div>
@@ -168,25 +172,11 @@ export default async function MyPage() {
           )}
         </section>
 
-        <CustomerOrders orders={orders} />
-
-        {/* OS 구독 */}
-        <section id="subscribe" className="mb-10">
-          <div className="ds-section-title mb-4"><span>OS 구독</span></div>
-          <div className="ds-card p-5">
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>구독을 하지 않은 상태입니다.</p>
-            <button className="ds-btn ds-btn-primary mt-4 px-8" style={{ height: "44px", fontSize: "13px" }}>
-              구독하기
-            </button>
-          </div>
-        </section>
+        
 
         {/* 로그아웃 */}
         <div className="text-center">
-          <a href="/api/auth/logout" className="text-xs transition-colors hover:underline" style={{ color: "var(--text-muted)" }}>
-            로그아웃
-          </a>
-          <span className="mx-3" style={{ color: "var(--line)" }}>|</span>
+
           <WithdrawButton />
         </div>
         </div>

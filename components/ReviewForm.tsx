@@ -15,8 +15,8 @@ const STAR_HINTS = ["별점을 선택해 주세요", "별로예요", "아쉬워�
 const CHIPS = ["아이가 좋아해요", "구성이 알차요", "배송이 빨라요"];
 
 export default function ReviewForm({
-  productId, loggedIn, onClose, doneHref,
-}: { productId: string; loggedIn: boolean; onClose?: () => void; doneHref?: string }) {
+  productId, orderId, loggedIn, onClose, doneHref,
+}: { productId: string; orderId?:string; loggedIn: boolean; onClose?: () => void; doneHref?: string }) {
   const router = useRouter();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -50,7 +50,7 @@ export default function ReviewForm({
       }
       const res = await fetch("/api/reviews", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, rating, content: content.trim(), images: urls }),
+        body: JSON.stringify({ product_id: productId, order_id:orderId, rating, content: content.trim(), images: urls }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { alert(d.error || "리뷰 등록에 실패했어요."); return; }
@@ -58,6 +58,7 @@ export default function ReviewForm({
       onClose?.();
       if (doneHref) router.push(doneHref);
       router.refresh();
+    } catch { alert("리뷰 저장 결과를 확인하지 못했습니다. 주문 내역에서 확인 후 다시 시도해주세요.");
     } finally {
       setBusy(false);
     }
@@ -143,7 +144,7 @@ export default function ReviewForm({
         <div className="p-4 space-y-2" style={{ background: "#F6F4EE" }}>
           <p className="text-[11px] font-bold tracking-[0.14em]" style={{ color: "#7A8B6F" }}>구매자 확인</p>
           <p className="text-[12px]" style={{ color: "#6B7263" }}>주문 시 입력한 휴대폰 번호로 본인 확인이 필요해요</p>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric"
+          <input value={phone} onChange={(e) => {setPhone(e.target.value);setPhoneVerified(false);}} inputMode="numeric"
             placeholder="01012345678"
             className="w-full px-3.5 ds-mono text-[13px] bg-white focus:outline-none"
             style={{ ...inputStyle, height: 44 }} />

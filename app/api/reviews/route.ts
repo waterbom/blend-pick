@@ -18,7 +18,7 @@ function maskName(name: string) {
  * 회원은 주문 이력(user_id), 비회원은 휴대폰 인증(phone_verified 쿠키)의 번호로 본인 주문을 확인.
  */
 export async function POST(req: Request) {
-  const { product_id, rating, content, images } = await req.json();
+  const { product_id, order_id, rating, content, images } = await req.json().catch(()=>({}));
 
   const r = Number(rating);
   if (!product_id || !Number.isInteger(r) || r < 1 || r > 5) {
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
     params.push(normPhone(verifiedPhone!));
     conds.push(`regexp_replace(o.buyer_phone, '[^0-9]', '', 'g') = $${params.length}`);
   }
+  if(order_id){if(!/^[0-9a-f-]{36}$/i.test(String(order_id)))return NextResponse.json({error:"주문을 확인해주세요."},{status:400});params.push(order_id);conds.push(`o.id = ${params.length}`);}
   const ord = await shopPool.query(
     `SELECT o.id, o.buyer_name
        FROM orders o JOIN order_items oi ON oi.order_id = o.id

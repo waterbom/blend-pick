@@ -20,7 +20,8 @@
     "test:process-edges": "node --test --test-concurrency=1 tests/full-process-edges.cjs",
     "test:images": "node --test tests/uploaded-images.cjs",
     "test:commerce-automation": "node --test tests/commerce-automation.cjs tests/storefront-monitor.cjs",
-    "test:buyer": "node --test tests/buyer-flow.cjs tests/buyer-convenience.cjs tests/buyer-checkout-events.cjs"
+    "test:buyer": "node --test tests/buyer-flow.cjs tests/buyer-convenience.cjs tests/buyer-checkout-events.cjs",
+    "test:account": "node --test tests/account-flow.cjs"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.6.0",

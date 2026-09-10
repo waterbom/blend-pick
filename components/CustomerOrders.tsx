@@ -1,3 +1,4 @@
+import {accountFilters,ACCOUNT_STATUSES,type AccountQuery} from "@/lib/account-filters";
 import Link from "next/link";
 import CancelOrderButton from "@/components/CancelOrderButton";
 import { carrierName, trackingUrl } from "@/lib/carriers";
@@ -19,12 +20,21 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 
-export default function CustomerOrders({ orders, sanjiBase }: { orders: Awaited<ReturnType<typeof getOrders>>; sanjiBase?: string }) {
+export default function CustomerOrders({ orders, sanjiBase, query }: { query?:AccountQuery; orders: Awaited<ReturnType<typeof getOrders>>; sanjiBase?: string }) {
+  const q=accountFilters(query);
+  const href=(page:number)=>{const p=new URLSearchParams();p.set("page",String(page));if(q.status)p.set("status",q.status);if(q.from)p.set("from",q.from);if(q.to)p.set("to",q.to);return `?${p}#orders`;};
   return (
         <section id="orders" className="mb-10">
           <div className="ds-section-title mb-4"><span>주문 내역</span></div>
+          {query&&<form className="ds-card p-4 mb-4 flex flex-wrap gap-3">
+            <label>주문 상태 <select name="status" defaultValue={q.status||""}><option value="">전체</option>{Object.entries(ACCOUNT_STATUSES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+            <label>시작일 <input type="date" name="from" defaultValue={q.from}/></label>
+            <label>종료일 <input type="date" name="to" defaultValue={q.to}/></label>
+            <button type="submit" className="underline">조회</button><a href="?">필터 초기화</a>
+          </form>}
+          {orders&&orders.length>0&&<p className="text-sm mb-4">현재 목록 · 배송 중 {orders.slice(0,20).filter((o:any)=>o.status==="shipped").length}건 · 처리 중 신청 {orders.slice(0,20).filter((o:any)=>["cancel_requested","exchange_requested","return_requested"].includes(o.status)).length}건</p>}
           {orders === null ? (
-            <div role="alert" className="ds-card p-5 text-sm">주문 내역을 불러오지 못했습니다. 잠시 후 새로고침해주세요.</div>
+            <div role="alert" className="ds-card p-5 text-sm">주문 내역을 불러오지 못했습니다. <a href={href(q.page)} className="underline">다시 조회해주세요.</a></div>
           ) : orders.length === 0 ? (
             <div className="ds-card p-5 text-sm" style={{ color: "var(--text-muted)" }}>
               {sanjiBase !== undefined ? "아직 산지픽 주문 내역이 없습니다." : "구매 내역이 없습니다."}
@@ -32,7 +42,7 @@ export default function CustomerOrders({ orders, sanjiBase }: { orders: Awaited<
             </div>
           ) : (
             <div className="space-y-3">
-              {orders.map((order) => {
+              {orders.slice(0,20).map((order) => {
                 const statusInfo = STATUS_LABEL[order.status] ?? { label: order.status, color: "text-gray-400" };
                 const paidAt = order.paid_at
                   ? new Date(order.paid_at).toLocaleDateString("ko-KR")
@@ -164,20 +174,9 @@ export default function CustomerOrders({ orders, sanjiBase }: { orders: Awaited<
                             교환·반품
                           </Link>
                         )}
-                        {order.status === "delivered" && order.items[0]?.product_id && (
-                          order.items[0]?.reviewed ? (
-                            <span className="text-xs font-semibold px-3.5 py-2" style={{ border: "1px solid var(--line)", color: "#8F948A" }}>
-                              리뷰 작성완료 ✓
-                            </span>
-                          ) : (
-                            <Link
-                              href={sanjiBase !== undefined ? `${sanjiBase}/mypage/reviews/new?product=${order.items[0].product_id}` : `/products/${order.items[0].product_id}#review`}
-                              className="text-xs font-semibold px-3.5 py-2"
-                              style={{ border: "1px solid var(--accent-hover)", color: "var(--accent-hover)" }}
-                            >
-                              리뷰 쓰기
-                            </Link>
-                          )
+                        {order.status === "delivered" && order.items.filter((item:any,index:number,all:any[])=>item.product_id&&all.findIndex(i=>i.product_id===item.product_id)===index).map((item:any)=>item.reviewed?
+                          <span key={item.product_id} className="text-xs">{item.product_name} · 리뷰 작성완료 ✓</span>:
+                          <Link key={item.product_id} href={`${sanjiBase??""}/mypage/reviews/new?product=${item.product_id}&order=${order.id}`} className="text-xs underline">{item.product_name} · 리뷰 쓰기</Link>
                         )}
                       </div>
                     </div>
@@ -186,6 +185,7 @@ export default function CustomerOrders({ orders, sanjiBase }: { orders: Awaited<
               })}
             </div>
           )}
+          {query&&<nav aria-label="주문 페이지" className="flex gap-4 mt-5">{q.page>1&&<Link href={href(q.page-1)}>이전</Link>}<span>{q.page}페이지</span>{orders&&orders.length>20&&<Link href={href(q.page+1)}>다음</Link>}</nav>}
         </section>
 
   );

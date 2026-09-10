@@ -1,3 +1,4 @@
+import {currentSite} from "@/lib/site-server";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
@@ -15,7 +16,7 @@ async function getInfluencer() {
   const { rows } = await pool.query(
     `SELECT i.id FROM influencers i
      JOIN shop_users u ON u.id = i.user_id::text
-     WHERE u.id = $1 AND u.role = 'influencer'`,
+     WHERE u.id = $1 AND u.role = 'influencer' AND u.is_active=true`,
     [payload.id]
   );
   return rows[0] ?? null;
@@ -31,6 +32,7 @@ export async function GET(req: Request) {
   const productId = searchParams.get("product_id");
   if (!productId) return NextResponse.json({ error: "product_id 필요" }, { status: 400 });
 
+  const site=await currentSite();
   const { rows } = await shopPool.query(
     `SELECT o.buyer_name, o.buyer_phone,
             to_char(COALESCE(o.paid_at, o.created_at) AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS paid_label,
@@ -39,10 +41,11 @@ export async function GET(req: Request) {
      JOIN order_items oi ON oi.order_id = o.id
      WHERE o.order_type = 'shop'
        AND o.influencer_id = $1
-       AND oi.product_id = $2
+       AND oi.product_id = $2 AND o.site = $4
+       AND o.paid_at IS NOT NULL AND o.payment_key IS NOT NULL AND o.payment_key NOT LIKE 'SIM_%'
        AND o.status = ANY($3)
      ORDER BY COALESCE(o.paid_at, o.created_at) ASC`,
-    [inf.id, productId, [...COUNTABLE_ORDER_STATUSES]]
+    [inf.id, productId, [...COUNTABLE_ORDER_STATUSES],site.key]
   );
 
   // 전화번호(숫자만) 기준 중복 제거 — 정렬이 결제시간 오름차순이라 첫 등장 = 가장 빠른 유효 결제
@@ -52,8 +55,8 @@ export async function GET(req: Request) {
     const key = String(r.buyer_phone || "").replace(/\D/g, "");
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    buyers.push({ name: r.buyer_name, phone: r.buyer_phone, paid_label: r.paid_label });
+    buyers.push({ name: String(r.buyer_name||"구매자").slice(0,1)+"**", phone: key.slice(0,3)+"-****-"+key.slice(-4), paid_label: r.paid_label });
   }
 
-  return NextResponse.json({ buyers });
+  return NextResponse.json({ buyers },{headers:{"Cache-Control":"no-store"}});
 }
