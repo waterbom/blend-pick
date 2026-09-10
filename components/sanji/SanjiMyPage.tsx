@@ -12,7 +12,7 @@ import CustomerOrders from "@/components/CustomerOrders";
 import WithdrawButton from "@/components/WithdrawButton";
 
 // 회원 계정은 공유하지만 구매 화면과 주문 데이터는 산지픽으로 한정한다.
-export default async function SanjiMyPage({searchParams=Promise.resolve({})}:{searchParams?:Promise<AccountQuery>}={}) {
+export default async function SanjiMyPage({searchParams=Promise.resolve({})}:{searchParams?:Promise<AccountQuery>}) {
   const query=await searchParams;
   const base = await sanjiLinkBase();
   // 공용 카카오 콜백이 shop 호스트로 돌아와도 산지픽 화면을 유지한다.

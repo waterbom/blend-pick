@@ -36,11 +36,11 @@ export default async function InfluencerPage({searchParams=Promise.resolve({})}:
  let products:any[]=[],campaigns:any[]=[];
  try {
   finance=await influencerFinance(site.key,shopPool,{influencerId:inf.id});
-  period=filtered?await influencerFinance(site.key,shopPool,{influencerId:inf.id,from,to}):finance;
+  period=filtered?(await influencerFinance(site.key,shopPool,{influencerId:inf.id,from,to})).filter(r=>r.orders>0):finance;
   products=(await shopPool.query(`SELECT p.*,
    NOT EXISTS(SELECT 1 FROM product_options po WHERE po.product_id=p.id)
     OR EXISTS(SELECT 1 FROM product_options po WHERE po.product_id=p.id AND po.is_active=true AND po.stock<>0) AS options_available
-   FROM products_shop p WHERE p.influencer_rate IS NOT NULL
+   FROM products_shop p WHERE p.influencer_rate IS NOT NULL AND p.is_visible=true
     AND (p.influencer_id IS NULL OR p.influencer_id::text=$1)
     AND (($2='sanjipick' AND p.category=ANY($3::text[])) OR ($2='blendpick' AND NOT(COALESCE(p.category,'')=ANY($3::text[]))))
    ORDER BY p.created_at DESC`,[inf.id,site.key,SITES.sanjipick.categories])).rows;

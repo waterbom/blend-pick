@@ -30,7 +30,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const productId = searchParams.get("product_id");
-  if (!productId) return NextResponse.json({ error: "product_id 필요" }, { status: 400 });
+  if (!productId || !/^[0-9a-f-]{36}$/i.test(productId)) return NextResponse.json({ error: "product_id 필요" }, { status: 400 });
 
   const site=await currentSite();
   const { rows } = await shopPool.query(

@@ -1,4 +1,4 @@
-import type {AccountQuery} from "@/lib/account-filters";
+import {accountFilters,type AccountQuery} from "@/lib/account-filters";
 import { currentSite } from "@/lib/site-server";
 import { getOrders } from "@/lib/customer-orders";
 import CustomerOrders from "@/components/CustomerOrders";
@@ -37,7 +37,7 @@ function fmtStayDate(iso: string | null) {
   return `${m}/${d}(${WEEK[new Date(y, m - 1, d).getDay()]})`;
 }
 
-async function getHotelReservations(userId: string) {
+async function getHotelReservations(userId: string, page=1) {
   try {
     const result = await shopPool.query(
       `SELECT o.id, o.order_number, o.total_amount, o.status, o.paid_at, o.addr_memo,
@@ -46,8 +46,8 @@ async function getHotelReservations(userId: string) {
               (SELECT product_name FROM order_items WHERE order_id = o.id LIMIT 1) AS product_name
          FROM orders o
         WHERE o.user_id = $1 AND o.site = 'blendpick' AND o.order_type = 'hotel'
-        ORDER BY o.paid_at DESC
-        LIMIT 20`,
+        ORDER BY o.paid_at DESC NULLS LAST, o.id DESC
+        LIMIT 21 OFFSET ${(page-1)*20}`,
       [userId]
     );
     return result.rows;
@@ -57,7 +57,7 @@ async function getHotelReservations(userId: string) {
 }
 
 export const metadata={title:"마이페이지",robots:{index:false,follow:false}};
-export default async function MyPage({searchParams=Promise.resolve({})}:{searchParams?:Promise<AccountQuery>}={}) {
+export default async function MyPage({searchParams=Promise.resolve({})}:{searchParams?:Promise<AccountQuery>}) {
   const query=await searchParams;
   if ((await currentSite()).key === "sanjipick") return <SanjiMyPage searchParams={Promise.resolve(query)} />;
   const cookieStore = await cookies();
@@ -80,7 +80,8 @@ export default async function MyPage({searchParams=Promise.resolve({})}:{searchP
   // 구매 내역은 역할과 무관하게 유지한다.
 
   const orders = await getOrders(payload.id, "blendpick",query);
-  const hotelReservations = await getHotelReservations(payload.id);
+  const hotelPage=accountFilters({page:query.hotel_page}).page;
+  const hotelReservations = await getHotelReservations(payload.id,hotelPage);
   const roleInfo = ROLE_LABEL[user.role] ?? ROLE_LABEL.customer;
 
   return (
@@ -134,7 +135,7 @@ export default async function MyPage({searchParams=Promise.resolve({})}:{searchP
             </div>
           ) : (
             <div className="space-y-3">
-              {hotelReservations.map((rv) => {
+              {hotelReservations.slice(0,20).map((rv) => {
                 const st = HOTEL_STATUS_LABEL[rv.status] ?? { label: rv.status, color: "text-gray-400" };
                 const paidAt = rv.paid_at ? new Date(rv.paid_at).toLocaleDateString("ko-KR") : "";
                 return (
@@ -170,6 +171,7 @@ export default async function MyPage({searchParams=Promise.resolve({})}:{searchP
               })}
             </div>
           )}
+          <nav aria-label="호텔 예약 페이지" className="flex gap-4 mt-4">{hotelPage>1&&<a href={`?hotel_page=${hotelPage-1}#hotel`}>이전 예약</a>}{hotelReservations&&hotelReservations.length>20&&<a href={`?hotel_page=${hotelPage+1}#hotel`}>다음 예약</a>}</nav>
         </section>
 
         

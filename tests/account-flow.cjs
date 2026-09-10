@@ -31,3 +31,14 @@ test('item finance allocates mixed products and partial refunds without duplicat
 test('finance queries scope member and site before reading',async()=>{const {financialOrders}=load('lib/order-finance.ts',{'@/lib/db-shop':{query:async(sql,args)=>{assert.match(sql,/o.site=\$1/);assert.match(sql,/o.influencer_id=\$2/);assert.deepEqual(args,['sanjipick',id(9),'2026-09-01']);return {rows:[]};}}});await financialOrders('sanjipick','2026-09-01',undefined,undefined,id(9));});
 test('pagination is bounded and invalid filters cannot become SQL',()=>{const {accountFilters}=load('lib/account-filters.ts');assert.equal(accountFilters({page:'-1'}).page,1);assert.equal(accountFilters({page:'2'}).page,2);assert.equal(accountFilters({status:"' OR true"}).status,undefined);assert.equal(accountFilters({from:'2026-02-31'}).from,undefined);});
 test('all delivered products have order-specific review links',()=>{const Orders=load('components/CustomerOrders.tsx',{'@/components/CancelOrderButton':()=>null,'next/link':({children,...p})=>React.createElement('a',p,children)}).default;const html=renderToStaticMarkup(React.createElement(Orders,{orders:[{id:'order1',status:'delivered',total_amount:30,items:[{product_id:'p1',product_name:'하나',quantity:1,unit_price:10},{product_id:'p2',product_name:'둘',quantity:1,unit_price:20}]}],query:{}}));assert.match(html,/product=p1&amp;order=order1/);assert.match(html,/product=p2&amp;order=order1/);});
+
+test('customer pagination fetches a next-page sentinel with stable order',async()=>{
+ const getOrders=load('lib/customer-orders.ts',{'@/lib/db-shop':{query:async(sql,args)=>{
+ assert.match(sql,/LIMIT 21 OFFSET 20/);assert.match(sql,/o.id DESC/);assert.deepEqual(args,[user,'sanjipick','delivered','2026-09-01']);return {rows:Array.from({length:21},(_,i)=>({id:i}))};
+ }}}).getOrders;
+ assert.equal((await getOrders(user,'sanjipick',{page:'2',status:'delivered',from:'2026-09-01'})).length,21);
+});
+test('first-buyers response never includes full names or phones and scopes the site',async()=>{
+ const api=load('app/api/influencer/first-buyers/route.ts',{...mocks,'@/lib/db':{query:async()=>({rows:[{id:id(9)}]})},'@/lib/db-shop':{query:async(sql,args)=>{assert.match(sql,/o.site = \$4/);assert.equal(args[3],'blendpick');return {rows:[{buyer_name:'김테스트',buyer_phone:'01012345678',paid_label:'09/10 12:00'}]};}}});
+ const r=await api.GET(new Request('https://example.test/api?product_id='+id(5)));const text=await r.text();assert.doesNotMatch(text,/01012345678|김테스트/);assert.match(text,/010-\*\*\*\*-5678/);assert.equal(r.headers.get('cache-control'),'no-store');
+});

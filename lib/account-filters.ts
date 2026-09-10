@@ -1,4 +1,4 @@
-export type AccountQuery={page?:string;status?:string;from?:string;to?:string};
+export type AccountQuery={page?:string;hotel_page?:string;status?:string;from?:string;to?:string};
 export const ACCOUNT_STATUSES:Record<string,string>={paid:"결제완료",confirmed:"주문확인",preparing:"배송준비",shipped:"배송중",delivered:"배송완료",cancel_requested:"취소요청",cancelled:"취소완료",exchange_requested:"교환신청",exchange_completed:"교환완료",return_requested:"반품신청",return_completed:"반품완료"};
 export function accountFilters(q:AccountQuery={}){
  const page=Number(q.page||1);
