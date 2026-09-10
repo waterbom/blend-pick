@@ -7,9 +7,9 @@ export async function getOrders(userId: string, site: SiteKey, query?:AccountQue
     const q=accountFilters(query);
     const params:unknown[]=[userId,site];
     const conditions:string[]=[];
-    if(q.status){params.push(q.status);conditions.push(`o.status=${params.length}`);}
-    if(q.from){params.push(q.from);conditions.push(`o.paid_at>=(${params.length}::date::timestamp AT TIME ZONE 'Asia/Seoul')`);}
-    if(q.to){params.push(q.to);conditions.push(`o.paid_at<((${params.length}::date+1)::timestamp AT TIME ZONE 'Asia/Seoul')`);}
+    if(q.status){params.push(q.status);conditions.push(`o.status=$${params.length}`);}
+    if(q.from){params.push(q.from);conditions.push(`o.paid_at>=($${params.length}::date::timestamp AT TIME ZONE 'Asia/Seoul')`);}
+    if(q.to){params.push(q.to);conditions.push(`o.paid_at<(($${params.length}::date+1)::timestamp AT TIME ZONE 'Asia/Seoul')`);}
     const result = await shopPool.query(
       `SELECT
         o.id, o.order_number, o.total_amount, o.status, o.paid_at,

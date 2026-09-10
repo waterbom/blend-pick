@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     params.push(normPhone(verifiedPhone!));
     conds.push(`regexp_replace(o.buyer_phone, '[^0-9]', '', 'g') = $${params.length}`);
   }
-  if(order_id){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(order_id)))return NextResponse.json({error:"주문을 확인해주세요."},{status:400});params.push(order_id);conds.push(`o.id = ${params.length}`);}
+  if(order_id){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(order_id)))return NextResponse.json({error:"주문을 확인해주세요."},{status:400});params.push(order_id);conds.push(`o.id = $${params.length}`);}
   const ord = await shopPool.query(
     `SELECT o.id, o.buyer_name
        FROM orders o JOIN order_items oi ON oi.order_id = o.id
