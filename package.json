@@ -21,7 +21,7 @@
     "test:images": "node --test tests/uploaded-images.cjs",
     "test:commerce-automation": "node --test tests/commerce-automation.cjs tests/storefront-monitor.cjs",
     "test:buyer": "node --test tests/buyer-flow.cjs tests/buyer-convenience.cjs tests/buyer-checkout-events.cjs",
-    "test:account": "node --test tests/account-flow.cjs"
+    "test:account": "node --test tests/account-flow.cjs tests/account-followup.cjs"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.6.0",

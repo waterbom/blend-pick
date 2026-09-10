@@ -1,4 +1,4 @@
-import {accountFilters,ACCOUNT_STATUSES,type AccountQuery} from "@/lib/account-filters";
+import {accountFilters,accountHref,ACCOUNT_STATUSES,type AccountQuery} from "@/lib/account-filters";
 import Link from "next/link";
 import CancelOrderButton from "@/components/CancelOrderButton";
 import { carrierName, trackingUrl } from "@/lib/carriers";
@@ -22,11 +22,12 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 export default function CustomerOrders({ orders, sanjiBase, query }: { query?:AccountQuery; orders: Awaited<ReturnType<typeof getOrders>>; sanjiBase?: string }) {
   const q=accountFilters(query);
-  const href=(page:number)=>{const p=new URLSearchParams();p.set("page",String(page));if(q.status)p.set("status",q.status);if(q.from)p.set("from",q.from);if(q.to)p.set("to",q.to);return `?${p}#orders`;};
+  const href=(page:number)=>accountHref(query??{},{page:String(page)});
   return (
         <section id="orders" className="mb-10">
           <div className="ds-section-title mb-4"><span>주문 내역</span></div>
           {query&&<form className="ds-card p-4 mb-4 flex flex-wrap gap-3">
+            <input type="hidden" name="hotel_page" value={accountFilters({page:query.hotel_page}).page}/>
             <label>주문 상태 <select name="status" defaultValue={q.status||""}><option value="">전체</option>{Object.entries(ACCOUNT_STATUSES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
             <label>시작일 <input type="date" name="from" defaultValue={q.from}/></label>
             <label>종료일 <input type="date" name="to" defaultValue={q.to}/></label>

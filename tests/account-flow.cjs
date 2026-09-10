@@ -39,6 +39,6 @@ test('customer pagination fetches a next-page sentinel with stable order',async(
  assert.equal((await getOrders(user,'sanjipick',{page:'2',status:'delivered',from:'2026-09-01'})).length,21);
 });
 test('first-buyers response never includes full names or phones and scopes the site',async()=>{
- const api=load('app/api/influencer/first-buyers/route.ts',{...mocks,'@/lib/db':{query:async()=>({rows:[{id:id(9)}]})},'@/lib/db-shop':{query:async(sql,args)=>{assert.match(sql,/o.site = \$4/);assert.equal(args[3],'blendpick');return {rows:[{buyer_name:'김테스트',buyer_phone:'01012345678',paid_label:'09/10 12:00'}]};}}});
+ const api=load('app/api/influencer/first-buyers/route.ts',{...mocks,'@/lib/influencer-products':{ownedInfluencerProducts:async()=>[{id:id(5)}]},'@/lib/db':{query:async()=>({rows:[{id:id(9)}]})},'@/lib/db-shop':{query:async(sql,args)=>{assert.match(sql,/o.site = \$4/);assert.equal(args[3],'blendpick');return {rows:[{buyer_name:'김테스트',buyer_phone:'01012345678',paid_label:'09/10 12:00'}]};}}});
  const r=await api.GET(new Request('https://example.test/api?product_id='+id(5)));const text=await r.text();assert.doesNotMatch(text,/01012345678|김테스트/);assert.match(text,/010-\*\*\*\*-5678/);assert.equal(r.headers.get('cache-control'),'no-store');
 });

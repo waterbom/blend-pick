@@ -1,3 +1,4 @@
+import {ownedInfluencerProducts} from "@/lib/influencer-products";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -37,13 +38,7 @@ export default async function InfluencerPage({searchParams=Promise.resolve({})}:
  try {
   finance=await influencerFinance(site.key,shopPool,{influencerId:inf.id});
   period=filtered?(await influencerFinance(site.key,shopPool,{influencerId:inf.id,from,to})).filter(r=>r.orders>0):finance;
-  products=(await shopPool.query(`SELECT p.*,
-   NOT EXISTS(SELECT 1 FROM product_options po WHERE po.product_id=p.id)
-    OR EXISTS(SELECT 1 FROM product_options po WHERE po.product_id=p.id AND po.is_active=true AND po.stock<>0) AS options_available
-   FROM products_shop p WHERE p.influencer_rate IS NOT NULL AND p.is_visible=true
-    AND (p.influencer_id IS NULL OR p.influencer_id::text=$1)
-    AND (($2='sanjipick' AND p.category=ANY($3::text[])) OR ($2='blendpick' AND NOT(COALESCE(p.category,'')=ANY($3::text[]))))
-   ORDER BY p.created_at DESC`,[inf.id,site.key,SITES.sanjipick.categories])).rows;
+  products=await ownedInfluencerProducts(inf.id,site.key);
   if(site.key==="blendpick") campaigns=(await pool.query(`SELECT c.id,c.commission_rate,c.is_archived,
    to_char(c.start_date,'YYYY-MM-DD') start_date,to_char(c.end_date,'YYYY-MM-DD') end_date,p.name product_name
    FROM campaigns c JOIN products p ON p.id=c.product_id WHERE c.influencer_id=$1 ORDER BY c.end_date DESC`,[inf.id])).rows;
@@ -77,7 +72,7 @@ export default async function InfluencerPage({searchParams=Promise.resolve({})}:
     <FirstBuyersClient productId={p.id}/>
    </div>;})}
    {campaigns.map(p=>{const upcoming=p.start_date>day;const open=!p.is_archived&&!upcoming&&p.end_date>=day;return <div key={p.id} className="border-t py-4"><p className="font-semibold">{p.product_name}</p><p>{p.start_date} ~ {p.end_date} · {p.is_archived?"보관됨":open?"진행 중":upcoming?"오픈 예정":"종료"}</p>{open&&<CopyLinkButton origin={origin} campaignId={p.id}/>}</div>;})}
-   {site.key==="blendpick"&&<div className="border-t py-4"><p className="font-semibold">호텔 공구</p>{inf.hotel_sale_start&&inf.hotel_sale_deadline&&Date.parse(inf.hotel_sale_start)<=Date.now()&&Date.parse(inf.hotel_sale_deadline)>Date.now()?<CopyLinkButton origin={origin} path={`/hotel/utop?inf=${inf.id}`}/>:<p>판매 기간에 공유 링크가 활성화됩니다.</p>}</div>}
+   {site.key==="blendpick"&&inf.hotel_sale_start&&inf.hotel_sale_deadline&&<div className="border-t py-4"><p className="font-semibold">호텔 공구</p>{inf.hotel_sale_start&&inf.hotel_sale_deadline&&Date.parse(inf.hotel_sale_start)<=Date.now()&&Date.parse(inf.hotel_sale_deadline)>Date.now()?<CopyLinkButton origin={origin} path={`/hotel/utop?inf=${inf.id}`}/>:<p>판매 기간에 공유 링크가 활성화됩니다.</p>}</div>}
    {!failure&&!products.length&&!campaigns.length&&<p>연결된 상품 공구가 없습니다.</p>}
   </section>
   <section id="sales" className={card}><h2 className="font-bold mb-3">판매 실적</h2>

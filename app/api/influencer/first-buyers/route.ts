@@ -1,3 +1,4 @@
+import {ownedInfluencerProducts} from "@/lib/influencer-products";
 import {currentSite} from "@/lib/site-server";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -33,6 +34,7 @@ export async function GET(req: Request) {
   if (!productId || !/^[0-9a-f-]{36}$/i.test(productId)) return NextResponse.json({ error: "product_id 필요" }, { status: 400 });
 
   const site=await currentSite();
+  if (!(await ownedInfluencerProducts(inf.id,site.key,productId)).length) return NextResponse.json({error:"본인에게 지정된 상품만 조회할 수 있습니다."},{status:403});
   const { rows } = await shopPool.query(
     `SELECT o.buyer_name, o.buyer_phone,
             to_char(COALESCE(o.paid_at, o.created_at) AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS paid_label,

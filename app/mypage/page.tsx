@@ -1,4 +1,4 @@
-import {accountFilters,type AccountQuery} from "@/lib/account-filters";
+import {accountFilters,accountHref,type AccountQuery} from "@/lib/account-filters";
 import { currentSite } from "@/lib/site-server";
 import { getOrders } from "@/lib/customer-orders";
 import CustomerOrders from "@/components/CustomerOrders";
@@ -171,7 +171,7 @@ export default async function MyPage({searchParams=Promise.resolve({})}:{searchP
               })}
             </div>
           )}
-          <nav aria-label="호텔 예약 페이지" className="flex gap-4 mt-4">{hotelPage>1&&<a href={`?hotel_page=${hotelPage-1}#hotel`}>이전 예약</a>}{hotelReservations&&hotelReservations.length>20&&<a href={`?hotel_page=${hotelPage+1}#hotel`}>다음 예약</a>}</nav>
+          <nav aria-label="호텔 예약 페이지" className="flex gap-4 mt-4">{hotelPage>1&&<a href={accountHref(query,{hotel_page:String(hotelPage-1)},"hotel")}>이전 예약</a>}{hotelReservations&&hotelReservations.length>20&&<a href={accountHref(query,{hotel_page:String(hotelPage+1)},"hotel")}>다음 예약</a>}</nav>
         </section>
 
         

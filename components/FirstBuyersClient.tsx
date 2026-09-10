@@ -1,20 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState,useRef } from "react";
 
 interface Buyer {
   name: string;
   phone: string;
   paid_label: string;
-}
-
-// "010-1234-5678" → "010-12**-56**" (화면 표시용 마스킹 — 복사 시엔 전체 번호)
-function maskPhone(phone: string) {
-  const d = String(phone || "").replace(/\D/g, "");
-  if (d.length < 10) return phone;
-  const mid = d.slice(3, d.length - 4);
-  const last = d.slice(-4);
-  return `${d.slice(0, 3)}-${mid.slice(0, 2)}${"*".repeat(Math.max(mid.length - 2, 0))}-${last.slice(0, 2)}**`;
 }
 
 const COUNTS = [
@@ -32,21 +23,24 @@ export default function FirstBuyersClient({ productId }: { productId: string }) 
   const [count, setCount] = useState<number>(5);
   const [error,setError]=useState("");
 
-  async function toggle() {
-    if (open) { setOpen(false); return; }
-    setOpen(true);
-    if (buyers) return;
-    setLoading(true);setError("");
+  const pending=useRef(false);
+  const [updatedAt,setUpdatedAt]=useState("");
+  async function refresh(){
+    if(pending.current)return;
+    pending.current=true;setLoading(true);setError("");
     try {
-      const res = await fetch(`/api/influencer/first-buyers?product_id=${productId}`);
-      if(!res.ok)throw Error("조회 실패");
-      const d = await res.json();
-      setBuyers(Array.isArray(d.buyers) ? d.buyers : []);
-    } catch {
-      setError("구매자 목록을 불러오지 못했습니다.");setBuyers(null);
-    } finally {
-      setLoading(false);
-    }
+      const res=await fetch(`/api/influencer/first-buyers?product_id=${encodeURIComponent(productId)}`,{cache:"no-store",signal:AbortSignal.timeout(10000)});
+      if(!res.ok)throw Error();
+      const data=await res.json();
+      if(!Array.isArray(data.buyers))throw Error();
+      setBuyers(data.buyers);
+      setUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
+    }catch{setError("구매자 목록을 불러오지 못했습니다. 다시 조회해주세요.");}
+    finally{pending.current=false;setLoading(false);}
+  }
+  async function toggle(){
+    if(open){setOpen(false);return;}
+    setOpen(true);await refresh();
   }
 
   const visible = buyers ? (count === 0 ? buyers : buyers.slice(0, count)) : [];
@@ -64,7 +58,8 @@ export default function FirstBuyersClient({ productId }: { productId: string }) 
 
       {open && (
         <div className="mt-2 rounded-xl p-3" style={{ background: "var(--surface-soft)", border: "1px solid var(--line)" }}>
-          {error ? <div role="alert">{error} <button type="button" onClick={()=>{setOpen(false);setError("");}}>닫고 다시 시도</button></div> : loading || buyers === null ? (
+          <div className="flex gap-3 mb-2"><button type="button" onClick={refresh} disabled={loading} className="text-xs underline">새로고침</button>{updatedAt&&<span className="text-xs">마지막 조회 {updatedAt}</span>}</div>
+          {error ? <div role="alert">{error} <button type="button" onClick={refresh} disabled={loading}>다시 조회</button></div> : loading || buyers === null ? (
             <p className="text-xs py-2" style={{ color: "var(--text-muted)" }}>불러오는 중...</p>
           ) : buyers.length === 0 ? (
             <p className="text-xs py-2" style={{ color: "var(--text-muted)" }}>아직 내 링크로 결제한 구매자가 없어요</p>

@@ -17,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { id } = await params;
   const site = await currentSite();
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => null)) ?? {};
 
   const kind = body.kind === "exchange" ? "exchange" : body.kind === "return" ? "return" : null;
   if (!kind) return NextResponse.json({ error: "교환/반품 유형을 선택해주세요." }, { status: 400 });
@@ -86,8 +86,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // 신청 상품 검증 — 이 주문의 항목인지 + 수량이 주문 수량을 넘지 않는지
   const reqItems = (Array.isArray(body.items) ? body.items : [])
     .map((it: { item_id?: unknown; quantity?: unknown }) => ({
-      item_id: String(it.item_id || ""),
-      quantity: Number(it.quantity),
+      item_id: String(it?.item_id || ""),
+      quantity: Number(it?.quantity),
     }))
     ;
   if (!reqItems.length || reqItems.some((it: {quantity:number}) => !Number.isSafeInteger(it.quantity)||it.quantity<1) || new Set(reqItems.map((it: {item_id:string}) => it.item_id)).size !== reqItems.length) {
