@@ -26,7 +26,7 @@ export default async function InfluencerPage({searchParams=Promise.resolve({})}:
  if(users[0].role!=="influencer")redirect("/mypage");
  const {rows:infos}=await pool.query("SELECT * FROM influencers WHERE user_id=$1",[payload.id]);
  const inf=infos[0];
- if(!inf)return <main><Header/><div className="max-w-3xl mx-auto p-8"><h1>인플루언서 연결 준비 중</h1><p>관리자에게 계정 연결을 요청해주세요.</p><Link href="/mypage">내 구매내역</Link></div></main>;
+ if(!inf)return <main><Header/><div className="max-w-3xl mx-auto p-8"><h1>인플루언서 연결 준비 중</h1><p>관리자에게 계정 연결을 요청해주세요.</p><Link href="/mypage">내 구매내역 <span aria-hidden="true">›</span></Link></div></main>;
  const raw=await searchParams;
  const valid=validDateRange(raw.from||null,raw.to||null);
  const from=valid?raw.from:undefined,to=valid?raw.to:undefined;
@@ -52,7 +52,7 @@ export default async function InfluencerPage({searchParams=Promise.resolve({})}:
  return <main className="min-h-screen"><Header/><div className="max-w-5xl mx-auto px-4 py-8">
   <h1 className="text-2xl font-bold">{site.name} 인플루언서 활동</h1>
   <p className="mt-2 mb-4">{inf.name}님 · {BUSINESS_TYPE_LABEL[inf.business_type as keyof typeof BUSINESS_TYPE_LABEL]||"사업자 유형 확인 필요"}</p>
-  <nav className="flex flex-wrap gap-4 mb-6" aria-label="인플루언서 메뉴"><a href="#tasks">지금 확인할 일</a><a href="#links">공구·공유 링크</a><a href="#sales">판매 실적</a><a href="#payouts">정산·증빙</a><Link href="/mypage">내 구매내역</Link></nav>
+  <nav className="flex flex-wrap gap-4 mb-6" aria-label="인플루언서 메뉴"><a href="#tasks">지금 확인할 일 <span aria-hidden="true">›</span></a><a href="#links">공구·공유 링크 <span aria-hidden="true">›</span></a><a href="#sales">판매 실적 <span aria-hidden="true">›</span></a><a href="#payouts">정산·증빙 <span aria-hidden="true">›</span></a><Link href="/mypage">내 구매내역 <span aria-hidden="true">›</span></Link></nav>
   <section id="tasks" className={card}><h2 className="font-bold mb-3">지금 확인할 일</h2>
    <ul className="space-y-2">
     {!docs&&<li>정산 증빙이 부족합니다. 관리자에게 통장 사본과 사업자 유형별 증빙을 제출해주세요.</li>}
@@ -61,7 +61,7 @@ export default async function InfluencerPage({searchParams=Promise.resolve({})}:
     {finance.some(r=>r.review_reasons.length)&&<li>환불 또는 주문 당시 요율 확인이 필요한 정산이 있습니다.</li>}
     {failure&&<li role="alert">일부 정보를 불러오지 못했습니다. <a href="/influencer" className="underline">다시 조회</a></li>}
     {!failure&&docs&&inf.bank_name&&inf.bank_account&&inf.bank_holder&&!finance.some(r=>r.review_reasons.length)&&<li>등록된 정산 정보에서 추가 확인 사항이 없습니다.</li>}
-   </ul><a href={site.kakaoUrl} target="_blank" rel="noopener noreferrer" className="underline mt-3 inline-block">운영 담당자에게 문의</a>
+   </ul><a href={site.kakaoUrl} target="_blank" rel="noopener noreferrer" className="underline mt-3 inline-block">운영 담당자에게 문의 <span aria-hidden="true">›</span></a>
   </section>
   <section id="links" className={card}><h2 className="font-bold mb-3">공구·공유 링크 · 판매 중 {active.length}개</h2>
    {products.map(p=>{const state=p.is_visible===true&&p.options_available?storefrontSale(p):"closed";return <div key={p.id} className="border-t py-4">

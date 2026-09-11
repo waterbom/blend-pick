@@ -60,7 +60,7 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
     const track = trackRef.current;
     const el = track?.children[i] as HTMLElement | undefined;
     if (!track || !el) return;
-    track.scrollTo({ left: el.offsetLeft - (track.clientWidth - el.offsetWidth) / 2, behavior: "smooth" });
+    track.scrollTo({ left: el.offsetLeft - (track.clientWidth - el.offsetWidth) / 2, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   }
 
   if (products.length === 0) return null;
@@ -151,24 +151,24 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
         ))}
       </div>
 
-      {/* 화살표 — 데스크톱만 */}
+      {/* 모바일에서도 이미지 아래에 표시 */}
       {products.length > 1 && (
-        <>
-          <button aria-label="이전 상품" onClick={() => goto(Math.max(0, idx - 1))}
-            className="hidden lg:flex absolute left-6 top-1/2 -translate-y-1/2 w-11 h-11 items-center justify-center transition-opacity"
+        <div className="flex justify-center gap-3 mt-3">
+          <button type="button" disabled={idx === 0} aria-label="이전 상품" onClick={() => goto(Math.max(0, idx - 1))}
+            className="flex w-11 h-11 items-center justify-center transition-opacity"
             style={{ background: "rgba(255,255,255,.92)", boxShadow: "0 4px 14px rgba(28,36,24,.18)", opacity: idx === 0 ? 0.35 : 1 }}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#1C2418" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
-          <button aria-label="다음 상품" onClick={() => goto(Math.min(products.length - 1, idx + 1))}
-            className="hidden lg:flex absolute right-6 top-1/2 -translate-y-1/2 w-11 h-11 items-center justify-center transition-opacity"
+          <button type="button" disabled={idx === products.length - 1} aria-label="다음 상품" onClick={() => goto(Math.min(products.length - 1, idx + 1))}
+            className="flex w-11 h-11 items-center justify-center transition-opacity"
             style={{ background: "rgba(255,255,255,.92)", boxShadow: "0 4px 14px rgba(28,36,24,.18)", opacity: idx === products.length - 1 ? 0.35 : 1 }}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#1C2418" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </button>
-        </>
+        </div>
       )}
 
       {/* 점 페이지네이션 + 현재 위치 인덱스 */}

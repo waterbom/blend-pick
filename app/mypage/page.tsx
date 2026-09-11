@@ -117,9 +117,9 @@ export default async function MyPage({searchParams=Promise.resolve({})}:{searchP
           </div>
         </div>
         <nav className="ds-card mt-4 flex flex-col">
-          <a href="#orders" className="px-5 py-3 text-[13px] font-bold" style={{ color: "var(--accent-hover)", borderLeft: "2px solid var(--accent-hover)", background: "var(--surface-soft)" }}>주문 내역</a>
-          <a href="#hotel" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-secondary)", borderTop: "1px solid var(--line-soft)" }}>호텔 예약 내역</a>
-          {user.role==="influencer"&&<a href="/influencer" className="px-5 py-3 text-sm">인플루언서 활동</a>}
+          <a href="#orders" className="px-5 py-3 text-[13px] font-bold" style={{ color: "var(--accent-hover)", borderLeft: "2px solid var(--accent-hover)", background: "var(--surface-soft)" }}>주문 내역 <span aria-hidden="true">›</span></a>
+          <a href="#hotel" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-secondary)", borderTop: "1px solid var(--line-soft)" }}>호텔 예약 내역 <span aria-hidden="true">›</span></a>
+          {user.role==="influencer"&&<a href="/influencer" className="px-5 py-3 text-sm">인플루언서 활동 <span aria-hidden="true">›</span></a>}
           <a href="/api/auth/logout" className="px-5 py-3 text-[13px]" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--line-soft)" }}>로그아웃</a>
         </nav>
         </aside>
@@ -171,7 +171,7 @@ export default async function MyPage({searchParams=Promise.resolve({})}:{searchP
               })}
             </div>
           )}
-          <nav aria-label="호텔 예약 페이지" className="flex gap-4 mt-4">{hotelPage>1&&<a href={accountHref(query,{hotel_page:String(hotelPage-1)},"hotel")}>이전 예약</a>}{hotelReservations&&hotelReservations.length>20&&<a href={accountHref(query,{hotel_page:String(hotelPage+1)},"hotel")}>다음 예약</a>}</nav>
+          <nav aria-label="호텔 예약 페이지" className="flex gap-4 mt-4">{hotelPage>1&&<a href={accountHref(query,{hotel_page:String(hotelPage-1)},"hotel")}>← 이전 예약</a>}{hotelReservations&&hotelReservations.length>20&&<a href={accountHref(query,{hotel_page:String(hotelPage+1)},"hotel")}>다음 예약 →</a>}</nav>
         </section>
 
         
