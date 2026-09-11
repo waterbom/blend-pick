@@ -42,10 +42,10 @@ export default async function SanjiMyPage({searchParams=Promise.resolve({})}:{se
         <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 md:gap-10 items-start">
           <aside className="md:sticky md:top-24">
             <nav aria-label="산지픽 마이페이지 메뉴" className="ds-card flex flex-col text-sm">
-              <a href="#orders" className="px-5 py-4 font-bold" style={{ color: "var(--accent)", background: "var(--surface-soft)" }}>주문·배송 조회</a>
-              <a href="#help" className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>취소·교환·반품 안내</a>
-              <Link href={`${base}/products`} className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>제철 상품 둘러보기</Link>
-              {user.role==="influencer"&&<Link href="/influencer" className="px-5 py-4">인플루언서 활동</Link>}
+              <a href="#orders" className="px-5 py-4 font-bold" style={{ color: "var(--accent)", background: "var(--surface-soft)" }}>주문·배송 조회 <span aria-hidden="true">›</span></a>
+              <a href="#help" className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>취소·교환·반품 안내 <span aria-hidden="true">›</span></a>
+              <Link href={`${base}/products`} className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>제철 상품 둘러보기 <span aria-hidden="true">›</span></Link>
+              {user.role==="influencer"&&<Link href="/influencer" className="px-5 py-4">인플루언서 활동 <span aria-hidden="true">›</span></Link>}
               <a href="/api/auth/logout" className="px-5 py-4" style={{ borderTop: "1px solid var(--line)", color: "var(--text-muted)" }}>로그아웃</a>
             </nav>
           </aside>
@@ -56,7 +56,7 @@ export default async function SanjiMyPage({searchParams=Promise.resolve({})}:{se
               <p className="text-base leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                 취소나 교환·반품은 해당 주문의 버튼에서 신청해주세요. 배송이나 상품에 궁금한 점이 있으면 주문번호와 함께 문의해주세요.
               </p>
-              <a href={SITES.sanjipick.kakaoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center mt-5 min-h-11 px-5 text-sm font-semibold" style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}>산지픽 고객센터</a>
+              <a href={SITES.sanjipick.kakaoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center mt-5 min-h-11 px-5 text-sm font-semibold" style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}>산지픽 고객센터 <span aria-hidden="true">›</span></a>
             </section>
             <div className="mt-8 text-right"><WithdrawButton sharedAccount homeHref={base || "/"} /></div>
           </div>

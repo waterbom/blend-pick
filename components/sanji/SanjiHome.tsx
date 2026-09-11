@@ -1,5 +1,7 @@
 "use client";
 
+import ScrollRail from "@/components/ScrollRail";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SanjiCard, SanjiHomeReview } from "@/lib/sanji-data";
 import { useRouter } from "next/navigation";
@@ -103,7 +105,7 @@ export default function SanjiHome({
     if (banners.length < 2) return;
     const id = setInterval(() => {
       const el = sliderRef.current;
-      if (!el || touching.current || document.hidden) return;
+      if (!el || touching.current || document.hidden || Number(el.dataset.manualUntil) > Date.now() || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       const cur = Math.round(el.scrollLeft / el.clientWidth);
       const next = (cur + 1) % banners.length;
       el.scrollTo({ left: next * el.clientWidth, behavior: next === 0 ? "auto" : "smooth" });
@@ -119,7 +121,7 @@ export default function SanjiHome({
     if (bigCount < 2 || tab !== 0) return;
     const id = setInterval(() => {
       const el = bigRef.current;
-      if (!el || bigTouch.current || document.hidden) return;
+      if (!el || bigTouch.current || document.hidden || Number(el.dataset.manualUntil) > Date.now() || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       const card = el.querySelector<HTMLElement>(".sh-bigcard");
       if (!card) return;
       const step = card.offsetWidth + 12;
@@ -168,13 +170,13 @@ export default function SanjiHome({
         .sh-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:${GREEN}}
         .sh-ban{position:relative;margin-top:14px}
         .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;align-items:flex-start;background:#E9E4D6}
-        .sh-ban__dots{position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:6px;pointer-events:none}
+        .sh-ban__dots{margin:8px 0;display:flex;justify-content:center;gap:6px;pointer-events:none}
         .sh-ban__dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(0,0,0,.08);transition:width .2s,background .2s}
         .sh-ban__dots i.on{width:18px;border-radius:3px;background:#fff}
         .sh-ban__track::-webkit-scrollbar{display:none}
         .sh-ban__item{position:relative;flex:0 0 100%;scroll-snap-align:start;overflow:hidden}
         .sh-ban__item img{width:100%;height:auto;object-fit:contain;display:block}.sh-ban__item .ph{min-height:180px}
-        .sh-ban__cnt{position:absolute;right:12px;bottom:10px;color:#fff;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(0,0,0,.35);padding:2px 8px;border-radius:999px}
+        .sh-ban__cnt{display:table;margin:8px auto;color:#fff;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(0,0,0,.35);padding:2px 8px;border-radius:999px}
         .sh-sec{padding:28px 16px 8px}
         .sh-sec__h{display:flex;align-items:baseline;justify-content:space-between}
         .sh-sec__h h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.03em}
@@ -266,7 +268,7 @@ export default function SanjiHome({
           {/* 배너 슬라이드 */}
           {banners.length > 0 && (
             <div className="sh-ban">
-              <div
+              <ScrollRail label="메인 배너"><div
                 className="sh-ban__track"
                 ref={sliderRef}
                 onScroll={onSlide}
@@ -280,7 +282,7 @@ export default function SanjiHome({
                     <Img src={b.src} alt={b.alt} />
                   </a>
                 ))}
-              </div>
+              </div></ScrollRail>
               <div className="sh-ban__dots" aria-hidden>
                 {banners.map((b, i) => <i key={b.productId} className={i === slide ? "on" : ""} />)}
               </div>
@@ -293,7 +295,7 @@ export default function SanjiHome({
             <div className="sh-sec__h"><h2>이번 주 산지에서 막 올라왔어요</h2></div>
             <p className="sh-sec__sub">중간 유통 없이, 농가에서 수확한 그대로 보내드려요</p>
             {live.length ? (
-              <div
+              <ScrollRail label="이번 주 상품"><div
                 className="sh-big"
                 ref={bigRef}
                 onTouchStart={() => { bigTouch.current = true; }}
@@ -316,7 +318,7 @@ export default function SanjiHome({
                     <div className="br">{p.brand}</div>
                   </a>
                 ))}
-              </div>
+              </div></ScrollRail>
             ) : (
               <div className="sh-empty">판매 중인 산지픽 상품이 아직 없어요</div>
             )}
@@ -336,7 +338,7 @@ export default function SanjiHome({
             <div className="sh-sec">
               <div className="sh-sec__h"><h2>🌱 새로 들어온 산지 상품</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div>
               <p className="sh-sec__sub">직접 먹어보고 골라 이번 주 새로 올린 상품</p>
-              <div className="sh-row">
+              <ScrollRail label="상품 목록"><div className="sh-row">
                 {newest.slice(0, 8).map((p) => (
                   <a key={p.id} className="sh-card" href={href(p)}>
                     <div className="th"><Img src={p.main_image} alt={p.name} /></div>
@@ -344,7 +346,7 @@ export default function SanjiHome({
                     <div className="pr">{pct(p) > 0 && <em>{pct(p)}%</em>}{won(p.price)}</div>
                   </a>
                 ))}
-              </div>
+              </div></ScrollRail>
             </div>
           )}
 
@@ -353,7 +355,7 @@ export default function SanjiHome({
             <div className="sh-sec">
               <div className="sh-sec__h"><h2>⏰ 수확 맞춰 곧 열려요</h2></div>
               <p className="sh-sec__sub">농가 수확 일정에 맞춰 판매를 시작하는 상품이에요</p>
-              <div className="sh-row">
+              <ScrollRail label="상품 목록"><div className="sh-row">
                 {upcoming.map((p) => {
                   const o = openLabel(p.sale_start_at!);
                   return (
@@ -367,7 +369,7 @@ export default function SanjiHome({
                     </a>
                   );
                 })}
-              </div>
+              </div></ScrollRail>
             </div>
           )}
 
