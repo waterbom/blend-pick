@@ -29,7 +29,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch (error) {
     throw error; // Never publish an incomplete sitemap when the catalog cannot be read.
-    // DB 문제여도 정적 페이지만으로 사이트맵은 유효
   }
   return items;
 }

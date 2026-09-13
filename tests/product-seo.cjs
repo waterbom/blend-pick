@@ -63,14 +63,15 @@ test('category parameters reject arrays and prototype names',()=>{
 test('live sitemap SQL separates sites and includes all public products plus categories',async()=>{
  const db=new PGlite();
  try {
-  await db.exec('CREATE TABLE products_shop(id text, category text,status text,is_visible boolean,updated_at timestamptz,created_at timestamptz)');
-  await db.exec("INSERT INTO products_shop SELECT 'bp-'||g,'생활용품','active',true,NOW(),NOW() FROM generate_series(1,501) g");
-  await db.exec("INSERT INTO products_shop VALUES ('sj','산지픽 해산물','active',true,NOW(),NOW()),('hidden','산지픽 농산물','active',false,NOW(),NOW()),('draft','생활용품','draft',true,NOW(),NOW())");
+  await db.exec('CREATE TABLE products_shop(id text, category text,status text,is_visible boolean,updated_at timestamptz,created_at timestamptz, sale_start_at timestamptz, sale_end_at timestamptz)');
+  await db.exec("INSERT INTO products_shop SELECT 'bp-'||g,'생활용품','active',true,NOW(),NOW(),NULL,NULL FROM generate_series(1,501) g");
+  await db.exec("INSERT INTO products_shop VALUES ('sj','산지픽 해산물','active',true,NOW(),NOW(),NULL,NULL),('hidden','산지픽 농산물','active',false,NOW(),NOW(),NULL,NULL),('draft','생활용품','draft',true,NOW(),NOW(),NULL,NULL)");
+  await db.exec("INSERT INTO products_shop VALUES ('future','미래분류','active',true,NOW(),NOW(),NOW()+interval '1 day',NULL)");
   const mocks={'@/lib/db-shop':{query:(sql,args)=>db.query(sql,args)}};
   const bp=await load('app/sitemap.ts',mocks).default();
   const sj=await load('app/sanji/sitemap.ts',mocks).default();
   assert.equal(bp.filter(x=>/products\/bp-/.test(x.url)).length,501);
-  assert.ok(bp.some(x=>x.url.includes('?category=')));assert.ok(!bp.some(x=>x.url.includes('/sj')||x.url.includes('hidden')||x.url.includes('draft')));
+  assert.ok(bp.some(x=>x.url.includes('?category=')));assert.ok(!bp.some(x=>x.url.endsWith('category='+encodeURIComponent('미래분류'))));assert.ok(!bp.some(x=>x.url.includes('/sj')||x.url.includes('hidden')||x.url.includes('draft')));
   assert.ok(sj.some(x=>x.url.endsWith('/p/sj')));assert.ok(sj.some(x=>x.url.endsWith('category=seafood')));
   assert.ok(!sj.some(x=>x.url.includes('bp-')||x.url.includes('hidden')||x.url.includes('draft')));
  } finally {await db.close();}

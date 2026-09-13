@@ -174,6 +174,7 @@ export default async function ProductDetailPage({
 }) {
   const { id } = await params;
   const { inf, k } = await searchParams;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   if (k !== undefined) {
     const query = new URLSearchParams({k: typeof k === "string" ? k : "invalid"});
     if (inf) query.set("inf", inf);

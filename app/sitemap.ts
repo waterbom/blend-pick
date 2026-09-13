@@ -1,3 +1,4 @@
+import { ON_SALE_SQL } from "@/lib/sale-window";
 import { collectionPath } from "@/lib/catalog-seo";
 import type { MetadataRoute } from "next";
 import shopPool from "@/lib/db-shop";
@@ -17,13 +18,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
   try {
     const r = await shopPool.query(
-      `SELECT id, category, COALESCE(updated_at, created_at) AS updated
+      `SELECT id, category, (${ON_SALE_SQL}) AS category_available, COALESCE(updated_at, created_at) AS updated
          FROM products_shop
         WHERE status = 'active' AND is_visible = true AND category <> ALL($1::text[])
         ORDER BY created_at DESC`,
       [SITES.sanjipick.categories]
     );
-    const categories = new Set(r.rows.map(p => p.category).filter((c):c is string => typeof c==="string" && !!c.trim()));
+    const categories = new Set(r.rows.filter(p => p.category_available).map(p => p.category).filter((c):c is string => typeof c==="string" && !!c.trim()));
     for (const category of categories) items.push({url:base+collectionPath(category),changeFrequency:"daily",priority:0.8});
     for (const p of r.rows) {
       items.push({
@@ -35,7 +36,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch (error) {
     throw error; // Never publish an incomplete sitemap when the catalog cannot be read.
-    // DB 문제로 상품 목록을 못 읽어도 정적 페이지만으로 사이트맵은 유효
   }
   return items;
 }
