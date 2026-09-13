@@ -35,7 +35,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     description: "인플루언서와 함께하는 공동구매 — 블랜드픽",
     categories: [],
     kakaoUrl: KAKAO,
-    verification: { google: [], naver: [] },
+    verification: { google: ["dllj-7POmcmD4QjM-5mXHEdKYpLCFE4O_Fbi_wRvWJY"], naver: [] },
   },
   sanjipick: {
     key: "sanjipick",
