@@ -30,6 +30,7 @@ export interface SanjiProduct {
   is_visible: boolean;        // false = 비전시(비밀링크 전용) — 메인·목록·검색에 안 나옴
   link_start_at?: string | null; link_end_at?: string | null;
   link_price: number | null;  // 비밀링크(?k=)로 들어왔을 때 적용되는 판매가 (전시가와 별도)
+  origin_country?: string | null;
   origin?: string | null;                                           // 원산지 (상품정보 표에 표시)
   trust?: { rating: number; count: number; source: string } | null; // 외부 스토어 평점·리뷰 수 (우리 후기가 없을 때 신뢰 표시)
 }
@@ -132,7 +133,7 @@ export async function getSanjiProduct(id: string): Promise<(SanjiProduct & { lin
   const r = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price, stock, status,
             shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, island_shipping_cost, installation_cost,
-            main_image, influencer_id, sale_start_at, sale_end_at, is_visible, link_price, link_code, link_start_at, link_end_at, to_jsonb(products_shop)->>'expected_ship_date' AS expected_ship_date
+            main_image, influencer_id, sale_start_at, sale_end_at, is_visible, link_price, link_code, link_start_at, link_end_at, to_jsonb(products_shop)->>'expected_ship_date' AS expected_ship_date, to_jsonb(products_shop)->>'origin_country' AS origin_country
        FROM products_shop WHERE id = $1 AND category = ANY($2::text[])`,
     [id, SITES.sanjipick.categories]
   );

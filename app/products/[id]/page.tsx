@@ -1,3 +1,5 @@
+import { productMetadata, productSite } from "@/lib/product-seo";
+import ProductSearchSummary from "@/components/ProductSearchSummary";
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import Header from "@/components/Header";
@@ -21,6 +23,7 @@ async function getInfluencer(inf?: string): Promise<{ id: string; name: string }
 }
 
 interface Product {
+  origin_country?:string|null;
   expected_ship_date?:string|null;
   id: string;
   name: string;
@@ -46,14 +49,10 @@ interface Product {
 export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{k?:string}> }) {
   if ((await searchParams).k !== undefined) return {title:"잘못된 요청입니다",robots:{index:false,follow:false}};
   const { id } = await params;
-  try {
-    const r = await shopPool.query(`SELECT name, is_visible FROM products_shop WHERE id = $1`, [id]);
-    const p = r.rows[0];
-    if (!p) return {};
-    return { title: p.name, ...(p.is_visible === false ? { robots: { index: false, follow: false } } : {}) };
-  } catch {
-    return {};
-  }
+  const p = await getProduct(id);
+  if (!p) return {title:"상품을 찾을 수 없습니다", robots:{index:false,follow:false}};
+  return productMetadata(p, productSite(p));
+
 }
 
 interface ProductAddon {
@@ -90,10 +89,11 @@ interface Review {
 }
 
 async function getProduct(id: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return undefined;
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
             stock, status, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, island_shipping_cost, installation_cost, main_image, addon_multi,
-            influencer_id, sale_start_at, sale_end_at, is_visible, to_jsonb(products_shop)->>'expected_ship_date' AS expected_ship_date
+            influencer_id, sale_start_at, sale_end_at, is_visible, to_jsonb(products_shop)->>'expected_ship_date' AS expected_ship_date, to_jsonb(products_shop)->>'origin_country' AS origin_country
      FROM products_shop WHERE id = $1`,
     [id]
   );
@@ -190,6 +190,10 @@ export default async function ProductDetailPage({
   ]);
 
   if (!product) notFound();
+  if (productSite(product) === "sanjipick") {
+    const query = new URLSearchParams(); if (inf) query.set("inf", inf);
+    redirect(`https://${SITES.sanjipick.host}/p/${encodeURIComponent(id)}${query.size ? "?"+query : ""}`);
+  }
 
   // 소속 인플루언서가 지정된 상품은 그 인플루언서의 링크로만 귀속
   // (다른 인플루언서가 남의 상품 링크를 만들어 공유해도 귀속되지 않게)
@@ -236,6 +240,7 @@ export default async function ProductDetailPage({
         saleEndMs={endMs}
         loggedIn={loggedIn}
       />
+      <ProductSearchSummary product={product} site="blendpick" options={options} />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <RefundPolicy shipping={shippingLabel(product)} schedule={expectedShipLabel(product.expected_ship_date)} />
       </div>

@@ -13,6 +13,10 @@ export default async function SanjiRoot() {
   return (
     <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
       {!products.length && <section data-storefront-state="empty" style={{padding:32,textAlign:"center"}}><h1>판매 준비 중입니다</h1><p>상품이 등록되면 이곳에서 확인하실 수 있어요.</p></section>}
+      <nav aria-label="상품 카테고리" className="flex justify-center gap-4 py-3 text-sm">
+        <a href={linkBase+"/products?category=produce"}>농산물 공동구매 →</a>
+        <a href={linkBase+"/products?category=seafood"}>수산물 공동구매 →</a>
+      </nav>
       <SanjiHome
         products={products}
         reviews={reviews}
