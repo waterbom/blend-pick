@@ -49,7 +49,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     // '산지픽'·'산지픽 농산물' = 농산물 탭, '산지픽 해산물' = 해산물 탭 (lib/sanji-kind.ts)
     categories: ["산지픽", "산지픽 농산물", "산지픽 해산물"],
     kakaoUrl: process.env.NEXT_PUBLIC_SANJI_KAKAO_URL || KAKAO,
-    verification: { google: [], naver: [] },
+    verification: { google: ["dllj-7POmcmD4QjM-5mXHEdKYpLCFE4O_Fbi_wRvWJY"], naver: [] },
   },
 };
 
