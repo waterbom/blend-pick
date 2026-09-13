@@ -1,5 +1,6 @@
 "use client";
 
+import { productSeo } from "@/lib/product-seo";
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import RichEditor from "@/components/admin/RichEditor";
@@ -1311,6 +1312,21 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
         </fieldset>
 
+        {step===4 && (() => {
+          const preview=productSeo({name:form.name,brand:form.brand,description:form.detail_html,origin_country:form.origin_country,
+            main_image:images[0],shipping_type:form.shipping_type,shipping_cost:Number(form.shipping_cost),
+            free_shipping_threshold:Number(form.free_shipping_threshold),per_unit_shipping_cost:Number(form.per_unit_shipping_cost),
+            island_shipping_cost:Number(form.island_shipping_cost),installation_cost:Number(form.installation_cost),
+            expected_ship_date:form.expected_ship_date},currentSiteKey);
+          return <section className="border rounded p-4 bg-white space-y-2" aria-label="검색 정보 자동 점검">
+            <h2 className="font-bold">검색 정보 자동 점검</h2>
+            <p className="text-sm text-gray-600">상품명·브랜드·상세 설명으로 검색 정보가 자동 구성됩니다. 아래 미리보기는 실제 검색 결과와 다를 수 있습니다.</p>
+            <p className="font-semibold">{preview.title}</p><p className="text-sm">{preview.description}</p>
+            {preview.missing.length ? <ul className="text-sm list-disc pl-5">{preview.missing.map(message=><li key={message}>{message}</li>)}</ul> : <p className="text-sm">기본 검색 정보가 준비되었습니다.</p>}
+            <button type="button" className="underline text-sm" onClick={()=>setStep(0)}>상품명·원산지·상세 설명 수정 →</button>
+            <p className="text-xs text-gray-500">비전시 상품·비전시 링크는 검색에 포함하지 않습니다. 가격·재고는 저장된 값으로 갱신됩니다.</p>
+          </section>;
+        })()}
         {step===4&&<div className="border p-4 bg-white text-sm space-y-2"><strong>저장 전 확인</strong><p>{form.name||"상품명 미입력"} · {form.category||"분류 미선택"} · {Number(form.price).toLocaleString()}원</p><p>{manualStatus==="draft"?"판매 준비":manualStatus==="active"?"판매 허용":"판매 중지"} / {form.sale_type==="groupbuy"?"공동구매":"상시 판매"} / 비전시 링크 {useLink?"사용":"미사용"}</p><p>공급사: {form.supplier_name||"미지정"} · 출고 예정: {form.expected_ship_date||"미지정"}</p><p className="text-gray-500">기존 상품 복제 시 재고·가격·판매 기간을 다시 확인해주세요.</p></div>}
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
 

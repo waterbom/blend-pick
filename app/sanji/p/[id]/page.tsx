@@ -1,3 +1,5 @@
+import { productMetadata } from "@/lib/product-seo";
+import ProductSearchSummary from "@/components/ProductSearchSummary";
 import { cleanLinkCode, linkApplies } from "@/lib/secret-link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -16,21 +18,12 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const { id } = await params;
   const { k } = await searchParams;
   if (id.startsWith("demo")) return {title:"상품을 찾을 수 없습니다",robots:{index:false,follow:false}};
-  const p = await getSanjiProduct(id).catch(() => null);
+  const p = await getSanjiProduct(id);
   if (!p || (k !== undefined && !linkApplies(p, cleanLinkCode(k))) || (k === undefined && p.is_visible === false)) return {title:"잘못된 요청입니다",robots:{index:false,follow:false}};
   const S = SITES.sanjipick;
   // 비전시 상품·비밀링크 주소는 검색엔진에 안 실리게 (링크를 받은 사람만 보는 페이지)
   const secret = !p.is_visible || !!k;
-  return {
-    title: p.name,
-    description: `${p.name} — ${p.price.toLocaleString()}원 · 산지 직송 특가`,
-    ...(secret ? { robots: { index: false, follow: false } } : {}),
-    openGraph: {
-      title: `${p.name} · ${S.name}`,
-      description: `${p.price.toLocaleString()}원 · 산지에서 바로, 제철 그대로`,
-      images: p.main_image ? [{ url: p.main_image }] : undefined,
-    },
-  };
+  return productMetadata(p, "sanjipick", secret);
 }
 
 export default async function SanjiProductPage({
@@ -48,6 +41,7 @@ export default async function SanjiProductPage({
   return (
     <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
       <SanjiSalesPage {...data} kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={linkBase} />
+      <ProductSearchSummary product={data.product} site="sanjipick" options={data.options} secret={k !== undefined} />
     </main>
   );
 }

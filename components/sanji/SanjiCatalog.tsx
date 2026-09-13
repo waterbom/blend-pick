@@ -1,5 +1,6 @@
 "use client";
 
+import { SANJI_COLLECTIONS, collectionPath } from "@/lib/catalog-seo";
 import { useMemo, useState } from "react";
 import type { SanjiCard } from "@/lib/sanji-data";
 import { sanjiKind, type SanjiKind } from "@/lib/sanji-kind";
@@ -24,9 +25,9 @@ function Img({ src, alt }: { src: string | null; alt: string }) {
 
 type Filter = "all" | SanjiKind;
 
-export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: { products: SanjiCard[]; linkBase: string; initialQuery?: string }) {
+export default function SanjiCatalog({ products, linkBase, initialQuery = "", initialCategory = "all" }: { products: SanjiCard[]; linkBase: string; initialQuery?: string; initialCategory?: Filter }) {
   const [q, setQ] = useState(initialQuery);
-  const [filter, setFilter] = useState<Filter>("all");
+  const filter = initialCategory;
   const [now] = useState(() => Date.now()); // 렌더 시점 고정 (오픈 예정 판별)
   const list = useMemo(() => {
     const kw = q.trim().toLowerCase();
@@ -57,7 +58,7 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: 
         .sc-search input::placeholder{color:#A9A9A9}
         .sc-search button{border:0;background:none;color:${MUTED};padding:0;display:flex;cursor:pointer}
         .sc-chips{display:flex;gap:8px;padding:0 16px 12px;border-bottom:1px solid ${LINE}}
-        .sc-chips button{height:34px;padding:0 14px;border-radius:999px;border:1px solid ${LINE};background:#fff;font-size:13px;font-weight:600;color:#6B7266;cursor:pointer}
+        .sc-chips a{display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:999px;border:1px solid ${LINE};background:#fff;font-size:13px;font-weight:600;color:#6B7266;cursor:pointer}
         .sc-chips button.on{background:${GREEN};border-color:${GREEN};color:#fff}
         .sc-chips button small{font-weight:500;opacity:.75;margin-left:4px}
         .sc-sec{padding:18px 16px 8px}
@@ -96,12 +97,14 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "" }: 
         </div>
         <div className="sc-chips">
           {([["all", "전체"], ["produce", "농산물"], ["seafood", "해산물"]] as [Filter, string][]).map(([k, label]) => (
-            <button key={k} className={filter === k ? "on" : ""} onClick={() => setFilter(k)}>{label}<small>{counts[k]}</small></button>
+            <a key={k} className={filter === k ? "on" : ""} aria-current={filter===k ? "page":undefined} href={linkBase+collectionPath(k==="all"?undefined:k)}>{label}<small>{counts[k]}</small></a>
           ))}
         </div>
       </div>
 
       <div className="sc-sec">
+        <h1 style={{fontSize:22,fontWeight:800,margin:"0 0 10px"}}>{SANJI_COLLECTIONS[filter].title}</h1>
+        <p style={{fontSize:13,lineHeight:1.7,marginBottom:16}}>{SANJI_COLLECTIONS[filter].description}</p>
         <p className="sc-sub">{q ? `'${q}' 검색 결과 ${list.length}개` : `산지 직송 상품 ${list.length}개`}</p>
         {list.length ? (
           <div className="sc-grid">

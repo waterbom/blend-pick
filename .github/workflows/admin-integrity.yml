@@ -22,4 +22,5 @@ jobs:
       - run: npm run test:account
       - run: npm run test:buyer
       - run: node tests/sanjipick-mypage.cjs
+      - run: node --test tests/product-seo.cjs
       - run: npm run build -- --webpack

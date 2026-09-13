@@ -1,3 +1,4 @@
+import { collectionMetadata, collectionPath } from "@/lib/catalog-seo";
 import shopPool from "@/lib/db-shop";
 import { getTopSellerIds } from "@/lib/best-sellers";
 import Header from "@/components/Header";
@@ -7,7 +8,15 @@ import ProductCarousel from "@/components/ProductCarousel";
 import { SITES } from "@/lib/sites";
 import { ON_SALE_SQL, VISIBLE_SQL } from "@/lib/sale-window";
 
-export const metadata = { title: "Products · BLEND PICK" };
+export async function generateMetadata({searchParams}:{searchParams:Promise<{category?:string|string[]}>}) {
+  const raw=(await searchParams).category;
+  const category=typeof raw==="string" ? raw:"";
+  const known=await getCategories();
+  const valid=!!category && known.includes(category);
+  return collectionMetadata("blendpick",valid ? category+" 공동구매":"진행 중 공동구매",
+    valid ? category+" 상품의 가격, 옵션, 공동구매 기간과 배송 조건을 확인하세요.":"블랜드픽의 진행 중 공동구매 상품을 확인하세요. 상품별 옵션·가격·판매 기간·배송 조건을 비교할 수 있습니다.",
+    collectionPath(valid ? category:undefined),raw!==undefined && !valid);
+}
 
 // 산지픽 카테고리 상품은 블랜드픽 목록에서 제외 — 산지픽 도메인의 /products 는 proxy가 /sanji/products 로 보낸다
 const SANJI_CATS = SITES.sanjipick.categories;
@@ -118,7 +127,8 @@ export default async function ShopPage({
 }: {
   searchParams: Promise<{ category?: string }>;
 }) {
-  const { category } = await searchParams;
+  const raw = (await searchParams).category;
+  const category = typeof raw === "string" ? raw : undefined;
   const [products, categories, upcoming, topSellers] = await Promise.all([
     getProducts(category),
     getCategories(),
@@ -139,6 +149,10 @@ export default async function ShopPage({
         rel="stylesheet"
       />
       <Header />
+      <section className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-6">
+        <h1 className="text-2xl font-bold">{category && categories.includes(category) ? category+" 공동구매":"진행 중 공동구매"}</h1>
+        <p className="mt-2 text-sm">상품별 가격·옵션·공동구매 기간·배송 조건을 확인하고 선택하세요.</p>
+      </section>
 
       {/* ── 상품 패럴랙스 캐러셀 — 톤 밴드(B안) 위에, 좌우 여백엔 세로 캡션 ── */}
       {products.length > 0 && (
