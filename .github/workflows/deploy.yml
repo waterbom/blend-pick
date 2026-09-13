@@ -50,3 +50,27 @@ jobs:
             echo "Deployment service is active."
             node scripts/check-upload-serving.cjs
             sudo "$(command -v node)" scripts/install-traffic-monitor.cjs
+
+      - name: Verify Sanjipick Google ownership tag
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from urllib.request import Request, urlopen
+          expected = "dllj-7POmcmD4QjM-5mXHEdKYpLCFE4O_Fbi_wRvWJY"
+          class Tags(HTMLParser):
+              in_head = False
+              verified = False
+              def handle_starttag(self, tag, attrs):
+                  if tag == "head": self.in_head = True
+                  values = dict(attrs)
+                  if self.in_head and tag == "meta" and values.get("name") == "google-site-verification" and values.get("content") == expected:
+                      self.verified = True
+              def handle_endtag(self, tag):
+                  if tag == "head": self.in_head = False
+          request = Request("https://sanjipick.blendpunch.com/", headers={"User-Agent": "Googlebot"})
+          with urlopen(request, timeout=30) as response:
+              parser = Tags()
+              parser.feed(response.read().decode("utf-8"))
+              assert response.status == 200 and parser.verified, "Google verification tag missing from Sanjipick head"
+          print("PASS: Sanjipick Google verification tag is present in the live HTML head")
+          PY
