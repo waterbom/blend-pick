@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import InquiryButton from "@/components/InquiryButton";
@@ -37,7 +37,7 @@ async function getUserId() {
 
 export default async function GlobalFloating() {
   // 산지픽은 화면 하단이 고정 구매바라 블랜드픽 플로팅 버튼(문의·오픈예정)을 띄우지 않는다 — 문의는 페이지 안 카카오 버튼으로
-  if ((await currentSite()).key === "sanjipick") return null;
+  if ((await currentSite()).key === "sanjipick" || (await headers()).get("x-pathname")?.startsWith("/hotel/dangung")) return null;
   const [upcoming, userId] = await Promise.all([getUpcoming(), getUserId()]);
   return <InquiryButton userId={userId} upcoming={upcoming} />;
 }

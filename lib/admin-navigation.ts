@@ -7,7 +7,7 @@ export const ADMIN_GROUPS: AdminGroup[] = [
  {label:'주문·배송',items:[{label:'전체 주문',href:'/admin/orders'},{label:'출고·배송 흐름',href:'/admin/shipments'}]},
  {label:'매출·정산',items:[{label:'결제 정산',href:'/admin/settlements'},{label:'인플루언서 정산',href:'/admin/influencer-settlements'},{label:'수익 분석',href:'/admin/profit'},{label:'전시·비전시 실적',href:'/admin/link-sales'},{label:'방문 통계',href:'/admin/visits'}]},
  {label:'고객 관리',items:[{label:'회원 관리',href:'/admin/members'},{label:'리뷰 관리',href:'/admin/reviews'},{label:'카카오 상담·알림',href:'/admin/notifications'}]},
- {label:'공구 운영',items:[{label:'인플루언서',href:'/admin/influencers'},{label:'숙박 예약',href:'/admin/reservations',blendOnly:true}]},
+ {label:'공구 운영',items:[{label:'인플루언서',href:'/admin/influencers'},{label:'숙박 예약',href:'/admin/reservations',blendOnly:true},{label:'단궁 예약·요금',href:'/admin/dangung',blendOnly:true}]},
  {label:'설정·시스템',items:[{label:'결제 확인·복구',href:'/admin/payment-recovery'},{label:'서버 트래픽',href:'/admin/traffic'},{label:'자동 점검',href:'/admin/monitoring'}]},
 ];
 const SANJI_LABELS: Record<string,string> = {
