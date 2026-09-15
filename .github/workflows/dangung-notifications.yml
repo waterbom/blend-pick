@@ -20,4 +20,5 @@ jobs:
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
             cd ${{ secrets.EC2_APP_DIR }}
+            node scripts/roll-dangung-calendar.cjs
             node scripts/retry-dangung-notifications.cjs

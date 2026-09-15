@@ -52,6 +52,8 @@ jobs:
             echo "Deployment service is active."
             node scripts/check-upload-serving.cjs
             sudo "$(command -v node)" scripts/install-traffic-monitor.cjs
+            # Authorized launch runs once; subsequent deploys preserve admin sale state.
+            node scripts/roll-dangung-calendar.cjs --launch
 
       - name: Verify both storefront Google ownership tags
         run: |
