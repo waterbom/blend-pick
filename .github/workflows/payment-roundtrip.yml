@@ -1,0 +1,78 @@
+name: Read-only Payment Roundtrip
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/payment-roundtrip.yml']
+permissions:
+  contents: read
+concurrency:
+  group: payment-roundtrip
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check live gateway and storefront without charging
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node <<'NODE'
+            require('@next/env').loadEnvConfig(process.cwd(), false);
+            const {Pool}=require('pg');
+            const {randomUUID}=require('node:crypto');
+            const assert=require('node:assert/strict');
+            (async()=>{
+              assert.ok(process.env.TOSS_CLIENT_KEY?.startsWith('live_ck_'));
+              assert.ok(process.env.TOSS_SECRET_KEY?.startsWith('live_sk_'));
+              console.log('PASS live client/server configuration (credentials hidden)');
+              const pool=new Pool({connectionString:process.env.SHOP_DATABASE_URL,ssl:{rejectUnauthorized:false},connectionTimeoutMillis:5000,statement_timeout:10000,options:'-c default_transaction_read_only=on'});
+              try {
+                // Read a single existing payment; never log its key, ID, customer or receipt.
+                const {rows:[order]}=await pool.query("SELECT payment_key,total_amount FROM orders WHERE status='paid' AND payment_key IS NOT NULL AND payment_key NOT LIKE 'SIM_%' ORDER BY paid_at DESC NULLS LAST LIMIT 1");
+                assert.ok(order,'No existing payment available for read-only gateway check');
+                const headers={Authorization:'Basic '+Buffer.from(process.env.TOSS_SECRET_KEY+':').toString('base64')};
+                const first=await fetch('https://api.tosspayments.com/v1/payments/'+encodeURIComponent(order.payment_key),{headers,signal:AbortSignal.timeout(15000)});
+                console.log('Gateway payment lookup HTTP '+first.status);
+                assert.equal(first.status,200);
+                const payment=await first.json();
+                assert.equal(payment.paymentKey,order.payment_key);
+                assert.equal(payment.totalAmount,Number(order.total_amount));
+                assert.equal(payment.currency,'KRW');
+                assert.ok(typeof payment.orderId==='string'&&payment.orderId.length>0);
+                const second=await fetch('https://api.tosspayments.com/v1/payments/orders/'+encodeURIComponent(payment.orderId),{headers,signal:AbortSignal.timeout(15000)});
+                console.log('Gateway order lookup HTTP '+second.status);
+                assert.equal(second.status,200);
+                const match=await second.json();
+                assert.equal(match.paymentKey,payment.paymentKey);
+                assert.equal(match.orderId,payment.orderId);
+                assert.equal(match.totalAmount,payment.totalAmount);
+                console.log('PASS authenticated gateway request/response and amount consistency');
+              } finally {await pool.end();}
+              const base='https://shop.blendpunch.com';
+              const calendar=await fetch(base+'/api/dangung',{signal:AbortSignal.timeout(15000)});
+              assert.equal(calendar.status,200);
+              const config=await calendar.json();assert.equal(config.paymentReady,true);
+              console.log('PASS Dangung calendar HTTP 200, paymentReady=true, salesEnabled='+config.config.enabled);
+              const cookie=(calendar.headers.get('set-cookie')||'').split(';')[0];
+              assert.ok(cookie.startsWith('dangung_booking='));
+              // A nonexistent reservation must fail before the application calls approval.
+              const invalid=await fetch(base+'/api/dangung',{method:'POST',headers:{'Content-Type':'application/json',Origin:base,Cookie:cookie},body:JSON.stringify({action:'confirm',orderId:randomUUID(),paymentKey:'read_only_invalid_probe',amount:1}),signal:AbortSignal.timeout(15000)});
+              assert.equal(invalid.status,404);
+              assert.equal(typeof (await invalid.json()).error,'string');
+              console.log('PASS Dangung confirmation rejects nonexistent reservation with HTTP 404');
+              const result=await fetch(base+'/hotel/dangung/result',{signal:AbortSignal.timeout(15000)});
+              assert.equal(result.status,200);assert.ok((await result.text()).includes('예약자 휴대폰번호'));
+              console.log('PASS payment return/lookup page HTTP 200');
+              console.log('PASS no payment approvals, refunds, SMS or booking writes performed');
+            })().catch(()=>{console.error('FAIL read-only payment roundtrip (sensitive error details withheld)');process.exitCode=1;});
+            NODE
