@@ -12,3 +12,20 @@ test('unconfigured, closed and occupied nights cannot be quoted',()=>{for(const 
 test('maximum guests, integers, lead time and night limit enforced',()=>{for(const guests of [0,17,6.5,'6'])assert.throws(()=>q(config,rows,{...input,guests}));assert.throws(()=>q(config,rows,{...input,checkIn:'2026-09-14'}));assert.throws(()=>q({...config,maxNights:1}));assert.throws(()=>q(config,rows,{...input,bbq:'true'}));});
 test('live sales require definite extra fee basis, refund and deposit terms',()=>{for(const patch of [{extraGuestFee:null},{extraGuestUnit:''},{refundTerms:''},{depositTerms:''},{bbqFee:-1},{depositAmount:Infinity}])assert.throws(()=>validateConfig({...config,...patch}));assert.doesNotThrow(()=>validateConfig({...config,enabled:false,extraGuestFee:null,extraGuestUnit:''}));});
 module.exports={config,rows,input,now};
+
+test('approved per-reservation charges survive multi-night stay; infants are free and separate',()=>{
+ const {APPROVED_SETTINGS}=require('../lib/dangung-policy.cjs');
+ const r=q({...config,...APPROVED_SETTINGS},rows,{...input,infants:3,monitor:true});
+ assert.equal(r.extra,40000);assert.equal(r.bbq,50000);assert.equal(r.monitor,50000);
+ assert.equal(r.total,1140000);assert.equal(r.infants,3);assert.equal(r.guests,8);
+ assert.deepEqual(r.selectedOptions,{bbq:true,monitor:true});assert.match(r.depositPaymentNote,/계좌이체/);
+ const full=q({...config,...APPROVED_SETTINGS},rows,{...input,guests:16,infants:4,bbq:false,monitor:false});
+ assert.equal(full.extra,200000);assert.equal(full.total,1200000);
+});
+test('server computes each add-on independently and rejects malformed new inputs',()=>{
+ const c={...config,monitorFee:50000};
+ assert.equal(q(c,rows,{...input,guests:6,bbq:false,monitor:true}).total,1050000);
+ for(const patch of [{monitor:'true'},{monitor:1},{infants:-1},{infants:1.5},{infants:'2'},{infants:null}])assert.throws(()=>q(c,rows,{...input,...patch}));
+ assert.throws(()=>q(config,rows,{...input,monitor:true}));
+ assert.equal(q(config).monitor,0); // Older clients omit optional fields.
+});

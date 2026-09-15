@@ -11,6 +11,17 @@ test('Cycle 2: isolated PostgreSQL booking/payment lifecycle (no live PG or gate
  const confirmation=r=>({orderId:r.id,paymentKey:'test_payment_'+r.id,amount:r.amount});
  try{
  await t.test('migration is repeatable and starts with sales disabled and no prices',async()=>{const sql=fs.readFileSync(path.join(__dirname,'../scripts/dangung.sql'),'utf8');await db.exec(sql);await db.exec(sql);const c=await api.calendar();assert.equal(c.config.enabled,false);assert.equal(c.dates.length,0);await assert.rejects(api.getQuote({checkIn:'2026-09-15',checkOut:'2026-09-16',guests:6,bbq:false}));});
+ await t.test('approved settings migrate once without opening sales or replacing later edits',async()=>{
+ const {prepare:prepareSchema}=require('../scripts/prepare-dangung.cjs');
+ const prepare=()=>prepareSchema({query:(sql,args)=>args?pool.query(sql,args):db.exec(sql)});
+ const {APPROVED_SETTINGS}=require('../lib/dangung-policy.cjs');
+ await prepare(pool);const initial=await api.calendar();
+ assert.equal(initial.config.enabled,false);assert.equal(initial.dates.length,0);
+ for(const [key,value] of Object.entries(APPROVED_SETTINGS))assert.deepEqual(initial.config[key],value);
+ await api.settings({...initial.config,depositPaymentNote:'운영자가 추후 등록한 테스트 계좌 안내'});
+ const edited=await api.calendar();await prepare(pool);const repeated=await api.calendar();
+ assert.equal(repeated.version,edited.version);assert.equal(repeated.config.depositPaymentNote,edited.config.depositPaymentNote);
+});
  await api.settings(config);await api.setDates({start:'2026-09-15',end:'2026-10-15',weekdayPrice:450000,weekendPrice:540000,season:'테스트',available:true});
  let first,firstInput;
  await t.test('reservation snapshots terms, places one hold, repeats without duplication',async()=>{firstInput=await request();first=await api.reserve(firstInput,owner);const second=await api.reserve(firstInput,owner);assert.equal(first.id,second.id);assert.equal((await db.query('SELECT count(*)::int n FROM dangung_occupancy')).rows[0].n,1);assert.equal(first.quote.refundTerms,config.refundTerms);});
@@ -28,6 +39,22 @@ test('Cycle 2: isolated PostgreSQL booking/payment lifecycle (no live PG or gate
  await t.test('partial refund closes reservation, retains fee and frees room',async()=>{const r=await api.reserve(await request('2026-09-23'),owner);await api.confirm(confirmation(r),owner);const cancelled=await api.cancel(r.id,200000,'테스트 부분 환불');assert.equal(cancelled.status,'cancelled');assert.equal(cancelled.refundAmount,200000);const a=await api.admin();assert.equal(Number(a.totals.retained_amount),r.amount-200000);});
  await t.test('zero-refund cancellation performs no gateway call and frees room',async()=>{const r=await api.reserve(await request('2026-09-24'),owner);await api.confirm(confirmation(r),owner);const calls=cancelCalls;assert.equal((await api.cancel(r.id,0,'테스트 노쇼 취소')).status,'cancelled');assert.equal(cancelCalls,calls);assert.ok(await api.getQuote({checkIn:'2026-09-24',checkOut:'2026-09-25',guests:6,bbq:false}));});
  await t.test('SQL unique occupancy prevents double allocation even outside application',async()=>{await assert.rejects(db.query('INSERT INTO dangung_occupancy(day,reservation_id) SELECT day,reservation_id FROM dangung_occupancy LIMIT 1'));});
+ await t.test('infants and equal-price options persist through payment/refund; changed replay rejected',async()=>{
+ const {APPROVED_SETTINGS}=require('../lib/dangung-policy.cjs');
+ await api.settings({...config,...APPROVED_SETTINGS});
+ const req=await request('2026-10-01',{checkOut:'2026-10-03',guests:8,infants:2,bbq:true,monitor:true});
+ const r=await api.reserve(req,owner);
+ assert.equal(r.quote.extra,40000);assert.equal(r.quote.bbq,50000);assert.equal(r.quote.monitor,50000);
+ assert.equal(r.infants,2);assert.equal((await api.reserve(req,owner)).id,r.id);
+ await assert.rejects(api.reserve({...req,infants:3},owner));
+ const paid=await api.confirm(confirmation(r),owner);assert.equal(paid.quote.monitor,50000);
+ const entry=(await api.admin()).reservations.find(x=>x.id===r.id);assert.equal(entry.quote.infants,2);assert.equal(entry.quote.selectedOptions.monitor,true);
+ const refund=await api.cancel(r.id,r.amount,'새 옵션 테스트 전액 환불');assert.equal(refund.refundAmount,r.amount);
+ const onlyBbq=await request('2026-10-04',{bbq:true,monitor:false});await api.reserve(onlyBbq,other);
+ await assert.rejects(api.reserve({...onlyBbq,bbq:false,monitor:true},other)); // Same total, different option.
+ await api.settings({...config,...APPROVED_SETTINGS,refundTerms:'이후 변경한 규정이며 이전 예약에는 반영되지 않습니다.'});
+ assert.equal((await api.status(r.id,owner)).quote.refundTerms,APPROVED_SETTINGS.refundTerms);
+});
  await t.test('schema rerun preserves enabled configuration and paid records',async()=>{await db.exec(fs.readFileSync(path.join(__dirname,'../scripts/dangung.sql'),'utf8'));assert.equal((await api.calendar()).config.enabled,true);assert.ok((await api.admin()).totals.paid_count>0);});
  }finally{await db.close();}
 });

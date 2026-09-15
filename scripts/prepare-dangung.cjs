@@ -1,5 +1,10 @@
 const fs=require('node:fs'),path=require('node:path');
-async function prepare(pool){await pool.query(fs.readFileSync(path.join(__dirname,'dangung.sql'),'utf8'));}
+const {APPROVED_SETTINGS}=require('../lib/dangung-policy.cjs');
+async function prepare(pool){
+ await pool.query(fs.readFileSync(path.join(__dirname,'dangung.sql'),'utf8'));
+ // Apply approved terms once. Preserve sales state, dates, reservations and later edits.
+ await pool.query("UPDATE dangung_settings SET config=config || $1::jsonb,version=version+1 WHERE id=1 AND config->>'saleTermsRevision' IS DISTINCT FROM $2",[JSON.stringify(APPROVED_SETTINGS),APPROVED_SETTINGS.saleTermsRevision]);
+}
 module.exports={prepare};
 if(require.main===module){require('@next/env').loadEnvConfig(process.cwd(),false);const {Pool}=require('pg');
  if(!process.env.SHOP_DATABASE_URL)throw Error('SHOP_DATABASE_URL is required');
