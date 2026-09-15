@@ -70,13 +70,13 @@ export default function DangungResult() {
   useEffect(() => { check(true); }, []);
 
   return <main className="dg-result">
-    <a href="/hotel/dangung">← 단궁 페이지</a>
+    <a className="dg-result-back" href="/hotel/dangung">← 단궁 페이지</a><div className="dg-result-brand">DANGUNG · YOUR PRIVATE STAY</div>
     <h1>{completion ? '결제가 완료되었습니다' : order ? labels[order.status] : '단궁 예약 확인'}</h1>
     {error && <p className="booking-error" role="alert">{error}</p>}
     {retryCallback && !order && <button className="booking-primary" disabled={busy} onClick={() => check(true)}>결제 상태 다시 확인 ↻</button>}
     {busy && <p role="status">예약 정보를 확인하고 있습니다…</p>}
     {completion && order ? <section className="dg-payment-success" aria-label="결제 완료">
-      <p>단궁 예약이 확정되었습니다.</p>
+      <div className="dg-success-mark" aria-hidden="true">✓</div><p>단궁 예약이 확정되었습니다.</p>
       <p>{order.checkIn} → {order.checkOut} · {order.guests}인{order.infants > 0 ? ` + 유아 ${order.infants}명` : ''}</p>
       <p>결제 금액 <strong>{money(order.amount)}</strong></p>
       <p>예약번호 <b className="dg-order-id">{order.id}</b></p>
