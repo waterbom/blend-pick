@@ -30,4 +30,22 @@ CREATE TABLE IF NOT EXISTS dangung_audit (
  id bigserial PRIMARY KEY, action text NOT NULL, reservation_id uuid,
  detail jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS dangung_lookup_attempts (
+ key_hash text PRIMARY KEY, attempts integer NOT NULL, resets_at timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS dangung_lookup_attempts_expiry ON dangung_lookup_attempts(resets_at);
+CREATE TABLE IF NOT EXISTS dangung_lookup_access (
+ reservation_id uuid NOT NULL REFERENCES dangung_reservations(id), owner_hash text NOT NULL,
+ expires_at timestamptz NOT NULL, PRIMARY KEY(reservation_id,owner_hash)
+);
+CREATE INDEX IF NOT EXISTS dangung_lookup_access_expiry ON dangung_lookup_access(expires_at);
+CREATE TABLE IF NOT EXISTS dangung_notifications (
+ id bigserial PRIMARY KEY, reservation_id uuid NOT NULL REFERENCES dangung_reservations(id),
+ kind text NOT NULL CHECK(kind IN ('confirmed','cancelled')),
+ status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sending','retry','accepted','review','suppressed')),
+ body text NOT NULL, attempts integer NOT NULL DEFAULT 0, last_error text,
+ next_attempt_at timestamptz NOT NULL DEFAULT NOW(), created_at timestamptz NOT NULL DEFAULT NOW(), updated_at timestamptz NOT NULL DEFAULT NOW(),
+ UNIQUE(reservation_id,kind)
+);
+CREATE INDEX IF NOT EXISTS dangung_notifications_due ON dangung_notifications(status,next_attempt_at);
 COMMIT;

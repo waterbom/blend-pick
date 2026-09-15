@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { bookingService as service, guard, owner, body, failure, paymentReady } from '@/lib/dangung-server';
+import { bookingService as service, guard, owner, body, failure, paymentReady, flushNotifications } from '@/lib/dangung-server';
 import { BookingError } from '@/lib/dangung-core.cjs';
 import { phoneVerifyOn } from '@/lib/sms';
 import { isPhoneVerified } from '@/lib/phone-verify';
@@ -11,6 +11,7 @@ export async function GET(request:Request){try{await guard();const id=new URL(re
  }catch(e){return failure(e);}}
 export async function POST(request:Request){try{await guard(request);const input=await body(request),token=await owner(true);let result;
  switch(input.action){
+ case 'lookup':result=await service.lookup(input,token);break;
  case 'quote':result=await service.getQuote(input);break;
  case 'reserve':
  if(!paymentReady())throw new BookingError('예약 결제를 준비 중입니다.',503);
@@ -22,5 +23,6 @@ export async function POST(request:Request){try{await guard(request);const input
  case 'cancelRequest':result=await service.requestCancel(input.orderId,token);break;
  default:throw new BookingError('잘못된 요청입니다.',400);
  }
+ if(['confirm','reconcile'].includes(input.action)&&result?.id)await flushNotifications(result.id);
  return Response.json(result,{headers:{'Cache-Control':'no-store'}});
  }catch(e){return failure(e);}}

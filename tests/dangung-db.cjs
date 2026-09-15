@@ -55,6 +55,45 @@ test('Cycle 2: isolated PostgreSQL booking/payment lifecycle (no live PG or gate
  await api.settings({...config,...APPROVED_SETTINGS,refundTerms:'이후 변경한 규정이며 이전 예약에는 반영되지 않습니다.'});
  assert.equal((await api.status(r.id,owner)).quote.refundTerms,APPROVED_SETTINGS.refundTerms);
 });
+ await t.test('reservation lookup requires both values, grants access only to matching browser and expires',async()=>{
+ const viewer='new-browser';
+ await assert.rejects(api.lookup({orderId:first.id,phone:'01000000000'},viewer));
+ await assert.rejects(api.status(first.id,viewer));
+ const found=await api.lookup({orderId:first.id,phone:'010-1234-5678'},viewer);
+ assert.equal(found.id,first.id);assert.equal(found.owner_hash,undefined);
+ assert.equal((await api.status(first.id,viewer)).id,first.id);
+ await assert.rejects(api.status(first.id,'unrelated-browser'));
+ clock=new Date(clock.getTime()+61*60000);
+ await assert.rejects(api.status(first.id,viewer));
+ assert.equal((await api.status(first.id,owner)).id,first.id);
+ });
+ await t.test('failed lookup attempts persist and limit guesses across browsers, then reset',async()=>{
+ for(let i=0;i<10;i++)await assert.rejects(api.lookup({orderId:first.id,phone:'01000000000'},'guess-'+i),e=>e.status===404);
+ await assert.rejects(api.lookup({orderId:first.id,phone:'01012345678'},'valid-new'),e=>e.status===429);
+ clock=new Date(clock.getTime()+16*60000);
+ assert.equal((await api.lookup({orderId:first.id,phone:'01012345678'},'valid-new')).id,first.id);
+ });
+ await t.test('transactional SMS queue is unique; confirmed/cancelled bodies and ambiguous results are handled safely',async()=>{
+ const {processQueue}=require('../lib/dangung-notifications.cjs');
+ const jobs=(await db.query('SELECT * FROM dangung_notifications WHERE reservation_id=$1',[first.id])).rows;
+ assert.equal(jobs.length,2);assert.ok(jobs.find(j=>j.kind==='cancelled').body.includes('예약 취소 완료'));
+ const sent=[];let result=await processQueue(pool,async(...args)=>{sent.push(args);return {ok:true};},{reservationId:first.id});
+ assert.equal(result.suppressed,1);assert.equal(result.accepted,1);assert.equal(sent.length,1);
+ assert.equal(sent[0][0],'01012345678');assert.ok(sent[0][1].includes('환불 처리금액: 450,000원'));
+ await processQueue(pool,async()=>{throw Error('must not resend');},{reservationId:first.id});
+ const r=await api.reserve(await request('2026-10-06',{monitor:true}),owner);
+ assert.equal((await db.query('SELECT count(*)::int n FROM dangung_notifications WHERE reservation_id=$1',[r.id])).rows[0].n,0);
+ await api.confirm(confirmation(r),owner);await api.confirm(confirmation(r),owner);
+ await api.requestCancel(r.id,owner);await api.requestCancel(r.id,owner);
+ assert.equal((await db.query('SELECT count(*)::int n FROM dangung_notifications WHERE reservation_id=$1',[r.id])).rows[0].n,1);
+ result=await processQueue(pool,async(to,body)=>{assert.ok(body.includes('64인치 모니터: 50,000원'));return {ok:false,outcome:'rejected'};},{reservationId:r.id});
+ assert.equal(result.retry,1);
+ await db.query("UPDATE dangung_notifications SET next_attempt_at=NOW() WHERE reservation_id=$1",[r.id]);
+ result=await processQueue(pool,async()=>{throw Error('timeout after possible acceptance');},{reservationId:r.id});assert.equal(result.review,1);
+ let calls=0;await processQueue(pool,async()=>{calls++;return {ok:true};},{reservationId:r.id});assert.equal(calls,0);
+ await api.cancel(r.id,0,'test zero refund');
+ result=await processQueue(pool,async(to,body)=>{assert.ok(body.includes('환불 처리금액: 0원'));return {ok:true};},{reservationId:r.id});assert.equal(result.accepted,1);
+ });
  await t.test('schema rerun preserves enabled configuration and paid records',async()=>{await db.exec(fs.readFileSync(path.join(__dirname,'../scripts/dangung.sql'),'utf8'));assert.equal((await api.calendar()).config.enabled,true);assert.ok((await api.admin()).totals.paid_count>0);});
  }finally{await db.close();}
 });
