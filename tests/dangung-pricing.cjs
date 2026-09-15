@@ -1,14 +1,14 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const {PGlite}=require('@electric-sql/pglite');
-const {nightlyPrice,PRICING_PLAN}=require('../lib/dangung-pricing.cjs');
+const {nightlyPrice,PRICING_PLAN,ORIGINAL_RANGES,PRICING_REVISION}=require('../lib/dangung-pricing.cjs');
 const {roll}=require('../scripts/roll-dangung-calendar.cjs');
 const {APPROVED_SETTINGS}=require('../lib/dangung-policy.cjs');
 const {service}=require('../lib/dangung-core.cjs');
 test('approved nightly prices: boundaries, Friday/Saturday stacking, summer and year-end',()=>{
  for(const [day,price] of [
  ['2026-09-16',450000],['2026-09-18',550000],['2026-09-19',550000],['2026-09-20',450000],
- ['2027-07-14',450000],['2027-07-15',550000],['2027-07-16',650000],['2027-07-24',650000],
- ['2027-07-25',600000],['2027-07-30',700000],['2027-08-09',600000],['2027-08-10',550000],['2027-08-24',550000],['2027-08-25',450000],
+ ['2027-07-11',450000],['2027-07-12',550000],['2027-07-14',550000],['2027-07-15',550000],['2027-07-16',650000],['2027-07-24',650000],
+ ['2027-07-25',600000],['2027-07-30',700000],['2027-08-09',600000],['2027-08-10',550000],['2027-08-24',550000],['2027-08-25',550000],['2027-08-27',650000],['2027-08-28',550000],['2027-08-29',450000],
  ['2026-12-23',450000],['2026-12-24',550000],['2026-12-25',550000],['2026-12-31',550000],['2027-01-01',550000],['2028-02-29',450000]
  ])assert.equal(nightlyPrice(day).price,price,day);
  assert.throws(()=>nightlyPrice('2027-02-29'));assert.throws(()=>nightlyPrice('garbage'));
@@ -54,5 +54,42 @@ test('sale launch is atomic; rolling dates preserve pauses, overrides and booked
   await t.test('next-day extension uses KST and inserts only one new night without enabling sale',async()=>{
    const r=await roll(pool,{now:new Date('2026-09-15T15:00:00Z')});assert.equal(r.first,'2026-09-17');assert.equal(r.last,'2027-09-16');assert.equal(r.inserted,1);assert.equal(r.enabled,false);
   });
+ }finally{await db.close();}
+});
+
+test('season revision atomically updates generated dates while preserving bookings, closures and admin overrides',async()=>{
+ const db=new PGlite();let fail=false;
+ const query=async(sql,args)=>{if(fail&&sql.startsWith('UPDATE dangung_settings')){fail=false;throw Error('simulated migration failure');}return db.query(sql,args);};
+ const pool={query,connect:async()=>({query,release(){}})},now=new Date('2026-09-15T01:00:00Z');
+ try{
+  await db.exec(fs.readFileSync('scripts/dangung.sql','utf8'));
+  const {rows:[s]}=await db.query('SELECT config FROM dangung_settings WHERE id=1');
+  await db.query('UPDATE dangung_settings SET config=$1',[JSON.stringify({...s.config,...APPROVED_SETTINGS})]);
+  await roll(pool,{launch:true,now});
+  const oldPlan={...PRICING_PLAN,...ORIGINAL_RANGES};
+  await db.query("UPDATE dangung_settings SET config=jsonb_set(config-'pricingRevision','{pricingPlan}',$1)",[JSON.stringify(oldPlan)]);
+  for(const day of ['2027-07-12','2027-07-13','2027-07-14','2027-08-25','2027-08-26','2027-08-27']){
+   const old=nightlyPrice(day,oldPlan);await db.query('UPDATE dangung_dates SET price=$2,season=$3 WHERE day=$1',[day,old.price,old.season]);
+  }
+  const api=service(pool,{}, {now:()=>now});
+  const q=await api.getQuote({checkIn:'2027-07-12',checkOut:'2027-07-13',guests:6,infants:0,bbq:false,monitor:false});
+  const rsv=await api.reserve({...q,buyerName:'격리테스트',buyerPhone:'01000000000',memo:'',requestId:require('node:crypto').randomUUID(),bbq:false,monitor:false,amount:q.total,agreed:true},'migration-test');
+  await db.query("UPDATE dangung_dates SET available=false WHERE day='2027-07-13'");
+  await db.query("UPDATE dangung_dates SET price=770000 WHERE day='2027-07-14'");
+  // An explicit admin edit equal to the old generated value must also be preserved.
+  await api.setDates({start:'2027-08-25',end:'2027-08-26',weekdayPrice:450000,weekendPrice:550000,season:'일반 · 일~목',available:true});
+  await db.query("UPDATE dangung_settings SET config=jsonb_set(config,'{enabled}','false')");
+  fail=true;await assert.rejects(roll(pool,{launch:true,now}));
+  assert.equal((await db.query("SELECT price FROM dangung_dates WHERE day='2027-08-27'")).rows[0].price,550000);
+  assert.equal((await db.query('SELECT config FROM dangung_settings')).rows[0].config.pricingRevision,undefined);
+  assert.equal((await db.query("SELECT count(*)::int n FROM dangung_audit WHERE action='pricing_plan_updated'")).rows[0].n,0);
+  const result=await roll(pool,{launch:true,now});assert.equal(result.revised,true);assert.equal(result.repriced,2);assert.equal(result.enabled,false);
+  const d=async day=>(await db.query('SELECT price,available FROM dangung_dates WHERE day=$1',[day])).rows[0];
+  assert.equal((await d('2027-07-12')).price,450000);assert.equal((await api.status(rsv.id,'migration-test')).amount,450000);
+  assert.equal((await d('2027-07-13')).available,false);assert.equal((await d('2027-07-14')).price,770000);
+  assert.equal((await d('2027-08-25')).price,450000);assert.equal((await d('2027-08-26')).price,550000);assert.equal((await d('2027-08-27')).price,650000);
+  const config=(await db.query('SELECT config FROM dangung_settings')).rows[0].config;
+  assert.equal(config.pricingRevision,PRICING_REVISION);assert.deepEqual(config.pricingPlan.shoulderRanges,PRICING_PLAN.shoulderRanges);
+  assert.equal((await roll(pool,{launch:true,now})).revised,false);
  }finally{await db.close();}
 });
