@@ -1,0 +1,84 @@
+.intro {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 32px 48px 24px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 30px 34px;
+  border: 1px solid #dfe5d6;
+  border-radius: 22px;
+  background: radial-gradient(ellipse at 100% 0%, #e3edd8 0, transparent 58%), #fafbf5;
+  box-shadow: 0 8px 26px #30432a06;
+}
+
+.copy { min-width: 0; }
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #657b54;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .16em;
+}
+
+.eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: #789064;
+}
+
+.title {
+  margin: 11px 0 0;
+  color: #273e2a;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: -.045em;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  margin: 13px 0 0;
+  color: #68735e;
+  font-size: 13px;
+  line-height: 1.85;
+  letter-spacing: -.015em;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border: 1px solid #ccd9bf;
+  border-radius: 24px;
+  color: #617c4d;
+  background: #ffffff80;
+  box-shadow: 6px 6px 0 #dce7d055;
+}
+
+@media (max-width: 1023px) {
+  .intro { padding: 24px 20px 20px; }
+  .card { padding: 26px; }
+}
+
+@media (max-width: 600px) {
+  .intro { padding: 20px 16px 18px; }
+  .card { padding: 23px 22px; border-radius: 18px; }
+  .eyebrow { font-size: 9px; letter-spacing: .13em; }
+  .description { margin-top: 11px; font-size: 12px; line-height: 1.9; }
+  .mark { display: none; }
+}

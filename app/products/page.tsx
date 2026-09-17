@@ -7,6 +7,7 @@ import FallbackImg from "@/components/FallbackImg";
 import ProductCarousel from "@/components/ProductCarousel";
 import { SITES } from "@/lib/sites";
 import { ON_SALE_SQL, VISIBLE_SQL } from "@/lib/sale-window";
+import styles from "./catalog.module.css";
 
 export async function generateMetadata({searchParams}:{searchParams:Promise<{category?:string|string[]}>}) {
   const raw=(await searchParams).category;
@@ -149,9 +150,20 @@ export default async function ShopPage({
         rel="stylesheet"
       />
       <Header />
-      <section className="max-w-[1240px] mx-auto px-5 lg:px-12 pt-6">
-        <h1 className="text-2xl font-bold">{category && categories.includes(category) ? category+" 공동구매":"진행 중 공동구매"}</h1>
-        <p className="mt-2 text-sm">상품별 가격·옵션·공동구매 기간·배송 조건을 확인하고 선택하세요.</p>
+      <section className={styles.intro} aria-labelledby="collection-title">
+        <div className={styles.card}>
+          <div className={styles.copy}>
+            <span className={styles.eyebrow}>BLEND PICK COLLECTION</span>
+            <h1 id="collection-title" className={styles.title}>{category && categories.includes(category) ? category+" 공동구매":"진행 중 공동구매"}</h1>
+            <p className={styles.description}>상품별 가격·옵션·공동구매 기간·배송 조건을 확인하고 선택하세요.</p>
+          </div>
+          <span className={styles.mark} aria-hidden="true">
+            <svg width="38" height="38" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 11h18l2 17H5l2-17Z" />
+              <path d="M11 12V8a5 5 0 0 1 10 0v4M12 19l3 3 6-6" />
+            </svg>
+          </span>
+        </div>
       </section>
 
       {/* ── 상품 패럴랙스 캐러셀 — 톤 밴드(B안) 위에, 좌우 여백엔 세로 캡션 ── */}
