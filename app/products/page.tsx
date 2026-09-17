@@ -107,9 +107,20 @@ async function getUpcoming(): Promise<UpcomingProduct[]> {
   }
 }
 
-// Underlined tabs stay on the same surface as the collection.
+// 카테고리 세그먼트 (직각, 보더 겹침)
 function CategoryTab({ href, label, active }: { href: string; label: string; active: boolean }) {
-  return <Link href={href} className={styles.tab} aria-current={active ? "page" : undefined}>{label}</Link>;
+  return (
+    <Link href={href}
+      className="px-4 lg:px-[22px] py-2 lg:py-2.5 text-[12.5px] lg:text-[13px] -ml-px first:ml-0 transition-colors duration-150"
+      style={{
+        background: active ? C.green800 : "#fff",
+        color: active ? "#fff" : C.muted2,
+        fontWeight: active ? 600 : 400,
+        border: `1px solid ${active ? C.green800 : C.hairline}`,
+      }}>
+      {label}
+    </Link>
+  );
 }
 
 export default async function ShopPage({
@@ -130,7 +141,7 @@ export default async function ShopPage({
   const compact = products.length >= 4;
 
   return (
-    <main className={styles.collection}>
+    <main className="min-h-screen" style={{ background: "var(--background)", color: C.green900 }}>
       {/* 딥 포레스트 전용 폰트 */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -140,14 +151,22 @@ export default async function ShopPage({
       />
       <Header />
       <section className={styles.intro} aria-labelledby="collection-title">
+        <div className={styles.card}>
           <div className={styles.copy}>
             <span className={styles.eyebrow}>BLEND PICK COLLECTION</span>
             <h1 id="collection-title" className={styles.title}>{category && categories.includes(category) ? category+" 공동구매":"진행 중 공동구매"}</h1>
             <p className={styles.description}>상품별 가격·옵션·공동구매 기간·배송 조건을 확인하고 선택하세요.</p>
           </div>
+          <span className={styles.mark} aria-hidden="true">
+            <svg width="38" height="38" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 11h18l2 17H5l2-17Z" />
+              <path d="M11 12V8a5 5 0 0 1 10 0v4M12 19l3 3 6-6" />
+            </svg>
+          </span>
+        </div>
       </section>
 
-      {/* Featured products flow directly into the collection filters. */}
+      {/* ── 상품 패럴랙스 캐러셀 — 톤 밴드(B안) 위에, 좌우 여백엔 세로 캡션 ── */}
       {products.length > 0 && (
         <div className="bp-band relative pt-5 lg:pt-8 pb-5 lg:pb-6">
           <span className="bp-gutter bp-gutter-l">BLEND PICK — GROUP BUY</span>
@@ -166,22 +185,22 @@ export default async function ShopPage({
         </div>
       )}
 
-      {/* Category navigation on the continuous page surface. */}
-      <div>
-        <div className={styles.filter}>
-          <nav className={styles.tabs} aria-label="상품 카테고리">
+      {/* ── 필터 바 — 캐러셀 밴드의 border-bottom과 겹치지 않게 위 여백·보더 없음 ── */}
+      <div style={{ borderBottom: `1px solid ${C.hairline}` }}>
+        <div className="max-w-[1240px] mx-auto px-5 lg:px-12 py-4 lg:py-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap">
             <CategoryTab href="/products" label="전체" active={!category} />
             {categories.map((cat) => (
               <CategoryTab key={cat} href={`/products?category=${encodeURIComponent(cat)}`} label={cat} active={category === cat} />
             ))}
-          </nav>
+          </div>
           <div className="text-[11px] lg:text-[12px]" style={{ fontFamily: MONO, fontWeight: 500, color: C.sage }}>
             판매 중 {products.length} · 오픈 예정 {upcoming.length}
           </div>
         </div>
       </div>
 
-      <div className={styles.results}>
+      <div className="max-w-[1240px] mx-auto px-5 lg:px-12">
         {/* ── 상품 그리드 ── */}
         {products.length === 0 ? (
           <div className="text-center py-28 text-sm" style={{ color: C.muted3 }}>
@@ -189,7 +208,8 @@ export default async function ShopPage({
           </div>
         ) : (
           <div
-            className={`${styles.grid} ${compact ? styles.compact : ""}`}
+            className={`grid ${compact ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-1 lg:grid-cols-2"}`}
+            style={{ marginTop: "-1px" }}
           >
             {products.map((p) => {
               const discount = p.original_price && p.original_price > p.price
@@ -280,7 +300,10 @@ export default async function ShopPage({
               // 카드 전체가 상세 페이지 링크 (품절 상품도 상세에서 확인 가능)
               return (
                 <Link key={p.id} href={`/products/${p.id}`}
-                  className={styles.product}>
+                  className="flex flex-col bg-white transition-colors duration-150 hover:bg-[#FDFCF9]"
+                  // 카드마다 자기 테두리를 그림 — 인접 카드끼리 겹쳐 1px 선이 되고,
+                  // 마지막 줄이 덜 차도 빈 칸에 그리드 선이 안 생긴다 (필러 불필요)
+                  style={{ outline: `1px solid ${C.hairline}`, outlineOffset: "-0.5px" }}>
                   {cardInner}
                 </Link>
               );
@@ -310,11 +333,12 @@ export default async function ShopPage({
               에서 받아보세요
             </div>
           </div>
-          {/* Upcoming products use the same open grid. */}
-          <div className={`${styles.grid} ${styles.compact}`}>
+          {/* 실제 오픈 예정 상품만 — 남는 칸은 카드별 아웃라인이라 빈 칸이 안 생김 (상품 그리드와 동일 방식) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4">
             {upcoming.map((u) => (
               <Link key={u.id} href={`/products/${u.id}`}
-                className={`${styles.product} gap-3`}>
+                className="bg-white p-4 lg:p-5 flex flex-col gap-3 transition-colors duration-150 hover:bg-[#FDFCF9]"
+                style={{ outline: `1px solid ${C.hairline}`, outlineOffset: "-0.5px" }}>
                 <div className="h-[110px] lg:h-[140px] overflow-hidden" style={{ background: C.surfaceSoft }}>
                   <FallbackImg src={u.image} alt={u.name} className="w-full h-full object-contain" />
                 </div>

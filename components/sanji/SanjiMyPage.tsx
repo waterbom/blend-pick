@@ -34,7 +34,7 @@ export default async function SanjiMyPage({searchParams=Promise.resolve({})}:{se
   const orders = await getOrders(payload.id, "sanjipick",query);
 
   return (
-    <main className="commerce-account min-h-screen" style={{ background: "var(--background)", color: "var(--text-primary)" }}>
+    <main className="min-h-screen" style={{ background: "var(--background)", color: "var(--text-primary)" }}>
       <Header />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">산지픽 마이페이지</h1>

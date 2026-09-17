@@ -98,7 +98,7 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
               maxHeight: "500px",
               scrollSnapAlign: "center",
               background: "#F6F4EE",
-              boxShadow: "none",
+              boxShadow: "0 18px 44px rgba(28,36,24,.18)",
             }}
           >
             {/* 배경: 같은 사진을 흐리게 채워 여백을 메움 — 패럴랙스는 이 층에만 */}

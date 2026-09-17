@@ -196,8 +196,8 @@ export default async function Home() {
       <section className="container-blend pt-6 pb-2">
         <Link
           href="/orders/lookup"
-          className="group flex items-center gap-4 py-6 sm:py-8"
-          style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}
+          className="group flex items-center gap-4 rounded-2xl bg-white px-5 sm:px-6 py-4 sm:py-5 transition-shadow hover:shadow-sm"
+          style={{ border: "1px solid var(--line)" }}
         >
           <span className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg"
             style={{ background: "var(--accent-soft)" }}>
@@ -229,7 +229,7 @@ export default async function Home() {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {upcoming.map((u) => (
-              <Link key={u.id} href={`/products/${u.id}`} className="group block">
+              <Link key={u.id} href={`/products/${u.id}`} className="group block rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid var(--line)" }}>
                 <div className="relative w-full aspect-[4/3] overflow-hidden" style={{ background: "var(--surface-soft)" }}>
                   <FallbackImg src={u.main_image} alt={u.name} className="w-full h-full object-contain" />
                   <span className="absolute top-2 left-2 text-xs font-extrabold px-2.5 py-1 rounded-full text-white" style={{ background: "var(--accent)" }}>
