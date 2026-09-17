@@ -65,13 +65,14 @@ function load(file, mocks) {
   });
   await test('header reproduces stale-admin display and shows personal mode after account switch', async () => {
     const jar = { admin_token: await auth.signAdminToken(admin), shop_token: await auth.signToken({ id: 'personal-1', role: 'customer' }) };
-    const header = load('components/Header.tsx', { '@/lib/auth': auth, '@/lib/db': mocks['@/lib/db'], 'next/headers': { cookies: async () => ({ get: key => jar[key] ? { value: jar[key] } : undefined }) }, '@/lib/site-server': { currentSite: async () => ({ key: 'sanjipick', nameEn: 'SANJI PICK', basePath: '/sanji' }) }, '@/lib/sanji-link': { sanjiLinkBase: async () => '' }, '@/components/HeaderClient': () => null }).default;
-    assert.equal((await header()).props.isAdmin, true);
+    const header = load('components/Header.tsx', { '@/lib/auth': auth, '@/lib/db': mocks['@/lib/db'], 'next/headers': { cookies: async () => ({ get: key => jar[key] ? { value: jar[key] } : undefined }), headers: async () => ({ get: () => '/' }) }, '@/lib/site-server': { currentSite: async () => ({ key: 'sanjipick', nameEn: 'SANJI PICK', basePath: '/sanji' }) }, '@/lib/sanji-link': { sanjiLinkBase: async () => '' }, '@/components/HeaderClient': () => null }).default;
+    assert.equal(await header(), null, 'Page-level header must not duplicate the storefront root header');
+    assert.equal((await header({ storefrontRoot: true })).props.isAdmin, true);
     const res = await login(req('personal@example.com'));
     for (const cookie of res.cookies.getAll()) {
       if (cookie.maxAge === 0) delete jar[cookie.name]; else jar[cookie.name] = cookie.value;
     }
-    assert.equal((await header()).props.isAdmin, false);
+    assert.equal((await header({ storefrontRoot: true })).props.isAdmin, false);
   });
   await test('Kakao personal login clears old admin session', async () => {
     const oldFetch = global.fetch;
