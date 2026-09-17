@@ -78,7 +78,7 @@ export default function SanjiHome({
   const live = useMemo(() => products.filter(p => storefrontSale(p, now) === "open"), [products, now]);
   const upcoming = useMemo(() => products.filter(p => storefrontSale(p, now) === "upcoming").sort((a,b) => Date.parse(a.sale_start_at!) - Date.parse(b.sale_start_at!)), [products, now]);
   const newest = useMemo(() => [...live].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [live]);
-  // 탭 분기 — 카테고리 '산지픽 해산물'만 해산물, 나머지는 농산물 (판매량 순)
+  // 탭 분기 — 기존 해산물 분류를 포함해 수산물로 표시 (판매량 순)
   const produce = useMemo(() => live.filter((p) => sanjiKind(p.category) === "produce").sort((a, b) => b.sold - a.sold), [live]);
   const seafood = useMemo(() => live.filter((p) => sanjiKind(p.category) === "seafood").sort((a, b) => b.sold - a.sold), [live]);
   const deals = useMemo(() => live.filter((p) => pct(p) > 0).sort((a, b) => pct(b) - pct(a)), [live]);
@@ -176,7 +176,6 @@ export default function SanjiHome({
         .sh-ban__track::-webkit-scrollbar{display:none}
         .sh-ban__item{position:relative;flex:0 0 100%;scroll-snap-align:start;overflow:hidden}
         .sh-ban__item img{width:100%;height:auto;object-fit:contain;display:block}.sh-ban__item .ph{min-height:180px}
-        .sh-ban__cnt{display:table;margin:8px auto;color:#fff;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(0,0,0,.35);padding:2px 8px;border-radius:999px}
         .sh-sec{padding:28px 16px 8px}
         .sh-sec__h{display:flex;align-items:baseline;justify-content:space-between}
         .sh-sec__h h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.03em}
@@ -231,7 +230,7 @@ export default function SanjiHome({
       {/* 헤더 + 탭 */}
       <div className="sh-hd">
         <div className="sh-tabs">
-          {["산지직송 추천", "농산물", "해산물"].map((t, i) => (
+          {["산지직송 추천", "농산물", "수산물"].map((t, i) => (
             <button key={t} className={tab === i ? "on" : ""} onClick={() => setTab(i as 0 | 1 | 2)}>{t}</button>
           ))}
         </div>
@@ -246,9 +245,9 @@ export default function SanjiHome({
       )}
       {tab === 2 && (
         <div className="sh-sec">
-          <div className="sh-sec__h"><h2>🐟 바다에서 바로 온 해산물</h2></div>
+          <div className="sh-sec__h"><h2>🐟 바다에서 바로 온 수산물</h2></div>
           <p className="sh-sec__sub">많이 찾는 순 · 항구에서 손질해 바로 발송</p>
-          {seafood.length ? <Grid items={seafood} /> : <div className="sh-empty">해산물은 지금 준비 중이에요<br />바다 산지와 손잡는 대로 이 자리에 올라옵니다</div>}
+          {seafood.length ? <Grid items={seafood} /> : <div className="sh-empty">수산물은 지금 준비 중이에요<br />바다 산지와 손잡는 대로 이 자리에 올라옵니다</div>}
         </div>
       )}
 
@@ -272,10 +271,9 @@ export default function SanjiHome({
                   </a>
                 ))}
               </div></ScrollRail>
-              <div className="sh-ban__dots" aria-hidden>
+              {banners.length > 1 && <div className="sh-ban__dots" aria-hidden>
                 {banners.map((b, i) => <i key={b.productId} className={i === slide ? "on" : ""} />)}
-              </div>
-              <span className="sh-ban__cnt">{slide + 1}/{banners.length}</span>
+              </div>}
             </div>
           )}
 

@@ -49,7 +49,6 @@ export default function ShopHeroBanner() {
 
       <div className="flex items-center justify-center gap-3 py-2" role="group" aria-label="메인 배너 넘기기">
         <button type="button" aria-label="이전 배너" onClick={() => setCurrent(c => (c - 1 + SLIDES.length) % SLIDES.length)} className="w-11 h-11 rounded-full border bg-white text-xl">←</button>
-        <span className="text-sm" aria-live="polite">{current + 1} / {SLIDES.length}</span>
         <button type="button" aria-label="다음 배너" onClick={() => setCurrent(c => (c + 1) % SLIDES.length)} className="w-11 h-11 rounded-full border bg-white text-xl">→</button>
       </div>
       {/* 인디케이터 */}

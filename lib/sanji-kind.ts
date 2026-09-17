@@ -3,7 +3,7 @@
 
 export type SanjiKind = "produce" | "seafood";
 
-export const SANJI_KIND_LABEL: Record<SanjiKind, string> = { produce: "농산물", seafood: "해산물" };
+export const SANJI_KIND_LABEL: Record<SanjiKind, string> = { produce: "농산물", seafood: "수산물" };
 
 export function sanjiKind(category: string | null | undefined): SanjiKind {
   const c = (category || "").replace(/\s+/g, "");

@@ -284,7 +284,6 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-slide>img{display:block;width:100%;height:auto;object-fit:contain}
         .sp-slide>div{width:100%;aspect-ratio:1/1}
         .sp-slider-wrap{position:relative}
-        .sp-count{display:inline-block;margin:0 14px 10px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;font-variant-numeric:tabular-nums}
         .sp-pill{margin:0 14px 10px;display:inline-flex;align-items:center;gap:6px;background:#fff;color:${INK};font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
         .sp-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:${GREEN};box-shadow:0 0 0 3px rgba(255,90,31,.2)}
         .sp-deal{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#E7EFE3;color:${GREEN};font-size:13px;font-weight:700}
@@ -380,7 +379,6 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
             </div>
           ))}
         </div></ScrollRail>
-        {slides.length > 1 && <span className="sp-count">{slide + 1}/{slides.length}</span>}
         {socialPill && <span className="sp-pill">{socialPill}</span>}
         {(soldout || saleState === "ended") && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22, fontWeight: 900, letterSpacing: ".02em" }}>

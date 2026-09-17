@@ -6,7 +6,7 @@ import type { SanjiCard } from "@/lib/sanji-data";
 import { sanjiKind, type SanjiKind } from "@/lib/sanji-kind";
 
 // 산지픽 전체 상품(검색) 페이지 — 메인 돋보기에서 진입. 산지픽 상품만 보여주고, 헤더는 메인과 같은 크기.
-// 상단: 로고 + 검색창 · 칩(전체/농산물/해산물) · 3열 그리드 · 하단 탭바. 카드는 /p/<id> 판매 페이지로.
+// 상단: 로고 + 검색창 · 칩(전체/농산물/수산물) · 3열 그리드 · 하단 탭바. 카드는 /p/<id> 판매 페이지로.
 
 const GREEN = "#2F5D34";
 const CREAM = "#FBF8F1";
@@ -88,7 +88,7 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
           )}
         </div>
         <div className="sc-chips">
-          {([["all", "전체"], ["produce", "농산물"], ["seafood", "해산물"]] as [Filter, string][]).map(([k, label]) => (
+          {([["all", "전체"], ["produce", "농산물"], ["seafood", "수산물"]] as [Filter, string][]).map(([k, label]) => (
             <a key={k} className={filter === k ? "on" : ""} aria-current={filter===k ? "page":undefined} href={linkBase+collectionPath(k==="all"?undefined:k)}>{label}<small>{counts[k]}</small></a>
           ))}
         </div>
@@ -110,7 +110,7 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
           </div>
         ) : (
           <div className="sc-empty">
-            {filter === "seafood" && !q ? <>해산물은 지금 준비 중이에요<br />바다 산지와 손잡는 대로 올라옵니다</> : q ? <>{`'${q}'에 맞는 상품이 아직 없어요`}<br />다른 이름으로 찾아보세요</> : "판매 중인 상품이 없어요"}
+            {filter === "seafood" && !q ? <>수산물은 지금 준비 중이에요<br />바다 산지와 손잡는 대로 올라옵니다</> : q ? <>{`'${q}'에 맞는 상품이 아직 없어요`}<br />다른 이름으로 찾아보세요</> : "판매 중인 상품이 없어요"}
           </div>
         )}
       </div>
