@@ -109,7 +109,7 @@ export default function CartClient() {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-32">
+      <div className="commerce-empty text-center py-32">
         <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>장바구니가 비어있습니다</p>
         <Link href="/products" className="text-sm font-medium underline underline-offset-4" style={{ color: "var(--accent)" }}>
           쇼핑 계속하기
@@ -119,7 +119,7 @@ export default function CartClient() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div className="commerce-cart max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
       <h1 className="text-2xl font-extrabold tracking-tight mb-6" style={{ color: "var(--text-primary)" }}>
         장바구니 <span className="text-base font-medium" style={{ color: "var(--text-muted)" }}>({items.length})</span>
       </h1>
@@ -133,7 +133,7 @@ export default function CartClient() {
           return (
             <div
               key={item.id}
-              className="bg-white rounded-2xl p-4 flex gap-4"
+              className="commerce-cart-item bg-white rounded-2xl p-4 flex gap-4"
               style={{ border: "1px solid var(--line)", opacity: isSoldout ? 0.5 : 1 }}
             >
               <Link href={`/products/${item.product_id}`} className="shrink-0">

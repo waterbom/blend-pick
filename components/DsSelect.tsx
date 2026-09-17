@@ -21,7 +21,7 @@ export default function DsSelect({
   const current = options.find((o) => o.value === value);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="ds-select" style={{ position: "relative" }}>
       <button type="button" onClick={() => setOpen((v) => !v)}
         style={{ width: "100%", height, display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 12, padding: "0 16px", background: "#fff", border: "1px solid #E4E1D6", cursor: "pointer",

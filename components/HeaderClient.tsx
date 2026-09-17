@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SanjiHeader from "@/components/sanji/SanjiHeader";
 import { readGuestCart } from "@/lib/guest-cart";
 import { useSiteKey } from "@/components/SiteContext";
 import { useState, useEffect } from "react";
@@ -75,6 +76,8 @@ export default function HeaderClient({
   const isSanji = site?.key === "sanjipick";
   const navItems = isSanji ? sanjiNavItems(site!.basePath) : NAV_ITEMS;
   const homeHref = isSanji ? site!.basePath || "/" : "/";
+
+  if (isSanji) return <SanjiHeader base={site!.basePath} user={user} isAdmin={isAdmin} cartCount={<CartCount />} />;
 
   return (
     <header

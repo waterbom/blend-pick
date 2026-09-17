@@ -373,17 +373,6 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
 
       {/* 상단 슬라이드 */}
       <div className="sp-slider-wrap">
-        <div className="sp-top">
-          <a className="sp-brand" href={linkBase || "/"}><img src="/sanji/logo-wide.png" alt="산지픽" /></a>
-          <div className="sp-icons">
-            <button className="sp-icon" onClick={share} aria-label="공유">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
-            </button>
-            <a className="sp-icon" href="/cart" aria-label="장바구니">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h2l2.4 12.4a2 2 0 002 1.6h8.9a2 2 0 002-1.6L22 7H6"/><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/></svg>
-            </a>
-          </div>
-        </div>
         <ScrollRail label="상품 사진"><div className="sp-slider" ref={sliderRef} onScroll={onSlideScroll}>
           {slides.map((src, i) => (
             <div key={`${i}-${src}`} className="sp-slide" data-active={i === slide} aria-hidden={i !== slide}>
@@ -416,7 +405,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
 
       {/* 제목·가격 */}
       <div className="sp-head">
-        <div className="sp-brandline">
+        <div className="sp-brandline"><button type="button" className="sp-share" onClick={share} aria-label="상품 공유">공유 ↗</button>
           <span>{product.brand || "산지픽"} · 산지 직송</span>
         </div>
         <h1 className="sp-title">{product.name}</h1>
@@ -435,7 +424,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           <span className="now">{won(price)}</span>
           {product.original_price && product.original_price > price && <span className="was">{won(product.original_price)}</span>}
         </div>
-        {options.length > 0 && <div style={{ marginTop: 12, padding: 12, background: "#E7EFE3", borderRadius: 8, fontSize: 13, lineHeight: 1.6 }}>
+        {options.length > 0 && <div className="sp-option-guide">
           <strong>옵션별 구성·등급과 가격을 확인해주세요</strong>
           <p style={{ margin: "4px 0 8px" }}>상품명과 이미지에는 여러 옵션이 함께 소개될 수 있습니다. 실제 구성·등급은 선택한 옵션을 기준으로 확인해주세요.</p>
           {options.filter(o => o.is_active && o.stock !== 0).map(o => <div key={o.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
@@ -598,7 +587,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       {sheet && (
         <>
           <div className="sp-dim" onClick={() => setSheet(null)} />
-          <div className="sp-sheet" role="dialog" aria-modal>
+          <div className="sp-sheet" role="dialog" aria-modal aria-label="상품 옵션 선택">
+            <button className="sp-sheet-close" type="button" onClick={()=>setSheet(null)} aria-label="옵션 선택 닫기">×</button>
             <div className="grip" />
             <h4>{sheet === "gift" ? "선물하기" : "구매하기"}</h4>
             {sheet === "gift" && <p className="sp-note">결제 단계에서 받는 분 이름·주소를 입력하면 그 주소로 바로 보내드려요.</p>}

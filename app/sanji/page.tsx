@@ -11,7 +11,7 @@ export default async function SanjiRoot() {
   const [products, reviews, linkBase] = await Promise.all([getSanjiProducts(), getSanjiHomeReviews(), sanjiLinkBase()]);
 
   return (
-    <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
+    <main className="sanji-storefront">
       {!products.length && <section data-storefront-state="empty" style={{padding:32,textAlign:"center"}}><h1>판매 준비 중입니다</h1><p>상품이 등록되면 이곳에서 확인하실 수 있어요.</p></section>}
       <SanjiHome
         products={products}

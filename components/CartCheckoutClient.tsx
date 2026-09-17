@@ -235,28 +235,31 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
   const grandTotal = delivery.quote?.totalAmount ?? expectedGoods;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-9">
-      <div>
-        <div className="ds-caption mb-2">CHECKOUT</div>
+    <div className="commerce-checkout">
+      <div className="commerce-heading">
+        <div className="ds-caption mb-2">CHECKOUT / 주문서</div>
         <h1 className="ds-serif text-2xl font-semibold m-0" style={{ color: "#1C2418" }}>주문 / 결제</h1>
+        <p>고른 상품을 확인하고, 받아보실 곳을 알려주세요.</p>
+        <ol className="commerce-progress" aria-label="구매 진행 단계"><li>01 상품 선택</li><li aria-current="step">02 주문·결제</li><li>03 주문 완료</li></ol>
       </div>
 
       {draftNotice&&<p role="status" className="text-sm">{draftNotice}</p>}
-      {draftReady&&<p className="text-xs">배송정보는 이 탭에 30분간 임시저장됩니다. <button type="button" className="underline" onClick={()=>{sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);setForm(prev=>Object.fromEntries(Object.entries(prev).map(([k,v])=>[k,typeof v==='boolean'?false:''])) as typeof prev);setPhoneVerified(false);setPrivacyAgreed(false);setDraftNotice('저장된 배송정보를 지웠습니다.');}}>저장된 정보 지우기</button></p>}
+      {draftReady&&<p className="checkout-draft-note">배송정보는 이 탭에 30분간 임시저장됩니다. <button type="button" className="underline" onClick={()=>{sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);setForm(prev=>Object.fromEntries(Object.entries(prev).map(([k,v])=>[k,typeof v==='boolean'?false:''])) as typeof prev);setPhoneVerified(false);setPrivacyAgreed(false);setDraftNotice('저장된 배송정보를 지웠습니다.');}}>저장된 정보 지우기</button></p>}
       {catalogError&&<p role="alert" className="text-sm text-red-700">{catalogError} <a href="/cart" className="underline">장바구니 확인</a></p>}
       {hasPendingEdits&&<p role="status" className="text-sm">수정한 옵션·수량을 적용하거나 취소한 뒤 결제해주세요.</p>}
+      <div className="commerce-layout"><div className="commerce-fields">
       {/* 상품 목록 요약 */}
-      <section>
+      <section className="checkout-panel">
         <div className="ds-section-title">
-          <span>주문 상품 <span className="ds-mono text-[13px] font-medium" style={{ color: "#7A8B6F" }}>{checkoutData.items.length}건</span></span>
+          <span><i className="checkout-section-number">01</i>주문 상품 <span className="ds-mono text-[13px] font-medium" style={{ color: "#7A8B6F" }}>{checkoutData.items.length}건</span></span>
         </div>
         <div className="space-y-3 pt-5">
           {checkoutData.items.map((item) => {
             const unitPrice = shopUnitPrice(item.price, item.extra_price, item.option_id != null);
             return (
-              <div key={item.id} className="flex gap-3 items-center">
+              <div key={item.id} className="checkout-item">
                 <div
-                  className="w-12 h-12 overflow-hidden shrink-0"
+                  className="checkout-item-image"
                   style={{ border: "1px solid #E4E1D6", background: "var(--cream-dark)" }}
                 >
                   {item.main_image
@@ -269,21 +272,22 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
                   ) : (
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>{item.brand}</p>
                   )}
-                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{item.name}</p>
+                  <p className="checkout-item-name" style={{ color: "var(--text-primary)" }}>{item.name}</p>
                   {!item.is_addon&&<p className="text-xs">{expectedShipLabel(item.expected_ship_date)}</p>}
                   {item.option_value && (
                     <p className="text-xs" style={{ color: "var(--accent)" }}>
                       {optionText(item.option_name, item.option_value)}
                     </p>
                   )}
-                  {!item.is_addon&&<CheckoutItemEditor key={`${item.id}:${item.option_id}:${item.quantity}`} item={item} onDirty={dirty=>{setDirtyItems(prev=>({...prev,[item.id]:dirty}));if(!dirty)setCatalogError('');}} disabled={editing||loading||!catalogReady} onApply={(option,q)=>editItem(item,option,q)}/>}
+
                 </div>
-                <div className="text-right shrink-0">
+                <div className="checkout-item-price">
                   <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                     {(unitPrice * item.quantity).toLocaleString()}원
                   </p>
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>수량 {item.quantity}</p>
                 </div>
+                  {!item.is_addon&&<CheckoutItemEditor key={`${item.id}:${item.option_id}:${item.quantity}`} item={item} onDirty={dirty=>{setDirtyItems(prev=>({...prev,[item.id]:dirty}));if(!dirty)setCatalogError('');}} disabled={editing||loading||!catalogReady} onApply={(option,q)=>editItem(item,option,q)}/>}
               </div>
             );
           })}
@@ -291,18 +295,21 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
       </section>
 
       {/* 구매자 정보 */}
-      <section>
-        <div className="ds-section-title">구매자 정보</div>
-        <div className="space-y-3.5 pt-5">
+      <section className="checkout-panel">
+        <div className="ds-section-title"><span><i className="checkout-section-number">02</i>구매자 정보</span><small>주문 안내를 보내드려요</small></div>
+        <div className="checkout-buyer-grid pt-5">
           {[
             { name: "customerName", label: "이름 *", placeholder: "홍길동" },
             { name: "customerPhone", label: "연락처 *", placeholder: "010-0000-0000" },
             { name: "customerEmail", label: "이메일 (선택)", placeholder: "example@email.com" },
           ].map(({ name, label, placeholder }) => (
-            <div key={name}>
-              <label className="ds-label">{label}</label>
+            <div key={name} className={`checkout-field checkout-field-${name}`}>
+              <label className="ds-label" htmlFor={`checkout-${name}`}>{label}</label>
               <input
+                id={`checkout-${name}`}
                 name={name}
+                type={name === "customerEmail" ? "email" : name === "customerPhone" ? "tel" : "text"}
+                autoComplete={name === "customerName" ? "billing name" : name === "customerPhone" ? "billing tel" : "email"}
                 value={(form as any)[name]}
                 onChange={handleChange}
                 placeholder={placeholder}
@@ -329,9 +336,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
       </section>
 
       {/* 배송지 정보 */}
-      <section>
+      <section className="checkout-panel">
         <div className="ds-section-title">
-          <span>배송 정보</span>
+          <span><i className="checkout-section-number">03</i>배송 정보</span>
           <label className="flex items-center gap-1.5 text-xs font-sans cursor-pointer tracking-normal" style={{ color: "#2D5A27", fontWeight: 600 }}>
             <input type="checkbox" name="sameAsBuyer" checked={form.sameAsBuyer} onChange={handleChange} />
             구매자 정보와 동일
@@ -344,9 +351,12 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
               { name: "shippingPhone", label: "연락처 *", placeholder: "010-0000-0000" },
             ].map(({ name, label, placeholder }) => (
               <div key={name}>
-                <label className="ds-label">{label}</label>
+                <label className="ds-label" htmlFor={`checkout-${name}`}>{label}</label>
                 <input
+                  id={`checkout-${name}`}
                   name={name}
+                  type={name === "shippingPhone" ? "tel" : "text"}
+                  autoComplete={name === "shippingPhone" ? "shipping tel" : "shipping name"}
                   value={(form as any)[name]}
                   onChange={handleChange}
                   placeholder={placeholder}
@@ -379,8 +389,8 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
             <input name="shippingAddress" value={form.shippingAddress} onChange={handleChange} readOnly />
           </div>
           <div>
-            <label className="ds-label">상세주소</label>
-            <input name="shippingAddress2" value={form.shippingAddress2} onChange={handleChange} placeholder="101동 101호" className={inputClass} style={inputStyle} onFocus={focusOn} onBlur={focusOff} />
+            <label className="ds-label" htmlFor="checkout-address2">상세주소</label>
+            <input id="checkout-address2" autoComplete="shipping address-line2" name="shippingAddress2" value={form.shippingAddress2} onChange={handleChange} placeholder="101동 101호" className={inputClass} style={inputStyle} onFocus={focusOn} onBlur={focusOff} />
           </div>
           <div>
             <label className="ds-label">배송 메모</label>
@@ -407,8 +417,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
         </div>
       </section>
 
+      </div>
       {/* 결제 금액 요약 */}
-      <section>
+      <section className="checkout-payment" aria-label="결제 금액 및 동의">
         <div className="ds-card">
           <div className="px-6 py-5 ds-serif font-semibold text-base" style={{ borderBottom: "1px solid #E4E1D6", color: "#1C2418" }}>
             결제 금액
@@ -420,9 +431,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
           </div>
           <ShippingQuoteSummary quote={delivery.quote} error={delivery.error} retry={()=>{void delivery.refresh().catch(()=>{});}} />
           </div>
-          <div className="flex items-center justify-between px-6 py-5" style={{ background: "#1C2418" }}>
+          <div className="checkout-grand-total" style={{ background: "#1C2418" }}>
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 500,
-              letterSpacing: "0.3em", color: "#9FBF93" }}>TOTAL — 총 결제 금액</span>
+              letterSpacing: "0.04em", color: "#9FBF93" }}>TOTAL — 총 결제 금액</span>
             {delivery.ready?<RollingWon value={grandTotal} size={28} />:<span className="text-white text-sm">배송지 확인 후 확정</span>}
           </div>
         </div>
@@ -440,10 +451,12 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
         >
           {loading ? "처리 중..." : !delivery.ready?"배송비 확인 대기":`${grandTotal.toLocaleString()}원 결제하기`}
         </button>
+        <p className="checkout-payment-note">주문 정보를 확인한 후 결제창으로 이동합니다.<br/>결제 완료 후 주문 내역에서 배송 상태를 확인할 수 있어요.</p>
         {errors.pay && (
           <p className="mt-2 text-xs text-center" style={{ color: "#B4423C" }}>{errors.pay}</p>
         )}
       </section>
+      </div>
     </div>
   );
 }

@@ -68,7 +68,7 @@ export default function PhoneVerifyField({
   }
 
   return (
-    <div className="mt-1.5 space-y-2">
+    <div className="phone-verify mt-1.5 space-y-2">
       <button
         type="button"
         onClick={sendCode}

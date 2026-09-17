@@ -78,14 +78,6 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
       `}</style>
 
       <div className="sc-hd">
-        <div className="sc-hd__row">
-          <a href={linkBase || "/"} className="sc-logo" aria-label="산지픽 홈"><img src="/sanji/logo-wide.png" alt="산지픽 SANJI PICK" /></a>
-          <div className="sc-hd__icons">
-            <a href="/cart" aria-label="장바구니">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h2l2.4 12.4a2 2 0 002 1.6h8.9a2 2 0 002-1.6L22 7H6"/><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/></svg>
-            </a>
-          </div>
-        </div>
         <div className="sc-search">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="찾는 산지 상품이 있나요?" autoFocus={!initialQuery} enterKeyHint="search" />

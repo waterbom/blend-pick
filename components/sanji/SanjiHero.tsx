@@ -83,12 +83,11 @@ export default function SanjiHero({ homeHref = "/" }: { homeHref?: string }) {
         <div className="sj-hero__veil" />
       </div>
 
-      <header className="sj-hero__top">
-        <a className="sj-brand" href={homeHref} aria-label="산지픽 홈으로"><img src="/sanji/logo-wide.png" alt="산지픽" /></a>
+      <div className="sj-hero__top">
         <div className="sj-badges">
           {BADGES.map((b) => <Badge key={b.short} {...b} />)}
         </div>
-      </header>
+      </div>
 
       <div className="sj-hero__copy">
         <h1 className="sj-headline">

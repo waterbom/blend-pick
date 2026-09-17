@@ -39,7 +39,7 @@ export default async function SanjiProductPage({
   const [data, linkBase] = await Promise.all([loadSanjiSalesPage(id, inf, k), sanjiLinkBase()]);
   if (!data) notFound();
   return (
-    <main style={{ background: "#EFE9DC", minHeight: "100svh" }}>
+    <main className="sanji-storefront">
       <SanjiSalesPage {...data} kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={linkBase} />
       <ProductSearchSummary product={data.product} site="sanjipick" options={data.options} secret={k !== undefined} />
     </main>

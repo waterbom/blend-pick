@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import GlobalFloating from "@/components/GlobalFloating";
 import Footer from "@/components/Footer";
+import Header from "@/components/Header";
+import "./storefront.css";
 import InfRefCookie from "@/components/InfRefCookie";
 import { SiteProvider } from "@/components/SiteContext";
 import MetaPixel from "@/components/MetaPixel";
@@ -71,6 +73,7 @@ export default async function RootLayout({
           <InfRefCookie />
           <MetaPixel />
           {process.env.ANALYTICS_ENABLED === "true" && <VisitAnalytics />}
+          {site.key === "sanjipick" && <Header storefrontRoot />}
           {children}
           <Footer />
           <GlobalFloating />

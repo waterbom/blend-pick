@@ -77,7 +77,7 @@ export default function OrderLookupClient() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+    <div className="commerce-lookup max-w-2xl mx-auto px-4 sm:px-6 py-10">
       <div className="ds-caption mb-2">ORDER LOOKUP</div>
       <h1 className="ds-serif text-2xl font-semibold m-0 mb-6" style={{ color: "#1C2418" }}>주문 조회</h1>
 
@@ -86,8 +86,11 @@ export default function OrderLookupClient() {
           <p className="text-[13px] mb-4" style={{ color: "#6B7263" }}>
             {isSanji ? "주문할 때 입력한 휴대폰 번호로 인증하면 산지픽 주문·배송 내역을 볼 수 있어요." : "주문할 때 입력한 휴대폰 번호로 인증하면, 그 번호로 결제한 주문·예약 내역을 한 번에 볼 수 있어요."}
           </p>
-          <label className="ds-label">휴대폰 번호</label>
+          <label className="ds-label" htmlFor="lookup-phone">휴대폰 번호</label>
           <input
+            id="lookup-phone"
+            type="tel"
+            autoComplete="tel"
             value={phone}
             onChange={(e) => { setPhone(e.target.value); setVerified(false); }}
             placeholder="010-0000-0000"
