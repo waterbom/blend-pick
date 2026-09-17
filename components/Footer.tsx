@@ -6,7 +6,7 @@ export default async function Footer() {
   const site = await currentSite();
   const sanji = site.key === "sanjipick";
   return (
-    <footer className={`mt-auto border-t ${sanji ? "sanji-footer" : ""}`} style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+    <footer className={`mt-auto border-t ${sanji ? "sanji-footer" : ""}`} style={{ borderColor: "var(--line)", background: "var(--background)" }}>
       <div className="container-blend py-10">
         <div className="flex flex-col gap-6 text-left">
           {/* 브랜드 */}

@@ -85,7 +85,7 @@ export default async function MyPage({searchParams=Promise.resolve({})}:{searchP
   const roleInfo = ROLE_LABEL[user.role] ?? ROLE_LABEL.customer;
 
   return (
-    <main className="min-h-screen" style={{ background: "var(--background)" }}>
+    <main className="commerce-account min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-12 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-8 md:gap-12 items-start">

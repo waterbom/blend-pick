@@ -82,7 +82,7 @@ export default function HeaderClient({
   return (
     <header
       className="sticky top-0 z-50 border-b"
-      style={{ background: isSanji ? "rgba(251,248,241,0.9)" : "rgba(255,255,255,0.85)", backdropFilter: "saturate(180%) blur(12px)", WebkitBackdropFilter: "saturate(180%) blur(12px)", borderColor: "var(--line)" }}
+      style={{ background: isSanji ? "rgba(251,248,241,0.9)" : "color-mix(in srgb, var(--background) 94%, transparent)", backdropFilter: "saturate(180%) blur(12px)", WebkitBackdropFilter: "saturate(180%) blur(12px)", borderColor: "var(--line)" }}
     >
       {/*
         기존: 2줄 헤더 (로고+로그인 / 햄버거+네비)
