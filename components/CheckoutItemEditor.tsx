@@ -6,7 +6,9 @@ export default function CheckoutItemEditor({item,disabled,onApply,onDirty}:{item
  return <div className="checkout-item-editor">
  {item.availableOptions?.length>0&&<select aria-label={`${item.name} 옵션 변경`} className="checkout-option-input" disabled={disabled} value={option} onChange={e=>{setOption(e.target.value);onDirty(e.target.value!==(item.option_id||'')||quantity!==String(item.quantity));}}>{item.availableOptions.map((o:any)=><option key={o.id} value={o.id}>{optionText(o.name,o.value)} · {o.price.toLocaleString()}원</option>)}</select>}
  <input aria-label={`${item.name} 수량 변경`} className="checkout-quantity-input" type="number" min={1} max={999} disabled={disabled} value={quantity} onChange={e=>{setQuantity(e.target.value);onDirty(option!==(item.option_id||'')||e.target.value!==String(item.quantity));}}/>
+ <div className="checkout-editor-actions">
  <button type="button" className="checkout-edit-button" disabled={disabled||!Number.isSafeInteger(Number(quantity))||Number(quantity)<1||Number(quantity)>999} onClick={()=>onApply(option||null,Number(quantity))}>변경 적용</button>
  <button type="button" className="checkout-edit-cancel" disabled={disabled} onClick={()=>{setOption(item.option_id||'');setQuantity(String(item.quantity));onDirty(false);}}>변경 취소</button>
+ </div>
  </div>;
 }
