@@ -78,7 +78,7 @@ export function StayFees({ compact = false }: { compact?: boolean }) {
   if (compact) return <p className="dgs-fee-note">6인 초과 1인 {won(c.extraGuestFee)} / {c.extraGuestUnit === 'perNight' ? '1박' : '예약'} · 침구 포함<br/>시설 보증금 {won(c.depositAmount)} · 계좌이체 별도 납부</p>;
   return <dl className="dgs-fees">
     <div><dt>추가 인원 <small>6인 초과 · 침구 포함</small></dt><dd>{won(c.extraGuestFee)}<small>1인 / {c.extraGuestUnit === 'perNight' ? '1박' : '예약'}</small></dd></div>
-    <div><dt>바비큐 세팅 <small>선택 옵션 · 예약당 1회</small></dt><dd>{won(c.bbqFee)}</dd></div>
+    <div><dt>바비큐 세팅 <small>6인 기준 · 선택 옵션 · 예약당 1회</small></dt><dd>{won(c.bbqFee)}</dd></div>
     <div><dt>64인치 모니터 <small>선택 옵션 · 예약당 1회</small></dt><dd>{won(c.monitorFee)}</dd></div>
     <div><dt>시설 보증금 <small>숙박 결제금액에 미포함</small></dt><dd>{won(c.depositAmount)}<small>계좌이체 별도 납부</small></dd></div>
   </dl>;
