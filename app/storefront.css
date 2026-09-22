@@ -1,4 +1,21 @@
 /* Customer storefront surfaces. Admin and accommodation layouts retain their own themes. */
+/* Quiet paper-like mats: decoration stays behind uncropped artwork, never above it. */
+.sanji-storefront .sh-ban__track,
+.sanji-storefront .sp-slider {
+  background:
+    radial-gradient(ellipse 58% 90% at -12% 100%, transparent 68%, #7c937614 68.3%, #7c937614 68.6%, transparent 69%),
+    radial-gradient(ellipse 58% 90% at 112% 0%, transparent 68%, #a9936814 68.3%, #a9936814 68.6%, transparent 69%),
+    radial-gradient(ellipse at 0% 100%, #e6eddf 0%, transparent 60%),
+    radial-gradient(ellipse at 100% 0%, #f0eadb 0%, transparent 60%),
+    #faf8f1;
+  box-shadow: inset 0 0 0 1px #7685670d;
+}
+.sanji-storefront .sh-bigcard .th,
+.sanji-storefront .sh-card .th,
+.sanji-shell .sc-card .th,
+.sanji-storefront .sp-card .th {
+  background: linear-gradient(135deg, #f7f5ed, #f0f3e9);
+}
 .sj-header{--sj-ink:#254c34;position:sticky;top:0;z-index:60;background:rgba(255,253,248,.97);border-bottom:1px solid #e7e9df;backdrop-filter:blur(18px);box-shadow:0 3px 18px #213e2905;color:var(--sj-ink)}
 .sj-header-inner{height:84px;max-width:1168px;padding:0 24px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:24px}
 .sj-header-brand{display:flex;align-items:center;gap:17px;flex-shrink:0;text-decoration:none}.sj-header-brand img{display:block;width:64px;height:58px;object-fit:contain}.sj-header-brand>span{font-size:10px;line-height:1.7;letter-spacing:-.02em;border-left:1px solid #dce3d6;padding-left:17px;color:#77836d}.sj-header-brand b{font-weight:600;color:#3c5842}
