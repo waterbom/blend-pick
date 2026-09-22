@@ -366,7 +366,7 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
           </div>
         </div>
         {/* 처리 큐 — 대시보드 KPI 타일과 같은 격자 */}
-        <div className="grid grid-cols-3 gap-px" style={{ background: "#E2E2DC", border: "1px solid #E2E2DC" }}>
+        <div className="commerce-order-queues">
           {[{key:"check",label:"신규 확인",sub:"결제·배송 정보 점검"},{key:"ready",label:"발주 대기",sub:"검증 완료 · 발주 확정"},{key:"requests",label:"고객 요청",sub:"취소 · 교환 · 반품"}].map(t=>{
             const on = queue===t.key; const n = orders.filter(o=>orderQueue(o)===t.key).length;
             return (
