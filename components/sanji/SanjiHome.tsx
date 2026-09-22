@@ -169,13 +169,13 @@ export default function SanjiHome({
         .sh-tabs button.on{color:${GREEN}}
         .sh-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:${GREEN}}
         .sh-ban{position:relative;margin-top:14px}
-        .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;align-items:flex-start;background:#E9E4D6}
+        .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:4/3;max-height:465px;background:#E9E4D6}
         .sh-ban__dots{margin:8px 0;display:flex;justify-content:center;gap:6px;pointer-events:none}
         .sh-ban__dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(0,0,0,.08);transition:width .2s,background .2s}
         .sh-ban__dots i.on{width:18px;border-radius:3px;background:#fff}
         .sh-ban__track::-webkit-scrollbar{display:none}
-        .sh-ban__item{position:relative;flex:0 0 100%;scroll-snap-align:start;overflow:hidden}
-        .sh-ban__item img{width:100%;height:auto;object-fit:contain;display:block}.sh-ban__item .ph{min-height:180px}
+        .sh-ban__item{position:relative;flex:0 0 100%;min-width:0;min-height:0;scroll-snap-align:start;overflow:hidden}
+        .sh-ban__item img,.sh-ban__item>div[aria-hidden="true"]{position:absolute;inset:0;width:100%;height:100%;padding:8px;object-fit:contain;object-position:center;display:block}
         .sh-sec{padding:28px 16px 8px}
         .sh-sec__h{display:flex;align-items:baseline;justify-content:space-between}
         .sh-sec__h h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.03em}
@@ -183,24 +183,25 @@ export default function SanjiHome({
         .sh-sec__sub{margin:4px 0 14px;font-size:14px;color:#777}
         .sh-big{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px 4px;scroll-snap-type:x mandatory;scroll-padding:0 16px}
         .sh-big::-webkit-scrollbar{display:none}
-        .sh-bigcard{flex:0 0 78%;scroll-snap-align:start}
+        .sh-bigcard{flex:0 0 78%;min-width:0;scroll-snap-align:start}
         .sh-bigcard:last-child{margin-right:16px}
-        .sh-bigcard .th{position:relative;border-radius:14px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
-        .sh-bigcard .th>div[aria-hidden="true"],.sh-card .th>div[aria-hidden="true"]{aspect-ratio:1/1}
-        .sh-bigcard .th img{width:100%;height:auto;object-fit:contain;display:block}
+        .sh-bigcard .th{position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
+        .sh-bigcard .th>div[aria-hidden="true"],.sh-card .th>div[aria-hidden="true"]{position:absolute;inset:0}
+        .sh-bigcard .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
         .sh-bigcard .pill{display:inline-flex;max-width:100%;margin-top:10px;align-items:center;gap:6px;background:#2F5D34;color:#fff;font-size:13px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:normal}
         .sh-bigcard .pill::before{content:"%";display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${GREEN};font-size:10px}
         .sh-bigcard .left{display:flex;align-items:center;gap:5px;margin-top:12px;font-size:13px;color:#777}
-        .sh-bigcard .ttl{margin-top:8px;font-size:18px;font-weight:800;line-height:1.45;word-break:keep-all}
+        .sh-bigcard .ttl{min-height:2.9em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:8px;font-size:18px;font-weight:800;line-height:1.45;word-break:keep-all}
         .sh-bigcard .ttl span{background:linear-gradient(transparent 55%,#DCEBD6 55%)}
         .sh-bigcard .pr{margin-top:8px;font-size:22px;font-weight:900;font-variant-numeric:tabular-nums}
         .sh-bigcard .pr em{font-style:normal;color:${GREEN};margin-right:6px}
         .sh-bigcard .br{margin-top:2px;font-size:13px;color:#777}
         .sh-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 10px}
-        .sh-card .th{position:relative;border-radius:10px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
-        .sh-card .th img{width:100%;height:auto;object-fit:contain;display:block}
+        .sh-card{min-width:0}
+        .sh-card .th{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
+        .sh-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
         .sh-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
-        .sh-card .nm{margin-top:8px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .sh-card .nm{min-height:2.8em;margin-top:8px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .sh-card .pr{margin-top:4px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
         .sh-card .pr em{font-style:normal;color:${GREEN};margin-right:4px}
         .sh-row{display:flex;gap:12px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px 4px;scroll-padding:0 16px}

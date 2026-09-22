@@ -141,6 +141,18 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
   const [descOpen, setDescOpen] = useState(false);
   const [shownReviews, setShownReviews] = useState(5);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const lightboxRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = lightboxRef.current;
+    if (!lightbox || !dialog) return;
+    dialog.showModal();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [lightbox]);
   const [toast, setToast] = useState("");
   const flash = (m: string) => {
     setToast(m);
@@ -277,12 +289,12 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-brand img{height:34px;width:auto;display:block}
         .sp-icons{display:flex;gap:8px}
         .sp-icon{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.45);border:0;color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
-        .sp-slider{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:flex-start;background:#E9E4D6}
+        .sp-slider{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:1/1;max-height:min(560px,60svh);background:#E9E4D6}
         .sp-slider::-webkit-scrollbar{display:none}
-        .sp-slide{flex:0 0 100%;scroll-snap-align:start;width:100%;min-width:0;height:0;overflow:visible}
-        .sp-slide[data-active="true"]{height:auto}
-        .sp-slide>img{display:block;width:100%;height:auto;object-fit:contain}
-        .sp-slide>div{width:100%;aspect-ratio:1/1}
+        .sp-slide{position:relative;flex:0 0 100%;scroll-snap-align:start;width:100%;min-width:0;min-height:0;overflow:hidden;border:0;padding:0;background:none;cursor:zoom-in}
+        .sp-slide>img,.sp-slide>div{position:absolute;inset:0;display:block;width:100%;height:100%;padding:8px;object-fit:contain;object-position:center}
+        .sp-slide:focus-visible{outline:2px solid ${GREEN};outline-offset:-4px}
+        .sp-photo-hint{margin:4px 16px 12px;text-align:center;font-size:12px;color:#65725F}
         .sp-slider-wrap{position:relative}
         .sp-pill{margin:0 14px 10px;display:inline-flex;align-items:center;gap:6px;background:#fff;color:${INK};font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
         .sp-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:${GREEN};box-shadow:0 0 0 3px rgba(255,90,31,.2)}
@@ -323,11 +335,11 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding:0 16px 4px;margin:0 -16px}
         .sp-row::-webkit-scrollbar{display:none}
         .sp-card{flex:0 0 132px;text-decoration:none;color:inherit}
-        .sp-card .th{width:132px;border-radius:10px;overflow:hidden;background:#f3f1ec;position:relative}
-        .sp-card .th>div[aria-hidden="true"]{aspect-ratio:1/1}
-        .sp-card .th img{width:100%;height:auto;object-fit:contain;display:block}
+        .sp-card .th{width:132px;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#f3f1ec;position:relative}
+        .sp-card .th>div[aria-hidden="true"]{position:absolute;inset:0}
+        .sp-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
         .sp-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
-        .sp-card .nm{font-size:12px;line-height:1.4;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#333}
+        .sp-card .nm{min-height:2.8em;font-size:12px;line-height:1.4;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#333}
         .sp-card .pr{margin-top:4px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
         .sp-card .pr em{font-style:normal;color:${GREEN};margin-right:4px}
         .sp-rvsum{display:flex;align-items:center;gap:12px;padding:12px 14px;background:${BAND};border-radius:10px;margin-bottom:14px}
@@ -365,8 +377,13 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-total b{font-size:20px;color:${INK};font-variant-numeric:tabular-nums}
         .sp-note{font-size:12px;color:${MUTED};margin:0 0 10px;line-height:1.5}
         .sp-toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);z-index:40;background:rgba(0,0,0,.8);color:#fff;font-size:13px;padding:10px 16px;border-radius:999px;white-space:nowrap}
-        .sp-lb{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:20px}
-        .sp-lb img{max-width:100%;max-height:100%;object-fit:contain}
+        .sp-lb{position:fixed;inset:0;z-index:50;width:calc(100% - 24px);max-width:960px;height:calc(100svh - 24px);max-height:none;margin:auto;padding:0;border:0;border-radius:12px;background:#fffdf8;color:${INK};overflow:hidden}
+        .sp-lb[open]{display:flex;flex-direction:column}
+        .sp-lb::backdrop{background:rgba(0,0,0,.85)}
+        .sp-lb__head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:8px 12px;border-bottom:1px solid ${LINE};font-size:14px}
+        .sp-lb__head button{min-width:44px;min-height:44px;border:1px solid ${LINE};border-radius:8px;background:#fff;color:${INK}}
+        .sp-lb__body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px}
+        .sp-lb img{display:block;width:100%;height:auto;max-width:100%;margin:auto}
         @keyframes sp-up{from{transform:translate(-50%,40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
       `}</style>
 
@@ -374,11 +391,13 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       <div className="sp-slider-wrap">
         <ScrollRail label="상품 사진"><div className="sp-slider" ref={sliderRef} onScroll={onSlideScroll}>
           {slides.map((src, i) => (
-            <div key={`${i}-${src}`} className="sp-slide" data-active={i === slide} aria-hidden={i !== slide}>
+            <button type="button" key={`${i}-${src}`} className="sp-slide" data-active={i === slide} aria-hidden={i !== slide}
+              tabIndex={i === slide ? 0 : -1} disabled={!src} onClick={() => setLightbox(src)} aria-label={`${product.name} 사진 ${i + 1} 크게 보기`}>
               <Img src={src} alt={`${product.name} ${i + 1}`} />
-            </div>
+            </button>
           ))}
         </div></ScrollRail>
+        {images.length > 0 && <p className="sp-photo-hint">사진을 누르면 크게 볼 수 있어요</p>}
         {socialPill && <span className="sp-pill">{socialPill}</span>}
         {(soldout || saleState === "ended") && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22, fontWeight: 900, letterSpacing: ".02em" }}>
@@ -642,9 +661,11 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
 
       {toast && <div className="sp-toast">{toast}</div>}
       {lightbox && (
-        <div className="sp-lb" onClick={() => setLightbox(null)}>
-          <img src={lightbox} alt="후기 사진" />
-        </div>
+        <dialog ref={lightboxRef} className="sp-lb" aria-label="사진 크게 보기" onClose={() => setLightbox(null)}
+          onClick={(event) => { if (event.target === event.currentTarget) setLightbox(null); }}>
+          <div className="sp-lb__head"><span>사진 크게 보기</span><button type="button" autoFocus onClick={() => setLightbox(null)}>닫기</button></div>
+          <div className="sp-lb__body"><img src={lightbox} alt="확대 사진" /></div>
+        </dialog>
       )}
     </div>
   );

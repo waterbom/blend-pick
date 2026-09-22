@@ -54,21 +54,22 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
         .sc-logo img{height:52px;width:auto;display:block}
         .sc-hd__icons{display:flex;gap:18px;color:${INK}}
         .sc-search{display:flex;align-items:center;gap:8px;margin:4px 16px 10px;height:44px;padding:0 14px;border-radius:12px;background:#fff;border:1px solid ${LINE}}
-        .sc-search input{flex:1;border:0;outline:0;background:none;font-size:15px;color:${INK}}
+        .sc-search input{flex:1;min-width:0;border:0;outline:0;background:none;font-size:15px;color:${INK}}
         .sc-search input::placeholder{color:#A9A9A9}
         .sc-search button{border:0;background:none;color:${MUTED};padding:0;display:flex;cursor:pointer}
-        .sc-chips{display:flex;gap:8px;padding:0 16px 12px;border-bottom:1px solid ${LINE}}
+        .sc-chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 12px;border-bottom:1px solid ${LINE}}
         .sc-chips a{display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:999px;border:1px solid ${LINE};background:#fff;font-size:13px;font-weight:600;color:#6B7266;cursor:pointer}
         .sc-chips button.on{background:${GREEN};border-color:${GREEN};color:#fff}
         .sc-chips button small{font-weight:500;opacity:.75;margin-left:4px}
         .sc-sec{padding:18px 16px 8px}
         .sc-sub{margin:0 0 14px;font-size:13px;color:${MUTED}}
         .sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 10px}
-        .sc-card .th{position:relative;border-radius:10px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
-        .sc-card .th>div[aria-hidden="true"]{aspect-ratio:1/1}
-        .sc-card .th img{width:100%;height:auto;object-fit:contain;display:block}
+        .sc-card{min-width:0}
+        .sc-card .th{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#E9E4D6;border:1px solid ${LINE}}
+        .sc-card .th>div[aria-hidden="true"]{position:absolute;inset:0}
+        .sc-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
         .sc-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
-        .sc-card .nm{margin-top:8px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .sc-card .nm{min-height:2.8em;margin-top:8px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .sc-card .pr{margin-top:4px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
         .sc-card .pr em{font-style:normal;color:${GREEN};margin-right:4px}
         .sc-empty{padding:48px 0;text-align:center;font-size:13px;color:${MUTED};line-height:1.7}
