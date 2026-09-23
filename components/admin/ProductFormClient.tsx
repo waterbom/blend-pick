@@ -13,9 +13,9 @@ import { shrinkImage, uploadErrorMessage } from "@/lib/client-image";
 
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
-interface OptionRow { id?: string; name: string; price: string; stock: string; active: boolean; sel: boolean; supply: string; linkPrice?: string; }
+interface OptionRow { rowKey?: string; id?: string; name: string; price: string; stock: string; active: boolean; sel: boolean; supply: string; linkPrice?: string; }
 // 추가옵션(추가상품): 메인 구매 시 함께 살 수 있는 부가상품
-interface AddonRow { supply: string; name: string; price: string; active: boolean; }
+interface AddonRow { rowKey?: string; supply: string; name: string; price: string; active: boolean; }
 
 const STEP_TITLES = ["기본 정보", "가격·옵션·재고", "배송·반품", "전시·링크", "최종 확인"];
 const StepContext = createContext(0);
@@ -202,6 +202,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
         if(mode === "edit")setLoadedVersion(data.updated_at??null);
         setOptions(
           (data.options ?? []).map((o: { id?: string; name: string; price: number; stock: number; active?: boolean; supply_price?: number | null; link_price?: number | null }) => ({
+            rowKey: crypto.randomUUID(),
             id: opts?.stripTagPrefix ? undefined : o.id,
             linkPrice: o.link_price != null ? String(o.link_price) : "",
             name: o.name, price: String(o.price), stock: String(o.stock),
@@ -211,7 +212,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
         );
         setAddons(
           (data.addons ?? []).map((a: { name: string; price: number; active?: boolean; supply_price?: number | null }) => ({
-            name: a.name, price: String(a.price), supply: a.supply_price == null ? "" : String(a.supply_price), active: a.active !== false,
+            rowKey: crypto.randomUUID(), name: a.name, price: String(a.price), supply: a.supply_price == null ? "" : String(a.supply_price), active: a.active !== false,
           }))
         );
         setAddonMulti(data.addon_multi !== false);
@@ -317,8 +318,17 @@ export default function ProductFormClient({ mode, productId }: Props) {
     setUploadingSlot(null);
   }
 
+  const optionDrag = useRef<number | null>(null);
+  const addonDrag = useRef<number | null>(null);
+  function moveOption(from: number, to: number) {
+    setOptions(rows => moveRow(rows, from, to));
+  }
+  function moveAddon(from: number, to: number) {
+    setAddons(rows => moveRow(rows, from, to));
+  }
+
   function addOption() {
-    setOptions(opts => [...opts, { name: "", price: "", stock: "", active: true, sel: false, supply: "" }]);
+    setOptions(opts => [...opts, { rowKey: crypto.randomUUID(), name: "", price: "", stock: "", active: true, sel: false, supply: "" }]);
     setStockConfirmed(false);
   }
   function removeOption(i: number) {
@@ -361,7 +371,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   // ── 추가옵션(추가상품) ──
   function addAddon() {
-    setAddons(a => [...a, { name: "", price: "", supply: "", active: true }]);
+    setAddons(a => [...a, { rowKey: crypto.randomUUID(), name: "", price: "", supply: "", active: true }]);
   }
   function removeAddon(i: number) {
     setAddons(a => a.filter((_, idx) => idx !== i));
@@ -1055,14 +1065,15 @@ export default function ProductFormClient({ mode, productId }: Props) {
                   </div>
                 </div>
               )}
-              <div className="space-y-2">
-                <div className="grid grid-cols-[24px_1fr_90px_90px_70px_92px_28px] gap-2 text-xs text-gray-400 items-center">
-                  <input type="checkbox" checked={allSelected} onChange={toggleSelAll}
+              <div className="space-y-2 overflow-x-auto">
+                <p className="text-xs text-gray-500">왼쪽 손잡이를 드래그하거나 화살표로 순서를 바꿀 수 있어요. 변경 후 마지막 단계에서 저장해주세요.</p>
+                <div className="grid grid-cols-[84px_24px_minmax(140px,1fr)_90px_90px_70px_92px_28px] gap-2 text-xs text-gray-400 items-center">
+                  <span>순서</span><input type="checkbox" checked={allSelected} onChange={toggleSelAll}
                     className="w-4 h-4 accent-[#2D5A27] cursor-pointer" title="전체 선택/해제" />
                   <span>옵션명</span><span>옵션 가격</span><span>공급가</span><span>재고</span><span>판매상태</span><span />
                 </div>
                 {options.map((opt, i) => (
-                  <div key={i} className="grid grid-cols-[24px_1fr_90px_90px_70px_92px_28px] gap-2 items-center">
+                  <OptionOrderRow key={opt.rowKey ?? opt.id ?? i} index={i} count={options.length} label={opt.name || `옵션 ${i + 1}`} drag={optionDrag} onMove={moveOption} className="grid grid-cols-[84px_24px_minmax(140px,1fr)_90px_90px_70px_92px_28px] gap-2 items-center">
                     <input type="checkbox" checked={opt.sel} onChange={() => toggleSel(i)}
                       className="w-4 h-4 accent-[#2D5A27] cursor-pointer" />
                     <input value={opt.name} onChange={e => setOption(i, "name", e.target.value)}
@@ -1084,7 +1095,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                     </button>
                     <button type="button" onClick={() => removeOption(i)}
                       className="text-red-400 hover:text-red-600 text-xs font-bold">✕</button>
-                  </div>
+                  </OptionOrderRow>
                 ))}
               </div>
               <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
@@ -1117,12 +1128,13 @@ export default function ProductFormClient({ mode, productId }: Props) {
             <p className="text-sm text-gray-300 py-2">등록된 추가옵션이 없어요. "+ 추가옵션"으로 추가하세요.</p>
           ) : (
             <>
-              <div className="space-y-2">
-                <div className="grid grid-cols-[1fr_100px_100px_92px_28px] gap-2 text-xs text-gray-400">
-                  <span>추가옵션명</span><span>추가금액(원)</span><span>공급가(원)</span><span>판매상태</span><span />
+              <div className="space-y-2 overflow-x-auto">
+                <p className="text-xs text-gray-500">왼쪽 손잡이를 드래그하거나 화살표로 순서를 바꿀 수 있어요. 변경 후 마지막 단계에서 저장해주세요.</p>
+                <div className="grid grid-cols-[84px_minmax(140px,1fr)_100px_100px_92px_28px] gap-2 text-xs text-gray-400">
+                  <span>순서</span><span>추가옵션명</span><span>추가금액(원)</span><span>공급가(원)</span><span>판매상태</span><span />
                 </div>
                 {addons.map((ad, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_100px_100px_92px_28px] gap-2 items-center">
+                  <OptionOrderRow key={ad.rowKey ?? i} index={i} count={addons.length} label={ad.name || `추가옵션 ${i + 1}`} drag={addonDrag} onMove={moveAddon} className="grid grid-cols-[84px_minmax(140px,1fr)_100px_100px_92px_28px] gap-2 items-center">
                     <input value={ad.name} onChange={e => setAddon(i, "name", e.target.value)}
                       className={inp} placeholder="예: 아이스팩 추가" />
                     <input value={ad.price} onChange={e => setAddon(i, "price", e.target.value)}
@@ -1139,7 +1151,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                     </button>
                     <button type="button" onClick={() => removeAddon(i)}
                       className="text-red-400 hover:text-red-600 text-xs font-bold">✕</button>
-                  </div>
+                  </OptionOrderRow>
                 ))}
               </div>
               <label className="flex items-center gap-2 pt-3 mt-1 border-t border-gray-100 cursor-pointer">
@@ -1472,4 +1484,36 @@ function Section({ title, action, children }: { title: string; action?: React.Re
 
 function Grid2({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={`grid grid-cols-2 gap-4 ${className ?? ""}`}>{children}</div>;
+}
+
+// Move the whole row so its identity, price, stock and selection travel together.
+function moveRow<T>(rows: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) return rows;
+  const next = [...rows];
+  next.splice(to, 0, next.splice(from, 1)[0]);
+  return next;
+}
+
+function OptionOrderRow({ index, count, label, drag, onMove, className, children }: {
+  index: number; count: number; label: string;
+  drag: React.RefObject<number | null>;
+  onMove: (from: number, to: number) => void;
+  className: string; children: React.ReactNode;
+}) {
+  const [over, setOver] = useState(false);
+  return <div className={className} style={{ outline: over ? "2px solid #8ca879" : undefined, outlineOffset: 2 }}
+    onDragOver={e => { if (drag.current !== null) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOver(drag.current !== index); } }}
+    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false); }}
+    onDrop={e => { if (drag.current !== null) { e.preventDefault(); onMove(drag.current, index); drag.current = null; } setOver(false); }}>
+    <div className="flex items-center gap-1">
+      <button type="button" draggable aria-label={`${label} 순서 이동 손잡이`} title="드래그하여 순서 변경 (키보드: Alt + 위/아래)"
+        className="cursor-grab active:cursor-grabbing px-1 py-2 text-gray-400"
+        onDragStart={e => { drag.current = index; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(index)); }}
+        onDragEnd={() => { drag.current = null; setOver(false); }}
+        onKeyDown={e => { if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); onMove(index, index + (e.key === "ArrowUp" ? -1 : 1)); } }}>⠿</button>
+      <button type="button" aria-label={`${label} 위로 이동`} disabled={index === 0} onClick={() => onMove(index, index - 1)} className="px-1 py-2 disabled:opacity-25">↑</button>
+      <button type="button" aria-label={`${label} 아래로 이동`} disabled={index === count - 1} onClick={() => onMove(index, index + 1)} className="px-1 py-2 disabled:opacity-25">↓</button>
+    </div>
+    {children}
+  </div>;
 }
