@@ -1,5 +1,7 @@
 'use client';
 import { useRef,useState } from 'react';
+import { commerceParams } from '@/lib/analytics';
+import { useMetaEvent } from '@/lib/use-meta-event';
 import DangungPolicies from './Policies';
 import BookingCalendar from './Calendar';
 import PaymentSummary from './PaymentSummary';
@@ -16,6 +18,8 @@ export default function DangungBooking({clientKey}:{clientKey:string}){
  const [error,setError]=useState(''),[month,setMonth]=useState(0),[checkIn,setIn]=useState(''),[checkOut,setOut]=useState(''),[guests,setGuests]=useState(6),[bbq,setBbq]=useState(false),[monitor,setMonitor]=useState(false),[infants,setInfants]=useState(0),[buyerName,setName]=useState(''),[buyerPhone,setPhone]=useState(''),[memo,setMemo]=useState(''),[quote,setQuote]=useState<Quote|null>(null),[busy,setBusy]=useState(false),[agree,setAgree]=useState(false),[code,setCode]=useState(''),[verified,setVerified]=useState(false),[notice,setNotice]=useState(''),[reviewStep,setReviewStep]=useState<'terms'|'confirm'>('terms');
  const review=useRef<HTMLDialogElement>(null),requestId=useRef(''),pending=useRef(false);
  const selling=!!(calendar?.config.enabled&&calendar.paymentReady);
+ useMetaEvent('ViewContent','hotel-dangung',{content_type:'product',content_ids:['hotel-dangung']});
+ useMetaEvent('InitiateCheckout','hotel-dangung',commerceParams([{id:'hotel-dangung',quantity:1,price:quote?.total??0}]),!!quote);
  const available=(day:string)=>selling&&day>=addDay(calendar!.today,calendar!.config.minLeadDays)&&calendar!.dates.some(d=>d.day===day&&d.available&&!d.occupied);
  function canOut(day:string){if(!checkIn||day<=checkIn||!calendar)return false;const count=(Date.parse(day)-Date.parse(checkIn))/86400000;return count<=calendar.config.maxNights&&Array.from({length:count},(_,i)=>addDay(checkIn,i)).every(available);}
  function choose(day:string){setQuote(null);setError('');requestId.current='';if(checkIn&&!checkOut&&day>checkIn){if(canOut(day))setOut(day);else setError('기간 중 마감된 날짜가 있습니다. 다른 입실일을 선택해 주세요.');}else{setIn(day);setOut('');}}

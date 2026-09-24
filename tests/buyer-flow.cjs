@@ -47,7 +47,7 @@ function fixture() {
  const pushes=[],storage=new Map();
  const hookReact={...React,useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v;}];},useEffect(fn){effects.push(fn);}};
  const DsSelect=()=>null;
- const View=load('components/ProductDetail.tsx',{'react':hookReact,'@/components/SiteContext':{useSiteKey:()=> 'blendpick'},'@/lib/guest-cart':{addGuestItems:(site,items)=>storage.set('guest',JSON.stringify(items))},'next/navigation':{useRouter:()=>({push:p=>pushes.push(p)})},'@/components/DsSelect':DsSelect,'@/components/ReviewSection':()=>null,'@/components/RollingWon':()=>null});
+ const View=load('components/ProductDetail.tsx',{'react':hookReact,'@/lib/use-meta-event':{useMetaEvent(){}},'@/components/SiteContext':{useSiteKey:()=> 'blendpick'},'@/lib/guest-cart':{addGuestItems:(site,items)=>storage.set('guest',JSON.stringify(items))},'next/navigation':{useRouter:()=>({push:p=>pushes.push(p)})},'@/components/DsSelect':DsSelect,'@/components/ReviewSection':()=>null,'@/components/RollingWon':()=>null});
  const props={product:{id:'p1',name:'상품',price:24900,original_price:50000,stock:10,status:'active',shipping_type:'paid',shipping_cost:3500,free_shipping_threshold:null},images:[],options:[{id:'o1',name:'구성',value:'6팩',extra_price:25900,stock:5,is_active:true}],addons:[],addonMulti:false,reviews:[]};
  const original={window:global.window,sessionStorage:global.sessionStorage,fetch:global.fetch};
  global.window={location:{pathname:'/products/p1',search:'?inf=partner'},addEventListener(){},removeEventListener(){},scrollY:0};

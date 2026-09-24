@@ -1,6 +1,7 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
 import {bookingApi, money} from './Booking';
+import {trackPurchase} from '@/lib/analytics';
 
 const labels: Record<string, string> = {
   pending: '결제 대기', confirming: '결제 확인 중', paid: '예약 확정',
@@ -16,10 +17,16 @@ export default function DangungResult() {
   const [completion, setCompletion] = useState(false);
   const [retryCallback, setRetryCallback] = useState(false);
   const running = useRef(false);
+  const paymentCallback = useRef<string | null>(null);
 
   function show(data: any, completed = false) {
     setRetryCallback(false); setOrder(data); setId(data.id); setCompletion(completed && data.status === 'paid');
     history.replaceState(null, '', `/hotel/dangung/result?orderId=${encodeURIComponent(data.id)}`);
+    let recentPayment = paymentCallback.current === data.id;
+    try { recentPayment ||= sessionStorage.getItem('dangung-last-reservation') === data.id; } catch { /* Optional storage. */ }
+    if (recentPayment && data.status === 'paid') {
+      trackPurchase('dangung', data.id, data.amount, [{id:'hotel-dangung',quantity:1,price:data.amount}]);
+    }
   }
 
   async function check(initial = false) {
@@ -34,6 +41,7 @@ export default function DangungResult() {
       if (initial && params.get('failed') === '1') {
         data = await bookingApi({action: 'abandon', orderId: target});
       } else if (initial && params.has('paymentKey') && params.has('amount')) {
+        paymentCallback.current = target;
         data = await bookingApi({action: 'confirm', orderId: target, paymentKey: params.get('paymentKey'), amount: Number(params.get('amount'))});
       } else {
         const response = await fetch(`/api/dangung?id=${encodeURIComponent(target)}`, {cache: 'no-store'});

@@ -4,6 +4,8 @@ import { useSiteKey } from "@/components/SiteContext";
 import { SITES } from "@/lib/sites";
 
 import { useState } from "react";
+import { commerceParams } from "@/lib/analytics";
+import { useMetaEvent } from "@/lib/use-meta-event";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { validateBuyerName } from "@/lib/validate-name";
 
@@ -31,6 +33,7 @@ export default function ExtraPayClient({
   label: string;
 }) {
   const site = useSiteKey();
+  useMetaEvent("InitiateCheckout", "extra-payment", commerceParams([{ id: "extra-payment", quantity: 1, price: amount }]));
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");

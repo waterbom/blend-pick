@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { trackPurchase } from "@/lib/analytics";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { HOTEL } from "@/lib/hotel";
@@ -43,6 +44,8 @@ function SuccessContent() {
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
+          // Awaiting room allocation is still a successfully charged payment.
+          trackPurchase("hotel", orderId, data.total, [{ id: "hotel-utop", quantity: 1, price: data.total }]);
           setResult({
             orderNumber: data.orderNumber,
             total: data.total,

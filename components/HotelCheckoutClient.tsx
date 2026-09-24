@@ -3,6 +3,8 @@
 import { validateBuyerName } from "@/lib/validate-name";
 import { tossMobilePhone, payErrorMessage } from "@/lib/pay-utils";
 import { useState, useEffect } from "react";
+import { commerceParams } from "@/lib/analytics";
+import { useMetaEvent } from "@/lib/use-meta-event";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { WON, REFUND_POLICY, PARTNER_BENEFITS, refundRateFor, type PkgKey, type RoomType } from "@/lib/hotel";
 
@@ -67,6 +69,7 @@ export default function HotelCheckoutClient({
   influencerName?: string;
   lastRoom?: boolean;
 }) {
+  useMetaEvent("InitiateCheckout", "hotel-utop", commerceParams([{ id: "hotel-utop", quantity: 1, price: reservation.total }]));
   const [form, setForm] = useState({ name: "", phone: "", memo: "" });
   const [method, setMethod] = useState<(typeof PAY_METHODS)[number]["key"]>("card");
   const [loading, setLoading] = useState(false);

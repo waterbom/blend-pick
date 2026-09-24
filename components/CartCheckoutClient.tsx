@@ -1,6 +1,8 @@
 "use client";
 
 import { useShippingQuote } from "@/lib/use-shipping-quote";
+import { commerceParams } from "@/lib/analytics";
+import { useMetaEvent } from "@/lib/use-meta-event";
 import ShippingQuoteSummary from "@/components/ShippingQuoteSummary";
 import { validateBuyerName } from "@/lib/validate-name";
 import { tossMobilePhone, payErrorMessage } from "@/lib/pay-utils";
@@ -79,6 +81,9 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
   const quoteItems=(checkoutData?.items||[]).map(i=>({product_id:i.product_id,option_id:i.option_id,quantity:i.quantity,price:i.price,is_addon:i.is_addon,name:i.name,link_code:i.link_code}));
   const expectedGoods=(checkoutData?.items||[]).reduce((n,i)=>n+shopUnitPrice(i.price,i.extra_price,i.option_id!=null)*i.quantity,0);
   const delivery=useShippingQuote(quoteItems,form.shippingZipcode,expectedGoods);
+  useMetaEvent("InitiateCheckout", "cart", commerceParams((checkoutData?.items || []).map(i => ({
+    id: i.product_id || i.id, quantity: i.quantity, price: shopUnitPrice(i.price, i.extra_price, i.option_id != null),
+  }))), catalogReady && !!checkoutData?.items.length);
   const [memoCustom, setMemoCustom] = useState(false); // 배송 메모 "직접 입력" 모드
   // 필드별 인라인 에러 — alert 대신 해당 입력 아래 표시하고 첫 에러로 스크롤
   const [errors, setErrors] = useState<Record<string, string>>({});

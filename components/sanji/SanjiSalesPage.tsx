@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { expectedShipLabel } from "@/lib/checkout-draft";
 import { addGuestItems } from "@/lib/guest-cart";
 import { submitCartItems } from "@/lib/buyer-flow";
+import { commerceParams, trackCartAdded } from "@/lib/analytics";
+import { useMetaEvent } from "@/lib/use-meta-event";
 import { optionText } from "@/lib/buyer-flow";
 import { LINK_PARAM } from "@/lib/secret-link";
 import { productShippingFee, shippingLabel } from "@/lib/shipping";
@@ -66,6 +68,7 @@ function Img({ src, alt, style, className }: { src: string | null; alt: string; 
 
 export default function SanjiSalesPage({ product, images, options, reviews, stats, others, influencerId, linkCode, demo = false, kakaoUrl, linkBase }: SanjiSalesProps) {
   const router = useRouter();
+  useMetaEvent("ViewContent", product.id, commerceParams([{ id: product.id, quantity: 1, price: product.price }]), !demo);
   // 판매가 — 서버에서 검증한 채널별 상품·옵션 가격을 표시
   const price = product.price;
   const unitOf = (extra: number | null | undefined) => extra ?? price;
@@ -207,7 +210,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       const selections=hasOptions?lines.map(l=>({option_id:l.optionId,quantity:l.qty})):[{option_id:null,quantity:qty}];
       const payloads=selections.map(i=>({product_id:product.id,...i}));
       const result=await submitCartItems(payloads,body=>fetch('/api/cart',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
-      if(result.unauthorized){addGuestItems('sanjipick',payloads.slice(result.completed).map(i=>{const o=options.find(o=>o.id===i.option_id);return {...product,...i,option_name:o?.name||null,option_value:o?.value||null,extra_price:o?.extra_price??null};}));}
+      trackCartAdded(payloads.slice(0,result.completed),product,options);
+      if(result.unauthorized){addGuestItems('sanjipick',payloads.slice(result.completed).map(i=>{const o=options.find(o=>o.id===i.option_id);return {...product,...i,option_name:o?.name||null,option_value:o?.value||null,extra_price:o?.extra_price??null};}));trackCartAdded(payloads.slice(result.completed),product,options);}
       else if(result.error){if(result.completed)setLines(prev=>prev.slice(result.completed));flash(result.error);return;}
       window.dispatchEvent(new Event('cart-change'));setSheet(null);flash('장바구니에 담았습니다. 상단 장바구니에서 확인해주세요.');
     }catch{flash('장바구니 저장에 실패했습니다. 바로 구매를 이용해주세요.');}

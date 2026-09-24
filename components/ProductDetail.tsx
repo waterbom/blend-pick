@@ -13,6 +13,8 @@ import { expectedShipLabel } from "@/lib/checkout-draft";
 import { addGuestItems } from "@/lib/guest-cart";
 import { useSiteKey } from "@/components/SiteContext";
 import { submitCartItems } from "@/lib/buyer-flow";
+import { commerceParams, trackCartAdded } from "@/lib/analytics";
+import { useMetaEvent } from "@/lib/use-meta-event";
 
 function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number, influencerId?: string | null) {
   const params = new URLSearchParams({ quantity: String(quantity) });
@@ -121,6 +123,7 @@ export default function ProductDetail({
   reviewSummary?: ReviewSummary;
 }) {
   const router = useRouter();
+  useMetaEvent("ViewContent", product.id, commerceParams([{ id: product.id, quantity: 1, price: product.price }]));
   const siteKey = useSiteKey();
   const [lines, setLines] = useState<SelectedLine[]>([]);
   const [quantity, setQuantity] = useState(1); // 옵션 없는 상품용
@@ -277,6 +280,7 @@ export default function ProductDetail({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         }));
+      trackCartAdded(payloads.slice(0, result.completed), product, options);
       if (result.error) {
         const remaining = hasOptions ? lines.slice(result.completed) : lines;
         if (hasOptions && result.completed) setLines(remaining);
@@ -287,6 +291,7 @@ export default function ProductDetail({
               const o = options.find(o => o.id === body.option_id);
               return {...product,...body,option_name:o?.name||null,option_value:o?.value||null,extra_price:o?.extra_price??null};
             }));
+            trackCartAdded(payloads.slice(result.completed), product, options);
             setCartError("");setCartDone(true);
           } catch { setCartError("브라우저에 장바구니를 저장하지 못했습니다. 바로 구매로 진행해주세요."); }
         }

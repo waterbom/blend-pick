@@ -56,7 +56,9 @@ export async function purchaseResult(a: PaymentAttempt, method?: string) {
         const stored = order.rows[0]?.payment_method;
         method = stored === 'transfer' ? '계좌이체' : stored === 'card' ? '카드' : stored;
     }
-    return { ok: true, orderNumber: a.snapshot.orderNumber, productName: a.snapshot.items[0]?.name, itemCount: a.snapshot.items.length, totalAmount: Number(a.amount), paymentMethod: method }; }
+    return { ok: true, orderNumber: a.snapshot.orderNumber, productName: a.snapshot.items[0]?.name, itemCount: a.snapshot.items.length, totalAmount: Number(a.amount), paymentMethod: method,
+        pixelItems: a.snapshot.items.map(i => ({ id: i.productId || i.productRef, quantity: i.quantity, price: Number(i.unitPrice) })),
+    }; }
 async function releaseReservation(a: PaymentAttempt) {
     const c = await shopPool.connect();
     try {

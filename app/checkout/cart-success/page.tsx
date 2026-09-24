@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CHECKOUT_DRAFT_KEY } from "@/lib/checkout-draft";
 import { removeGuestItems } from "@/lib/guest-cart";
-import { fbqTrack } from "@/lib/analytics";
+import { trackPurchase } from "@/lib/analytics";
 
 interface OrderResult {
   orderNumber: string;
@@ -47,7 +47,7 @@ function CartSuccessContent() {
           sessionStorage.removeItem("cartCheckoutData");
           setResult(data);
           // 메타 광고 전환 — 결제 완료(Purchase) 이벤트
-          fbqTrack("Purchase", { value: Number(data.totalAmount) || Number(amount), currency: "KRW" });
+          trackPurchase("shop", orderId, data.totalAmount, data.pixelItems);
         } else {
           setError(data.error || "결제 확인 중 오류가 발생했습니다.");
         }

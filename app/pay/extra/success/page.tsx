@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { trackPurchase } from "@/lib/analytics";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -26,7 +27,10 @@ function SuccessContent() {
       .then((r) => r.json())
       .then((d) => {
         setState(d);
-        if (d.ok) sessionStorage.removeItem("extraPayData");
+        if (d.ok) {
+          trackPurchase("extra", orderId, d.amount, [{ id: "extra-payment", quantity: 1, price: d.amount }]);
+          sessionStorage.removeItem("extraPayData");
+        }
       })
       .catch(() => setState({ ok: false, error: "네트워크 오류가 발생했습니다." }));
   }, [sp]);

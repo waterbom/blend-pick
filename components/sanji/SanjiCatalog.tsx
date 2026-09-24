@@ -1,7 +1,8 @@
 "use client";
 
 import { SANJI_COLLECTIONS, collectionPath } from "@/lib/catalog-seo";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fbqTrack } from "@/lib/analytics";
 import type { SanjiCard } from "@/lib/sanji-data";
 import { sanjiKind, type SanjiKind } from "@/lib/sanji-kind";
 
@@ -28,6 +29,17 @@ type Filter = "all" | SanjiKind;
 export default function SanjiCatalog({ products, linkBase, initialQuery = "", initialCategory = "all" }: { products: SanjiCard[]; linkBase: string; initialQuery?: string; initialCategory?: Filter }) {
   const [q, setQ] = useState(initialQuery);
   const filter = initialCategory;
+  const lastSearch = useRef("");
+  useEffect(() => {
+    const query = q.trim();
+    if (!query) { lastSearch.current = ""; return; }
+    const timer = setTimeout(() => {
+      if (lastSearch.current === query) return;
+      // Do not send raw user-entered text (which may contain personal information).
+      if (fbqTrack("Search", { content_type: "product" })) lastSearch.current = query;
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [q]);
   const [now] = useState(() => Date.now()); // 렌더 시점 고정 (오픈 예정 판별)
   const list = useMemo(() => {
     const kw = q.trim().toLowerCase();

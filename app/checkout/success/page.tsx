@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { trackPurchase } from "@/lib/analytics";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -45,6 +46,7 @@ function SuccessContent() {
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
+          trackPurchase("campaign", orderId, data.totalAmount, data.pixelItems);
           setResult({
             orderNumber: data.orderNumber ?? "-",
             productName: data.productName,

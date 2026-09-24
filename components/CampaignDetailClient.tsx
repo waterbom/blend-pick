@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { commerceParams } from "@/lib/analytics";
+import { useMetaEvent } from "@/lib/use-meta-event";
 import FallbackImg from "@/components/FallbackImg";
 
 interface SetOption {
@@ -74,6 +76,7 @@ export default function CampaignDetailClient({
   isUpcoming,
 }: Props) {
   const router = useRouter();
+  useMetaEvent("ViewContent", productId, commerceParams([{ id: productId, quantity: 1, price: displayPrice }]));
   const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedInf, setSelectedInf] = useState<string | null>(influencers[0]?.id ?? null);

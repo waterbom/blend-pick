@@ -3,22 +3,22 @@
 import Script from "next/script";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { META_PIXEL_ID, fbqTrack } from "@/lib/analytics";
+import { META_PIXEL_ID, fbqTrack, flushMetaEvents, isPixelRoute } from "@/lib/analytics";
 
-// 메타 픽셀 — 루트 레이아웃에서 한 번 로드. 첫 PageView 는 init 스크립트가 보내고,
-// 이후 앱 내 페이지 이동(클라이언트 라우팅)마다 PageView 를 추가로 보낸다.
+// Initial and client-side PageViews share one path; script readiness flushes early events.
 export default function MetaPixel() {
   const pathname = usePathname();
-  const first = useRef(true);
+  const lastPath = useRef<string | null>(null);
   useEffect(() => {
-    if (first.current) { first.current = false; return; }
-    fbqTrack("PageView");
+    if (lastPath.current === pathname) return;
+    lastPath.current = pathname;
+    if (pathname && isPixelRoute(pathname)) fbqTrack("PageView");
   }, [pathname]);
 
-  if (!META_PIXEL_ID) return null;
+  if (!/^\d+$/.test(META_PIXEL_ID) || !pathname || !isPixelRoute(pathname)) return null;
   return (
     <>
-      <Script id="meta-pixel" strategy="afterInteractive">
+      <Script id="meta-pixel" strategy="afterInteractive" onReady={flushMetaEvents}>
         {`!function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -27,8 +27,8 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${META_PIXEL_ID}');
-fbq('track', 'PageView');`}
+fbq('set', 'autoConfig', false, '${META_PIXEL_ID}');
+fbq('init', '${META_PIXEL_ID}');`}
       </Script>
       <noscript>
         <img height="1" width="1" style={{ display: "none" }} alt=""

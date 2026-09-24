@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useMetaEvent } from "@/lib/use-meta-event";
 import {
   PACKAGES, ROOM_META, TIERS, getTier, nightlyWon, stayPriceWon, listWon, manLabel, nextISO,
   BOOKABLE_FROM, BOOKABLE_TO, minBookableCheckIn, saleScheduleFor, WON,
@@ -108,6 +109,7 @@ export default function HotelReserveClient({
   upcomingOptions?: { id: string; name: string; start: string }[]; // 진행 중이 없을 때 오픈 예정 공구 (커밍순)
 }) {
   const router = useRouter();
+  useMetaEvent("ViewContent", "hotel-utop", { content_type: "product", content_ids: ["hotel-utop"] });
   // 직접 유입 → select로 고른 진행 중 공구의 전용 링크로 이동
   const gotoInfluencer = (id: string) => { if (id) router.push(`/hotel/utop?inf=${id}`); };
   // "2026-07-22T10:00:00+09:00" → "7/22(수) 10:00"

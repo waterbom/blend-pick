@@ -2,6 +2,8 @@
 
 import { validateBuyerName } from "@/lib/validate-name";
 import { useState } from "react";
+import { commerceParams } from "@/lib/analytics";
+import { useMetaEvent } from "@/lib/use-meta-event";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import AddressSearchButton from "@/components/AddressSearchButton";
 import PhoneVerifyField from "@/components/PhoneVerifyField";
@@ -37,6 +39,7 @@ export default function CheckoutClient({
   const [phoneVerified, setPhoneVerified] = useState(false);
   const itemTotal = unitPrice * quantity;
   const totalAmount = itemTotal + shippingCost;
+  useMetaEvent("InitiateCheckout", productId, commerceParams([{ id: productId, quantity, price: unitPrice }], totalAmount));
 
   const [form, setForm] = useState({
     customerName: "",
