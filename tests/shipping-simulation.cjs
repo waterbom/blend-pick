@@ -1,3 +1,4 @@
+const {shipmentApi}=require('./support/shipment-import.cjs');
 // Real route handlers + isolated PostgreSQL. PG/shipping calls are mocked; no production access.
 const {test,before,beforeEach,after}=require('node:test');
 const assert=require('node:assert/strict');const fs=require('node:fs');
@@ -11,7 +12,7 @@ const pool={query:async(...args)=>{const release=await lock();try{return await q
 const mocks={'@/lib/db-shop':pool,'@/lib/db':{query:native},'next/headers':{cookies:async()=>({get:()=>auth?{value:'mock'}:undefined}),headers:async()=>new Headers({host:site==='sanjipick'?'sanjipick.blendpunch.com':'shop.blendpunch.com'})},'@/lib/auth':{verifyAdminToken:async()=>auth?{}:null,verifyToken:async()=>null},'@/lib/sms':{phoneVerifyOn:()=>false,smsConfigured:()=>false},'@/lib/phone-verify':{isPhoneVerified:async()=>false},'@/lib/inf-ref':{infRefFromCookie:()=>null}};
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const req=(path='/x',method='GET',body)=>new NextRequest('https://'+(site==='sanjipick'?'sanjipick':'shop')+'.blendpunch.com'+path,{method,headers:{host:(site==='sanjipick'?'sanjipick':'shop')+'.blendpunch.com','content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
-const api=path=>load('app/api/'+path+'/route.ts',mocks),ctx=n=>({params:Promise.resolve({id:id(n)})});
+const api=path=>path==='admin/shipments/import'?shipmentApi(mocks):load('app/api/'+path+'/route.ts',mocks),ctx=n=>({params:Promise.resolve({id:id(n)})});
 const originalFetch=global.fetch;const observations=[];
 function observe(name,value){observations.push({name,...value});console.log('OBSERVATION',JSON.stringify(observations.at(-1)));}
 mocks['@/lib/return-notify']={sendReturnRefundSMS:async()=>{throw Error('SMS blocked');}};
@@ -20,12 +21,12 @@ before(async()=>{await setup(db,id);await db.exec("ALTER TABLE orders ADD COLUMN
 beforeEach(async()=>{site='sanjipick';auth=true;hook=null;global.fetch=async()=>{throw Error('UNMOCKED NETWORK BLOCKED');};await db.exec('TRUNCATE payment_attempts,products_shop,product_options,product_addons,orders,order_items,settlements,campaign_costs,influencer_payouts,product_secret_links,order_refund_amounts,product_images,order_returns,order_return_events,hotel_room_inventory CASCADE');});
 after(async()=>{global.fetch=originalFetch;if(process.env.ADMIN_REVIEW_OBSERVATIONS_PATH)fs.writeFileSync(process.env.ADMIN_REVIEW_OBSERVATIONS_PATH,JSON.stringify(observations,null,2));await db.close();});
 async function product(n=1,price=100000,stock=20){await query("INSERT INTO products_shop(id,name,category,price,stock,status,is_visible,shipping_type,shipping_cost,supply_price,influencer_rate,influencer_id,tax_type) VALUES($1,$2,'산지픽',$3,$4,'active',true,'free',0,20000,10,$5,'taxable')",[id(n),'상품'+n,price,stock,id(999)]);}
-async function order(n=10,total=100000,status='paid',pid=1){await query("INSERT INTO orders(id,site,order_type,order_number,paid_at,status,total_amount,shipping_fee,payment_key,payment_method,influencer_id,influencer_name,commission_rate) VALUES($1,'sanjipick','shop',$2,NOW(),$3,$4,0,$5,'계좌이체',$6,'테스트 인플루언서',10)",[id(n),'ORDER'+n,status,total,'mock-'+n,id(999)]);if(pid!==null)await query("INSERT INTO order_items(order_id,product_id,product_ref,product_name,quantity,unit_price,supply_price,tax_type) VALUES($1,$2,$2,$3,1,$4,20000,'taxable')",[id(n),id(pid),'상품'+pid,total]);}
+async function order(n=10,total=100000,status='preparing',pid=1){await query("INSERT INTO orders(id,site,order_type,order_number,paid_at,status,total_amount,shipping_fee,payment_key,payment_method,influencer_id,influencer_name,commission_rate) VALUES($1,'sanjipick','shop',$2,NOW(),$3,$4,0,$5,'계좌이체',$6,'테스트 인플루언서',10)",[id(n),'ORDER'+n,status,total,'mock-'+n,id(999)]);if(pid!==null)await query("INSERT INTO order_items(order_id,product_id,product_ref,product_name,quantity,unit_price,supply_price,tax_type) VALUES($1,$2,$2,$3,1,$4,20000,'taxable')",[id(n),id(pid),'상품'+pid,total]);}
 test('S1 CSV -> import -> repeat -> tracking -> settlement is single and site isolated',async()=>{
  await product();await order();await query("UPDATE orders SET buyer_phone='01000000000'");let sent=0;
- const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{sent++;return {ok:true};}}});
+ const route=shipmentApi({...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{sent++;return {ok:true};}}});
  const rows=load('lib/shipping-flow.ts').parseTrackingCSV('주문번호,운송장번호\nORDER10,0012345678').map(r=>({...r,carrier:'04'}));
- for(let i=0;i<2;i++){const r=await route.POST(req('/x','POST',{rows}));assert.equal(r.status,200);assert.equal((await r.json()).succeeded,1);}
+ for(let i=0;i<2;i++){const r=await route.POST(req('/x','POST',{rows}));assert.equal(r.status,200);assert.equal((await r.json()).succeeded,i===0?1:0);}
  assert.equal(sent,1);assert.equal((await query('SELECT tracking_number FROM orders')).rows[0].tracking_number,'0012345678');
  site='blendpick';assert.equal((await (await route.POST(req('/x','POST',{rows}))).json()).succeeded,0);site='sanjipick';
  const old=process.env.SWEETTRACKER_API_KEY;process.env.SWEETTRACKER_API_KEY='TEST';global.fetch=async()=>Response.json({lastStateDetail:{level:6,text:'완료'}});
@@ -36,13 +37,13 @@ test('S2 cancelled and malformed rows are blocked while valid row proceeds',asyn
  const body=await(await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'123'},{order_number:'ORDER11',carrier:'04',tracking_number:'6.99E+11'},{order_number:'ORDER12',carrier:'04',tracking_number:'00123'}]}))).json();assert.equal(body.succeeded,1);assert.equal(body.failed.length,2);
 });
 test('S3 hyphen-only invoice must be rejected before shipping',async()=>{
- await product();await order();await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'---'}]}));assert.equal((await query('SELECT status FROM orders')).rows[0].status,'paid');
+ await product();await order();await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'---'}]}));assert.equal((await query('SELECT status FROM orders')).rows[0].status,'preparing');
 });
 test('S4 completed shipment must not silently replace original tracking',async()=>{
  await product();await order(10,100000,'delivered');await query("UPDATE orders SET tracking_number='111111',tracking_company='04'");await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'222222'}]}));assert.equal((await query('SELECT tracking_number FROM orders')).rows[0].tracking_number,'111111');
 });
 test('S5 missing carrier must not mark shipment ready for automatic tracking',async()=>{
- await product();await order();await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',tracking_number:'001234'}]}));assert.equal((await query('SELECT status FROM orders')).rows[0].status,'paid');
+ await product();await order();await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',tracking_number:'001234'}]}));assert.equal((await query('SELECT status FROM orders')).rows[0].status,'preparing');
 });
 
 test('S6 real XLSX -> stored invoice -> order API -> tracking link preserves exact strings',async()=>{
@@ -68,7 +69,7 @@ test('S7 numeric XLSX keeps 12 digits and explicit zero padding, rejects precisi
  await assert.rejects(parse(12345678901234568),/정밀도/);await assert.rejects(parse(123.45),/정밀도/);
 });
 test('S8 completed identical invoice reupload succeeds without replacement',async()=>{
- await product();await order(10,100000,'delivered');await query("UPDATE orders SET tracking_number='001234',tracking_company='04'");const result=await(await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'001234'}]}))).json();assert.equal(result.succeeded,1);assert.equal((await query('SELECT status FROM orders')).rows[0].status,'delivered');
+ await product();await order(10,100000,'delivered');await query("UPDATE orders SET tracking_number='001234',tracking_company='04'");const result=await(await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'001234'}]}))).json();assert.equal(result.succeeded,0);assert.equal(result.alreadyApplied,1);assert.equal((await query('SELECT status FROM orders')).rows[0].status,'delivered');
 });
 
 test('S9 shipment table renders exact invoice and carrier label',()=>{

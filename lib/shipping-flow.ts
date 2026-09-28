@@ -18,30 +18,33 @@ export function shippingExceptions(order: FlowOrder, now = Date.now()): string[]
   return issues;
 }
 
-export type TrackingRow = { order_number: string; tracking_number: string; carrier_raw?: string };
+export type TrackingRow = { order_number: string; tracking_number: string; carrier_raw?: string; source_row?: number; source_sheet?: string };
 // Supplier sheets may reorder their columns. Retain malformed and duplicate rows for explicit review.
-export function trackingRows(grid: string[][]): TrackingRow[] {
-  const rows = grid.filter(row => row.some(cell => cell.trim()));
+export function trackingRows(grid: string[][], sheet?: string): TrackingRow[] {
+  const rows = grid.map((row, index) => ({ cells: row, source_row: index + 1 })).filter(row => row.cells.some(cell => cell.trim()));
   if (!rows.length) return [];
-  const headers = rows[0].map(cell => cell.replace(/[\s_]/g, '').toLowerCase());
+  const headers = rows[0].cells.map(cell => cell.replace(/[\s_]/g, '').toLowerCase());
   const orderIndex = headers.findIndex(h => ['주문번호','주문코드','ordernumber','orderid'].includes(h));
   const trackingIndex = headers.findIndex(h => ['운송장번호','송장번호','trackingnumber','tracking'].includes(h));
   const carrierIndex = headers.findIndex(h => ['택배사','배송업체','carrier'].includes(h));
   const hasHeader = orderIndex >= 0 || trackingIndex >= 0;
   if (hasHeader && (orderIndex < 0 || trackingIndex < 0)) throw Error('주문번호와 운송장번호 열이 모두 필요합니다.');
-  return rows.slice(hasHeader ? 1 : 0).map(row => ({
+  return rows.slice(hasHeader ? 1 : 0).map(({ cells: row, source_row }) => ({
     order_number: (row[hasHeader ? orderIndex : 0] || '').trim(),
     tracking_number: (row[hasHeader ? trackingIndex : 1] || '').trim(),
     carrier_raw: (row[hasHeader ? carrierIndex : 2] || '').trim() || undefined,
+    source_row,
+    ...(sheet ? { source_sheet: sheet } : {}),
   }));
 }
 export function trackingRowIssues(rows: TrackingRow[]): string[] {
   const seen = new Set<string>();
   return rows.flatMap((row, index) => {
+    const line = row.source_row ?? index + 1;
     const errors: string[] = [];
-    if (!row.order_number || !row.tracking_number) errors.push(`${index+1}행: 주문번호 또는 운송장번호 누락`);
-    if (row.tracking_number && !validTrackingNumber(row.tracking_number)) errors.push(`${index+1}행: 운송장번호 형식 확인 필요`);
-    if (seen.has(row.order_number)) errors.push(`${index+1}행: 주문번호 중복 (${row.order_number})`);
+    if (!row.order_number || !row.tracking_number) errors.push(`${line}행: 주문번호 또는 운송장번호 누락`);
+    if (row.tracking_number && !validTrackingNumber(row.tracking_number)) errors.push(`${line}행: 운송장번호 형식 확인 필요`);
+    if (seen.has(row.order_number)) errors.push(`${line}행: 주문번호 중복 (${row.order_number})`);
     seen.add(row.order_number);
     return errors;
   });

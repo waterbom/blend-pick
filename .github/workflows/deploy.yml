@@ -32,6 +32,7 @@ jobs:
             npm run test:admin-charts
             npm run test:admin-workflow
             npm run test:shipping
+            npm run test:tracking-import
             npm run test:buyer
             npm run test:process-edges
             npm run test:images

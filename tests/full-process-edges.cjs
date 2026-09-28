@@ -1,3 +1,4 @@
+const {shipmentApi}=require('./support/shipment-import.cjs');
 // Regression coverage for the six full-process audit findings.
 // Real route handlers + isolated PostgreSQL. PG/shipping calls are mocked; no production access.
 const {test,before,beforeEach,after}=require('node:test');
@@ -12,7 +13,7 @@ const pool={query:async(...args)=>{const release=await lock();try{return await q
 const mocks={'@/lib/db-shop':pool,'@/lib/db':{query:native},'next/headers':{cookies:async()=>({get:()=>auth?{value:'mock'}:undefined}),headers:async()=>new Headers({host:site==='sanjipick'?'sanjipick.blendpunch.com':'shop.blendpunch.com'})},'@/lib/auth':{verifyAdminToken:async()=>auth?{}:null,verifyToken:async()=>null},'@/lib/sms':{phoneVerifyOn:()=>false,smsConfigured:()=>false},'@/lib/phone-verify':{isPhoneVerified:async()=>false},'@/lib/inf-ref':{infRefFromCookie:()=>null}};
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const req=(path='/x',method='GET',body)=>new NextRequest('https://'+(site==='sanjipick'?'sanjipick':'shop')+'.blendpunch.com'+path,{method,headers:{host:(site==='sanjipick'?'sanjipick':'shop')+'.blendpunch.com','content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
-const api=path=>load('app/api/'+path+'/route.ts',mocks),ctx=n=>({params:Promise.resolve({id:id(n)})});
+const api=path=>path==='admin/shipments/import'?shipmentApi(mocks):load('app/api/'+path+'/route.ts',mocks),ctx=n=>({params:Promise.resolve({id:id(n)})});
 const originalFetch=global.fetch;const observations=[];
 function observe(name,value){observations.push({name,...value});console.log('OBSERVATION',JSON.stringify(observations.at(-1)));}
 mocks['@/lib/return-notify']={sendReturnRefundSMS:async()=>{throw Error('SMS blocked');}};
@@ -46,23 +47,23 @@ for (const key of ['blendpick','sanjipick']) {
     observe('invalid-repair',{site:key,http:res.status,saved:(await native('SELECT tracking_number FROM orders')).rows[0]});assert.equal(res.status,400);
   });
   test(`${key}: conflicting duplicate rows must not notify a different invoice from the saved one`,async()=>{
-    await seed();const sent=[];const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async(_,v)=>{sent.push(v.match(/운송장번호: ([^\n]+)/)[1]);return {ok:true};}}});
+    await seed('preparing');const sent=[];const route=shipmentApi({...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async(_,v)=>{sent.push(v.match(/운송장번호: ([^\n]+)/)[1]);return {ok:true};}}});
     const res=await route.POST(req('/x','POST',{rows:['111111111111','222222222222'].map(tracking_number=>({order_number:'ORDER10',carrier:'04',tracking_number}))}));
     const body=await res.json(),saved=(await native('SELECT tracking_number FROM orders')).rows[0].tracking_number;
-    observe('conflicting-duplicate-invoices',{site:key,http:res.status,body,sent,saved});assert.equal(res.status,400);assert.equal(sent.length,0);assert.equal(saved,null);assert.equal((await native('SELECT status FROM orders')).rows[0].status,'paid');
+    observe('conflicting-duplicate-invoices',{site:key,http:res.status,body,sent,saved});assert.equal(res.status,200);assert.equal(body.failed.length,2);assert.equal(sent.length,0);assert.equal(saved,null);assert.equal((await native('SELECT status FROM orders')).rows[0].status,'preparing');
   });
   test(`${key}: batch DB failure rolls back all rows and sends no SMS`,async()=>{
-    await seed();await order(11);await native('UPDATE orders SET site=$1',[key]);let sent=0;
-    const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{sent++;return{ok:true};}}});
+    await seed('preparing');await order(11,100000,'preparing');await native('UPDATE orders SET site=$1',[key]);let sent=0;
+    const route=shipmentApi({...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{sent++;return{ok:true};}}});
     hook=async(sql,p,run)=>{if(sql.includes('UPDATE orders')&&p[0]==='ORDER11')throw Error('INJECTED_DB_FAILURE');return run(sql,p);};
     const res=await route.POST(req('/x','POST',{rows:[10,11].map(n=>({order_number:'ORDER'+n,carrier:'04',tracking_number:'001234567890'}))}));hook=null;
-    assert.equal(res.status,500);assert.equal(sent,0);assert.ok((await native('SELECT status,tracking_number FROM orders')).rows.every(o=>o.status==='paid'&&o.tracking_number===null));
+    assert.equal(res.status,500);assert.equal(sent,0);assert.ok((await native('SELECT status,tracking_number FROM orders')).rows.every(o=>o.status==='preparing'&&o.tracking_number===null));
   });
   test(`${key}: shipment SMS failure remains reported and reimport does not resend`,async()=>{
-    await seed();let calls=0;const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{calls++;return{ok:false,error:'INJECTED_SMS_FAILURE'};}}});
+    await seed('preparing');let calls=0;const route=shipmentApi({...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{calls++;return{ok:false,error:'INJECTED_SMS_FAILURE'};}}});
     const body={rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'001234567890'}]};
     const first=await(await route.POST(req('/x','POST',body))).json(),retry=await(await route.POST(req('/x','POST',body))).json();
-    observe('sms-recovery-limitation',{site:key,first,retry,calls});assert.equal(first.smsFailed,1);assert.equal(first.succeeded,1);assert.equal(calls,1);assert.equal(retry.smsSent,0);
+    observe('sms-recovery-limitation',{site:key,first,retry,calls});assert.equal(first.smsQueued,1);assert.equal(first.succeeded,1);assert.equal(calls,1);assert.equal(retry.smsQueued,0);assert.equal(retry.alreadyApplied,1);assert.equal((await native('SELECT status FROM shipment_notifications')).rows[0].status,'review');
   });
   test(`${key}: terminal states cannot be shipped again`,async()=>{
     await seed();for(const status of ['cancelled','returned','delivered','return_requested','cancel_requested']) {
@@ -162,11 +163,11 @@ test('shipment malformed bodies are rejected before DB writes and authentication
   }
   auth=false;assert.equal((await route.POST(req('/x','POST',null))).status,401);
 });
-test('duplicate whitespace-normalized order numbers reject the entire upload before unrelated rows change',async()=>{
-  await product();await order();await order(11);const route=api('admin/shipments/import');
+test('identical whitespace-normalized rows collapse while other valid orders proceed',async()=>{
+  await product();await order(10,100000,'preparing');await order(11,100000,'preparing');const route=api('admin/shipments/import');
   const rows=['ORDER11',' ORDER10 ','ORDER10'].map(order_number=>({order_number,carrier:'04',tracking_number:'001234567890'}));
-  assert.equal((await route.POST(req('/x','POST',{rows}))).status,400);
-  assert.ok((await native('SELECT status,tracking_number FROM orders')).rows.every(r=>r.status==='paid'&&r.tracking_number===null));
+  const result=await (await route.POST(req('/x','POST',{rows}))).json();assert.equal(result.succeeded,2);assert.equal(result.duplicateExcluded,1);
+  assert.ok((await native('SELECT status,tracking_number FROM orders')).rows.every(r=>r.status==='shipped'&&r.tracking_number==='001234567890'));
 });
 test('manual invoice validation normalizes legacy carrier and preserves leading zero and explicit no-invoice workflow',async()=>{
   await product();await order();const route=api('admin/orders/[id]');

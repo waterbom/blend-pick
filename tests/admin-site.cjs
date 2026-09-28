@@ -1,6 +1,7 @@
 // PGLITE_MODULE=/absolute/path/to/@electric-sql/pglite node tests/admin-site.cjs
 // Uses an isolated PostgreSQL WASM database; all auth, payment, SMS and tracking calls are mocked.
 const assert = require('node:assert/strict');
+process.env.ADMIN_JWT_SECRET ||= 'isolated-shipment-site-test-secret';
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -22,6 +23,11 @@ function load(file, mocks = {}, cache = new Map()) {
     if (name === '@/lib/db' || name === '@/lib/db-shop') throw Error('Unmocked production database');
     if (name.startsWith('@/') && name.endsWith('.cjs')) return require(path.join(root,name.slice(2)));
     if (name.startsWith('@/')) return load(['.ts', '.tsx'].map(ext => name.slice(2) + ext).find(f => fs.existsSync(path.join(root, f))), mocks, cache);
+    if (name.startsWith('.')) {
+      const relative = path.join(path.dirname(file), name);
+      const target = ['.ts', '.tsx', '.cjs', '.js'].map(ext => relative + ext).find(f => fs.existsSync(path.join(root, f)));
+      if (target) return load(target, mocks, cache);
+    }
     return require(name);
   };
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: full })(localRequire, mod, mod.exports);
@@ -175,9 +181,9 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
       assert.equal((await balance.GET(req(`/api/admin/returns/balance?id=${otherReturn}`))).status,404);
     });
     await test(`${site}: shipment import cannot change another site's order`,async()=>{
-      const {POST}=load('app/api/admin/shipments/import/route.ts',mocks);
+      const {POST}=load('app/api/admin/shipments/import/preview/route.ts',mocks);
       const result=await(await POST(req('/api/admin/shipments/import',{rows:[{order_number:`TEST-${other}`,carrier:'04',tracking_number:'12345678'}]}))).json();
-      assert.equal(result.succeeded,0);assert.equal(await orderStatus(other),'paid');
+      assert.equal(result.counts.ready,0);assert.equal(result.counts.blocked,1);assert.equal(await orderStatus(other),'paid');
       const deliver=load('app/api/admin/shipments/deliver/route.ts',mocks);
       assert.equal((await deliver.PATCH(req('/api/admin/shipments/deliver',{orderIds:[id(own+2),id(other+2)]},'PATCH'))).status,404);
     });
@@ -236,8 +242,10 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
     const res=proxy(new NextRequest('https://sanjipick.blendpunch.com/api/admin/reservations',{headers:{host:'sanjipick.blendpunch.com'}}));assert.equal(res.status,404);
     const hotel=load('app/api/admin/reservations/route.ts',mocks);assert.equal((await hotel.GET(req('/api/admin/reservations'))).status,404);
     const Sidebar=load('components/admin/AdminSidebar.tsx',mocks).default;
-    const html=renderToStaticMarkup(React.createElement(Sidebar,{siteKey:'sanjipick'}));assert.match(html,/산지픽 판매자센터/);assert.doesNotMatch(html,/href="\/admin\/reservations"/);
-    const shop=renderToStaticMarkup(React.createElement(Sidebar,{siteKey:'blendpick'}));assert.match(shop,/href="\/admin\/reservations"/);
+    const html=renderToStaticMarkup(React.createElement(Sidebar,{siteKey:'sanjipick'}));assert.match(html.replace(/<[^>]+>/g,''),/산지픽 판매자센터/);assert.doesNotMatch(html,/href="\/admin\/reservations"/);
+    const {adminGroups}=load('lib/admin-navigation.ts');
+    assert(!adminGroups('sanjipick').flatMap(g=>g.items).some(i=>i.href==='/admin/reservations'));
+    assert(adminGroups('blendpick').flatMap(g=>g.items).some(i=>i.href==='/admin/reservations'));
   });
   await test('site-signed extra-payment link is rejected on the other site before Toss',async()=>{
     const {signPayLink,verifyPayLink}=load('lib/pay-link.ts');

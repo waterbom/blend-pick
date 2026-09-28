@@ -1,3 +1,4 @@
+const {shipmentApi}=require('./support/shipment-import.cjs');
 // Real route handlers + isolated PostgreSQL. PG/shipping calls are mocked; no production access.
 const {test,before,beforeEach,after}=require('node:test');
 const assert=require('node:assert/strict');const fs=require('node:fs');
@@ -11,7 +12,7 @@ const pool={query:async(...args)=>{const release=await lock();try{return await q
 const mocks={'@/lib/db-shop':pool,'@/lib/db':{query:native},'next/headers':{cookies:async()=>({get:()=>auth?{value:'mock'}:undefined}),headers:async()=>new Headers({host:site==='sanjipick'?'sanjipick.blendpunch.com':'shop.blendpunch.com'})},'@/lib/auth':{verifyAdminToken:async()=>auth?{}:null,verifyToken:async()=>null},'@/lib/sms':{phoneVerifyOn:()=>false,smsConfigured:()=>false},'@/lib/phone-verify':{isPhoneVerified:async()=>false},'@/lib/inf-ref':{infRefFromCookie:()=>null}};
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const req=(path='/x',method='GET',body)=>new NextRequest('https://'+(site==='sanjipick'?'sanjipick':'shop')+'.blendpunch.com'+path,{method,headers:{host:(site==='sanjipick'?'sanjipick':'shop')+'.blendpunch.com','content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
-const api=path=>load('app/api/'+path+'/route.ts',mocks),ctx=n=>({params:Promise.resolve({id:id(n)})});
+const api=path=>path==='admin/shipments/import'?shipmentApi(mocks):load('app/api/'+path+'/route.ts',mocks),ctx=n=>({params:Promise.resolve({id:id(n)})});
 const originalFetch=global.fetch;const observations=[];
 function observe(name,value){observations.push({name,...value});console.log('OBSERVATION',JSON.stringify(observations.at(-1)));}
 mocks['@/lib/return-notify']={sendReturnRefundSMS:async()=>{throw Error('SMS blocked');}};
@@ -93,11 +94,11 @@ test('F6 new product through payment shipment delivery return and revenue report
 async function pendingRefund(orderId=id(10)) {
  await query(`INSERT INTO refund_operations(source_key,order_id,amount,baseline,reason,payment_key,total,idempotency_key,status) VALUES($1,$2,10000,0,'검증',$3,100000,$4,'processing')`,['pending:'+orderId,orderId,'mock-10','key:'+orderId]);
 }
-test('J1 shipment import rolls back the entire mixed batch and sends no SMS on refund conflict',async()=>{
- await product();await order(10);await order(11);await pendingRefund();let messages=0;
- const route=load('app/api/admin/shipments/import/route.ts',{...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{messages++;return {ok:true};}}});
+test('J1 shipment import excludes the refund hold and processes only the reviewed normal order',async()=>{
+ await product();await order(10,100000,'preparing');await order(11,100000,'preparing');await pendingRefund();let messages=0;
+ const route=shipmentApi({...mocks,'@/lib/sms':{smsConfigured:()=>true,sendSMS:async()=>{messages++;return {ok:true};}}});
  const response=await route.POST(req('/x','POST',{rows:[{order_number:'ORDER11',carrier:'04',tracking_number:'111111'},{order_number:'ORDER10',carrier:'04',tracking_number:'222222'}]}));
- assert.equal(response.status,409);assert.equal(messages,0);assert.ok((await query('SELECT status,tracking_number FROM orders')).rows.every(o=>o.status==='paid'&&o.tracking_number===null));
+ assert.equal(response.status,200);const result=await response.json();assert.equal(result.succeeded,1);assert.equal(result.failed.length,1);assert.equal(messages,1);assert.deepEqual((await query("SELECT status,tracking_number FROM orders WHERE order_number='ORDER10'")).rows[0],{status:'preparing',tracking_number:null});
 });
 test('J2 bulk order progression and cancellation rejection obey the refund guard',async()=>{
  await product();const route=api('admin/orders');
@@ -120,7 +121,7 @@ test('J3 manual automatic and worker delivery writes cannot settle a pending ref
 test('J4 tracking repair and reimport cannot alter a shipment while refund is pending',async()=>{
  await product();await order(10,100000,'shipped');await pendingRefund();
  assert.equal((await api('admin/orders/[id]').PATCH(req('/x','PATCH',{action:'repair_tracking',tracking_company:'04',tracking_number:'1234567890'}),ctx(10))).status,409);
- assert.equal((await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'1234567890'}]}))).status,409);
+ const result=await (await api('admin/shipments/import').POST(req('/x','POST',{rows:[{order_number:'ORDER10',carrier:'04',tracking_number:'1234567890'}]}))).json();assert.equal(result.succeeded,0);assert.equal(result.failed.length,1);
  assert.equal((await query('SELECT tracking_number FROM orders')).rows[0].tracking_number,null);
 });
 test('J5 removed option history remains linked while same-name replacement gets a new identity',async()=>{

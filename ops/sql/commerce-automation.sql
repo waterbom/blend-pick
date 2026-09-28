@@ -21,3 +21,15 @@ CREATE TABLE IF NOT EXISTS shipment_tracking_checks (
  error text,
  next_attempt_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Response-loss retries reuse this outcome without updating orders or sending SMS again.
+CREATE TABLE IF NOT EXISTS admin_shipment_import_batches (
+ site text NOT NULL,
+ request_key uuid NOT NULL,
+ admin_id text NOT NULL,
+ input_hash text NOT NULL,
+ policy_version integer NOT NULL,
+ result jsonb NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(site,request_key)
+);

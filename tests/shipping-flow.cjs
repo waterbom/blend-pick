@@ -15,8 +15,8 @@ test('missing plan, missing tracking and refund holds remain visible',()=>{
  assert.deepEqual(shippingExceptions({...base,status:'delivered'},now),[]);
 });
 test('supplier column order and leading zeros are preserved',()=>{
- assert.deepEqual(trackingRows([['송장번호','비고','택배사','주문번호'],['001234','메모','CJ대한통운','BP1']]),[{order_number:'BP1',tracking_number:'001234',carrier_raw:'CJ대한통운'}]);
- assert.deepEqual(trackingRows([['BP1','001234']]),[{order_number:'BP1',tracking_number:'001234',carrier_raw:undefined}]);
+ assert.deepEqual(trackingRows([['송장번호','비고','택배사','주문번호'],['001234','메모','CJ대한통운','BP1']]),[{order_number:'BP1',tracking_number:'001234',carrier_raw:'CJ대한통운',source_row:2}]);
+ assert.deepEqual(trackingRows([['BP1','001234']]),[{order_number:'BP1',tracking_number:'001234',carrier_raw:undefined,source_row:1}]);
 });
 test('partial headers fail clearly; missing cells are not silently dropped',()=>{
  assert.throws(()=>trackingRows([['주문번호','메모']]),/모두 필요/);
@@ -29,7 +29,7 @@ test('duplicates and corrupted scientific notation are blocked before import',()
 const {parseTrackingCSV}=load('lib/shipping-flow.ts');
 test('CSV quoted comma, newline, escaped quote, BOM, CRLF and leading zero survive',()=>{
  const rows=parseTrackingCSV('\uFEFF메모,주문번호,운송장번호\r\n"상자,주의\n""파손""",BP1,001234\r\n');
- assert.deepEqual(rows,[{order_number:'BP1',tracking_number:'001234',carrier_raw:undefined}]);
+ assert.deepEqual(rows,[{order_number:'BP1',tracking_number:'001234',carrier_raw:undefined,source_row:2}]);
 });
 test('CSV rejects unclosed and misplaced quotes instead of guessing columns',()=>{
  assert.throws(()=>parseTrackingCSV('주문번호,운송장번호\n"BP1,123'),/닫히지/);

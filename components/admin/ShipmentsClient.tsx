@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { parseTrackingXlsx } from '@/lib/tracking-xlsx';
-import { trackingRows, trackingRowIssues, parseTrackingCSV } from "@/lib/shipping-flow";
+import { parseTrackingCSV, type TrackingRow } from "@/lib/shipping-flow";
+import { resolveImportCarrier, type ImportReview } from "@/lib/tracking-import";
+import type { ShipmentImportResult } from "@/lib/admin-shipment-import";
 import { CORE_CARRIERS, carrierName as libCarrierName } from "@/lib/carriers";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
@@ -38,18 +40,6 @@ export interface ShipmentOrder {
 
 // 택배사 목록은 서버(/api/admin/shipments/carriers)에서 스위트트래커 공식 코드표를
 // 받아온다 (키 미설정 시 주요 6사 폴백). 코드표 하드코딩으로 인한 오배송 조회 방지.
-
-// 행 배열(엑셀/CSV 공통) → 주문번호·운송장번호 목록
-// 헤더 감지: 첫 줄에 '주문/운송장/order/tracking' 이 있으면 헤더로 보고 스킵
-// (주문번호가 BP… 처럼 문자로 시작해도 데이터가 누락되지 않게)
-function parseTrackingRows(grid: string[][]): { order_number: string; tracking_number: string; carrier_raw?: string }[] {
-  return trackingRows(grid);
-}
-
-
-function downloadTemplate() {
-  downloadXlsx("운송장입력양식.xlsx", ["주문번호", "운송장번호", "택배사"], [["BP20240101001", "123456789012", "CJ대한통운"]], "운송장");
-}
 
 type Tab =
   | "preparing"
@@ -101,15 +91,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   const [carrierCode, setCarrierCode] = useState("04");
   const [carriers, setCarriers] = useState(CORE_CARRIERS);
 
-  // 양식의 택배사 칸(이름 또는 코드) → 코드로 해석. 못 찾으면 null (드롭다운 선택값 사용)
-  function resolveCarrier(raw?: string): string | null {
-    if (!raw) return null;
-    const v = raw.replace(/\s/g, "");
-    const byCode = carriers.find((c) => c.code === v);
-    if (byCode) return byCode.code;
-    const byName = carriers.find((c) => c.name.replace(/\s/g, "") === v);
-    return byName ? byName.code : null;
-  }
+  const resolveCarrier = (raw?: string) => resolveImportCarrier(raw ?? "", carriers);
   const [trackerKeyMissing, setTrackerKeyMissing] = useState(false);
   // 상품 그룹 단위 선택/해제 (배송준비·배송중 테이블의 그룹 헤더 체크박스)
   function toggleGroup(ids: string[], select: boolean) {
@@ -120,9 +102,11 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
     });
   }
 
-  const [csvRows, setCsvRows] = useState<{ order_number: string; tracking_number: string; carrier_raw?: string }[]>([]);
+  const [csvRows, setCsvRows] = useState<TrackingRow[]>([]);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ succeeded: number; failed: { order_number: string; reason?: string }[]; smsSent?: number; smsFailed?: number } | null>(null);
+  const [importResult, setImportResult] = useState<ShipmentImportResult | null>(null);
+  const [preview, setPreview] = useState<(ImportReview & { token: string; expiresAt: string; requestKey: string }) | null>(null);
+  const importBusy = useRef(false);
   const [readingFile, setReadingFile] = useState(false);
   const [fileName, setFileName] = useState("");
   const fileVersion = useRef(0);
@@ -181,9 +165,9 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || importing) return;
+    if (!file || importBusy.current) return;
     const version = ++fileVersion.current;
-    setCsvRows([]); setImportResult(null); setLoadError("");
+    setCsvRows([]); setPreview(null); setImportResult(null); setLoadError("");
     setFileName(file.name); setReadingFile(true);
     try {
       const rows = /\.xlsx?$/i.test(file.name)
@@ -200,42 +184,46 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
     } finally { if (version === fileVersion.current) setReadingFile(false); }
   }
 
-  async function submitTracking(rows: { order_number: string; tracking_number: string; carrier: string }[]) {
-    if (importing) return;
-    setImporting(true); setLoadError("");
+  function downloadTemplate() {
+    const targets = orders.filter(o => o.status === "preparing" && (!selected.size || selected.has(o.id)));
+    const unique = [...new Map(targets.map(o => [o.id, o])).values()];
+    downloadXlsx("운송장회신양식.xlsx", ["주문번호", "운송장번호", "택배사"], unique.map(o => [o.order_number, "", ""]), "운송장");
+  }
+
+  async function previewTracking(rows: TrackingRow[]) {
+    if (importBusy.current || readingFile || !rows.length) return;
+    importBusy.current = true; setImporting(true); setLoadError(""); setImportResult(null); setPreview(null);
+    const version = fileVersion.current;
     try {
-      const res = await fetch("/api/admin/shipments/import", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }),
+      const res = await fetch("/api/admin/shipments/import/preview", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows, defaultCarrier: carrierCode }),
       });
       const data = await res.json();
-      if (!res.ok || !Array.isArray(data.failed)) throw Error(data.error || "송장 등록 결과를 확인하지 못했습니다. 목록 확인 후 재시도해주세요.");
-      setImportResult(data);
-      const failed = new Set(data.failed.map((r: {order_number:string}) => r.order_number));
-      setCsvRows(prev => prev.filter(r => failed.has(r.order_number)));
-      if (!data.failed.length) { setShowTrackModal(false); setModalTracking({}); }
-      await load(tab);
-    } catch (e) { setLoadError(e instanceof Error ? e.message : "송장 등록 실패"); }
-    finally { setImporting(false); }
+      if (!res.ok || !data.token || !Array.isArray(data.rows)) throw Error(data.error || "미리보기를 불러오지 못했습니다.");
+      if (version === fileVersion.current) setPreview({ ...data, requestKey: crypto.randomUUID() });
+    } catch (e) { setLoadError(e instanceof Error ? e.message : "미리보기 실패"); }
+    finally { importBusy.current = false; setImporting(false); }
   }
   async function handleImport() {
-    if (readingFile || importing || !csvRows.length) return;
-    const issues = trackingRowIssues(csvRows);
-    if(sharedOrders) for(const row of csvRows) {
-      const order = sharedOrders.find(o => o.order_number === row.order_number);
-      if(!order || !["preparing", "shipped"].includes(order.status)) issues.push(`${row.order_number}: 발주 확정된 배송준비 또는 배송중 주문인지 확인해주세요.`);
-    }
-    if (issues.length) { setLoadError(issues.join(" · ")); return; }
-    if (csvRows.some(r => r.carrier_raw && !resolveCarrier(r.carrier_raw))) {
-      setLoadError("인식하지 못한 택배사가 있습니다. 파일의 택배사 이름 또는 코드를 수정해주세요."); return;
-    }
-    await submitTracking(csvRows.map(r => ({order_number:r.order_number, tracking_number:r.tracking_number, carrier:resolveCarrier(r.carrier_raw) ?? carrierCode})));
+    if (importBusy.current || readingFile || !preview) return;
+    importBusy.current = true; setImporting(true); setLoadError("");
+    try {
+      const res = await fetch("/api/admin/shipments/import", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: csvRows, defaultCarrier: carrierCode, token: preview.token, requestKey: preview.requestKey }),
+      });
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data.failed)) throw Error(data.error || "결과를 확인하지 못했습니다. 같은 화면에서 등록을 다시 눌러주세요.");
+      setImportResult(data); setPreview(null); setModalTracking({});
+      await load(tab);
+    } catch (e) { setLoadError(e instanceof Error ? e.message : "등록 결과를 확인하지 못했습니다. 같은 요청으로 재시도해주세요."); }
+    finally { importBusy.current = false; setImporting(false); }
   }
   async function handleModalSubmit() {
-    const rows = orders.filter(o => selected.has(o.id)).map(o => ({order_number:o.order_number, carrier:carrierCode, tracking_number:(modalTracking[o.id] || "").trim()})).filter(r => r.tracking_number);
+    const rows = orders.filter(o => selected.has(o.id)).map((o, i) => ({ order_number: o.order_number, carrier_raw: carrierCode, tracking_number: (modalTracking[o.id] || "").trim(), source_row: i + 1 })).filter(r => r.tracking_number);
     if (!rows.length) { setLoadError("운송장번호를 하나 이상 입력해주세요."); return; }
-    const issues = trackingRowIssues(rows);
-    if (issues.length) { setLoadError(issues.join(" · ")); return; }
-    await submitTracking(rows);
+    ++fileVersion.current; setCsvRows(rows); setFileName("선택 주문 직접 입력"); setShowTrackModal(false);
+    await previewTracking(rows);
   }
 
   async function handleTrack() {
@@ -346,13 +334,13 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
               </div>
               <button onClick={downloadTemplate}
                 className="text-xs text-blue-500 hover:text-blue-600 font-medium border border-blue-200 px-3 py-1.5 rounded-none">
-                양식 다운로드
+                주문별 회신 양식 다운로드
               </button>
             </div>
 
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 선택</label>
-              <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}
+              <select value={carrierCode} disabled={importing || readingFile} onChange={(e) => { setCarrierCode(e.target.value); setPreview(null); setImportResult(null); }}
                 className="w-full border border-gray-200 rounded-none px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#C7D6C0] bg-white">
                 {carriers.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
@@ -379,7 +367,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
                       {csvRows.slice(0, 5).map((r, i) => (
                         <tr key={i}>
                           <td className="px-4 py-2 font-mono text-gray-700">{r.order_number}</td>
-                          <td className="px-4 py-2 text-gray-600">{r.carrier_raw ? (libCarrierName(resolveCarrier(r.carrier_raw) ?? "") || r.carrier_raw) : carrierName}</td>
+                          <td className="px-4 py-2 text-gray-600">{r.carrier_raw ? (resolveCarrier(r.carrier_raw) ? libCarrierName(resolveCarrier(r.carrier_raw)) : r.carrier_raw) : carrierName}</td>
                           <td className="px-4 py-2 font-mono text-gray-700">{r.tracking_number}</td>
                         </tr>
                       ))}
@@ -393,14 +381,20 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
                     </tbody>
                   </table>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={handleImport} disabled={importing || readingFile}
-                    className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-none transition-colors">
-                    {importing ? "처리 중..." : `${csvRows.length}건 배송중으로 변경`}
+                {!preview && !importResult && <p className="text-xs text-gray-500 mb-3">파일 {csvRows.length}행 · 서버에서 현재 주문 상태와 중복을 확인한 후 등록합니다.</p>}
+                {preview && <ImportReviewTable review={preview} />}
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => previewTracking(csvRows)} disabled={importing || readingFile}
+                    className="flex-1 border border-gray-300 disabled:opacity-50 text-gray-700 text-sm font-bold py-2.5 px-4">
+                    {importing ? "처리 중..." : preview ? "미리보기 다시 확인" : "등록 전 미리보기"}
                   </button>
-                  <button disabled={importing} onClick={() => { ++fileVersion.current; setCsvRows([]); setFileName(""); setReadingFile(false); }}
-                    className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-none">
-                    취소
+                  {preview && <button onClick={handleImport} disabled={importing || readingFile || preview.counts.ready === 0}
+                    className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] disabled:opacity-50 text-white text-sm font-bold py-2.5 px-4">
+                    {importing ? "처리 중..." : `정상 ${preview.counts.ready}건 등록`}
+                  </button>}
+                  <button disabled={importing} onClick={() => { ++fileVersion.current; setCsvRows([]); setPreview(null); setImportResult(null); setFileName(""); setReadingFile(false); }}
+                    className="px-4 py-2.5 text-sm text-gray-500 border border-gray-200">
+                    파일 바꾸기
                   </button>
                 </div>
               </div>
@@ -409,23 +403,17 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
             <input ref={fileRef} disabled={importing} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
 
             {importResult && (
-              <div className={`mt-3 px-4 py-3 rounded-none text-sm ${importResult.failed.length > 0 ? "bg-yellow-50" : "bg-green-50"}`}>
-                <p className="font-semibold text-gray-800">
-                  처리 완료 — 성공 {importResult.succeeded}건
-                  {importResult.failed.length > 0 && `, 실패 ${importResult.failed.length}건`}
-                  {(importResult.smsSent ?? 0) > 0 && ` · 발송 안내 문자 ${importResult.smsSent}건`}
-                  {(importResult.smsFailed ?? 0) > 0 && ` (문자 실패 ${importResult.smsFailed}건)`}
-                </p>
-                {importResult.failed.map((f, i) => (
-                  <p key={i} className="text-xs text-red-500 mt-1">{f.order_number}: {f.reason}</p>
-                ))}
+              <div className="mt-3 px-4 py-3 bg-green-50 text-sm" role="status">
+                <p className="font-semibold text-gray-800">등록 완료 — 신규 {importResult.succeeded}건 · 이미 등록 {importResult.alreadyApplied}건 · 중복 제외 {importResult.duplicateExcluded}행 · 확인 필요 {importResult.failed.length}행</p>
+                <p className="text-xs text-gray-600 mt-1">발송 안내 {importResult.smsQueued}건 예약 · 발송 결과는 <a href="/admin/shipment-notifications" className="underline">발송 알림 관리</a>에서 확인해주세요.</p>
+                <ImportReviewTable review={importResult} completed />
               </div>
             )}
           </div>
 
           {selected.size > 0 && (
             <div className="mb-3">
-              <button onClick={() => { setModalTracking({}); setShowTrackModal(true); }}
+              <button disabled={importing || readingFile} onClick={() => { setModalTracking({}); setShowTrackModal(true); }}
                 className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors">
                 선택 {selected.size}건 운송장 입력 → 배송중
               </button>
@@ -536,14 +524,14 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
           <div className="bg-white rounded-none w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100">
-              <p className="text-sm font-bold text-gray-800">운송장 입력 후 배송중 처리</p>
+              <p className="text-sm font-bold text-gray-800">선택 주문 운송장 입력</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                선택 {orders.filter((o) => selected.has(o.id)).length}건 · 번호를 입력한 건만 배송중으로 변경됩니다
+                선택 {orders.filter((o) => selected.has(o.id)).length}건 · 번호를 입력한 건의 등록 가능 여부를 미리 확인합니다
               </p>
             </div>
             <div className="p-5 border-b border-gray-100">
               <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 (전체 공통)</label>
-              <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}
+              <select value={carrierCode} disabled={importing || readingFile} onChange={(e) => { setCarrierCode(e.target.value); setPreview(null); setImportResult(null); }}
                 className="w-full border border-gray-200 rounded-none px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#C7D6C0] bg-white">
                 {carriers.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
@@ -565,7 +553,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
             <div className="p-5 border-t border-gray-100 flex gap-2">
               <button onClick={handleModalSubmit} disabled={importing}
                 className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-none transition-colors">
-                {importing ? "처리 중..." : "배송중으로 변경"}
+                {importing ? "처리 중..." : "등록 전 미리보기"}
               </button>
               <button onClick={() => setShowTrackModal(false)} disabled={importing}
                 className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-none">
@@ -577,6 +565,28 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
       )}
     </div>
   );
+}
+
+const REVIEW_LABELS = { ready: "등록 가능", already: "이미 등록", duplicate: "중복 제외", blocked: "확인 필요" };
+const IMPORT_STATUS: Record<string, string> = { paid: "결제완료", confirmed: "주문확인", preparing: "배송준비", shipped: "배송중", delivered: "배송완료", cancelled: "취소완료", cancel_requested: "취소요청", return_requested: "반품신청", returned: "반품완료", return_completed: "반품완료", exchange_requested: "교환신청", exchange_completed: "교환완료" };
+function ImportReviewTable({ review, completed = false }: { review: ImportReview; completed?: boolean }) {
+  return <div className="my-3">
+    {!completed && <p className="text-sm font-semibold mb-2" role="status">등록 가능 {review.counts.ready}건 · 이미 등록 {review.counts.already}건 · 중복 제외 {review.counts.duplicate}행 · 확인 필요 {review.counts.blocked}행</p>}
+    {!completed && <p className="text-xs text-gray-500 mb-2">확인 필요 주문은 제외하고 정상 주문만 등록합니다. 미리보기는 15분 동안 유효하며 등록 시 상태를 다시 확인합니다.</p>}
+    <div className="max-h-80 overflow-auto border border-gray-200 bg-white">
+      <table className="w-full min-w-[800px] text-xs text-left">
+        <thead className="sticky top-0 bg-gray-50"><tr>{["원본 행", "주문번호", "현재 상태", "택배사 / 송장", "결과", "확인 사항"].map(h => <th key={h} className="px-3 py-2">{h}</th>)}</tr></thead>
+        <tbody>{review.rows.map((r, i) => <tr key={i} className="border-t border-gray-100">
+          <td className="px-3 py-2 whitespace-nowrap">{r.source_sheet && `${r.source_sheet} · `}{r.source_row}행</td>
+          <td className="px-3 py-2 font-mono">{r.order_number || "—"}{r.resolved_order && r.resolved_order !== r.order_number && <div className="text-gray-500">→ {r.resolved_order}</div>}</td>
+          <td className="px-3 py-2 whitespace-nowrap">{r.current_status ? IMPORT_STATUS[r.current_status] ?? r.current_status : "주문 없음"}</td>
+          <td className="px-3 py-2">{r.carrier ? libCarrierName(r.carrier) : r.carrier_raw || "—"}<div className="font-mono">{r.tracking_number || "—"}</div></td>
+          <td className={`px-3 py-2 whitespace-nowrap font-semibold ${r.result === 'blocked' ? 'text-red-600' : r.result === 'ready' ? 'text-green-700' : 'text-gray-500'}`}>{completed && r.result === 'ready' ? '등록 완료' : REVIEW_LABELS[r.result]}</td>
+          <td className="px-3 py-2 text-gray-600">{completed && r.result === 'ready' ? '배송중으로 변경했습니다.' : r.reason}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>;
 }
 
 function OrderTable({
