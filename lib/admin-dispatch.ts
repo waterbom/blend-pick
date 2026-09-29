@@ -1,7 +1,8 @@
+import { rollbackSafely, ApiError, statusErrorCode } from '@/lib/api-errors';
 import shopPool from '@/lib/db-shop';
 import { dispatchIssues } from '@/lib/admin-workflow';
-export class DispatchError extends Error {
-    constructor(message: string, public status = 409) { super(message); }
+export class DispatchError extends ApiError {
+    constructor(message: string, status = 409) { super(statusErrorCode(status), message, status); }
 }
 const uuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 const exportFields = ['id', 'order_number', 'status', 'order_type', 'site', 'buyer_name', 'buyer_phone', 'recipient_name', 'recipient_phone', 'addr_zipcode', 'addr_address', 'addr_detail', 'addr_memo', 'total_amount', 'shipping_fee', 'influencer_name', 'link_code', 'sales_channel', 'created_at'];
@@ -64,7 +65,7 @@ export async function confirmDispatch(site: string, key: unknown, ids: unknown) 
         return batch.rows[0];
     }
     catch (e) {
-        await c.query('ROLLBACK');
+        await rollbackSafely(c);
         throw e;
     }
     finally {

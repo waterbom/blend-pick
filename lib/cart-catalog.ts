@@ -2,7 +2,10 @@ import shopPool from '@/lib/db-shop';
 import {quoteCartAmount} from '@/lib/order-amount';
 import {secretUnitPrice} from '@/lib/secret-link';
 import type {SiteKey} from '@/lib/sites';
-export class CartSelectionError extends Error {}
+import {ApiError} from '@/lib/api-errors';
+export class CartSelectionError extends ApiError {
+  constructor(message: string) { super('INVALID_INPUT', message, 400); }
+}
 export async function resolveCartItem(item:any,site:SiteKey,db:Pick<typeof shopPool,'query'>=shopPool){
   if(!item||!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>999)throw new CartSelectionError('수량은 1~999개로 입력해주세요.');
   const result=await quoteCartAmount({site,items:[item],totalAmount:0,shippingCost:0,amount:0},db);

@@ -1,15 +1,16 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { influencerFinance } from "@/lib/influencer-finance";
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
     const token = (await cookies()).get('admin_token')?.value;
     if (!token || !await verifyAdminToken(token))
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const site = (await currentAdminSite()).key;
-    const { campaign_id, influencer_id } = await req.json();
+    const { campaign_id, influencer_id } = await readJsonObject(req);
     if (![campaign_id, influencer_id].every(v => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)))
         return NextResponse.json({ error: '정산 대상을 확인해주세요.' }, { status: 400 });
     const row = (await influencerFinance(site)).find(r => r.campaign_id === campaign_id && r.influencer_id === influencer_id);
@@ -31,3 +32,5 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: '이미 지급완료된 정산입니다. 새로고침해 확인해주세요.' }, { status: 409 });
     return NextResponse.json({ ok: true, id: result.rows[0].id, payout: b }, { status: 201 });
 }
+
+export const POST = withApiErrors('POST /api/admin/influencer-payouts', handlePOST);

@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, apiErrorResponse } from '@/lib/api-errors';
 import { runRefund, RefundError } from '@/lib/refund-operation';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -18,7 +19,7 @@ async function getAdmin() {
 // · 거절: 신청 전 주문 상태(prev_status)로 되돌려 고객이 다시 신청할 수 있게 한다.
 // 모든 처리는 order_return_events에 관리자·시각과 함께 기록된다.
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
@@ -62,12 +63,12 @@ export async function GET(req: Request) {
 }
 
 // PATCH { id, action: 'collect' | 'complete' | 'reject', note?, refund_amount? }
-export async function PATCH(req: Request) {
+async function handlePATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
 
-  const { id, action, note, refund_amount } = await req.json();
+  const { id, action, note, refund_amount } = await readJsonObject(req);
   if (!id || !["collect", "complete", "reject"].includes(action)) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
@@ -107,9 +108,9 @@ export async function PATCH(req: Request) {
       );
       await client.query("COMMIT");
     } catch (e) {
-      await client.query("ROLLBACK");
-      console.error("[returns] 수거 처리 실패:", e);
-      return NextResponse.json({ error: "처리에 실패했어요." }, { status: 500 });
+      await rollbackSafely(client);
+      reportApiError(e, 'app/api/admin/returns/route.ts:111');
+      return apiErrorResponse(e, { error: "처리에 실패했어요." }, { status: 500 });
     } finally {
       client.release();
     }
@@ -143,8 +144,8 @@ export async function PATCH(req: Request) {
       refunded=result.amount;
       alreadyRefunded=result.alreadyCompleted;
     } catch(e) {
-      console.error('[returns] 환불 또는 완료 저장 확인 필요',e);
-      return NextResponse.json({error:e instanceof RefundError?e.message:'완료 저장에 실패했습니다. 같은 신청에서 다시 확인해주세요.'},{status:e instanceof RefundError?e.status:500});
+      reportApiError(e, 'app/api/admin/returns/route.ts:146');
+      return apiErrorResponse(e, {error:e instanceof RefundError?e.message:'완료 저장에 실패했습니다. 같은 신청에서 다시 확인해주세요.'},{status:e instanceof RefundError?e.status:500});
     }
 
     // 반품 환불 안내 문자 — 완료 처리 후 발송 (실패해도 완료 자체는 유지)
@@ -159,7 +160,7 @@ export async function PATCH(req: Request) {
         });
         smsSent = r.ok === true;
       } catch (e) {
-        console.error("[returns] 환불 안내 문자 발송 실패:", e);
+        reportApiError(e, 'app/api/admin/returns/route.ts:162');
       }
     }
 
@@ -190,11 +191,14 @@ export async function PATCH(req: Request) {
     );
     await client.query("COMMIT");
   } catch (e) {
-    await client.query("ROLLBACK");
-    console.error("[returns] 거절 처리 실패:", e);
-    return NextResponse.json({ error: "처리에 실패했어요." }, { status: 500 });
+    await rollbackSafely(client);
+    reportApiError(e, 'app/api/admin/returns/route.ts:194');
+    return apiErrorResponse(e, { error: "처리에 실패했어요." }, { status: 500 });
   } finally {
     client.release();
   }
   return NextResponse.json({ ok: true, status: "rejected" });
 }
+
+export const GET = withApiErrors('GET /api/admin/returns', handleGET);
+export const PATCH = withApiErrors('PATCH /api/admin/returns', handlePATCH);

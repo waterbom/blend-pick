@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, apiErrorResponse, reportApiError } from '@/lib/api-errors';
 import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/refund-fulfillment';
 import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -19,7 +20,7 @@ async function getAdmin() {
 }
 // PATCH /api/admin/orders/[id] — 주문 상태 변경
 // body: { status: "preparing" | "shipped" | "delivered" | "cancelled" }
-export async function PATCH(request: Request, { params }: {
+async function handlePATCH(request: Request, { params }: {
     params: Promise<{
         id: string;
     }>;
@@ -29,7 +30,7 @@ export async function PATCH(request: Request, { params }: {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const site = (await currentAdminSite()).key;
     const { id } = await params;
-    const body = await request.json().catch(() => null);
+    const body = await readJsonObject(request);
     if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: '요청 본문을 확인해주세요.' }, { status: 400 });
     const { action, status } = body;
     let { tracking_company, tracking_number } = body;
@@ -57,7 +58,7 @@ export async function PATCH(request: Request, { params }: {
             return NextResponse.json({ error: "주문 상태나 송장 정보가 바뀌었습니다. 새로고침해 확인해주세요." }, { status: 409 });
         return NextResponse.json({ ok: true });
         } catch (error) {
-          if (isRefundFulfillmentConflict(error)) return NextResponse.json({error:REFUND_FULFILLMENT_MESSAGE},{status:409});
+          if (isRefundFulfillmentConflict(error)) return apiErrorResponse(error, {error:REFUND_FULFILLMENT_MESSAGE},{status:409});
           throw error;
         }
     }
@@ -116,11 +117,13 @@ export async function PATCH(request: Request, { params }: {
         return NextResponse.json({ ok: true, status });
     }
     catch (e) {
-        await client.query("ROLLBACK");
-        console.error("주문 상태 변경 실패:", e);
-        return NextResponse.json({ error: isRefundFulfillmentConflict(e) ? REFUND_FULFILLMENT_MESSAGE : "Internal server error" }, { status: isRefundFulfillmentConflict(e) ? 409 : 500 });
+        await rollbackSafely(client);
+        reportApiError(e, 'app/api/admin/orders/[id]/route.ts:120');
+        return apiErrorResponse(e, { error: isRefundFulfillmentConflict(e) ? REFUND_FULFILLMENT_MESSAGE : "Internal server error" }, { status: isRefundFulfillmentConflict(e) ? 409 : 500 });
     }
     finally {
         if (!released) client.release();
     }
 }
+
+export const PATCH = withApiErrors('PATCH /api/admin/orders/[id]', handlePATCH);

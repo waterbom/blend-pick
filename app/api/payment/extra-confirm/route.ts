@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, apiErrorResponse } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createHash, randomBytes } from 'crypto';
@@ -8,9 +9,9 @@ import { isPhoneVerified } from '@/lib/phone-verify';
 import { buyerContactError } from '@/lib/checkout-contact';
 import { processPaymentAttempt, purchaseResult, PurchaseError, type PurchaseSnapshot } from '@/lib/payment-attempt';
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
     try {
-        const body = await req.json().catch(() => null);
+        const body = await readJsonObject(req);
         if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PurchaseError('결제 요청을 확인해주세요.', 400);
         const { paymentKey, orderId, amount, token, name, phone } = body;
         const site = siteFromRequest(req);
@@ -43,10 +44,12 @@ export async function POST(req: NextRequest) {
             if (existing.rows.length) throw new PurchaseError('이미 처리되었거나 처리 중인 결제입니다. 주문 내역에서 확인해주세요.');
             await client.query('INSERT INTO payment_attempts(payment_key,provider_order_id,site,request_hash,amount,snapshot) VALUES($1,$2,$3,$4,$5,$6::jsonb)', [paymentKey, orderId, site, hash, amount, JSON.stringify(snapshot)]);
             await client.query('COMMIT');
-        } catch (e) { await client.query('ROLLBACK'); throw e; }
+        } catch (e) { await rollbackSafely(client); throw e; }
         finally { client.release(); }
         return NextResponse.json(await processPaymentAttempt(paymentKey, site));
     } catch (e) {
-        return NextResponse.json({ ok: false, error: e instanceof PurchaseError ? e.message : '결제 요청을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' }, { status: e instanceof PurchaseError ? e.status : 503 });
+        return apiErrorResponse(e, { ok: false, error: e instanceof PurchaseError ? e.message : '결제 요청을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' }, { status: e instanceof PurchaseError ? e.status : 503 });
     }
 }
+
+export const POST = withApiErrors('POST /api/payment/extra-confirm', handlePOST);

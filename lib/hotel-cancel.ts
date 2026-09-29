@@ -1,4 +1,5 @@
 import { runRefund, RefundError } from '@/lib/refund-operation';
+import { ApiError, apiErrorDetails, reportApiError } from '@/lib/api-errors';
 import shopPool from "@/lib/db-shop";
 import { nextISO, nightsBetween, refundRateFor } from "@/lib/hotel";
 import { sendCancellationSMS } from "@/lib/hotel-notify";
@@ -57,8 +58,7 @@ export async function cancelHotelReservation(
     if(result.alreadyCompleted)return {ok:true,alreadyCancelled:true};
     actualRefund=result.amount;
   } catch(e) {
-    console.error('[hotel-cancel] 환불 또는 완료 저장 확인 필요',e);
-    return {ok:false,error:e instanceof RefundError?e.message:'취소 결과 확인이 필요합니다. 같은 예약에서 다시 확인해주세요.',httpStatus:e instanceof RefundError?e.status:503};
+    return {...apiErrorDetails(e instanceof ApiError ? e : new ApiError('REFUND_REVIEW_REQUIRED', undefined, 503, {cause:e})),ok:false};
   }
 
   // 3) 예약취소 문자 발송 (실패해도 취소·환불엔 영향 없음)
@@ -77,9 +77,9 @@ export async function cancelHotelReservation(
         refundNote,
       });
       smsSent = r.ok;
-      if (!r.ok) console.error("[hotel-cancel] 취소 문자 발송 실패:", r.error);
+      if (!r.ok) reportApiError(new ApiError('UPSTREAM_UNAVAILABLE'), 'hotel.cancel.notification');
     } catch (e) {
-      console.error("[hotel-cancel] 취소 문자 예외:", e);
+      reportApiError(e, 'hotel.cancel.notification');
     }
   }
 

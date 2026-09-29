@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
@@ -14,14 +15,14 @@ import { isPhoneVerified, normPhone } from "@/lib/phone-verify";
 // (호텔 측 객실 반납 조율이 필요해 고객 단독 취소를 막음. 재개하려면 true로)
 const SELF_CANCEL_ENABLED = false;
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   if (!SELF_CANCEL_ENABLED) {
     return NextResponse.json(
       { error: "온라인 예약 취소가 중단되었습니다. 카카오톡 채널로 문의해주시면 확인 후 처리해드려요." },
       { status: 403 }
     );
   }
-  const { order_number, phone } = await req.json();
+  const { order_number, phone } = await readJsonObject(req);
   if (!order_number || !phone) {
     return NextResponse.json({ error: "예약번호와 연락처가 필요합니다." }, { status: 400 });
   }
@@ -67,3 +68,5 @@ export async function POST(req: NextRequest) {
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.httpStatus });
   return NextResponse.json(result);
 }
+
+export const POST = withApiErrors('POST /api/hotel/cancel', handlePOST);

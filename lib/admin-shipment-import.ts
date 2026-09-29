@@ -7,9 +7,10 @@ import { processQueue } from '@/lib/shipment-outbox.cjs';
 import { registerShipment } from '@/lib/shipment-transition';
 import type { SiteKey } from '@/lib/sites';
 import { smsConfigured, sendSMS } from '@/lib/sms';
+import { ApiError, statusErrorCode } from '@/lib/api-errors';
 
-export class ShipmentImportError extends Error {
-  constructor(message: string, public status = 409) { super(message); }
+export class ShipmentImportError extends ApiError {
+  constructor(message: string, status = 409) { super(statusErrorCode(status), message, status); }
 }
 type Admin = { id: string; email: string };
 type Payload = { version: number; site: string; admin: string; hash: string; ids: string[]; expires: number };

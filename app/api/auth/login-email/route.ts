@@ -1,11 +1,12 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import bcrypt from "bcryptjs";
 import { ADMIN_EMAIL, signToken, signAdminToken } from "@/lib/auth";
 
-export async function POST(req: NextRequest) {
-  const { email, password } = await req.json();
+async function handlePOST(req: NextRequest) {
+  const { email, password } = await readJsonObject(req);
 
   // 관리자 계정이면 admin_users 테이블에서 처리
   if (email === ADMIN_EMAIL) {
@@ -100,3 +101,5 @@ export async function POST(req: NextRequest) {
   res.cookies.set("admin_token", "", { maxAge: 0, path: "/" });
   return res;
 }
+
+export const POST = withApiErrors('POST /api/auth/login-email', handlePOST);

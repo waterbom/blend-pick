@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject, apiErrorResponse } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -5,7 +6,7 @@ import { currentAdminSite } from "@/lib/admin-site";
 import shopPool from "@/lib/db-shop";
 import { processPaymentAttempt, PurchaseError } from "@/lib/payment-attempt";
 async function site() { const token = (await cookies()).get('admin_token')?.value; return token && await verifyAdminToken(token) ? (await currentAdminSite()).key : null; }
-export async function GET() {
+async function handleGET() {
     const key = await site();
     if (!key)
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -13,11 +14,11 @@ export async function GET() {
  FROM payment_attempts WHERE site=$1 AND status NOT IN ('completed','failed') ORDER BY created_at LIMIT 100`, [key]);
     return NextResponse.json(rows);
 }
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
     const key = await site();
     if (!key)
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { orderId } = await req.json();
+    const { orderId } = await readJsonObject(req);
     if (typeof orderId !== 'string')
         return NextResponse.json({ error: '요청을 확인해주세요.' }, { status: 400 });
     const found = await shopPool.query('SELECT payment_key FROM payment_attempts WHERE provider_order_id=$1 AND site=$2', [orderId, key]);
@@ -27,6 +28,9 @@ export async function POST(req: Request) {
         return NextResponse.json(await processPaymentAttempt(found.rows[0].payment_key, key, true));
     }
     catch (e) {
-        return NextResponse.json({ error: e instanceof Error ? e.message : '복구 실패' }, { status: e instanceof PurchaseError ? e.status : 503 });
+        return apiErrorResponse(e, { error: e instanceof Error ? e.message : '복구 실패' }, { status: e instanceof PurchaseError ? e.status : 503 });
     }
 }
+
+export const GET = withApiErrors('GET /api/admin/payment-recovery', handleGET);
+export const POST = withApiErrors('POST /api/admin/payment-recovery', handlePOST);

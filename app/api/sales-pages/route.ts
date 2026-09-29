@@ -1,9 +1,10 @@
+import { withApiErrors, reportApiError } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 
 const TODAY = `(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date`;
 
-export async function GET() {
+async function handleGET() {
   try {
     const pagesResult = await pool.query(`
       WITH counts AS (
@@ -64,7 +65,9 @@ export async function GET() {
       banner: bannerResult.rows,
     });
   } catch (e) {
-    console.error(e);
+    reportApiError(e, 'app/api/sales-pages/route.ts:67');
     return NextResponse.json({ pages: [], banner: [] });
   }
 }
+
+export const GET = withApiErrors('GET /api/sales-pages', handleGET);

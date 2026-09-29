@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -128,7 +129,7 @@ async function compute(baseline: string | null) {
   return { added, replaced, changed, cancelled, roster };
 }
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   if (!(await getAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
   await ensureTable();
@@ -150,12 +151,12 @@ export async function GET(req: Request) {
   });
 }
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (!(await getAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
   await ensureTable();
 
-  const body = await req.json().catch(() => ({}));
+  const body = await readJsonObject(req);
 
   // 지시서에 담긴 주문들에 호텔 전달 도장 — 이 시각 이후의 변경·취소가 "미전달"로 잡힌다
   const nums = Array.isArray(body.order_numbers)
@@ -183,3 +184,6 @@ export async function POST(req: Request) {
   );
   return NextResponse.json({ ok: true, issueNo: r.rows[0].id, issuedAt: r.rows[0].issued_at, stamped });
 }
+
+export const GET = withApiErrors('GET /api/admin/hotel-worksheet', handleGET);
+export const POST = withApiErrors('POST /api/admin/hotel-worksheet', handlePOST);

@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { cookies } from 'next/headers';
 import { bookingService as service, guard, owner, body, failure, paymentReady, flushNotifications } from '@/lib/dangung-server';
 import { BookingError } from '@/lib/dangung-core.cjs';
@@ -5,11 +6,11 @@ import { phoneVerifyOn } from '@/lib/sms';
 import { isPhoneVerified } from '@/lib/phone-verify';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
-export async function GET(request:Request){try{await guard();const id=new URL(request.url).searchParams.get('id');
+async function handleGET(request:Request){try{await guard();const id=new URL(request.url).searchParams.get('id');
  if(id)return Response.json(await service.status(id,await owner()),{headers:{'Cache-Control':'no-store'}});
  await owner(true);const calendar=await service.calendar();return Response.json({...calendar,paymentReady:paymentReady(),phoneVerify:phoneVerifyOn()},{headers:{'Cache-Control':'no-store'}});
  }catch(e){return failure(e);}}
-export async function POST(request:Request){try{await guard(request);const input=await body(request),token=await owner(true);let result;
+async function handlePOST(request:Request){try{await guard(request);const input=await body(request),token=await owner(true);let result;
  switch(input.action){
  case 'lookup':result=await service.lookup(input,token);break;
  case 'quote':result=await service.getQuote(input);break;
@@ -26,3 +27,6 @@ export async function POST(request:Request){try{await guard(request);const input
  if(['confirm','reconcile'].includes(input.action)&&result?.id)await flushNotifications(result.id);
  return Response.json(result,{headers:{'Cache-Control':'no-store'}});
  }catch(e){return failure(e);}}
+
+export const GET = withApiErrors('GET /api/dangung', handleGET);
+export const POST = withApiErrors('POST /api/dangung', handlePOST);

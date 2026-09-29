@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -11,7 +12,7 @@ async function getAdmin() {
 }
 
 // 리뷰 목록 (관리자) — 최근순, 상품명 포함
-export async function GET() {
+async function handleGET() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
@@ -30,12 +31,12 @@ export async function GET() {
 }
 
 // 숨김/해제
-export async function PATCH(req: Request) {
+async function handlePATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
 
-  const { id, is_hidden } = await req.json();
+  const { id, is_hidden } = await readJsonObject(req);
   if (!id || typeof is_hidden !== "boolean") {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
@@ -44,13 +45,17 @@ export async function PATCH(req: Request) {
 }
 
 // 삭제
-export async function DELETE(req: Request) {
+async function handleDELETE(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
 
-  const { id } = await req.json();
+  const { id } = await readJsonObject(req);
   if (!id) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   const r = await shopPool.query(`DELETE FROM reviews WHERE id = $1 AND order_id IN (SELECT id FROM orders WHERE site = $2)`, [id, site]);
   return NextResponse.json({ ok: true, deleted: r.rowCount });
 }
+
+export const GET = withApiErrors('GET /api/admin/reviews', handleGET);
+export const PATCH = withApiErrors('PATCH /api/admin/reviews', handlePATCH);
+export const DELETE = withApiErrors('DELETE /api/admin/reviews', handleDELETE);

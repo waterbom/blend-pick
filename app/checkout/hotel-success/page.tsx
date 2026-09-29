@@ -1,4 +1,6 @@
 "use client";
+import { apiErrorMessage, readApiJson } from "@/lib/api-error-message";
+import { readCheckoutSession, clearCheckoutSession, PAYMENT_CONNECTION_MESSAGE } from "@/lib/payment-client";
 
 import { Suspense, useEffect, useState } from "react";
 import { trackPurchase } from "@/lib/analytics";
@@ -30,18 +32,18 @@ function SuccessContent() {
     const paymentKey = searchParams.get("paymentKey");
     const orderId = searchParams.get("orderId");
     const amount = searchParams.get("amount");
-    const raw = sessionStorage.getItem("hotelCheckoutData");
+    const raw = readCheckoutSession("hotelCheckoutData");
     if (!paymentKey || !orderId || !amount || !raw) {
-      setError("결제 정보를 찾을 수 없습니다.");
+      setError("이 브라우저에서 결제 정보를 읽지 못했습니다. 다시 결제하지 말고 주문 내역을 확인해주세요. (오류 CHECKOUT_CONTEXT_MISSING)");
       return;
     }
-    const cd = JSON.parse(raw);
+    const cd = raw;
     fetch("/api/payment/hotel-confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), checkoutData: cd }),
     })
-      .then((r) => r.json())
+      .then(readApiJson)
       .then((data) => {
         if (data.ok) {
           // Awaiting room allocation is still a successfully charged payment.
@@ -54,12 +56,12 @@ function SuccessContent() {
             checkOut: cd.checkOut,
             awaiting: data.status === "awaiting",
           });
-          sessionStorage.removeItem("hotelCheckoutData");
+          clearCheckoutSession("hotelCheckoutData");
         } else {
-          setError(data.error || "결제 확인 중 오류가 발생했습니다.");
+          setError(apiErrorMessage(data, "결제 확인 중 오류가 발생했습니다."));
         }
       })
-      .catch(() => setError("네트워크 오류가 발생했습니다."));
+      .catch(() => setError(PAYMENT_CONNECTION_MESSAGE));
   }, [searchParams]);
 
   if (error) {

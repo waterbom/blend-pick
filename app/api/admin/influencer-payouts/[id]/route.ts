@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, apiErrorResponse } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -12,7 +13,7 @@ async function getAdmin() {
     return verifyAdminToken(token);
 }
 // 지급완료 / 지급취소
-export async function PATCH(req: Request, { params }: {
+async function handlePATCH(req: Request, { params }: {
     params: Promise<{
         id: string;
     }>;
@@ -22,7 +23,7 @@ export async function PATCH(req: Request, { params }: {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const site = (await currentAdminSite()).key;
     const { id } = await params;
-    const { status } = await req.json();
+    const { status } = await readJsonObject(req);
     if (status !== "paid" && status !== "pending") {
         return NextResponse.json({ error: "status는 paid 또는 pending" }, { status: 400 });
     }
@@ -49,8 +50,10 @@ export async function PATCH(req: Request, { params }: {
       await client.query('COMMIT');
       return NextResponse.json({ok:true});
     } catch(e) {
-      await client.query('ROLLBACK');
-      console.error('[influencer-payouts] 지급 상태 저장 실패',e);
-      return NextResponse.json({error:'지급 상태를 저장하지 못했습니다. 다시 확인해주세요.'},{status:503});
+      await rollbackSafely(client);
+      reportApiError(e, 'app/api/admin/influencer-payouts/[id]/route.ts:53');
+      return apiErrorResponse(e, {error:'지급 상태를 저장하지 못했습니다. 다시 확인해주세요.'},{status:503});
     } finally {client.release();}
 }
+
+export const PATCH = withApiErrors('PATCH /api/admin/influencer-payouts/[id]', handlePATCH);

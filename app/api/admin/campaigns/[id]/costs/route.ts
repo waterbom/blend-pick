@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -13,13 +14,13 @@ async function getAdmin() {
 
 const CATEGORIES = new Set(["shipping", "ad", "sample", "etc"]);
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePOST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
 
   const { id } = await params;
-  const { category, amount, memo } = await req.json();
+  const { category, amount, memo } = await readJsonObject(req);
   if (!CATEGORIES.has(category) || !Number.isFinite(Number(amount))) {
     return NextResponse.json({ error: "카테고리/금액이 올바르지 않습니다" }, { status: 400 });
   }
@@ -31,3 +32,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   );
   return NextResponse.json({ id: rows[0].id }, { status: 201 });
 }
+
+export const POST = withApiErrors('POST /api/admin/campaigns/[id]/costs', handlePOST);

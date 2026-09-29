@@ -1,6 +1,7 @@
 import shopPool from '@/lib/db-shop';
 import type { SiteKey } from '@/lib/sites';
 import { runRefund, RefundError } from '@/lib/refund-operation';
+import { ApiError, apiErrorDetails, statusErrorCode } from '@/lib/api-errors';
 export type ShopCancelResult = {ok:true;alreadyCancelled?:true;requested?:true;refunded:boolean} | {ok:false;error:string;httpStatus:number};
 export async function cancelShopOrder(orderId:string,reason:string,opts:{deductShipping?:boolean;site?:SiteKey;customerRequest?:boolean;dispatchStopConfirmed?:boolean;adminName?:string}={}):Promise<ShopCancelResult> {
     try {
@@ -37,7 +38,7 @@ export async function cancelShopOrder(orderId:string,reason:string,opts:{deductS
             }});
         return {ok:true,refunded:result.amount>0,...(result.alreadyCompleted?{alreadyCancelled:true as const}:{})};
     } catch(e) {
-        console.error('[order-cancel] 환불 또는 완료 저장 확인 필요',e);
-        return {ok:false,error:e instanceof RefundError?e.message:'취소 결과 확인이 필요합니다. 같은 주문에서 다시 확인해주세요.',httpStatus:e instanceof RefundError?e.status:503};
+        const failure = e instanceof RefundError ? new ApiError(statusErrorCode(e.status),e.message,e.status) : e instanceof ApiError ? e : new ApiError('REFUND_REVIEW_REQUIRED', undefined, 503, {cause:e});
+        return {...apiErrorDetails(failure),ok:false};
     }
 }

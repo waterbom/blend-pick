@@ -1,4 +1,6 @@
 "use client";
+import { apiErrorMessage, readApiJson } from "@/lib/api-error-message";
+import { readCheckoutSession, clearCheckoutSession, PAYMENT_CONNECTION_MESSAGE } from "@/lib/payment-client";
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -21,32 +23,32 @@ function ShopSuccessContent() {
     const paymentKey = searchParams.get("paymentKey");
     const orderId = searchParams.get("orderId");
     const amount = searchParams.get("amount");
-    const raw = sessionStorage.getItem("checkoutData");
+    const raw = readCheckoutSession("checkoutData");
 
     if (!paymentKey || !orderId || !amount || !raw) {
-      setError("결제 정보를 찾을 수 없습니다.");
+      setError("이 브라우저에서 결제 정보를 읽지 못했습니다. 다시 결제하지 말고 주문 내역을 확인해주세요. (오류 CHECKOUT_CONTEXT_MISSING)");
       return;
     }
 
-    const checkoutData = JSON.parse(raw);
+    const checkoutData = raw;
 
     fetch("/api/payment/shop-confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), checkoutData }),
     })
-      .then((r) => r.json())
+      .then(readApiJson)
       .then((data) => {
         if (data.ok) {
-          sessionStorage.removeItem("checkoutData");
+          clearCheckoutSession("checkoutData");
           setResult(data);
           // 메타 광고 전환 — 결제 완료(Purchase) 이벤트
           trackPurchase("shop", orderId, data.totalAmount, data.pixelItems);
         } else {
-          setError(data.error || "결제 확인 중 오류가 발생했습니다.");
+          setError(apiErrorMessage(data, "결제 확인 중 오류가 발생했습니다."));
         }
       })
-      .catch(() => setError("네트워크 오류가 발생했습니다."));
+      .catch(() => setError(PAYMENT_CONNECTION_MESSAGE));
   }, [searchParams]);
 
   if (error) {

@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -11,7 +12,7 @@ async function getAdmin() {
   return verifyAdminToken(token);
 }
 
-export async function DELETE(
+async function handleDELETE(
   _: Request,
   { params }: { params: Promise<{ id: string; costId: string }> }
 ) {
@@ -23,3 +24,5 @@ export async function DELETE(
   await shopPool.query("DELETE FROM campaign_costs WHERE id = $1 AND campaign_id = $2 AND site = $3", [costId, id, site]);
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiErrors('DELETE /api/admin/campaigns/[id]/costs/[costId]', handleDELETE);

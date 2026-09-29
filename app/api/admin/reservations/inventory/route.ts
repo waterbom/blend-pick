@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -11,7 +12,7 @@ async function getAdmin() {
 }
 
 // 날짜·객실별 재고 현황 (배정 / 예약됨 / 남음)
-export async function GET() {
+async function handleGET() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -27,3 +28,5 @@ export async function GET() {
   );
   return NextResponse.json(rows);
 }
+
+export const GET = withApiErrors('GET /api/admin/reservations/inventory', handleGET);

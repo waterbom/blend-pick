@@ -1,9 +1,10 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import shopPool from "@/lib/db-shop";
 import { siteFromHost } from "@/lib/sites";
 import { KAKAO_FLOW_COOKIE, safeReturnPath, loginNonce, loginHash, flowCookieOptions } from "@/lib/kakao-login";
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   if (!process.env.KAKAO_CLIENT_ID || !process.env.KAKAO_REDIRECT_URI) return NextResponse.json({ error: "카카오 로그인 설정을 확인해주세요." }, { status: 503 });
   const state = loginNonce();
   const site = siteFromHost(req.headers.get("host"));
@@ -25,3 +26,5 @@ export async function GET(req: NextRequest) {
   res.headers.set("Cache-Control", "no-store");
   return res;
 }
+
+export const GET = withApiErrors('GET /api/auth/kakao', handleGET);

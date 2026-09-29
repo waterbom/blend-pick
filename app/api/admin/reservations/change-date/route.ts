@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, apiErrorResponse } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -20,12 +21,12 @@ function pkgOf(name: string): PkgKey {
 }
 
 // 관리자 예약 변경 (날짜·인원·객실) — 재고 스왑 + 자동 차액환불 / 추가 차액 결제링크
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { id, checkIn, checkOut, pkg: reqPkg, room: reqRoom, preview } = await req.json();
+  const { id, checkIn, checkOut, pkg: reqPkg, room: reqRoom, preview } = await readJsonObject(req);
   if (!id || !checkIn || !checkOut) {
     return NextResponse.json({ error: "날짜를 입력해주세요." }, { status: 400 });
   }
@@ -203,7 +204,7 @@ export async function POST(req: Request) {
          ord.product_name, `${hotelName} · ${PACKAGES[pkg].label} · ${room}`, admin.name || admin.email]
       );
     } catch (e) {
-      console.error("[change-date] 변경 이력 기록 실패:", e);
+      reportApiError(e, 'app/api/admin/reservations/change-date/route.ts:206');
     }
 
     // 4) 추가 차액 결제링크 — 관리자가 복사해서 고객에게 전달 (금액 서명 포함, URL 조작 불가)
@@ -233,10 +234,12 @@ export async function POST(req: Request) {
       payLink,
     });
   } catch (e) {
-    await client.query("ROLLBACK");
-    console.error("[change-date] 실패:", e);
-    return NextResponse.json({ error: "날짜 변경 처리에 실패했습니다." }, { status: 500 });
+    await rollbackSafely(client);
+    reportApiError(e, 'app/api/admin/reservations/change-date/route.ts:237');
+    return apiErrorResponse(e, { error: "날짜 변경 처리에 실패했습니다." }, { status: 500 });
   } finally {
     client.release();
   }
 }
+
+export const POST = withApiErrors('POST /api/admin/reservations/change-date', handlePOST);

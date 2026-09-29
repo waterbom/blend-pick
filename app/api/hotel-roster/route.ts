@@ -1,11 +1,12 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import shopPool from "@/lib/db-shop";
 
 // 호텔 명단 업데이트용 — 예약번호 목록의 현재 상태를 일괄 조회
 // (연락처·투숙일은 DB 최신값, 취소시간·날짜변경 여부 포함)
 // 일반 경로 공개 — 명단 파일(예약번호)을 가진 쪽만 의미 있는 조회 가능, 한 번에 1000건 제한
-export async function POST(req: Request) {
-  const { order_numbers } = await req.json();
+async function handlePOST(req: Request) {
+  const { order_numbers } = await readJsonObject(req);
   const nums = Array.isArray(order_numbers)
     ? order_numbers.map((v) => String(v).trim()).filter(Boolean)
     : [];
@@ -28,3 +29,5 @@ export async function POST(req: Request) {
   for (const row of r.rows) map[row.order_number] = row;
   return NextResponse.json({ ok: true, map });
 }
+
+export const POST = withApiErrors('POST /api/hotel-roster', handlePOST);

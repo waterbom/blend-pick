@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -13,7 +14,7 @@ async function getAdmin() {
 }
 
 // 공구 목록 + 기타비용 합계 (OS/Shop 크로스 DB — JS 병합)
-export async function GET() {
+async function handleGET() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
@@ -39,3 +40,5 @@ export async function GET() {
     campaigns.rows.map((c) => ({ ...c, costs_total: costMap.get(c.id) ?? 0 }))
   );
 }
+
+export const GET = withApiErrors('GET /api/admin/campaigns', handleGET);

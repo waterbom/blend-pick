@@ -1,9 +1,10 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import pool from "@/lib/db";
 
-export async function POST() {
+async function handlePOST() {
   const cookieStore = await cookies();
   const token = cookieStore.get("shop_token")?.value;
 
@@ -29,3 +30,5 @@ export async function POST() {
 
   return res;
 }
+
+export const POST = withApiErrors('POST /api/auth/withdraw', handlePOST);

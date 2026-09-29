@@ -1,3 +1,4 @@
+import { withApiErrors, apiErrorResponse } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
@@ -5,7 +6,7 @@ import { verifiedPhoneOf } from "@/lib/phone-verify";
 import { saveUploadedImage } from '@/lib/uploaded-images';
 
 // 리뷰 사진 업로드 — 로그인 회원 또는 휴대폰 인증을 마친 비회원만
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const store = await cookies();
   const logged = store.get("shop_token")?.value
     ? await verifyToken(store.get("shop_token")!.value)
@@ -28,5 +29,7 @@ export async function POST(req: Request) {
   }
 
   try { return NextResponse.json({ url: await saveUploadedImage(file, 'reviews') }); }
-  catch { return NextResponse.json({ error: '사진을 서버에 저장하지 못했어요. 다시 시도해주세요.' }, { status: 503 }); }
+  catch (caughtError) { return apiErrorResponse(caughtError, { error: '사진을 서버에 저장하지 못했어요. 다시 시도해주세요.' }, { status: 503 }); }
 }
+
+export const POST = withApiErrors('POST /api/reviews/upload', handlePOST);

@@ -1,8 +1,9 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import { currentSite } from "@/lib/site-server";
 import { SITES, siteFromHost } from "@/lib/sites";
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const site = await currentSite();
   const sanjiHost = siteFromHost(req.headers.get("host")) === "sanjipick";
   const origin = sanjiHost
@@ -14,3 +15,5 @@ export async function GET(req: NextRequest) {
   res.cookies.set("admin_token", "", { maxAge: 0, path: "/" });
   return res;
 }
+
+export const GET = withApiErrors('GET /api/auth/logout', handleGET);

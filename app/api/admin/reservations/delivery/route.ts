@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -13,12 +14,12 @@ async function getAdmin() {
 // 호텔 전달 도장 — sent(전달 완료: 재전달 시 시각 갱신) / confirmed(호텔 확인: 전달된 건만)
 // hotel_sent_at이 "호텔이 아는 마지막 상태의 시점"이 되어, 그 이후의 변경·취소가
 // 자동으로 "미전달" 배지로 잡힌다.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { ids, action } = await req.json();
+  const { ids, action } = await readJsonObject(req);
   const list = Array.isArray(ids) ? ids.filter(Boolean) : [];
   if (!list.length || !["sent", "confirmed"].includes(action)) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
@@ -39,3 +40,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, updated: r.rowCount });
 }
+
+export const POST = withApiErrors('POST /api/admin/reservations/delivery', handlePOST);

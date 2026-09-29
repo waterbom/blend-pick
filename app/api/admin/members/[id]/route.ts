@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -11,7 +12,7 @@ async function getAdmin() {
 }
 
 // 회원 상세 — 최근 주문 10건 + 리뷰 수 (목록 행을 펼칠 때 로드)
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
@@ -39,3 +40,5 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   return NextResponse.json({ orders: orders.rows, reviewCount: reviews.rows[0]?.n ?? 0 });
 }
+
+export const GET = withApiErrors('GET /api/admin/members/[id]', handleGET);

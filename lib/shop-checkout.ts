@@ -1,3 +1,4 @@
+import { rollbackSafely, readJsonObject, apiErrorResponse } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
@@ -13,7 +14,7 @@ import { createHash, randomBytes } from "crypto";
 import { checkoutContactError } from '@/lib/checkout-contact';
 export async function shopCheckout(req: NextRequest, kind: 'shop' | 'cart') {
     try {
-        const site = siteFromRequest(req), { paymentKey, orderId, amount, checkoutData: d } = await req.json();
+        const site = siteFromRequest(req), { paymentKey, orderId, amount, checkoutData: d } = await readJsonObject(req);
         if (typeof paymentKey !== 'string' || !paymentKey || paymentKey.length > 200 || typeof orderId !== 'string' || !orderId || orderId.length > 200 || !Number.isSafeInteger(amount) || amount <= 0 || !d || typeof d !== 'object' || Array.isArray(d))
             throw new PurchaseError('결제 요청을 확인해주세요.', 400);
         const hash = createHash('sha256').update(JSON.stringify({ kind, amount, checkoutData: d })).digest('hex');
@@ -35,7 +36,7 @@ export async function shopCheckout(req: NextRequest, kind: 'shop' | 'cart') {
         if (phoneVerifyOn() && !userId && !await isPhoneVerified(cookieStore.get('phone_verified')?.value, d.customerPhone || ''))
             throw new PurchaseError('비회원 주문은 휴대폰 인증이 필요합니다.', 403);
         const items: CartAmountItem[] = kind === 'cart' ? (Array.isArray(d.items) ? d.items : []) : [{ product_id: d.productId, option_id: d.optionId, quantity: d.quantity, link_code: d.linkCode }];
-        if (!items.length || items.length > 100)
+        if (!items.length || items.length > 100 || items.some(i => !i || typeof i !== 'object' || Array.isArray(i)))
             throw new PurchaseError('상품 목록을 확인해주세요.', 400);
         const cartIds: string[] = kind === 'cart' && d.fromCart !== false ? d.items.map((i: {
             id?: string;
@@ -83,7 +84,7 @@ export async function shopCheckout(req: NextRequest, kind: 'shop' | 'cart') {
             await c.query('COMMIT');
         }
         catch (e) {
-            await c.query('ROLLBACK');
+            await rollbackSafely(c);
             throw e;
         }
         finally {
@@ -92,6 +93,6 @@ export async function shopCheckout(req: NextRequest, kind: 'shop' | 'cart') {
         return NextResponse.json(await processPaymentAttempt(paymentKey, site));
     }
     catch (e) {
-        return NextResponse.json({ ok: false, error: e instanceof PurchaseError ? e.message : '결제 요청을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' }, { status: e instanceof PurchaseError ? e.status : 500 });
+        return apiErrorResponse(e, { ok: false, error: e instanceof PurchaseError ? e.message : '결제 요청을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' }, { status: e instanceof PurchaseError ? e.status : 500 });
     }
 }

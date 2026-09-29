@@ -1,3 +1,4 @@
+import { rollbackSafely, readJsonObject, apiErrorResponse } from '@/lib/api-errors';
 import { createHash, randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
@@ -20,7 +21,7 @@ export function campaignBelongsToSite(category: string | null, site: SiteKey) {
 // OS products are snapshotted separately: never reserve or restore products_shop stock.
 export async function campaignCheckout(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => null);
+    const body = await readJsonObject(req);
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PurchaseError('결제 요청을 확인해주세요.', 400);
     const { paymentKey, orderId, amount, checkoutData: d } = body;
     if (typeof paymentKey !== 'string' || !paymentKey || paymentKey.length > 200 ||
@@ -92,10 +93,10 @@ export async function campaignCheckout(req: NextRequest) {
       await client.query(`INSERT INTO payment_attempts(payment_key,provider_order_id,site,request_hash,amount,snapshot)
         VALUES($1,$2,$3,$4,$5,$6::jsonb)`, [paymentKey, orderId, site, hash, total, JSON.stringify(snapshot)]);
       await client.query('COMMIT');
-    } catch (e) { await client.query('ROLLBACK'); throw e; }
+    } catch (e) { await rollbackSafely(client); throw e; }
     finally { client.release(); }
     return NextResponse.json(await processPaymentAttempt(paymentKey, site));
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof PurchaseError ? e.message : '결제 요청을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' }, { status: e instanceof PurchaseError ? e.status : 503 });
+    return apiErrorResponse(e, { ok: false, error: e instanceof PurchaseError ? e.message : '결제 요청을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' }, { status: e instanceof PurchaseError ? e.status : 503 });
   }
 }

@@ -110,7 +110,7 @@ test('P2001 guard conflicts recover the savepoint; unexpected SQL errors roll ba
  let r=await result(p.body);hook=null;assert.equal(r.succeeded,1);assert.equal(r.failed.length,1);assert.equal(sent,1);
  await db.exec('TRUNCATE orders,admin_shipment_import_batches CASCADE');sent=0;await order(1);await order(2);p=await prepared([row(1),row(2)]);
  hook=async(sql,args,run)=>{if(sql.startsWith('UPDATE orders')&&args[0]==='TEST2')return run('SELECT nonexistent_column FROM orders');return run(sql,args);};
- await result(p.body,500);hook=null;assert.equal(sent,0);assert((await native('SELECT status FROM orders')).rows.every(o=>o.status==='preparing'));
+ const failed=await result(p.body,503);assert.equal(failed.code,'DB_SCHEMA_MISMATCH');hook=null;assert.equal(sent,0);assert((await native('SELECT status FROM orders')).rows.every(o=>o.status==='preparing'));
  for(const table of ['shipment_notifications','admin_shipment_import_batches'])assert.equal((await native(`SELECT count(*)::int n FROM ${table}`)).rows[0].n,0);
  assert.equal((await result(p.body)).succeeded,2);
 });

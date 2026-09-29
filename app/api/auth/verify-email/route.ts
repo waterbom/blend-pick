@@ -1,9 +1,10 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { signToken } from "@/lib/auth";
 
-export async function POST(req: NextRequest) {
-  const { email, code } = await req.json();
+async function handlePOST(req: NextRequest) {
+  const { email, code } = await readJsonObject(req);
 
   const result = await pool.query(
     "SELECT id, role, name, email_verify_code, email_verify_expires_at FROM shop_users WHERE email = $1",
@@ -58,3 +59,5 @@ export async function POST(req: NextRequest) {
 
   return res;
 }
+
+export const POST = withApiErrors('POST /api/auth/verify-email', handlePOST);

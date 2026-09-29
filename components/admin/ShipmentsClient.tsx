@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from '@/lib/api-error-message';
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { parseTrackingXlsx } from '@/lib/tracking-xlsx';
@@ -130,7 +131,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
       const q = status === "preparing" ? "confirmed,preparing" : status;
       const res = await fetch(`/api/admin/orders?status=${q}`);
       const data = await res.json();
-      if (!res.ok || !Array.isArray(data)) throw Error("배송 목록을 불러오지 못했습니다.");
+      if (!res.ok || !Array.isArray(data)) throw Error(apiErrorMessage(data,"배송 목록을 불러오지 못했습니다."));
       setAllOrders(data);
     } catch (e) { setLoadError(e instanceof Error ? e.message : "조회 실패"); }
     finally { setLoading(false); }
@@ -200,7 +201,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows, defaultCarrier: carrierCode }),
       });
       const data = await res.json();
-      if (!res.ok || !data.token || !Array.isArray(data.rows)) throw Error(data.error || "미리보기를 불러오지 못했습니다.");
+      if (!res.ok || !data.token || !Array.isArray(data.rows)) throw Error(apiErrorMessage(data, "미리보기를 불러오지 못했습니다."));
       if (version === fileVersion.current) setPreview({ ...data, requestKey: crypto.randomUUID() });
     } catch (e) { setLoadError(e instanceof Error ? e.message : "미리보기 실패"); }
     finally { importBusy.current = false; setImporting(false); }
@@ -214,7 +215,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
         body: JSON.stringify({ rows: csvRows, defaultCarrier: carrierCode, token: preview.token, requestKey: preview.requestKey }),
       });
       const data = await res.json();
-      if (!res.ok || !Array.isArray(data.failed)) throw Error(data.error || "결과를 확인하지 못했습니다. 같은 화면에서 등록을 다시 눌러주세요.");
+      if (!res.ok || !Array.isArray(data.failed)) throw Error(apiErrorMessage(data, "결과를 확인하지 못했습니다. 같은 화면에서 등록을 다시 눌러주세요."));
       setImportResult(data); setPreview(null); setModalTracking({});
       await load(tab);
     } catch (e) { setLoadError(e instanceof Error ? e.message : "등록 결과를 확인하지 못했습니다. 같은 요청으로 재시도해주세요."); }
@@ -259,7 +260,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderIds: [...selected] }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) throw Error(data.error || "배송완료 처리 실패");
+      if (!res.ok || data.error) throw Error(apiErrorMessage(data, "배송완료 처리 실패"));
       if(data.updated !== selected.size) setLoadError(`배송완료 ${data.updated ?? 0}건 반영. 나머지는 현재 주문 상태를 확인해주세요.`);
       await load("shipped");
     } catch(e) { setLoadError(e instanceof Error ? e.message : "처리 결과를 확인해주세요."); }
@@ -282,7 +283,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
         body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping, dispatch_stop_confirmed: action === "cancel_confirm" }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || d.error) alert(d.error || "처리에 실패했어요.");
+      if (!res.ok || d.error) alert(apiErrorMessage(d, "처리에 실패했어요."));
       await load(tab);
     } catch {
       alert("네트워크 문제로 요청이 전달되지 않았어요. 목록을 새로고침해 확인해주세요.");

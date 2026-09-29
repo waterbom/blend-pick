@@ -1,3 +1,4 @@
+import { withApiErrors, apiErrorResponse } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -10,7 +11,7 @@ async function getAdmin() {
   return verifyAdminToken(token);
 }
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -20,5 +21,7 @@ export async function POST(req: Request) {
   if (!["image/jpeg","image/png","image/webp","image/gif"].includes(file.type)) return NextResponse.json({error:"jpg, png, webp, gif만 업로드 가능해요"},{status:400});
   if (file.size > 50 * 1024 * 1024) return NextResponse.json({error:"50MB 이하의 사진을 사용해주세요"},{status:413});
   try { return NextResponse.json({url:await saveUploadedImage(file)}); }
-  catch { return NextResponse.json({error:"사진을 서버에 저장하지 못했어요. 다시 시도해주세요."},{status:503}); }
+  catch (caughtError) { return apiErrorResponse(caughtError, {error:"사진을 서버에 저장하지 못했어요. 다시 시도해주세요."},{status:503}); }
 }
+
+export const POST = withApiErrors('POST /api/admin/upload', handlePOST);

@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject, reportApiError } from '@/lib/api-errors';
 import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -13,7 +14,7 @@ async function getAdmin() {
   return verifyAdminToken(token);
 }
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -82,12 +83,12 @@ export async function GET(req: Request) {
 }
 
 // 예약 상태 변경 (취소 시 토스 환불 + 재고 복원)
-export async function PATCH(req: Request) {
+async function handlePATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { id, status, fullRefund } = await req.json();
+  const { id, status, fullRefund } = await readJsonObject(req);
   const allowed = ["paid", "checked_in", "cancelled", "no_show"];
   if (!id || !allowed.includes(status)) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
@@ -144,7 +145,7 @@ export async function PATCH(req: Request) {
           await shopPool.query(`UPDATE orders SET kakao_notified_at = NOW() WHERE id = $1`, [id]);
         }
       } catch (e) {
-        console.error("[reservations] 승인 확정 문자 발송 실패:", e);
+        reportApiError(e, 'app/api/admin/reservations/route.ts:147');
       }
     }
     return NextResponse.json({ ok: true, updated: r.rowCount, smsSent });
@@ -158,3 +159,6 @@ export async function PATCH(req: Request) {
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus });
   return NextResponse.json(result);
 }
+
+export const GET = withApiErrors('GET /api/admin/reservations', handleGET);
+export const PATCH = withApiErrors('PATCH /api/admin/reservations', handlePATCH);

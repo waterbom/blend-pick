@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject, apiErrorResponse } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
@@ -17,8 +18,8 @@ function maskName(name: string) {
  * 리뷰 작성 — 배송완료(delivered)된 주문의 구매자만, 주문×상품당 1회.
  * 회원은 주문 이력(user_id), 비회원은 휴대폰 인증(phone_verified 쿠키)의 번호로 본인 주문을 확인.
  */
-export async function POST(req: Request) {
-  const { product_id, order_id, rating, content, images } = (await req.json().catch(()=>null)) ?? {};
+async function handlePOST(req: Request) {
+  const { product_id, order_id, rating, content, images } = (await readJsonObject(req)) ?? {};
 
   const r = Number(rating);
   if (!product_id || !Number.isInteger(r) || r < 1 || r > 5) {
@@ -83,5 +84,7 @@ export async function POST(req: Request) {
 
   if (!inserted.rows.length) return NextResponse.json({error:"이미 작성된 후기입니다. 주문 내역을 확인해주세요."},{status:409});
   return NextResponse.json({ ok: true });
-  } catch {return NextResponse.json({error:"리뷰 저장 결과를 확인하지 못했습니다. 주문 내역을 확인해주세요."},{status:503});}
+  } catch (caughtError) {return apiErrorResponse(caughtError, {error:"리뷰 저장 결과를 확인하지 못했습니다. 주문 내역을 확인해주세요."},{status:503});}
 }
+
+export const POST = withApiErrors('POST /api/reviews', handlePOST);

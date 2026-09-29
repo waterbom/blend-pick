@@ -1,3 +1,4 @@
+import { withApiErrors, apiErrorResponse } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -22,7 +23,7 @@ const MIME: Record<string, string> = {
   csv: "text/csv; charset=utf-8", // 감사·정산 리포트 (scripts/audit-*.cjs 가 생성)
 };
 
-export async function GET(_: Request, { params }: { params: Promise<{ name: string }> }) {
+async function handleGET(_: Request, { params }: { params: Promise<{ name: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -42,7 +43,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ name: stri
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    return NextResponse.json({ error: "파일 없음" }, { status: 404 });
+  } catch (caughtError) {
+    return apiErrorResponse(caughtError, { error: "파일 없음" }, { status: 404 });
   }
 }
+
+export const GET = withApiErrors('GET /api/admin/private-files/[name]', handleGET);

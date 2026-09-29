@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject, apiErrorResponse } from '@/lib/api-errors';
 import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/refund-fulfillment';
 import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -12,7 +13,7 @@ async function getAdmin() {
         return null;
     return verifyAdminToken(token);
 }
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
     const admin = await getAdmin();
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -84,12 +85,12 @@ export async function GET(req: Request) {
 }
 // 일괄 상태 변경
 // action: "confirm" | "dispatch" | "exchange_complete" | "return_complete" | "cancel_confirm"
-export async function PATCH(req: Request) {
+async function handlePATCH(req: Request) {
     const admin = await getAdmin();
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const site = (await currentAdminSite()).key;
-    const { orderIds, action, deduct_shipping, dispatch_stop_confirmed } = await req.json();
+    const { orderIds, action, deduct_shipping, dispatch_stop_confirmed } = await readJsonObject(req);
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
         return NextResponse.json({ error: "주문 ID가 없습니다" }, { status: 400 });
     }
@@ -145,7 +146,10 @@ export async function PATCH(req: Request) {
     const result = await shopPool.query(`UPDATE orders SET status = $1     WHERE id = ANY($2::uuid[]) AND status = $3 AND site = $4`, [t.to, orderIds, t.from, site]);
     return NextResponse.json({ ok: true, updated: result.rowCount });
     } catch (error) {
-      if (isRefundFulfillmentConflict(error)) return NextResponse.json({error:REFUND_FULFILLMENT_MESSAGE},{status:409});
+      if (isRefundFulfillmentConflict(error)) return apiErrorResponse(error, {error:REFUND_FULFILLMENT_MESSAGE},{status:409});
       throw error;
     }
 }
+
+export const GET = withApiErrors('GET /api/admin/orders', handleGET);
+export const PATCH = withApiErrors('PATCH /api/admin/orders', handlePATCH);

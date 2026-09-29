@@ -50,12 +50,12 @@ function req(siteKey, path, cookie = '', body) {
   return new NextRequest(`https://${sites[siteKey].host}${path}`, { method: body ? 'POST' : 'GET', headers: { host: sites[siteKey].host, cookie, 'content-type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
 }
 (async () => {
+  await require('./support/integrity-schema.cjs')(db,id);
+  await db.exec('ALTER TABLE products_shop ADD COLUMN IF NOT EXISTS supplier_name text');
   await db.exec(`
-    CREATE TABLE products_shop (id uuid PRIMARY KEY, name text, brand text, price integer, main_image text, shipping_type text, shipping_cost integer, free_shipping_threshold integer, per_unit_shipping_cost integer, status text, stock integer, supplier_name text, release_address text, shipping_carrier text);
-    CREATE TABLE product_options (id uuid PRIMARY KEY, name text, value text, extra_price integer);
     CREATE TABLE cart (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, product_id uuid, option_id uuid, quantity integer, created_at timestamptz DEFAULT NOW(), UNIQUE(user_id, product_id, option_id));
-    INSERT INTO products_shop (id, name) VALUES ('${product}', 'Fruit');
-    INSERT INTO product_options (id, name) VALUES ('${option}', 'Box');
+    INSERT INTO products_shop (id,name,category,price,status,stock,is_visible,shipping_type) VALUES ('${product}','Shop fruit','기타',10000,'active',100,true,'free'),('${id(4)}','Sanji fruit','산지픽',10000,'active',100,true,'free'),('${id(6)}','Shop single','기타',10000,'active',100,true,'free'),('${id(7)}','Sanji single','산지픽',10000,'active',100,true,'free');
+    INSERT INTO product_options(id,product_id,name,value,extra_price,stock,is_active) VALUES ('${option}','${product}','Box','Box',10000,100,true),('${id(5)}','${id(4)}','Box','Box',10000,100,true);
     INSERT INTO cart (user_id, product_id, option_id, quantity) VALUES ('${user}','${product}','${option}',2);
   `);
   const sql = fs.readFileSync(path.join(root, 'scripts/storefront-site.sql'), 'utf8');
@@ -65,8 +65,8 @@ function req(siteKey, path, cookie = '', body) {
   });
   const cart = load('app/api/cart/route.ts', mocks);
   let sanjiCart, shopCart;
-  await test('same member and option get independent carts on each site', async () => {
-    assert.equal((await cart.POST(req(site, '/api/cart', '', { product_id: product, option_id: option, quantity: 3 }))).status, 200);
+  await test('same member gets independent carts with site-specific valid products', async () => {
+    assert.equal((await cart.POST(req(site, '/api/cart', '', { product_id: id(4), option_id: id(5), quantity: 3 }))).status, 200);
     sanjiCart = (await (await cart.GET()).json()).items[0]; assert.equal(sanjiCart.quantity, 3);
     site = 'blendpick'; shopCart = (await (await cart.GET()).json()).items[0]; assert.equal(shopCart.quantity, 2);
     assert.notEqual(shopCart.id, sanjiCart.id);
@@ -78,7 +78,7 @@ function req(siteKey, path, cookie = '', body) {
   });
   await test('optionless cart additions merge within the same site only', async () => {
     for (site of ['blendpick','sanjipick']) {
-      for (let i=0;i<2;i++) await cart.POST(req(site,'/api/cart','',{product_id:product,quantity:1}));
+      for (let i=0;i<2;i++) await cart.POST(req(site,'/api/cart','',{product_id:site==='blendpick'?id(6):id(7),quantity:1}));
       const rows = (await (await cart.GET()).json()).items.filter(x => !x.option_id);
       assert.equal(rows.length,1);assert.equal(rows[0].quantity,2);
     }

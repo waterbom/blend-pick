@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import bcrypt from "bcryptjs";
@@ -12,7 +13,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const {
     name,
     email,
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     marketing_agreed,
     sms_agreed,
     email_marketing_agreed,
-  } = await req.json();
+  } = await readJsonObject(req);
 
   if (!name || !email || !password) {
     return NextResponse.json(
@@ -81,3 +82,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withApiErrors('POST /api/auth/signup', handlePOST);

@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from '@/lib/api-error-message';
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -52,7 +53,7 @@ export default function ReturnRequestForm({
         fd.append("file", file);
         const res = await fetch("/api/orders/return-upload", { method: "POST", body: fd });
         const d = await res.json().catch(() => ({}));
-        if (!res.ok) { alert(d.error || "사진 업로드에 실패했어요."); break; }
+        if (!res.ok) { alert(apiErrorMessage(d, "사진 업로드에 실패했어요.")); break; }
         setPhotos((p) => [...p, d.url]);
       }
     } catch {
@@ -88,7 +89,7 @@ export default function ReturnRequestForm({
         }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(d.error || "신청에 실패했어요. 잠시 후 다시 시도해주세요."); return; }
+      if (!res.ok) { alert(apiErrorMessage(d, "신청에 실패했어요. 잠시 후 다시 시도해주세요.")); return; }
       alert(d.message || "신청이 접수되었습니다.");
       router.push(doneHref);
       router.refresh();

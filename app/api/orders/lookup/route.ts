@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentSite } from "@/lib/site-server";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -6,8 +7,8 @@ import { isPhoneVerified, normPhone } from "@/lib/phone-verify";
 import { returnableItems } from '@/lib/return-quantities';
 
 // 비회원 주문 조회 — 휴대폰 인증(phone_verified 쿠키)된 번호의 주문·예약 전체
-export async function POST(req: NextRequest) {
-  const { phone } = await req.json();
+async function handlePOST(req: NextRequest) {
+  const { phone } = await readJsonObject(req);
   const p = normPhone(phone);
   if (p.length < 10) {
     return NextResponse.json({ ok: false, error: "올바른 휴대폰 번호를 입력해주세요." }, { status: 400 });
@@ -45,3 +46,5 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json({ ok: true, orders: r.rows });
 }
+
+export const POST = withApiErrors('POST /api/orders/lookup', handlePOST);

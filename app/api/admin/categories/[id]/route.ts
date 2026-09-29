@@ -1,3 +1,4 @@
+import { rollbackSafely, readJsonObject, apiErrorResponse, withApiErrors } from '@/lib/api-errors';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyAdminToken } from '@/lib/auth';
@@ -12,7 +13,7 @@ async function update(req: Request, context: {
     const token = (await cookies()).get('admin_token')?.value;
     if (!token || !await verifyAdminToken(token))
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const site = (await currentAdminSite()).key, { id } = await context.params, b = legacyDelete ? { action: 'hide' } : await req.json();
+    const site = (await currentAdminSite()).key, { id } = await context.params, b = legacyDelete ? { action: 'hide' } : await readJsonObject(req);
     if (!uuid(id) || !['hide', 'show', 'merge'].includes(b.action) || b.action === 'merge' && (!uuid(b.target_id) || b.target_id === id))
         return NextResponse.json({ error: '분류와 작업을 확인해주세요.' }, { status: 400 });
     const c = await shopPool.connect();
@@ -50,21 +51,24 @@ async function update(req: Request, context: {
         await c.query('COMMIT');
         return NextResponse.json({ ok: true, affected: count });
     }
-    catch {
-        await c.query('ROLLBACK');
-        return NextResponse.json({ error: '분류 변경에 실패했습니다. 기존 분류를 유지합니다.' }, { status: 500 });
+    catch (caughtError) {
+        await rollbackSafely(c);
+        return apiErrorResponse(caughtError, { error: '분류 변경에 실패했습니다. 기존 분류를 유지합니다.' }, { status: 500 });
     }
     finally {
         c.release();
     }
 }
-export async function PATCH(req: Request, c: {
+async function handlePATCH(req: Request, c: {
     params: Promise<{
         id: string;
     }>;
 }) { return update(req, c); }
-export async function DELETE(req: Request, c: {
+async function handleDELETE(req: Request, c: {
     params: Promise<{
         id: string;
     }>;
 }) { return update(req, c, true); }
+
+export const PATCH = withApiErrors('PATCH /api/admin/categories/[id]', handlePATCH);
+export const DELETE = withApiErrors('DELETE /api/admin/categories/[id]', handleDELETE);

@@ -129,7 +129,7 @@ test('H1 lost refund-result storage reuses the original provider key and amount'
  await product();await order(10,100000,'return_requested');await query("INSERT INTO order_returns(id,order_id,kind,status,prev_status,reason) VALUES($1,$2,'return','collecting','delivered','반품')",[id(50),id(10)]);
  const cache=new Map();let refunded=0,posts=0;global.fetch=async(url,opts)=>{posts++;const key=opts.headers['Idempotency-Key'];assert.ok(key);const body=JSON.parse(opts.body);if(!cache.has(key)){refunded+=body.cancelAmount;cache.set(key,{paymentKey:'mock-10',totalAmount:100000,balanceAmount:100000-refunded,status:'PARTIAL_CANCELED'});}return Response.json(cache.get(key));};
  let once=true;hook=async(sql,p,run)=>{if(once&&sql.includes("SET status='succeeded'")){once=false;throw Error('lost refund result write');}return run(sql,p);};
- const route=api('admin/returns'),body={id:id(50),action:'complete',refund_amount:20000};assert.equal((await route.PATCH(req('/x','PATCH',body))).status,500);hook=null;
+ const route=api('admin/returns'),body={id:id(50),action:'complete',refund_amount:20000};const uncertain=await route.PATCH(req('/x','PATCH',body));assert.equal(uncertain.status,503);assert.equal((await uncertain.json()).code,'REFUND_REVIEW_REQUIRED');hook=null;
  assert.equal((await route.PATCH(req('/x','PATCH',{...body,refund_amount:30000}))).status,200);
  assert.equal(posts,2);assert.equal(cache.size,1);assert.equal(refunded,20000);assert.equal(Number((await query('SELECT SUM(amount) n FROM order_refund_amounts')).rows[0].n),20000);
 });

@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import {ownedInfluencerProducts} from "@/lib/influencer-products";
 import {currentSite} from "@/lib/site-server";
 import { NextResponse } from "next/server";
@@ -25,7 +26,7 @@ async function getInfluencer() {
 
 // 선착순 구매자 명단 — 내 링크로 결제된 유효 주문만, 전화번호 중복 제거(가장 빠른 유효 결제 인정)
 // 취소/환불은 상태 필터로 제외되므로 "첫 주문이 취소되면 다음 유효 결제로 재계산"이 자동 성립
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const inf = await getInfluencer();
   if (!inf) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -62,3 +63,5 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ buyers },{headers:{"Cache-Control":"no-store"}});
 }
+
+export const GET = withApiErrors('GET /api/influencer/first-buyers', handleGET);

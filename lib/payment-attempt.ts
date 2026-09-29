@@ -1,3 +1,4 @@
+import { rollbackSafely, ApiError, type ApiErrorCode, statusErrorCode, reportApiError } from '@/lib/api-errors';
 import shopPool from "@/lib/db-shop";
 import type { SiteKey } from "@/lib/sites";
 import type { VerifiedItem } from "@/lib/order-amount";
@@ -39,13 +40,17 @@ export type PaymentAttempt = {
     rejection_code?: string | null;
     provider_method?: string | null;
 };
-export class PurchaseError extends Error {
-    constructor(message: string, public status = 409) { super(message); }
+export class PurchaseError extends ApiError {
+    constructor(message: string, status = 409, options?: {code?: ApiErrorCode; cause?: unknown}) {
+        super(options?.code || statusErrorCode(status), message, status, options);
+    }
 }
 const headers = () => ({ Authorization: `Basic ${Buffer.from(`${process.env.TOSS_SECRET_KEY}:`).toString('base64')}`, 'Content-Type': 'application/json' });
 async function provider(path: string, body?: object, key?: string) {
     const res = await fetch('https://api.tosspayments.com/v1/payments' + path, { method: body ? 'POST' : 'GET', headers: { ...headers(), ...(key ? { 'Idempotency-Key': key } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(20000) });
-    const data = await res.json();
+    let data;
+    try { data = await res.json(); } catch (cause) { throw new ApiError('UPSTREAM_INVALID_RESPONSE', undefined, 502, {cause}); }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new ApiError('UPSTREAM_INVALID_RESPONSE');
     return { ok: res.ok, status: res.status, data };
 }
 function matches(a: PaymentAttempt, p: Record<string, unknown>) { return p.paymentKey === a.payment_key && p.orderId === a.provider_order_id && Number(p.totalAmount) === Number(a.amount); }
@@ -74,7 +79,7 @@ async function releaseReservation(a: PaymentAttempt) {
         await c.query('COMMIT');
     }
     catch (e) {
-        await c.query('ROLLBACK');
+        await rollbackSafely(c);
         throw e;
     }
     finally {
@@ -108,7 +113,7 @@ async function finish(a: PaymentAttempt, method: string, approvedAt: string) {
         return purchaseResult(a, method);
     }
     catch (e) {
-        await c.query('ROLLBACK');
+        await rollbackSafely(c);
         throw e;
     }
     finally {
@@ -176,9 +181,9 @@ export async function processPaymentAttempt(paymentKey: string, site: SiteKey, r
         return await finish(a, String(p!.method || 'card'), approvedAt);
     }
     catch (e) {
-        await shopPool.query(`UPDATE payment_attempts SET status='needs_review',lease_until=NULL,last_error=$2,updated_at=NOW() WHERE payment_key=$1 AND status NOT IN ('completed','failed')`, [paymentKey, e instanceof PurchaseError ? e.message : '승인 또는 주문 저장 결과 확인 필요']).catch(() => { });
-        if (e instanceof PurchaseError)
-            throw e;
-        throw new PurchaseError('결제 확인 내역을 보관했습니다. 주문 복구가 필요합니다.', 503);
+        const failure = e instanceof PurchaseError ? e : new PurchaseError('결제 승인 또는 주문 저장 결과 확인이 필요합니다.', 503, {code:'PAYMENT_REVIEW_REQUIRED',cause:e});
+        const info = reportApiError(failure, 'payment.confirm-or-recover');
+        await shopPool.query(`UPDATE payment_attempts SET status='needs_review',lease_until=NULL,last_error=$2,updated_at=NOW() WHERE payment_key=$1 AND status NOT IN ('completed','failed')`, [paymentKey, `[${info.code}] ${info.message} (문의번호 ${info.requestId})`]).catch(error => { reportApiError(error, 'payment.recovery-record'); });
+        throw failure;
     }
 }

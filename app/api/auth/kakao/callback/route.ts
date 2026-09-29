@@ -1,10 +1,11 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { NextRequest } from "next/server";
 import pool from "@/lib/db";
 import { signToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import { KAKAO_FLOW_COOKIE, loginHash, loginFailure, completeOrRelay } from "@/lib/kakao-login";
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const state = req.nextUrl.searchParams.get("state");
   if (!state || state !== req.cookies.get(KAKAO_FLOW_COOKIE)?.value) return loginFailure(req, "invalid_state");
   const result = await shopPool.query(
@@ -85,3 +86,5 @@ export async function GET(req: NextRequest) {
     return loginFailure(req, "login_failed", flow);
   }
 }
+
+export const GET = withApiErrors('GET /api/auth/kakao/callback', handleGET);

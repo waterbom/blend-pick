@@ -1,10 +1,11 @@
+import { rollbackSafely, ApiError, statusErrorCode, reportApiError } from '@/lib/api-errors';
 import shopPool from '@/lib/db-shop';
 import { randomUUID } from 'crypto';
 import type { PoolClient } from 'pg';
 import type { SiteKey } from '@/lib/sites';
 
-export class RefundError extends Error {
-    constructor(message: string, public status = 409) { super(message); }
+export class RefundError extends ApiError {
+    constructor(message: string, status = 409) { super(statusErrorCode(status), message, status); }
 }
 type Order = {id:string;site:SiteKey;status:string;order_type:string;total_amount:number;shipping_fee:number|null;payment_key:string|null};
 type Operation = { source_key: string; order_id: string; amount: number; baseline: number; reason: string;
@@ -40,7 +41,7 @@ export async function runRefund(spec: Spec) {
         } else op = prior;
         await c.query("UPDATE refund_operations SET lease_until=NOW()+INTERVAL '2 minutes',updated_at=NOW() WHERE source_key=$1",[spec.sourceKey]);
         await c.query('COMMIT');
-    } catch(e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
+    } catch(e) { await rollbackSafely(c); throw e; } finally { c.release(); }
 
     try {
         if (op.status !== 'succeeded') {
@@ -54,10 +55,12 @@ export async function runRefund(spec: Spec) {
                 const res = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(op.payment_key!)}/cancel`,{
                     method:'POST',headers:{Authorization:auth,'Content-Type':'application/json','Idempotency-Key':op.idempotency_key},
                     body:JSON.stringify({cancelReason:op.reason,cancelAmount:Number(op.amount)}),signal:AbortSignal.timeout(20000)});
-                const data = await res.json();
+                let data;
+                try { data = await res.json(); } catch (cause) { throw new ApiError('UPSTREAM_INVALID_RESPONSE', undefined, 502, {cause}); }
+                if (!data || typeof data !== 'object' || Array.isArray(data)) throw new ApiError('UPSTREAM_INVALID_RESPONSE');
                 if (!res.ok) {
                     // Do not infer success from an unrelated historical cancellation.
-                    throw new RefundError(data.message || '환불 결과 확인이 필요합니다. 같은 요청에서 다시 확인해주세요.',res.status>=500?503:400);
+                    throw new RefundError('결제사에서 환불 완료를 확인하지 못했습니다. 결제사 내역을 확인한 뒤 같은 주문에서 다시 확인해주세요.',res.status>=500?503:400);
                 }
                 if (data.paymentKey !== op.payment_key || Number(data.totalAmount)!==Number(op.total) ||
                     !['CANCELED','PARTIAL_CANCELED'].includes(data.status) || !Number.isSafeInteger(data.balanceAmount) || data.balanceAmount<0)
@@ -79,10 +82,12 @@ export async function runRefund(spec: Spec) {
                 await client.query("UPDATE refund_operations SET status='completed',lease_until=NULL,last_error=NULL,updated_at=NOW() WHERE source_key=$1",[spec.sourceKey]);
             }
             await client.query('COMMIT');
-        } catch(e) { await client.query('ROLLBACK'); throw e; } finally {client.release();}
+        } catch(e) { await rollbackSafely(client); throw e; } finally {client.release();}
         return {amount:Number(op.actual_amount),alreadyCompleted:false};
     } catch(e) {
-        await shopPool.query('UPDATE refund_operations SET lease_until=NULL,last_error=$2,updated_at=NOW() WHERE source_key=$1',[spec.sourceKey,e instanceof RefundError?e.message:'환불 또는 완료 저장 결과 확인 필요']).catch(()=>{});
-        throw e;
+        const failure = e instanceof RefundError ? e : new ApiError('REFUND_REVIEW_REQUIRED', undefined, 503, {cause:e});
+        const info = reportApiError(failure, 'refund.confirm-or-save');
+        await shopPool.query('UPDATE refund_operations SET lease_until=NULL,last_error=$2,updated_at=NOW() WHERE source_key=$1',[spec.sourceKey,`[${info.code}] ${info.message} (문의번호 ${info.requestId})`]).catch(error=>{reportApiError(error,'refund.recovery-record');});
+        throw failure;
     }
 }

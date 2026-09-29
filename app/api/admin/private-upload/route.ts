@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -21,7 +22,7 @@ const EXT_MAP: Record<string, string> = {
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 // 민감 서류(신분증/사업자등록증/통장사본)용 — public 밖에 저장, 조회는 private-files 라우트로만
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -45,3 +46,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, file: name });
 }
+
+export const POST = withApiErrors('POST /api/admin/private-upload', handlePOST);

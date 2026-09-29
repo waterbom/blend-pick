@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject, apiErrorResponse } from '@/lib/api-errors';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyAdminToken } from '@/lib/auth';
@@ -5,19 +6,19 @@ import { currentAdminSite } from '@/lib/admin-site';
 import shopPool from '@/lib/db-shop';
 import { confirmDispatch, currentDispatchExport, DispatchError } from '@/lib/admin-dispatch';
 async function authorized() { const t = (await cookies()).get('admin_token')?.value; return t && await verifyAdminToken(t); }
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
     if (!await authorized())
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     try {
-        const b = await req.json();
+        const b = await readJsonObject(req);
         if (b.action === 'download') return NextResponse.json(await currentDispatchExport((await currentAdminSite()).key,b.orderIds));
         return NextResponse.json(await confirmDispatch((await currentAdminSite()).key, b.request_key, b.orderIds));
     }
     catch (e) {
-        return NextResponse.json({ error: e instanceof DispatchError ? e.message : '발주 결과를 확인하지 못했습니다. 이력에서 확인 후 같은 요청으로 다시 시도해주세요.' }, { status: e instanceof DispatchError ? e.status : 500 });
+        return apiErrorResponse(e, { error: e instanceof DispatchError ? e.message : '발주 결과를 확인하지 못했습니다. 이력에서 확인 후 같은 요청으로 다시 시도해주세요.' }, { status: e instanceof DispatchError ? e.status : 500 });
     }
 }
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
     if (!await authorized())
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const site = (await currentAdminSite()).key, id = new URL(req.url).searchParams.get('id');
@@ -31,6 +32,9 @@ export async function GET(req: Request) {
         const current = await currentDispatchExport(site,batch.snapshot.map((o: {id:string})=>o.id),batch.snapshot);
         return NextResponse.json({...batch,...current});
     } catch(e) {
-        return NextResponse.json({error:e instanceof DispatchError?e.message:'현재 출고 대상을 확인하지 못했습니다.'},{status:e instanceof DispatchError?e.status:500});
+        return apiErrorResponse(e, {error:e instanceof DispatchError?e.message:'현재 출고 대상을 확인하지 못했습니다.'},{status:e instanceof DispatchError?e.status:500});
     }
 }
+
+export const POST = withApiErrors('POST /api/admin/dispatches', handlePOST);
+export const GET = withApiErrors('GET /api/admin/dispatches', handleGET);

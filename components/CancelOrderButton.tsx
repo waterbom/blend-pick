@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from '@/lib/api-error-message';
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -26,7 +27,7 @@ export default function CancelOrderButton({ orderId, status = "paid" }: { orderI
         alert(data.message);
         router.refresh();
       } else {
-        alert(data.error || "취소 처리에 실패했어요. 잠시 후 다시 시도해주세요.");
+        alert(apiErrorMessage(data, "취소 처리에 실패했어요. 잠시 후 다시 시도해주세요."));
       }
     } catch {
       // 네트워크 끊김 등 — 요청이 서버에 닿았는지 알 수 없으니 새로고침 후 재시도 안내

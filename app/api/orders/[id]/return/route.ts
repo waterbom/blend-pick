@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, apiErrorResponse } from '@/lib/api-errors';
 import { currentSite } from "@/lib/site-server";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -11,14 +12,14 @@ import { isPhoneVerified } from "@/lib/phone-verify";
 // 권한: 로그인 회원(주문 소유자) 또는 휴대폰 인증(phone_verified 쿠키)된 비회원(결제 휴대폰 일치)
 // 신청과 동시에 orders.status를 exchange_requested / return_requested로 바꾸고,
 // 원래 상태(prev_status)를 기억해 거절 시 되돌린다. 진행 중 신청이 있으면 중복 차단.
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePOST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies();
   const token = cookieStore.get("shop_token")?.value;
   const payload = token ? await verifyToken(token) : null;
 
   const { id } = await params;
   const site = await currentSite();
-  const body = (await req.json().catch(() => null)) ?? {};
+  const body = (await readJsonObject(req)) ?? {};
 
   const kind = body.kind === "exchange" ? "exchange" : body.kind === "return" ? "return" : null;
   if (!kind) return NextResponse.json({ error: "교환/반품 유형을 선택해주세요." }, { status: 400 });
@@ -156,9 +157,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     );
     await client.query("COMMIT");
   } catch (e) {
-    await client.query("ROLLBACK");
-    console.error("[return] 신청 실패:", e);
-    return NextResponse.json({ error: "신청 처리에 실패했어요. 잠시 후 다시 시도해주세요." }, { status: 500 });
+    await rollbackSafely(client);
+    reportApiError(e, 'app/api/orders/[id]/return/route.ts:160');
+    return apiErrorResponse(e, { error: "신청 처리에 실패했어요. 잠시 후 다시 시도해주세요." }, { status: 500 });
   } finally {
     client.release();
   }
@@ -171,3 +172,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         : "반품 신청이 접수되었습니다. 수거 확인 후 환불 처리됩니다. (카드사에 따라 3~5일 소요)",
   });
 }
+
+export const POST = withApiErrors('POST /api/orders/[id]/return', handlePOST);

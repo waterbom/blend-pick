@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -5,7 +6,7 @@ import { verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import { financialOrders, orderAmounts, validDateRange } from "@/lib/order-finance";
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
     const token = (await cookies()).get('admin_token')?.value;
     if (!token || !await verifyAdminToken(token))
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -110,3 +111,5 @@ export async function GET(req: Request) {
     }
     return NextResponse.json([...groups.values()].sort((a, b) => b.gross - a.gross));
 }
+
+export const GET = withApiErrors('GET /api/admin/profit', handleGET);

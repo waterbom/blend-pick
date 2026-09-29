@@ -1,9 +1,10 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import shopPool from "@/lib/db-shop";
 
 // 비회원 예약 조회 — 예약번호 + 예약자 연락처가 모두 일치해야 조회됨
-export async function POST(req: NextRequest) {
-  const { orderNumber, phone } = await req.json();
+async function handlePOST(req: NextRequest) {
+  const { orderNumber, phone } = await readJsonObject(req);
   const on = String(orderNumber || "").trim().toUpperCase();
   const ph = String(phone || "").replace(/[^0-9]/g, "");
   if (!on || ph.length < 10) {
@@ -33,3 +34,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, reservation: rows[0] });
 }
+
+export const POST = withApiErrors('POST /api/hotel/reservation/lookup', handlePOST);

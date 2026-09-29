@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -12,7 +13,7 @@ async function getAdmin() {
   return verifyAdminToken(token);
 }
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
@@ -39,12 +40,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 }
 
 // 요율/공급가 설정 (과거 주문 스냅샷에는 영향 없음 — 이후 주문부터 적용)
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { commission_rate, supply_price } = await req.json();
+  const { commission_rate, supply_price } = await readJsonObject(req);
 
   if (commission_rate != null && (commission_rate < 0 || commission_rate > 100)) {
     return NextResponse.json({ error: "수수료율은 0~100 사이여야 합니다" }, { status: 400 });
@@ -57,3 +58,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (r.rowCount === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
+
+export const GET = withApiErrors('GET /api/admin/campaigns/[id]', handleGET);
+export const PUT = withApiErrors('PUT /api/admin/campaigns/[id]', handlePUT);

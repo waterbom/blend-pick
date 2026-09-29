@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { cookies } from 'next/headers';
 import { verifyAdminToken } from '@/lib/auth';
 import { SITES, type SiteKey } from '@/lib/sites';
@@ -17,7 +18,7 @@ async function readInput(req: Request) {
   finally {reader.releaseLock();}
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (process.env.ANALYTICS_ENABLED !== 'true') return response(204);
   if (!analyticsConfigured()) return response(503);
   const host=(req.headers.get('host')||'').toLowerCase();
@@ -39,3 +40,5 @@ export async function POST(req: Request) {
   try {const result=await recordPageview(site,input);return response(result==='limited'?429:204);}
   catch {console.error('visit_analytics_write_failed');return response(503);}
 }
+
+export const POST = withApiErrors('POST /api/analytics/pageview', handlePOST);

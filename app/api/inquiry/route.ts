@@ -1,9 +1,10 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+async function handlePOST(req: NextRequest) {
+  const body = await readJsonObject(req);
 
   // 로그인 유저면 user_id 추출
   let userId = null;
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   // 로그인 유저의 문의 내역 조회
   let userId = null;
   try {
@@ -63,3 +64,6 @@ export async function GET(req: NextRequest) {
   const data = await res.json();
   return NextResponse.json(data);
 }
+
+export const POST = withApiErrors('POST /api/inquiry', handlePOST);
+export const GET = withApiErrors('GET /api/inquiry', handleGET);

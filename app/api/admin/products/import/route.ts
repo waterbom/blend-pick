@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject, reportApiError } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -61,7 +62,7 @@ function convertValue(field: string, raw: string): string | number | null {
     return v || null;
 }
 // POST /api/admin/products/import — 파일 파싱 + 미리보기 데이터 반환
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
     const admin = await getAdmin();
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -87,11 +88,11 @@ export async function POST(req: Request) {
     });
 }
 // PUT /api/admin/products/import — 확정 저장
-export async function PUT(req: Request) {
+async function handlePUT(req: Request) {
     const admin = await getAdmin();
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { headers, rows, mapping } = await req.json() as {
+    const { headers, rows, mapping } = await readJsonObject(req) as {
         headers: string[];
         rows: string[][];
         mapping: Record<string, string>;
@@ -126,9 +127,12 @@ export async function PUT(req: Request) {
             saved++;
         }
         catch (e) {
-            console.error("상품 가져오기 실패", e);
+            reportApiError(e, 'app/api/admin/products/import/route.ts:129');
             errors.push(`행 ${rowIdx + 2}: 저장 실패. 입력값을 확인해주세요.`);
         }
     }
     return NextResponse.json({ saved, skipped, errors });
 }
+
+export const POST = withApiErrors('POST /api/admin/products/import', handlePOST);
+export const PUT = withApiErrors('PUT /api/admin/products/import', handlePUT);

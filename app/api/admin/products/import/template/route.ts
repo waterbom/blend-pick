@@ -1,7 +1,8 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { verifyAdminToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import * as XLSX from "xlsx";
-export async function GET() {
+async function handleGET() {
     const cookieStore = await cookies();
     const token = cookieStore.get("admin_token")?.value;
     if (!token)
@@ -29,3 +30,5 @@ export async function GET() {
         },
     });
 }
+
+export const GET = withApiErrors('GET /api/admin/products/import/template', handleGET);

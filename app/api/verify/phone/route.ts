@@ -1,3 +1,4 @@
+import { ApiError, reportApiError, withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import { sendSMS, phoneVerifyOn } from "@/lib/sms";
 import { signChallenge, normPhone } from "@/lib/phone-verify";
@@ -5,8 +6,9 @@ import { siteFromRequest } from "@/lib/site-request";
 import { siteSmsTag } from "@/lib/site-label";
 
 // 인증번호 발송
-export async function POST(req: NextRequest) {
-  const { phone } = await req.json();
+async function handlePOST(req: NextRequest) {
+  const { phone } = await readJsonObject(req);
+  if (typeof phone !== 'string' || phone.length > 30) throw new ApiError('INVALID_INPUT', '올바른 휴대폰 번호를 입력해주세요.');
   const p = normPhone(phone);
   if (p.length < 10) {
     return NextResponse.json({ ok: false, error: "올바른 휴대폰 번호를 입력해주세요." }, { status: 400 });
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
   const sms = await sendSMS(p, `${siteSmsTag(siteFromRequest(req))} 인증번호 [${code}] 를 입력해주세요.`);
   if (!sms.ok) {
     // SOLAPI 실제 실패 사유를 서버 로그에 남김 (journalctl 로 확인)
-    console.error("[verify/phone] SMS 발송 실패:", sms.error);
+    reportApiError(new ApiError('UPSTREAM_UNAVAILABLE'), 'phone.verification.sms');
     return NextResponse.json(
       { ok: false, error: sms.error === "NOT_CONFIGURED" ? "문자 인증이 아직 설정되지 않았어요." : "문자 발송에 실패했어요. 잠시 후 다시 시도해주세요." },
       { status: 500 }
@@ -38,3 +40,5 @@ export async function POST(req: NextRequest) {
   });
   return res;
 }
+
+export const POST = withApiErrors('POST /api/verify/phone', handlePOST);

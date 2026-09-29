@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -16,7 +17,7 @@ async function getAdmin() {
 }
 
 // 인플루언서 목록 + 누적 판매 집계 (OS/Shop 크로스 DB — JS에서 병합)
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
@@ -65,11 +66,11 @@ export async function GET(req: Request) {
   return NextResponse.json(rows);
 }
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const b = await req.json();
+  const b = await readJsonObject(req);
   if (!b.name) return NextResponse.json({ error: "이름은 필수입니다" }, { status: 400 });
   const profileImage = await cacheExternalImage(b.profile_image || null);
 
@@ -95,3 +96,6 @@ export async function POST(req: Request) {
   );
   return NextResponse.json({ id: rows[0].id }, { status: 201 });
 }
+
+export const GET = withApiErrors('GET /api/admin/influencers', handleGET);
+export const POST = withApiErrors('POST /api/admin/influencers', handlePOST);

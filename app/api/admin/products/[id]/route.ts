@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, apiErrorResponse } from '@/lib/api-errors';
 import { saveProductLogistics } from "@/lib/product-logistics";
 import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -13,7 +14,7 @@ async function getAdmin() {
         return null;
     return verifyAdminToken(token);
 }
-export async function GET(_: Request, { params }: {
+async function handleGET(_: Request, { params }: {
     params: Promise<{
         id: string;
     }>;
@@ -46,7 +47,7 @@ export async function GET(_: Request, { params }: {
         })),
     });
 }
-export async function PATCH(req: Request, { params }: {
+async function handlePATCH(req: Request, { params }: {
     params: Promise<{
         id: string;
     }>;
@@ -59,7 +60,7 @@ export async function PATCH(req: Request, { params }: {
     const scoped = await shopPool.query(`SELECT id FROM products_shop WHERE id=$1 AND ${scope.sql} AND archived_at IS NULL`, [id, scope.param]);
     if (!scoped.rows.length)
         return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const body = await req.json();
+    const body = await readJsonObject(req);
     if (body.category && !((await currentAdminSite()).key === "sanjipick" ? scope.param.includes(body.category) : !scope.param.includes(body.category)))
         return NextResponse.json({ error: "현재 사이트의 카테고리를 선택해주세요." }, { status: 400 });
     const linkError = linkSettingsError(body);
@@ -187,15 +188,15 @@ export async function PATCH(req: Request, { params }: {
         return NextResponse.json({ ok: true, updated_at: saved.rows[0].updated_at });
     }
     catch (e) {
-        await client.query("ROLLBACK");
-        console.error(e);
-        return NextResponse.json({ error: "수정 실패" }, { status: 500 });
+        await rollbackSafely(client);
+        reportApiError(e, 'app/api/admin/products/[id]/route.ts:191');
+        return apiErrorResponse(e, { error: "수정 실패" }, { status: 500 });
     }
     finally {
         client.release();
     }
 }
-export async function DELETE(_: Request, { params }: {
+async function handleDELETE(_: Request, { params }: {
     params: Promise<{
         id: string;
     }>;
@@ -219,11 +220,15 @@ export async function DELETE(_: Request, { params }: {
         return NextResponse.json({ ok: true, deleted: r.rowCount });
     }
     catch (e) {
-        await client.query("ROLLBACK");
-        console.error("[product delete]", e);
-        return NextResponse.json({ error: "삭제에 실패했습니다. (연결된 데이터 확인 필요)" }, { status: 500 });
+        await rollbackSafely(client);
+        reportApiError(e, 'app/api/admin/products/[id]/route.ts:223');
+        return apiErrorResponse(e, { error: "삭제에 실패했습니다. (연결된 데이터 확인 필요)" }, { status: 500 });
     }
     finally {
         client.release();
     }
 }
+
+export const GET = withApiErrors('GET /api/admin/products/[id]', handleGET);
+export const PATCH = withApiErrors('PATCH /api/admin/products/[id]', handlePATCH);
+export const DELETE = withApiErrors('DELETE /api/admin/products/[id]', handleDELETE);

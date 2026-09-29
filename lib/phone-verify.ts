@@ -4,8 +4,8 @@ import crypto from "crypto";
 const SECRET_STR = process.env.JWT_SECRET || "blend-pick-secret-key";
 const SECRET = new TextEncoder().encode(SECRET_STR);
 
-export function normPhone(phone: string) {
-  return (phone || "").replace(/[^0-9]/g, "");
+export function normPhone(phone: unknown) {
+  return typeof phone === 'string' ? phone.replace(/[^0-9]/g, "") : '';
 }
 
 // 인증번호는 평문 저장 금지 — 해시만 토큰에 담는다

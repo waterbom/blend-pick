@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, apiErrorResponse } from '@/lib/api-errors';
 import { saveProductLogistics } from "@/lib/product-logistics";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -13,7 +14,7 @@ async function getAdmin() {
         return null;
     return verifyAdminToken(token);
 }
-export async function GET() {
+async function handleGET() {
     const admin = await getAdmin();
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -28,11 +29,11 @@ export async function GET() {
   `, [c.param]);
     return NextResponse.json(result.rows);
 }
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
     const admin = await getAdmin();
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const body = await req.json();
+    const body = await readJsonObject(req);
     const linkError = linkSettingsError(body);
     if (linkError)
         return NextResponse.json({ error: linkError }, { status: 400 });
@@ -155,11 +156,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ id: productId, updated_at: saved.rows[0].updated_at }, { status: 201 });
     }
     catch (e) {
-        await client.query("ROLLBACK");
-        console.error(e);
-        return NextResponse.json({ error: "등록 실패" }, { status: 500 });
+        await rollbackSafely(client);
+        reportApiError(e, 'app/api/admin/products/route.ts:159');
+        return apiErrorResponse(e, { error: "등록 실패" }, { status: 500 });
     }
     finally {
         client.release();
     }
 }
+
+export const GET = withApiErrors('GET /api/admin/products', handleGET);
+export const POST = withApiErrors('POST /api/admin/products', handlePOST);

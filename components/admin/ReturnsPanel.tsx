@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useCallback, useEffect, useState } from "react";
 import { RETURN_STATUS_LABEL } from "@/lib/returns";
@@ -41,20 +42,20 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
   const [requestId, setRequestId] = useState(initialRequestId);
   const [rows, setRows] = useState<ReturnRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [actingId, setActingId] = useState<string | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
-    setLoadError(false);
+    setLoadError("");
     try {
       const res = await fetch(`/api/admin/returns?kind=${kind}${requestId ? `&id=${encodeURIComponent(requestId)}` : ''}`, { signal });
-      if (!res.ok) throw new Error("Return lookup failed");
-      const data = await res.json();
+      const data = await readApiJson(res);
+      if (!res.ok) throw new Error(apiErrorMessage(data, "신청을 불러오지 못했습니다."));
       if (!Array.isArray(data)) throw new Error("Invalid return lookup");
       if (!signal?.aborted) setRows(data);
-    } catch {
-      if (!signal?.aborted) { setRows([]); setLoadError(true); }
+    } catch (error) {
+      if (!signal?.aborted) { setRows([]); setLoadError(error instanceof Error ? error.message : "신청을 불러오지 못했습니다."); }
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -122,7 +123,7 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
         body: JSON.stringify({ id: r.id, action, note, refund_amount: refundAmount }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || d.error) { alert(d.error || "처리에 실패했어요."); return; }
+      if (!res.ok || d.error) { alert(apiErrorMessage(d, "처리에 실패했어요.")); return; }
       if (action === "complete" && r.kind === "return" && d.refunded > 0) {
         alert(
           `반품 완료 — ${Number(d.refunded).toLocaleString()}원 환불됐어요.` +
@@ -142,7 +143,7 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
   const kindLabel = kind === "exchange" ? "교환" : "반품";
 
   if (loading) return <div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>불러오는 중...</div>;
-  if (loadError) return <div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600">신청을 불러오지 못했습니다.<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div>;
+  if (loadError) return <div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600" role="alert">{loadError}<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div>;
   if (rows.length === 0) return <div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>{requestId ? "이 신청은 처리되었거나 현재 사이트에서 확인할 수 없습니다." : `진행 중인 ${kindLabel} 신청이 없습니다`}{requestId && <button className="block mx-auto mt-3 underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button>}</div>;
 
   return (

@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -26,7 +27,7 @@ function nightsOf(ci: string, co: string) {
 }
 
 // 미발송 예약 건수 조회 (버튼 표시용)
-export async function GET() {
+async function handleGET() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -41,7 +42,7 @@ export async function GET() {
 }
 
 // 예약확인 문자 일괄발송 (미발송 & 예약확정 건만)
-export async function POST() {
+async function handlePOST() {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if ((await currentAdminSite()).key !== "blendpick") return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -91,3 +92,6 @@ export async function POST() {
 
   return NextResponse.json({ ok: true, total: rows.length, sent, failed, errors });
 }
+
+export const GET = withApiErrors('GET /api/admin/reservations/notify', handleGET);
+export const POST = withApiErrors('POST /api/admin/reservations/notify', handlePOST);

@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -5,7 +6,7 @@ import { verifyAdminToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 
 // 반품 환불 전 토스 취소 가능 잔액 조회 — 환불 입력창에 잔액·기존 취소 내역을 보여주기 위함
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const token = (await cookies()).get("admin_token")?.value;
   if (!token || !(await verifyAdminToken(token))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -48,3 +49,5 @@ export async function GET(req: Request) {
   const canceled = cancels.reduce((s: number, c: { amount: number }) => s + c.amount, 0);
   return NextResponse.json({ balance: Number(pay.balanceAmount), canceled, cancels });
 }
+
+export const GET = withApiErrors('GET /api/admin/returns/balance', handleGET);

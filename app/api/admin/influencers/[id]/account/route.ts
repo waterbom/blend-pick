@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, reportApiError, apiErrorResponse } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -32,7 +33,7 @@ function genPassword() {
 
 // 포털 계정 발급 — 버튼 한 번으로 아이디/비밀번호 자동 생성
 // 비밀번호는 해시로만 저장되므로 응답에 담긴 값을 이때 복사해서 전달해야 함
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePOST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -77,16 +78,16 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     await client.query("COMMIT");
     return NextResponse.json({ ok: true, login_id: loginId, password }, { status: 201 });
   } catch (e) {
-    await client.query("ROLLBACK");
-    console.error("[influencer account]", e);
-    return NextResponse.json({ error: "계정 발급 실패" }, { status: 500 });
+    await rollbackSafely(client);
+    reportApiError(e, 'app/api/admin/influencers/[id]/account/route.ts:81');
+    return apiErrorResponse(e, { error: "계정 발급 실패" }, { status: 500 });
   } finally {
     client.release();
   }
 }
 
 // 비밀번호 재설정 — 새 비밀번호 자동 생성 후 반환
-export async function PUT(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePUT(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -110,3 +111,6 @@ export async function PUT(_: Request, { params }: { params: Promise<{ id: string
   await pool.query("UPDATE influencers SET portal_password = $1 WHERE id = $2", [password, id]);
   return NextResponse.json({ ok: true, login_id: inf.rows[0].email, password });
 }
+
+export const POST = withApiErrors('POST /api/admin/influencers/[id]/account', handlePOST);
+export const PUT = withApiErrors('PUT /api/admin/influencers/[id]/account', handlePUT);

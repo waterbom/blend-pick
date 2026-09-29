@@ -1,3 +1,4 @@
+import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, apiErrorResponse } from '@/lib/api-errors';
 import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/refund-fulfillment';
 import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -15,12 +16,12 @@ async function getAdmin() {
 // PATCH /api/admin/shipments/deliver
 // body: { orderIds: string[] }
 // → 배송완료 일괄 처리 + 정산 레코드 자동 생성
-export async function PATCH(req: Request) {
+async function handlePATCH(req: Request) {
     const admin = await getAdmin();
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const site = (await currentAdminSite()).key;
-    const { orderIds } = await req.json();
+    const { orderIds } = await readJsonObject(req);
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
         return NextResponse.json({ error: "주문 ID가 없습니다" }, { status: 400 });
     }
@@ -39,11 +40,13 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ ok: true, updated: orders.length });
     }
     catch (e) {
-        await client.query("ROLLBACK");
-        console.error("배송완료 일괄 처리 실패:", e);
-        return NextResponse.json({ error: isRefundFulfillmentConflict(e) ? REFUND_FULFILLMENT_MESSAGE : "Internal server error" }, { status: isRefundFulfillmentConflict(e) ? 409 : 500 });
+        await rollbackSafely(client);
+        reportApiError(e, 'app/api/admin/shipments/deliver/route.ts:43');
+        return apiErrorResponse(e, { error: isRefundFulfillmentConflict(e) ? REFUND_FULFILLMENT_MESSAGE : "Internal server error" }, { status: isRefundFulfillmentConflict(e) ? 409 : 500 });
     }
     finally {
         client.release();
     }
 }
+
+export const PATCH = withApiErrors('PATCH /api/admin/shipments/deliver', handlePATCH);

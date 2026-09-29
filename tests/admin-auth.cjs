@@ -14,6 +14,7 @@ function load(file, mocks) {
   const mod = { exports: {} };
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: full })(name => {
     if (Object.hasOwn(mocks, name)) return mocks[name];
+    if (name === '@/lib/api-errors') return require('./support/load.cjs').load('lib/api-errors.ts');
     if (name.startsWith('@/')) throw Error(`Unmocked dependency: ${name}`);
     return require(name);
   }, mod, mod.exports);

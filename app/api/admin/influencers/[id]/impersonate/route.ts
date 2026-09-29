@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken, signToken } from "@/lib/auth";
@@ -13,7 +14,7 @@ async function getAdmin() {
 // 관리자용 — 발급된 인플루언서 계정으로 바로 로그인 (비밀번호 없이 토큰 발급)
 // admin_token으로만 호출 가능. shop_token을 해당 계정으로 교체하므로
 // 브라우저에 다른 쇼핑몰 계정이 로그인돼 있었다면 그 세션은 이 계정으로 바뀜
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePOST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -49,3 +50,5 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   });
   return res;
 }
+
+export const POST = withApiErrors('POST /api/admin/influencers/[id]/impersonate', handlePOST);

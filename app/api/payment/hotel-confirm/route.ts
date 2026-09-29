@@ -1,3 +1,5 @@
+import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, ApiError, apiErrorResponse } from '@/lib/api-errors';
+import { buyerContactError } from '@/lib/checkout-contact';
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
@@ -17,10 +19,15 @@ function genOrderNumber() {
   return `BP-H-${date}-${randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
-export async function POST(req: NextRequest) {
-  const { paymentKey, orderId, amount, checkoutData } = await req.json();
+async function handlePOST(req: NextRequest) {
+  const { paymentKey, orderId, amount, checkoutData } = await readJsonObject(req);
   const secretKey = process.env.TOSS_SECRET_KEY!;
   const cd = checkoutData;
+  if (typeof paymentKey !== 'string' || !paymentKey || paymentKey.length > 200 || typeof orderId !== 'string' || !orderId || orderId.length > 200 ||
+      !Number.isSafeInteger(amount) || amount <= 0 || !cd || typeof cd !== 'object' || Array.isArray(cd) ||
+      ['pkg','room','checkIn','checkOut'].some(key => typeof cd[key] !== 'string')) throw new ApiError('INVALID_INPUT', '결제 요청과 예약 정보를 확인해주세요.');
+  const contactError = buyerContactError(cd.customerName, cd.customerPhone);
+  if (contactError) throw new ApiError('INVALID_INPUT', contactError);
 
   // 0. 승인 '전' 검증 — 예약 유효성 + 금액 변조 + 재고 (통과 못하면 결제 승인 안 함)
   const q = quoteReservation(cd.pkg, cd.room, cd.checkIn, cd.checkOut);
@@ -45,7 +52,6 @@ export async function POST(req: NextRequest) {
   if (phoneVerifyOn()) {
     const verifiedToken = (await cookies()).get("phone_verified")?.value;
     if (!(await isPhoneVerified(verifiedToken, cd.customerPhone))) {
-      console.warn("[hotel-confirm] 거절: 휴대폰 미인증", { phone: cd.customerPhone, hasToken: !!verifiedToken });
       return NextResponse.json({ ok: false, error: "휴대폰 인증이 필요합니다." }, { status: 403 });
     }
   }
@@ -58,11 +64,11 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ paymentKey, orderId, amount }),
+    signal: AbortSignal.timeout(20000),
   });
   const tossData = await tossRes.json();
   if (!tossRes.ok) {
-    console.error("[hotel-confirm] 토스 승인 실패(승인거절):", { code: tossData.code, message: tossData.message, amount });
-    return NextResponse.json({ ok: false, error: tossData.message || "결제 승인 실패" }, { status: 400 });
+    return apiErrorResponse(new ApiError('PAYMENT_REVIEW_REQUIRED', '결제사에서 예약 결제의 완료 여부를 확인하지 못했습니다.'));
   }
 
   // 2. 주문 저장 (order_type='hotel') + 재고 차감
@@ -85,7 +91,7 @@ export async function POST(req: NextRequest) {
       const r = await pool.query("SELECT id, name FROM influencers WHERE id = $1", [hotelInfId]);
       influencer = r.rows[0] ?? null;
     } catch (e) {
-      console.error("[hotel-confirm] 인플루언서 조회 실패:", e);
+      reportApiError(e, 'app/api/payment/hotel-confirm/route.ts:88');
     }
   }
 
@@ -104,7 +110,7 @@ export async function POST(req: NextRequest) {
       influencer = { id: first.influencer_id, name: first.influencer_name };
     }
   } catch (e) {
-    console.error("[hotel-confirm] 재결제 귀속 확인 실패(링크 귀속 유지):", e);
+    reportApiError(e, 'app/api/payment/hotel-confirm/route.ts:107');
   }
 
   // 승인제 날짜 포함 여부 — 하나라도 있으면 예약대기(awaiting)로 저장, 관리자 승인 시 확정
@@ -117,7 +123,7 @@ export async function POST(req: NextRequest) {
     );
     needsApproval = Number(ap.rows[0].n) > 0;
   } catch (e) {
-    console.error("[hotel-confirm] 승인제 조회 실패(기본 확정 저장):", e);
+    reportApiError(e, 'app/api/payment/hotel-confirm/route.ts:120');
   }
   const orderStatus = needsApproval ? "awaiting" : "paid";
 
@@ -167,17 +173,14 @@ export async function POST(req: NextRequest) {
     await client.query("COMMIT");
     saved = true;
   } catch (e) {
-    await client.query("ROLLBACK");
-    console.error("[hotel-confirm] 주문 저장 실패:", e);
+    await rollbackSafely(client);
+    reportApiError(e, 'app/api/payment/hotel-confirm/route.ts:171');
   } finally {
     client.release();
   }
 
   if (!saved) {
-    return NextResponse.json(
-      { ok: false, error: "결제는 승인됐으나 예약 저장에 실패했어요. 고객센터로 문의해주세요." },
-      { status: 500 }
-    );
+    return apiErrorResponse(new ApiError('PAYMENT_REVIEW_REQUIRED', '결제는 승인됐으나 예약 저장 결과를 확인하지 못했습니다.'));
   }
 
   // 예약 확정 즉시 예약확인 문자 자동 발송 (실패해도 예약엔 영향 없음 → 일괄발송으로 재시도 가능)
@@ -196,10 +199,10 @@ export async function POST(req: NextRequest) {
       if (r.ok) {
         await shopPool.query(`UPDATE orders SET kakao_notified_at = NOW() WHERE order_number = $1`, [orderNumber]);
       } else {
-        console.error("[hotel-confirm] 예약확인 문자 발송 실패:", r.error);
+        reportApiError(new ApiError('UPSTREAM_UNAVAILABLE'), 'hotel.confirm.notification');
       }
     } catch (e) {
-      console.error("[hotel-confirm] 예약확인 문자 예외:", e);
+      reportApiError(e, 'app/api/payment/hotel-confirm/route.ts:202');
     }
   }
 
@@ -214,3 +217,5 @@ export async function POST(req: NextRequest) {
     status: orderStatus, // 'awaiting'이면 완료 화면에서 예약대기 안내
   });
 }
+
+export const POST = withApiErrors('POST /api/payment/hotel-confirm', handlePOST);

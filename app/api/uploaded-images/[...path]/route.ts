@@ -1,8 +1,9 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { readUploadedImage } from '@/lib/uploaded-images';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, { params }: { params: Promise<{ path: string[] }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   try {
     const image = await readUploadedImage((await params).path);
     if (!image) return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
@@ -15,3 +16,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ path: s
     return new Response(null, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 }
+
+export const GET = withApiErrors('GET /api/uploaded-images/[...path]', handleGET);

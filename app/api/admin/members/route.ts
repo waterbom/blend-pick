@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -14,7 +15,7 @@ async function getAdmin() {
 
 // 회원 관리 — 회원(OS DB) + 주문 집계(Shop DB)를 합쳐서 내려준다.
 // 가입일(created_at)이 없는 기존 회원은 첫 주문일을 대체 표시.
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
@@ -114,11 +115,11 @@ export async function GET(req: Request) {
 }
 
 // PATCH { id, action: 'activate' | 'deactivate' | 'approve' | 'reject' | 'set_role', role? }
-export async function PATCH(req: Request) {
+async function handlePATCH(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, action, role } = await req.json();
+  const { id, action, role } = await readJsonObject(req);
   if (!id) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
 
   if (action === "activate" || action === "deactivate") {
@@ -141,3 +142,6 @@ export async function PATCH(req: Request) {
   }
   return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
 }
+
+export const GET = withApiErrors('GET /api/admin/members', handleGET);
+export const PATCH = withApiErrors('PATCH /api/admin/members', handlePATCH);

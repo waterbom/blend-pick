@@ -1,3 +1,4 @@
+import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
@@ -11,7 +12,7 @@ async function getAdmin() {
   return verifyAdminToken(token);
 }
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -36,12 +37,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   return NextResponse.json({ ...inf.rows[0], campaigns: campaigns.rows });
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const b = await req.json();
+  const b = await readJsonObject(req);
   if (!b.name) return NextResponse.json({ error: "이름은 필수입니다" }, { status: 400 });
   const profileImage = await cacheExternalImage(b.profile_image || null);
 
@@ -69,7 +70,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleDELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -85,3 +86,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   await pool.query("DELETE FROM influencers WHERE id = $1", [id]);
   return NextResponse.json({ ok: true });
 }
+
+export const GET = withApiErrors('GET /api/admin/influencers/[id]', handleGET);
+export const PUT = withApiErrors('PUT /api/admin/influencers/[id]', handlePUT);
+export const DELETE = withApiErrors('DELETE /api/admin/influencers/[id]', handleDELETE);

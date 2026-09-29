@@ -74,3 +74,24 @@ test('lost commit acknowledgement remains uncertain and retry cannot duplicate q
 test('rollback reports only previously committed entries for safe local cleanup',async()=>{
  await merge.POST(req([item()]));const response=await merge.POST(req([item(),{...item(1,99),id:id(90)}]));const b=await response.json();assert.equal(response.status,409);assert.deepEqual(b.importedIds,[item().id]);assert.equal(b.rolledBack,true);assert.equal((await query('SELECT quantity FROM cart')).rows[0].quantity,1);
 });
+
+const memberCart=load('app/api/cart/route.ts',mocks);
+const cartRequest=(method,body)=>new Request('https://shop.blendpunch.com/api/cart',{method,headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+test('member cart validates site, option ownership and stock before storing anything',async()=>{
+ for(const body of [{product_id:id(2),option_id:id(12),quantity:1},{product_id:id(1),option_id:id(12),quantity:1},{product_id:id(1),option_id:id(11),quantity:11},{product_id:'bad',quantity:1},{product_id:id(1),quantity:1000}]){
+  const response=await memberCart.POST(cartRequest('POST',body));assert.equal(response.status,400);assert.ok((await response.json()).code);
+ }
+ assert.equal((await query('SELECT count(*) n FROM cart')).rows[0].n,0);
+});
+test('member cart checks combined quantity and preserves stock-safe existing quantities on rejection',async()=>{
+ const body={product_id:id(1),option_id:id(11),quantity:6};assert.equal((await memberCart.POST(cartRequest('POST',body))).status,200);
+ assert.equal((await memberCart.POST(cartRequest('POST',body))).status,400);assert.equal((await query('SELECT quantity FROM cart')).rows[0].quantity,6);
+ const row=(await query('SELECT id FROM cart')).rows[0];assert.equal((await memberCart.PATCH(cartRequest('PATCH',{cart_id:row.id,quantity:11}))).status,400);
+ assert.equal((await query('SELECT quantity FROM cart')).rows[0].quantity,6);assert.equal((await memberCart.PATCH(cartRequest('PATCH',{cart_id:row.id,quantity:2}))).status,200);
+ assert.equal((await query('SELECT quantity FROM cart')).rows[0].quantity,2);
+});
+test('cart null body and malformed identifiers return useful 400s without deleting an item',async()=>{
+ await memberCart.POST(cartRequest('POST',{product_id:id(1),option_id:id(11),quantity:1}));
+ for(const [method,body] of [['POST',null],['PATCH',null],['DELETE',{cart_id:'bad'}]]){const r=await memberCart[method](cartRequest(method,body));assert.equal(r.status,400);assert.ok((await r.json()).requestId);}
+ assert.equal((await query('SELECT count(*) n FROM cart')).rows[0].n,1);
+});

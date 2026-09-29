@@ -1,3 +1,4 @@
+import { withApiErrors } from '@/lib/api-errors';
 import { SITES } from "@/lib/sites";
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -13,7 +14,7 @@ async function getAdmin() {
 
 // 결제 링크 생성 (관리자 전용)
 // 사용: /api/admin/pay-link?amount=90000&label=숙박 요금 차액
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
@@ -29,3 +30,5 @@ export async function GET(req: Request) {
   const link = `https://${SITES[site].host}/pay/extra?t=${token}`;
   return NextResponse.json({ amount, label, link });
 }
+
+export const GET = withApiErrors('GET /api/admin/pay-link', handleGET);

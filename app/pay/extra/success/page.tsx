@@ -1,4 +1,6 @@
 "use client";
+import { apiErrorMessage, readApiJson } from "@/lib/api-error-message";
+import { readCheckoutSession, clearCheckoutSession, PAYMENT_CONNECTION_MESSAGE } from "@/lib/payment-client";
 
 import { Suspense, useEffect, useState } from "react";
 import { trackPurchase } from "@/lib/analytics";
@@ -13,26 +15,26 @@ function SuccessContent() {
     const paymentKey = sp.get("paymentKey");
     const orderId = sp.get("orderId");
     const amount = sp.get("amount");
-    const raw = sessionStorage.getItem("extraPayData");
+    const raw = readCheckoutSession("extraPayData");
     if (!paymentKey || !orderId || !amount || !raw) {
-      setState({ ok: false, error: "결제 정보를 찾을 수 없습니다." });
+      setState({ ok: false, error: "이 브라우저에서 결제 정보를 읽지 못했습니다. 다시 결제하지 말고 주문 내역을 확인해주세요. (오류 CHECKOUT_CONTEXT_MISSING)" });
       return;
     }
-    const cd = JSON.parse(raw);
+    const cd = raw;
     fetch("/api/payment/extra-confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), ...cd }),
     })
-      .then((r) => r.json())
+      .then(readApiJson)
       .then((d) => {
-        setState(d);
+        setState(d.ok ? d : {...d,error:apiErrorMessage(d)});
         if (d.ok) {
           trackPurchase("extra", orderId, d.amount, [{ id: "extra-payment", quantity: 1, price: d.amount }]);
-          sessionStorage.removeItem("extraPayData");
+          clearCheckoutSession("extraPayData");
         }
       })
-      .catch(() => setState({ ok: false, error: "네트워크 오류가 발생했습니다." }));
+      .catch(() => setState({ ok: false, error: PAYMENT_CONNECTION_MESSAGE }));
   }, [sp]);
 
   if (!state) return <p className="text-sm" style={{ color: "var(--text-muted)" }}>결제 확인 중...</p>;
