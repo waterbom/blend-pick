@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { BUSINESS_TYPE_LABEL, HOTEL_PAYOUT_CAMPAIGN_ID, type BusinessType, type PayoutBreakdown } from "@/lib/settlement";
 import { downloadXlsx } from "@/lib/xlsx-download";
+import { formatPhone } from "@/lib/phone-format";
 
 interface Row {
   review_reasons: string[];
@@ -87,7 +88,7 @@ export default function InfluencerSettlementsClient() {
       const rows = mine.map((o) => {
         const parts = (o.product_name || "").split(" · ");
         return [
-          o.order_number, o.buyer_name, o.buyer_phone, parts[1] || "", parts[2] || "",
+          o.order_number, o.buyer_name, formatPhone(o.buyer_phone), parts[1] || "", parts[2] || "",
           o.stay_check_in || "", o.stay_check_out || "",
           o.status === "paid" ? "예약확정" : o.status === "cancelled" ? "취소" : o.status,
           Number(o.total_amount), o.paid_at_kst || "",

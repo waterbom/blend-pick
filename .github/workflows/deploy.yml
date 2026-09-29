@@ -30,6 +30,7 @@ jobs:
             npm run test:dangung
             npm run test:admin-integrity
             npm run test:admin-charts
+            npm run test:product-sales
             npm run test:admin-workflow
             npm run test:shipping
             npm run test:tracking-import

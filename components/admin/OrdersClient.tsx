@@ -9,6 +9,7 @@ import ReturnsPanel from "@/components/admin/ReturnsPanel";
 import SiteBadge from "@/components/admin/SiteBadge";
 import { useSiteKey } from "@/components/SiteContext";
 import { SITES } from "@/lib/sites";
+import { formatPhone } from "@/lib/phone-format";
 
 interface OrderItem {
   id: string;
@@ -92,7 +93,7 @@ const COLUMNS = [
 
 // 발주용 엑셀(.xlsx) 행 데이터 — 수량·금액은 숫자 셀
 // 총 결제 금액(배송비 포함, 주문 단위)은 주문의 첫 줄에만 기재 → 컬럼 SUM해도 중복 없음
-function toOrderRows(orders: Order[]): (string | number)[][] {
+export function toOrderRows(orders: Order[]): (string | number)[][] {
   const rows: (string | number)[][] = [];
   for (const o of orders) {
     // 추가옵션 행도 상품명은 공구명(본상품)으로 통일하고, 추가상품 이름은 선택옵션 칸에
@@ -108,9 +109,9 @@ function toOrderRows(orders: Order[]): (string | number)[][] {
         d.toLocaleTimeString("ko-KR", { hour12: false, hour: "2-digit", minute: "2-digit" }),
         o.order_number,
         o.buyer_name,
-        o.buyer_phone,
+        formatPhone(o.buyer_phone),
         o.recipient_name ?? o.buyer_name,
-        o.recipient_phone ?? o.buyer_phone,
+        formatPhone(o.recipient_phone || o.buyer_phone),
         addr,
         o.addr_zipcode ?? "",
         o.addr_memo ?? "",
@@ -509,11 +510,11 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
                           </td>
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-800 text-xs">{o.buyer_name}</div>
-                            <div className="text-xs text-gray-400">{o.buyer_phone}</div>
+                            <div className="text-xs text-gray-400">{formatPhone(o.buyer_phone)}</div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="text-xs text-gray-700">{o.recipient_name ?? o.buyer_name}</div>
-                            <div className="text-xs text-gray-400">{o.recipient_phone ?? o.buyer_phone}</div>
+                            <div className="text-xs text-gray-400">{formatPhone(o.recipient_phone || o.buyer_phone)}</div>
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-500">
                             {/* 주문의 모든 옵션명 표시 (옵션 없는 상품은 상품명, 2개 이상은 × N) */}

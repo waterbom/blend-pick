@@ -11,6 +11,7 @@ import ReturnsPanel from "@/components/admin/ReturnsPanel";
 import SiteBadge from "@/components/admin/SiteBadge";
 import { useSiteKey } from "@/components/SiteContext";
 import { SITES } from "@/lib/sites";
+import { formatPhone } from "@/lib/phone-format";
 
 interface OrderItem {
   product_id: string | null; // 추가옵션 행은 null
@@ -668,7 +669,7 @@ function OrderTable({
               </td>
               <td className="px-4 py-3">
                 <div className="text-xs font-medium text-gray-800">{o.recipient_name ?? o.buyer_name}</div>
-                <div className="text-xs text-gray-400">{o.recipient_phone ?? o.buyer_phone}</div>
+                <div className="text-xs text-gray-400">{formatPhone(o.recipient_phone || o.buyer_phone)}</div>
                 {o.addr_memo && (
                   <div className="text-[11px] mt-0.5 text-orange-600">📦 {o.addr_memo}</div>
                 )}

@@ -7,6 +7,7 @@ import Link from "next/link";
 import TrackingForm from "@/components/admin/TrackingForm";
 import { SITE_BADGE_CLS, siteLabel } from "@/lib/site-label";
 import type { SiteKey } from "@/lib/sites";
+import { formatPhone } from "@/lib/phone-format";
 
 const STATUS_LABEL: Record<string, string> = {
   paid:               "신규주문",
@@ -150,7 +151,7 @@ export default async function OrderDetailPage({
       <div className="bg-white rounded-none border border-gray-100 p-5 mb-4">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">주문자</h2>
         <Row label="이름" value={order.buyer_name} />
-        <Row label="연락처" value={order.buyer_phone} />
+        <Row label="연락처" value={formatPhone(order.buyer_phone)} />
         <Row label="이메일" value={order.buyer_email ?? "-"} />
       </div>
 
@@ -158,7 +159,7 @@ export default async function OrderDetailPage({
       <div className="bg-white rounded-none border border-gray-100 p-5 mb-4">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">수령인</h2>
         <Row label="이름" value={order.recipient_name ?? order.buyer_name} />
-        <Row label="연락처" value={order.recipient_phone ?? order.buyer_phone} />
+        <Row label="연락처" value={formatPhone(order.recipient_phone || order.buyer_phone)} />
         <Row label="우편번호" value={order.addr_zipcode} />
         <Row label="주소" value={order.addr_address} />
         {order.addr_detail && <Row label="상세주소" value={order.addr_detail} />}

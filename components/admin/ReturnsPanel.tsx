@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { RETURN_STATUS_LABEL } from "@/lib/returns";
+import { formatPhone } from "@/lib/phone-format";
 
 interface ReturnEvent {
   status: string;
@@ -161,7 +162,7 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
                 {RETURN_STATUS_LABEL[r.status] ?? r.status}
               </span>
               <span className="ml-auto text-xs text-gray-500">
-                {r.recipient_name ?? r.buyer_name} · {r.recipient_phone ?? r.buyer_phone}
+                {r.recipient_name ?? r.buyer_name} · {formatPhone(r.recipient_phone || r.buyer_phone)}
               </span>
             </div>
 

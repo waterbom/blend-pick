@@ -7,6 +7,9 @@ import SecretLinkCopy from "@/components/admin/SecretLinkCopy";
 import { sanjiSecretLinkUrl } from "@/lib/secret-link";
 import { currentAdminSite, adminProductScopeSql } from "@/lib/admin-site";
 import type { SiteKey } from "@/lib/sites";
+import { emptySalesCounts, getProductSales, type ProductSales } from "@/lib/product-sales";
+import { validDateRange } from "@/lib/order-finance";
+import ProductSalesCell from "@/components/admin/ProductSalesCell";
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   active:  { label: "판매중",  color: "bg-green-100 text-green-700" },
@@ -30,7 +33,7 @@ async function getProducts(site: SiteKey) {
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string; q?:string; category?:string; sale?:string; link?:string }>;
+  searchParams: Promise<{ f?: string; q?:string; category?:string; sale?:string; link?:string; from?:string; to?:string }>;
 }) {
   const site = await currentAdminSite();
   const { rows: all, now } = await getProducts(site.key);
@@ -56,7 +59,22 @@ export default async function AdminProductsPage({
   });
   const TABS = (["ready","selling","closed"] as const).map(key=>({key,label:`${STAGE_LABEL[key]} ${all.filter(p=>productStage(p,now)===key).length}`,warn:false}));
   function tabUrl(key:string){const p=new URLSearchParams();for(const [k,v] of Object.entries(filters))if(v)p.set(k,v);p.set('f',key);return '/admin/products?'+p;}
-
+  const from = typeof filters.from === "string" ? filters.from : "";
+  const to = typeof filters.to === "string" ? filters.to : "";
+  let sales: Map<string, ProductSales> | null = null;
+  let salesError = "";
+  if ((filters.from !== undefined && typeof filters.from !== "string") ||
+      (filters.to !== undefined && typeof filters.to !== "string") || !validDateRange(from || null, to || null)) {
+    salesError = "판매 집계 기간을 확인해주세요. 시작일은 종료일보다 늦을 수 없습니다.";
+  } else {
+    try { sales = await getProductSales(site.key, from, to); }
+    catch (error) { console.error("[admin/products] sales lookup failed", error); salesError = "판매량을 불러오지 못했습니다. 잠시 후 다시 조회해주세요."; }
+  }
+  const totals = products.reduce((sum, p) => {
+    const data = sales?.get(p.id);
+    if (data) { sum.paid += data.paid; sum.sold += data.sold; sum.excluded += data.cancelled + data.returned; sum.review += data.review > 0 ? 1 : 0; }
+    return sum;
+  }, { paid: 0, sold: 0, excluded: 0, review: 0 });
 
   return (
     <div>
@@ -129,10 +147,31 @@ export default async function AdminProductsPage({
             {["없음", "예약", "사용 중", "만료"].map((v) => <option key={v}>{v}</option>)}
           </select>
         )}
+        <label className="flex items-center gap-2 text-xs text-gray-600">결제일 시작
+          <input type="date" name="from" defaultValue={from} className="border border-gray-200 px-2 py-2 text-sm bg-white" />
+        </label>
+        <label className="flex items-center gap-2 text-xs text-gray-600">종료
+          <input type="date" name="to" defaultValue={to} className="border border-gray-200 px-2 py-2 text-sm bg-white" />
+        </label>
         <button className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors">조회</button>
         <Link href="/admin/products?f=all" className="text-xs font-bold text-gray-500 hover:text-gray-800 px-2 py-2">전체 이력</Link>
         <span className="ml-auto ds-mono text-[11px] text-gray-400">{products.length}개 표시</span>
       </form>
+      <section aria-label="상품별 판매량" className="mb-4 border border-gray-100 bg-white p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-[#1A1D18]">상품별 판매량</h2>
+          <span className="text-xs text-gray-500">현재 표시된 {products.length}개 상품 · {from || "전체"} ~ {to || "현재"} · 한국시간 결제일 기준</span>
+        </div>
+        {salesError ? <p role="alert" className="text-sm text-red-600">{salesError}</p> : (
+          <dl className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[{ label: `판매 수량${totals.review ? " (잠정)" : ""}`, value: totals.sold }, { label: "결제 수량", value: totals.paid }, { label: "취소·반품 완료 수량", value: totals.excluded }].map(metric => (
+              <div key={metric.label} className="bg-gray-50 p-3"><dt className="text-xs text-gray-500">{metric.label}</dt><dd className="mt-1 text-lg font-bold text-[#2D5A27] ds-mono">{metric.value.toLocaleString("ko-KR")}개</dd></div>
+            ))}
+          </dl>
+        )}
+        <p className="text-xs leading-5 text-gray-500">판매 수량 = 결제 수량 − 취소 완료 − 반품 완료. 미결제·테스트 결제·추가상품·설치비는 제외하며, 주문 당시 선택 수량으로 집계합니다. 취소·반품 진행 중인 수량은 완료 전까지 포함됩니다.</p>
+        <p className="text-xs leading-5 text-gray-500">반품은 해당 주문 상품의 완료 수량만 차감합니다. 환불 처리 중이거나 수량 기록이 불명확하면 ‘잠정’으로 표시하며, 환불 금액으로 수량을 추정하지 않습니다.</p>
+      </section>
       {/* 테이블 */}
       <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
         {products.length === 0 ? (
@@ -140,13 +179,14 @@ export default async function AdminProductsPage({
             조건에 맞는 상품이 없어요
           </div>
         ) : (
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[960px] text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">상품</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">코드</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">가격</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">재고</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">판매 수량</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">상태</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-gray-400">등록일</th>
                 <th className="px-4 py-3" />
@@ -197,6 +237,9 @@ export default async function AdminProductsPage({
                       {p.status === "active" && Number(p.stock) === 0
                         ? <span className="ds-mono font-semibold" style={{ color: "#A6412F" }}>0개 ⚠</span>
                         : <span className="text-gray-600 ds-mono">{p.stock}개</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ProductSalesCell sales={sales ? sales.get(p.id) ?? { ...emptySalesCounts(), options: [] } : null} />
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-bold px-2 py-1 rounded-full ${s.color}`}>
