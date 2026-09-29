@@ -1,6 +1,7 @@
 "use client";
 
 import ScrollRail from "@/components/ScrollRail";
+import { SANJI_IMAGE_ASPECT_RATIO, SANJI_LARGE_IMAGE_MAX_WIDTH } from "@/lib/sanji-image-layout";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SanjiCard, SanjiHomeReview } from "@/lib/sanji-data";
@@ -189,8 +190,8 @@ export default function SanjiHome({
         .sh-tabs button{flex-shrink:0;height:38px;padding:0 18px;border:0;border-radius:999px;background:${GRAY};color:${INK};font-size:14px;font-weight:600}
         .sh-tabs button:hover{background:#EAEAEA}
         .sh-tabs button.on{background:${INK};color:#fff}
-        .sh-ban{position:relative;margin:4px 16px 0}
-        .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:5/3;max-height:420px;border-radius:14px;background:${GRAY}}
+        .sh-ban{position:relative;width:calc(100% - 32px);max-width:${SANJI_LARGE_IMAGE_MAX_WIDTH};margin:4px auto 0}
+        .sh-ban__track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};border-radius:14px;background:${GRAY}}
         .sh-ban__track::-webkit-scrollbar{display:none}
         .sh-ban__item{position:relative;flex:0 0 100%;min-width:0;min-height:0;scroll-snap-align:start;overflow:hidden}
         .sh-ban__item img,.sh-ban__item>div[aria-hidden="true"]{position:absolute;inset:0;width:100%;height:100%;padding:8px;object-fit:contain;object-position:center;display:block}
@@ -206,7 +207,7 @@ export default function SanjiHome({
         .sh-hotlist{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
         .sh-hot{min-width:0;display:flex;gap:12px;padding:12px;border:1px solid ${LINE};border-radius:14px;transition:border-color .15s}
         .sh-hot:hover{border-color:#D5D5D5}
-        .sh-hot .th{position:relative;flex:0 0 112px;height:112px;border-radius:10px;overflow:hidden;background:${GRAY}}
+        .sh-hot .th{position:relative;flex:0 0 112px;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};align-self:flex-start;border-radius:10px;overflow:hidden;background:${GRAY}}
         .sh-hot .th img,.sh-hot .th>div[aria-hidden="true"]{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain}
         .sh-hot .bd{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
         .sh-hot .cd{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:${ORANGE};background:${TINT};padding:3px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
@@ -214,10 +215,9 @@ export default function SanjiHome({
         .sh-hot .pr{font-size:19px}
         .sh-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 10px}
         .sh-card{min-width:0;display:flex;flex-direction:column}
-        .sh-card .th{position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:${GRAY}}
+        .sh-card .th{position:relative;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};border-radius:12px;overflow:hidden;background:${GRAY}}
         .sh-card .th>div[aria-hidden="true"]{position:absolute;inset:0}
-        .sh-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block;transition:transform .25s}
-        .sh-card:hover .th img{transform:scale(1.03)}
+        .sh-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
         .sh-card .cd{position:absolute;left:8px;top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(25,25,25,.85);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;font-variant-numeric:tabular-nums}
         .sh-card .so{position:absolute;inset:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
         .sh-card .nm{min-height:2.8em;margin-top:9px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
@@ -234,16 +234,16 @@ export default function SanjiHome({
         .sh-soonbox>p a{color:${ORANGE};font-weight:600;text-decoration:underline;text-underline-offset:3px}
         .sh-soonlist{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
         .sh-soon{min-width:0;display:flex;gap:12px;align-items:center;padding:12px;border-radius:12px;background:#fff}
-        .sh-soon .th{position:relative;flex:0 0 60px;height:60px;border-radius:10px;overflow:hidden;background:${GRAY}}
-        .sh-soon .th img,.sh-soon .th>div[aria-hidden="true"]{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+        .sh-soon .th{position:relative;flex:0 0 60px;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};border-radius:10px;overflow:hidden;background:${GRAY}}
+        .sh-soon .th img,.sh-soon .th>div[aria-hidden="true"]{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center}
         .sh-soon .bd{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
         .sh-soon .when{font-size:12px;font-weight:700;color:${ORANGE};font-variant-numeric:tabular-nums}
         .sh-soon .nm{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sh-soon .go{flex-shrink:0;height:34px;padding:0 12px;border:1px solid ${INK};border-radius:999px;display:inline-flex;align-items:center;font-size:13px;font-weight:600}
         .sh-rvlist{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
         .sh-rv{min-width:0;display:flex;gap:12px;padding:12px;border:1px solid ${LINE};border-radius:14px}
-        .sh-rv .th{flex:0 0 72px;height:72px;border-radius:10px;overflow:hidden;background:${GRAY}}
-        .sh-rv .th img,.sh-rv .th>div[aria-hidden="true"]{width:100%;height:100%;object-fit:cover;display:block}
+        .sh-rv .th{position:relative;flex:0 0 72px;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};align-self:flex-start;border-radius:10px;overflow:hidden;background:${GRAY}}
+        .sh-rv .th img,.sh-rv .th>div[aria-hidden="true"]{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
         .sh-rv .bd{min-width:0;flex:1}
         .sh-rv .meta{display:flex;align-items:center;gap:8px;font-size:12px;color:${MUTED}}
         .sh-rv .tx{margin-top:5px;font-size:14px;line-height:1.5;color:${INK};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -258,9 +258,7 @@ export default function SanjiHome({
         @media(min-width:761px){
           .sh-hd{top:64px}
           .sh-tabs{padding:14px 28px}
-          .sh-ban{max-width:760px;margin:10px auto 0;padding:0 20px}
-          .sh-ban__badge{left:32px}
-          .sh-ban__count{right:32px}
+          .sh-ban{margin-top:10px}
           .sh-sec{padding:36px 28px 8px}
           .sh-sec__h h2{font-size:22px}
           .sh-hotlist{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
@@ -272,7 +270,6 @@ export default function SanjiHome({
         }
         @media(max-width:760px){.sh-hd{top:58px}}
         @media(min-width:1000px){.sh-nav{display:none}.sh{padding-bottom:48px}}
-        @media(prefers-reduced-motion:reduce){.sh-card .th img{transition:none}.sh-card:hover .th img{transform:none}}
       `}</style>
 
       {/* 마감 카운트다운 띠 — 가장 먼저 끝나는 공구로 연결 */}

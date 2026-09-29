@@ -1,6 +1,7 @@
 "use client";
 
 import { SANJI_COLLECTIONS, collectionPath } from "@/lib/catalog-seo";
+import { SANJI_IMAGE_ASPECT_RATIO } from "@/lib/sanji-image-layout";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fbqTrack } from "@/lib/analytics";
 import type { SanjiCard } from "@/lib/sanji-data";
@@ -82,10 +83,9 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
         .sc-sub{margin:0 0 14px;font-size:13px;font-weight:600;color:${INK}}
         .sc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 10px}
         .sc-card{min-width:0;display:flex;flex-direction:column}
-        .sc-card .th{position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:${GRAY}}
+        .sc-card .th{position:relative;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};border-radius:12px;overflow:hidden;background:${GRAY}}
         .sc-card .th>div[aria-hidden="true"]{position:absolute;inset:0}
-        .sc-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block;transition:transform .25s}
-        .sc-card:hover .th img{transform:scale(1.03)}
+        .sc-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
         .sc-card .so{position:absolute;inset:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
         .sc-card .nm{min-height:2.8em;margin-top:9px;font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
         .sc-card .was{margin-top:4px;font-size:12px;color:${FAINT};text-decoration:line-through;font-variant-numeric:tabular-nums}
@@ -98,7 +98,6 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
         @media(min-width:761px){.sc-search{max-width:560px;margin:18px 28px 12px}.sc-chips{padding:0 28px 14px}.sc-sec{padding:28px 28px 8px}.sc-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:28px 16px}}
         @media(max-width:760px){.sc-hd{top:58px}}
         @media(min-width:1000px){.sc-nav{display:none}.sc{padding-bottom:48px}}
-        @media(prefers-reduced-motion:reduce){.sc-card .th img{transition:none}.sc-card:hover .th img{transform:none}}
       `}</style>
 
       <div className="sc-hd">

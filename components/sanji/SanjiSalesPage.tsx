@@ -1,6 +1,7 @@
 "use client";
 
 import ScrollRail from "@/components/ScrollRail";
+import { SANJI_IMAGE_ASPECT_RATIO, SANJI_LARGE_IMAGE_MAX_WIDTH } from "@/lib/sanji-image-layout";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -291,14 +292,14 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp *{box-sizing:border-box}
         .sp button{font-family:inherit;cursor:pointer}
         .sp :focus-visible{outline:2px solid ${ORANGE};outline-offset:2px}
-        .sp-slider{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:1/1;max-height:min(560px,60svh);background:${BAND}}
+        .sp-slider{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};background:${BAND}}
         .sp-slider::-webkit-scrollbar{display:none}
         .sp-slide{position:relative;flex:0 0 100%;scroll-snap-align:start;width:100%;min-width:0;min-height:0;overflow:hidden;border:0;padding:0;background:none;cursor:zoom-in}
         .sp-slide>img,.sp-slide>div{position:absolute;inset:0;display:block;width:100%;height:100%;padding:8px;object-fit:contain;object-position:center}
         .sp-slide:focus-visible{outline:2px solid ${ORANGE};outline-offset:-4px}
         .sp-count{position:absolute;right:14px;top:14px;z-index:2;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;font-variant-numeric:tabular-nums;pointer-events:none}
         .sp-photo-hint{margin:8px 16px 10px;text-align:center;font-size:12px;color:${MUTED}}
-        .sp-slider-wrap{position:relative}
+        .sp-slider-wrap{position:relative;width:calc(100% - 32px);max-width:${SANJI_LARGE_IMAGE_MAX_WIDTH};margin:0 auto}
         .sp-pill{margin:0 16px 10px;display:inline-flex;align-items:center;gap:6px;background:${INK};color:#fff;font-size:12px;font-weight:600;padding:7px 12px;border-radius:999px}
         .sp-pill::before{content:"";width:7px;height:7px;border-radius:50%;background:${YELLOW}}
         .sp-deal{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:10px 16px;background:${ORANGE};color:#fff;font-size:14px;font-weight:600}
@@ -350,7 +351,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding:0 16px 4px;margin:0 -16px}
         .sp-row::-webkit-scrollbar{display:none}
         .sp-card{flex:0 0 140px;text-decoration:none;color:inherit}
-        .sp-card .th{width:140px;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:${BAND};position:relative}
+        .sp-card .th{width:140px;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};border-radius:12px;overflow:hidden;background:${BAND};position:relative}
         .sp-card .th>div[aria-hidden="true"]{position:absolute;inset:0}
         .sp-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
         .sp-card .so{position:absolute;inset:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
@@ -368,7 +369,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-rv .opt{font-size:12px;color:${MUTED};margin-top:8px}
         .sp-rv .tx{font-size:14px;line-height:1.6;color:${INK};margin-top:6px;white-space:pre-line;word-break:break-word}
         .sp-rv .ph{display:flex;gap:6px;margin-top:10px}
-        .sp-rv .ph img{width:76px;height:76px;object-fit:cover;border-radius:8px;background:${BAND};cursor:zoom-in}
+        .sp-rv .ph img{width:76px;height:auto;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};padding:4px;object-fit:contain;object-position:center;border-radius:8px;background:${BAND};cursor:zoom-in}
         .sp-kakao{display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:12px;background:#FEE500;color:#191600;font-size:14px;font-weight:700;text-decoration:none}
         .sp-bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:760px;z-index:40;background:#fff;border-top:1px solid ${LINE};box-shadow:0 -6px 20px rgba(0,0,0,.06)}
         .sp-urg{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 16px;background:${SOFT};font-size:13px;font-weight:600;color:${ORANGE}}
