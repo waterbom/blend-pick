@@ -173,7 +173,7 @@ export default function SignupPage() {
                     type="checkbox"
                     checked={allAgreed}
                     onChange={(e) => handleAllAgree(e.target.checked)}
-                    className="w-4 h-4 accent-[#2D5A27]"
+                    className="w-4 h-4 accent-[var(--accent)]"
                   />
                   <span className="text-sm font-semibold">전체 동의</span>
                 </label>
@@ -193,7 +193,7 @@ export default function SignupPage() {
                           emailMarketingAgreed
                         );
                       }}
-                      className="w-4 h-4 accent-[#2D5A27]"
+                      className="w-4 h-4 accent-[var(--accent)]"
                     />
                     <span className="text-xs text-gray-700">
                       [필수] 이용약관 동의
@@ -213,7 +213,7 @@ export default function SignupPage() {
                           emailMarketingAgreed
                         );
                       }}
-                      className="w-4 h-4 accent-[#2D5A27]"
+                      className="w-4 h-4 accent-[var(--accent)]"
                     />
                     <span className="text-xs text-gray-700">
                       [필수] 개인정보 수집 및 이용 동의
@@ -233,7 +233,7 @@ export default function SignupPage() {
                           emailMarketingAgreed
                         );
                       }}
-                      className="w-4 h-4 accent-[#2D5A27]"
+                      className="w-4 h-4 accent-[var(--accent)]"
                     />
                     <span className="text-xs text-gray-500">
                       [선택] 쇼핑정보 수신 동의
@@ -253,7 +253,7 @@ export default function SignupPage() {
                           emailMarketingAgreed
                         );
                       }}
-                      className="w-4 h-4 accent-[#2D5A27]"
+                      className="w-4 h-4 accent-[var(--accent)]"
                     />
                     <span className="text-xs text-gray-500">
                       [선택] SMS 수신 동의
@@ -273,7 +273,7 @@ export default function SignupPage() {
                           e.target.checked
                         );
                       }}
-                      className="w-4 h-4 accent-[#2D5A27]"
+                      className="w-4 h-4 accent-[var(--accent)]"
                     />
                     <span className="text-xs text-gray-500">
                       [선택] 이메일 수신 동의

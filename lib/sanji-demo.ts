@@ -36,7 +36,7 @@ const desc = (title: string, lead: string, points: [string, string][], tips: str
   <h2 style="font-size:20px;font-weight:800;line-height:1.35;margin:0 0 10px;letter-spacing:-.02em">${title}</h2>
   <p style="font-size:14px;line-height:1.7;color:#4E5B4A;margin:0 0 18px">${lead}</p>
   <ul style="list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:10px">
-    ${points.map(([k, v]) => `<li style="display:flex;gap:10px;align-items:flex-start"><span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:#E7EFE3;color:#2F5D34;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">✓</span><span style="font-size:14px;line-height:1.55"><b>${k}</b> ${v}</span></li>`).join("")}
+    ${points.map(([k, v]) => `<li style="display:flex;gap:10px;align-items:flex-start"><span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:#FFF1EA;color:#C9430E;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">✓</span><span style="font-size:14px;line-height:1.55"><b>${k}</b> ${v}</span></li>`).join("")}
   </ul>
   <div style="background:#F3EDDF;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6;color:#4E5B4A">
     ${tips.map((t) => `<div>· ${t}</div>`).join("")}

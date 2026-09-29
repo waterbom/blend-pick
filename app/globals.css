@@ -58,51 +58,57 @@
   --radius-lg: 20px;
 }
 
-/* ── 산지픽 팔레트 (로고 딥 그린 + 크림) — 루트 레이아웃이 html[data-site]를 붙인다.
-   공용 페이지(로그인·마이페이지·장바구니·결제·푸터)는 레이아웃 그대로 색·글꼴만 이 값으로 갈린다. */
+/* ── 산지픽 팔레트 (B안 · 공구 오렌지) — 루트 레이아웃이 html[data-site]를 붙인다.
+   흰 바탕 · 잉크 #191919 · 오렌지 #C9430E(흰 글자 대비 4.9:1) · 노랑 뱃지 #FFD43B · 회색 면 #F4F4F4 · 선 #EDEDED
+   공용 페이지(로그인·마이페이지·장바구니·결제·푸터)는 레이아웃 그대로 색·글꼴만 이 값으로 갈린다.
+   관리자(.admin-commerce)는 자체 색 변수를 쓰고, 글꼴도 아래에서 기존 값으로 고정한다. */
 html[data-site="sanjipick"] {
-  --background: #FBF8F1;
-  --surface: #FFFDF8;
-  --surface-soft: #F3EDDF;
-  --cream: #FFFDF8;
-  --cream-dark: #F3EDDF;
-  --foreground: #1E2A1F;
-  --text-primary: #1E2A1F;
-  --text-secondary: #4E5B4A;
-  --text-muted: #8A8F84;
-  --accent: #2F5D34;
-  --accent-hover: #244B29;
-  --accent-light: #6FA36B;
-  --accent-soft: #E7EFE3;
-  --warm-gray: #8A8F84;
-  --warm-gray-dark: #CFCAB9;
-  --sale: #2F5D34;
-  --sale-soft: #E7EFE3;
-  --line: #E8E3D6;
-  --line-soft: #F1ECE0;
-  --card-shadow: 0 1px 2px rgba(47, 93, 52, 0.05), 0 8px 24px rgba(47, 93, 52, 0.07);
+  --background: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-soft: #F7F7F7;
+  --cream: #FFFFFF;
+  --cream-dark: #F4F4F4;
+  --foreground: #191919;
+  --text-primary: #191919;
+  --text-secondary: #555555;
+  --text-muted: #6E6E6E;
+  --accent: #C9430E;
+  --accent-hover: #A8370B;
+  --accent-light: #F08A5D;
+  --accent-soft: #FFF1EA;
+  --warm-gray: #8A8A8A;
+  --warm-gray-dark: #D5D5D5;
+  --sale: #C9430E;
+  --sale-soft: #FFF1EA;
+  --line: #EDEDED;
+  --line-soft: #F4F4F4;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.05);
+  --sj-font: "IBM Plex Sans KR", "Pretendard", "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 html[data-site="sanjipick"] body {
-  font-family: "Noto Sans KR", "Pretendard", "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--sj-font);
+  letter-spacing: -0.02em;
+  background: #FFFFFF;
   background-image: none;
 }
-/* 산지픽 — 딥 포레스트 DS(각진 0 radius·헤어라인)를 둥글고 부드럽게: 카드 20px, 입력·버튼 12px, 버튼은 로고 그린 그라데이션 + 은은한 그림자 */
-html[data-site="sanjipick"] .ds-card { border-radius: 20px; overflow: hidden; border-color: #E8E3D6; background: #FFFDF8; box-shadow: 0 10px 30px rgba(47, 93, 52, 0.08); }
-html[data-site="sanjipick"] .ds-input { border-radius: 12px; border-color: #E3DDCD; background: #fff; color: #1E2A1F; height: 50px; }
-html[data-site="sanjipick"] .ds-input:focus { border-color: #2F5D34; box-shadow: 0 0 0 3px rgba(47, 93, 52, 0.12); }
-html[data-site="sanjipick"] .ds-btn { border-radius: 12px; height: 50px; font-size: 15px; letter-spacing: -0.01em; transition: transform 0.12s, box-shadow 0.15s, filter 0.15s; }
+html[data-site="sanjipick"] .admin-commerce { font-family: "Noto Sans KR", "Pretendard", "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, sans-serif; letter-spacing: normal; }
+/* 산지픽 공용 컨트롤 — 카드 14px, 입력 10px, 버튼 12px. 기본 버튼은 단색 오렌지, 보조는 흰 바탕 + 잉크 테두리 */
+html[data-site="sanjipick"] .ds-card { border-radius: 14px; overflow: hidden; border-color: #EDEDED; background: #FFFFFF; box-shadow: none; }
+html[data-site="sanjipick"] .ds-input { border-radius: 10px; border-color: #DADADA; background: #fff; color: #191919; height: 50px; }
+html[data-site="sanjipick"] .ds-input:focus { border-color: #C9430E; box-shadow: 0 0 0 3px rgba(201, 67, 14, 0.12); }
+html[data-site="sanjipick"] .ds-btn { border-radius: 12px; height: 50px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; transition: transform 0.12s, background 0.15s; }
 html[data-site="sanjipick"] .ds-btn:active { transform: translateY(1px); }
 html[data-site="sanjipick"] .ds-btn-primary,
 html[data-site="sanjipick"] .sj-primary {
-  background: linear-gradient(135deg, #3E7A46 0%, #2F5D34 60%, #274F2C 100%) !important;
-  color: #fff; box-shadow: 0 8px 20px rgba(47, 93, 52, 0.28);
+  background: #C9430E !important;
+  color: #fff; box-shadow: none;
 }
-html[data-site="sanjipick"] .ds-btn-primary:hover, html[data-site="sanjipick"] .sj-primary:hover { filter: brightness(1.06); box-shadow: 0 10px 24px rgba(47, 93, 52, 0.34); }
-html[data-site="sanjipick"] .ds-btn-primary:disabled, html[data-site="sanjipick"] .sj-primary:disabled { box-shadow: none; }
-html[data-site="sanjipick"] .ds-btn[style*="FAE100"], html[data-site="sanjipick"] .sj-kakao { background: #FEE500 !important; color: #191600 !important; box-shadow: 0 6px 16px rgba(254, 229, 0, 0.35); }
-html[data-site="sanjipick"] .ds-caption { color: #6FA36B; }
-html[data-site="sanjipick"] .ds-serif { font-family: "Noto Sans KR", sans-serif; font-weight: 800; letter-spacing: -0.03em; }
-html[data-site="sanjipick"] .ds-section-title { border-bottom-color: #2F5D34; font-family: "Noto Sans KR", sans-serif; font-weight: 800; color: #1E2A1F; }
+html[data-site="sanjipick"] .ds-btn-primary:hover, html[data-site="sanjipick"] .sj-primary:hover { background: #A8370B !important; }
+html[data-site="sanjipick"] .ds-btn-primary:disabled, html[data-site="sanjipick"] .sj-primary:disabled { background: #E3E3E3 !important; color: #8A8A8A; }
+html[data-site="sanjipick"] .ds-btn[style*="FAE100"], html[data-site="sanjipick"] .sj-kakao { background: #FEE500 !important; color: #191600 !important; box-shadow: none; }
+html[data-site="sanjipick"] .ds-caption { color: #C9430E; }
+html[data-site="sanjipick"] .ds-serif { font-family: var(--sj-font); font-weight: 700; letter-spacing: -0.03em; }
+html[data-site="sanjipick"] .ds-section-title { border-bottom-color: #191919; font-family: var(--sj-font); font-weight: 700; color: #191919; }
 
 body {
   background: var(--background);

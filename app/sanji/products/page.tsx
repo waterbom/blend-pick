@@ -14,7 +14,7 @@ export default async function SanjiProductsPage({searchParams}:{searchParams:Pro
   const [search, products, linkBase]=await Promise.all([searchParams,getSanjiProducts(),sanjiLinkBase()]);
   const category=sanjiCollection(search.category);
   const q=typeof search.q==="string" ? search.q.slice(0,200):"";
-  return <main style={{background:"#EFE9DC",minHeight:"100svh"}}>
+  return <main style={{background:"#fff",minHeight:"100svh"}}>
     {!products.length && <p data-storefront-state="empty" style={{padding:24}}>판매 준비 중입니다. 등록된 상품이 없습니다.</p>}
     <SanjiCatalog key={category+":"+q} products={products} linkBase={linkBase} initialQuery={q} initialCategory={category}/>
   </main>;

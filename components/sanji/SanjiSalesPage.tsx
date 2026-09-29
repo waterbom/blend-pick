@@ -14,17 +14,20 @@ import { LINK_PARAM } from "@/lib/secret-link";
 import { productShippingFee, shippingLabel } from "@/lib/shipping";
 import type { SanjiCard, SanjiOption, SanjiProduct, SanjiReview, SanjiStats } from "@/lib/sanji-data";
 
-// 산지픽 판매 페이지 — 랜딩 없이 곧바로 상품을 파는 모바일 화면.
-// 위에서부터: 상품 슬라이드(재구매 알림) → 한정특가 잔여 바 → 제목·평점·가격 → 탭(설명/정보/후기)
-// → 상품설명(더보기) → 상품정보 → 함께 본 상품 → 후기 카드 → 하단 고정 현재 할인 안내 + 선물하기/구매하기.
+// 산지픽 판매 페이지 (B안 '공구 오렌지') — 랜딩 없이 곧바로 상품을 파는 모바일 화면.
+// 위에서부터: 상품 슬라이드(재구매 알림) → 오렌지 공구 마감 바 → 제목·평점·공구가(절약액) → 배송 정보 상자 → 탭(설명/정보/후기)
+// → 상품설명(더보기) → 상품정보 → 함께 본 상품 → 후기 카드 → 하단 고정 할인 안내 + 선물하기/구매하기.
 // 구매는 블랜드픽 결제 흐름(/products/[id]/checkout, /cart/checkout)을 그대로 탄다.
 
-const GREEN = "#2F5D34"; // 로고 그린
-const CREAM = "#FBF8F1";
-const INK = "#1E2A1F";
-const MUTED = "#8A8A8A";
-const LINE = "#E8E3D6";
-const BAND = "#F3EDDF";
+const ORANGE = "#C9430E"; // 강조·할인율·주요 버튼 (흰 글자 대비 4.9:1)
+const INK = "#191919";
+const MUTED = "#6E6E6E";
+const FAINT = "#8A8A8A";
+const LINE = "#EDEDED";
+const BAND = "#F4F4F4";
+const SOFT = "#FFF6EF";
+const TINT = "#FFF1EA";
+const YELLOW = "#FFD43B";
 
 export interface SanjiSalesProps {
   product: SanjiProduct;
@@ -62,7 +65,7 @@ function Stars({ n, size = 12 }: { n: number; size?: number }) {
 // 이미지 — 깨지면 빈 자리 대신 연한 그라데이션
 function Img({ src, alt, style, className }: { src: string | null; alt: string; style?: React.CSSProperties; className?: string }) {
   const [bad, setBad] = useState(!src);
-  if (bad) return <div className={className} style={{ ...style, background: "linear-gradient(135deg,#F3E9D2,#DFE9D0)" }} aria-hidden />;
+  if (bad) return <div className={className} style={{ ...style, background: `linear-gradient(135deg,${BAND},${TINT})` }} aria-hidden />;
   return <img src={src!} alt={alt} className={className} style={style} loading="lazy" onError={() => setBad(true)} />;
 }
 
@@ -96,7 +99,6 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
     const d = Math.floor(left / 86400e3), h = Math.floor((left % 86400e3) / 3600e3), m = Math.floor((left % 3600e3) / 60e3), s = Math.floor((left % 60e3) / 1e3);
     return d > 0 ? `${d}일 ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}` : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   })();
-  const soldRatio = stats.sold + product.stock > 0 ? Math.min(0.96, Math.max(0.08, stats.sold / (stats.sold + product.stock))) : 0.08;
 
   // ── 슬라이드 ────────────────────────────────────────────────
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -122,13 +124,13 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
     setTab(i);
     const el = TABS[i].ref.current;
     if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 48;
+    const top = el.getBoundingClientRect().top + window.scrollY - 116; // 고정 헤더 + 탭 높이
     window.scrollTo({ top, behavior: "smooth" });
   };
   useEffect(() => {
     // 스크롤 위치에 따라 활성 탭 동기화
     const onScroll = () => {
-      const y = window.scrollY + 60;
+      const y = window.scrollY + 124;
       let i = 0;
       TABS.forEach((t, idx) => {
         const el = t.ref.current;
@@ -285,110 +287,128 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
   return (
     <div className="sp">
       <style>{`
-        .sp{position:relative;max-width:480px;margin:0 auto;background:${CREAM};min-height:100svh;font-family:'Noto Sans KR',-apple-system,sans-serif;color:${INK};letter-spacing:-.01em;padding-bottom:132px}
+        .sp{position:relative;max-width:760px;margin:0 auto;background:#fff;min-height:100svh;font-family:inherit;color:${INK};letter-spacing:-.02em;padding-bottom:132px}
         .sp *{box-sizing:border-box}
         .sp button{font-family:inherit;cursor:pointer}
-        .sp-top{position:relative;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:12px 14px}
-        .sp-brand{display:inline-flex;align-items:center;gap:7px;background:rgba(251,248,241,.92);color:${GREEN};font-weight:900;font-size:13px;padding:4px 12px 4px 4px;border-radius:999px;backdrop-filter:blur(6px);text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-        .sp-brand img{height:34px;width:auto;display:block}
-        .sp-icons{display:flex;gap:8px}
-        .sp-icon{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.45);border:0;color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
-        .sp-slider{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:1/1;max-height:min(560px,60svh);background:#E9E4D6}
+        .sp :focus-visible{outline:2px solid ${ORANGE};outline-offset:2px}
+        .sp-slider{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:1/1;max-height:min(560px,60svh);background:${BAND}}
         .sp-slider::-webkit-scrollbar{display:none}
         .sp-slide{position:relative;flex:0 0 100%;scroll-snap-align:start;width:100%;min-width:0;min-height:0;overflow:hidden;border:0;padding:0;background:none;cursor:zoom-in}
         .sp-slide>img,.sp-slide>div{position:absolute;inset:0;display:block;width:100%;height:100%;padding:8px;object-fit:contain;object-position:center}
-        .sp-slide:focus-visible{outline:2px solid ${GREEN};outline-offset:-4px}
-        .sp-photo-hint{margin:4px 16px 12px;text-align:center;font-size:12px;color:#65725F}
+        .sp-slide:focus-visible{outline:2px solid ${ORANGE};outline-offset:-4px}
+        .sp-count{position:absolute;right:14px;top:14px;z-index:2;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;font-variant-numeric:tabular-nums;pointer-events:none}
+        .sp-photo-hint{margin:8px 16px 10px;text-align:center;font-size:12px;color:${MUTED}}
         .sp-slider-wrap{position:relative}
-        .sp-pill{margin:0 14px 10px;display:inline-flex;align-items:center;gap:6px;background:#fff;color:${INK};font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
-        .sp-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:${GREEN};box-shadow:0 0 0 3px rgba(255,90,31,.2)}
-        .sp-deal{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#E7EFE3;color:${GREEN};font-size:13px;font-weight:700}
-        .sp-deal b{font-weight:900}
-        .sp-deal .t{font-variant-numeric:tabular-nums;font-weight:600;color:#4E6B50}
-        .sp-dealbar{height:4px;background:#D3E1CD}
-        .sp-dealbar i{display:block;height:100%;background:linear-gradient(90deg,${GREEN},#6FA36B)}
-        .sp-head{padding:18px 16px 6px}
-        .sp-brandline{font-size:12px;color:${MUTED};font-weight:500;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
-        .sp-title{font-size:19px;font-weight:700;line-height:1.35;margin:0;word-break:keep-all}
-        .sp-rating{display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-top:8px}
+        .sp-pill{margin:0 16px 10px;display:inline-flex;align-items:center;gap:6px;background:${INK};color:#fff;font-size:12px;font-weight:600;padding:7px 12px;border-radius:999px}
+        .sp-pill::before{content:"";width:7px;height:7px;border-radius:50%;background:${YELLOW}}
+        .sp-deal{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:10px 16px;background:${ORANGE};color:#fff;font-size:14px;font-weight:600}
+        .sp-deal b{font-weight:700}
+        .sp-deal .t{font-variant-numeric:tabular-nums;font-weight:700;font-size:16px;white-space:nowrap}
+        .sp-deal.soon{background:${INK}}
+        .sp-head{padding:20px 16px 8px}
+        .sp-brandline{position:relative;min-height:32px;padding-right:72px;font-size:13px;color:${MUTED};font-weight:500;margin-bottom:4px;display:flex;align-items:center}
+        .sp-share{position:absolute;right:0;top:0;height:32px;padding:0 12px;border:1px solid #DADADA;border-radius:999px;background:#fff;color:${INK};font-size:12px;font-weight:600}
+        .sp-title{font-size:21px;font-weight:600;line-height:1.4;margin:0;word-break:keep-all;letter-spacing:-.03em}
+        .sp-rating{display:flex;align-items:center;gap:6px;font-size:13px;color:${MUTED};margin-top:8px}
         .sp-rating b{color:${INK}}
-        .sp-price{display:flex;align-items:baseline;gap:8px;margin-top:12px;font-variant-numeric:tabular-nums}
-        .sp-price .rate{color:${GREEN};font-size:22px;font-weight:900}
-        .sp-price .now{font-size:24px;font-weight:900}
-        .sp-price .was{font-size:14px;color:${MUTED};text-decoration:line-through}
-        .sp-ship{display:flex;align-items:center;gap:8px;margin:12px 0 2px;padding:12px 0 16px;border-top:1px solid ${LINE};font-size:13px;color:#444}
-        .sp-ship .k{color:${MUTED};min-width:44px}
+        .sp-deal-chip{display:flex;align-items:center;gap:8px;margin-top:16px}
+        .sp-deal-chip span:first-child{font-size:12px;font-weight:700;color:${INK};background:${YELLOW};padding:3px 8px;border-radius:4px}
+        .sp-deal-chip .was{font-size:14px;color:${FAINT};text-decoration:line-through;font-variant-numeric:tabular-nums}
+        .sp-price{display:flex;align-items:baseline;gap:8px;margin-top:4px;font-variant-numeric:tabular-nums}
+        .sp-price .rate{color:${ORANGE};font-size:30px;font-weight:700;letter-spacing:-.03em}
+        .sp-price .now{font-size:30px;font-weight:700;letter-spacing:-.03em}
+        .sp-save{margin-top:4px;font-size:14px;font-weight:600;color:${ORANGE}}
+        .sp-option-guide{margin-top:18px;padding:16px;background:#F7F7F7;border:1px solid ${LINE};border-radius:12px;font-size:13px;line-height:1.7;color:#555}
+        .sp-option-guide>strong{display:block;color:${INK};font-size:14px}
+        .sp-option-guide>p{font-size:12px;color:${MUTED}}
+        .sp-option-guide>div{border-top:1px solid ${LINE};padding-top:10px;margin-top:10px!important;align-items:flex-start}
+        .sp-option-guide>div>span{min-width:0;overflow-wrap:anywhere}
+        .sp-option-guide>div>strong{font-size:14px;color:${INK}}
+        .sp-linkpill{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:5px 10px;border-radius:999px;background:${TINT};color:${ORANGE};font-size:12px;font-weight:700}
+        .sp-infobox{display:grid;grid-template-columns:64px minmax(0,1fr);row-gap:10px;margin:16px 0 8px;padding:14px 16px;border-radius:12px;background:#F7F7F7;font-size:14px;line-height:1.5}
+        .sp-infobox .k{color:${MUTED}}
         .sp-band{height:8px;background:${BAND}}
-        .sp-tabs{position:sticky;top:0;z-index:6;display:grid;grid-template-columns:repeat(3,1fr);background:${CREAM};border-bottom:1px solid ${LINE}}
-        .sp-tabs button{height:46px;border:0;background:none;font-size:14px;font-weight:600;color:${MUTED};position:relative}
+        .sp-tabs{position:sticky;top:64px;z-index:25;display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border-bottom:1px solid ${LINE}}
+        .sp-tabs button{height:48px;border:0;background:none;font-size:14px;font-weight:600;color:${FAINT};position:relative}
         .sp-tabs button.on{color:${INK}}
         .sp-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:${INK}}
-        .sp-sec{padding:20px 16px}
-        .sp-sec h3{font-size:15px;font-weight:700;margin:0 0 12px}
+        .sp-sec{padding:24px 16px}
+        .sp-sec h3{font-size:17px;font-weight:700;margin:0 0 14px;letter-spacing:-.03em}
         .sp-desc{position:relative;overflow:hidden;transition:max-height .3s}
         .sp-desc.clamp{max-height:720px}
-        .sp-desc.clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(180deg,rgba(251,248,241,0),${CREAM})}
+        .sp-desc.clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(180deg,rgba(255,255,255,0),#fff)}
         .sp-desc img{display:block;max-width:100%;height:auto;margin:0 auto}
         .sp-desc .html{font-size:14px;line-height:1.7;color:#333}
         .sp-desc .html img{margin:8px auto}
-        .sp-more{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:48px;margin-top:12px;border:1px solid #CFD8CC;border-radius:8px;background:#fff;font-size:14px;font-weight:600;color:${INK}}
-        .sp-empty{padding:36px 0;text-align:center;color:${MUTED};font-size:13px;line-height:1.7}
-        .sp-info{width:100%;border-collapse:collapse;font-size:13px}
-        .sp-info th{width:84px;text-align:left;font-weight:500;color:${MUTED};padding:9px 0;border-bottom:1px solid ${LINE};vertical-align:top}
-        .sp-info td{padding:9px 0;border-bottom:1px solid ${LINE};color:#333;line-height:1.5}
+        .sp-more{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:50px;margin-top:12px;border:1px solid #DADADA;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:${INK}}
+        .sp-more:hover{border-color:${INK}}
+        .sp-empty{padding:32px 16px;text-align:center;color:${MUTED};font-size:13px;line-height:1.7;background:#F7F7F7;border-radius:12px}
+        .sp-info{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid ${LINE};border-radius:12px;font-size:13px}
+        .sp-info th{width:96px;text-align:left;font-weight:500;color:${MUTED};padding:12px 14px;background:#F7F7F7;border-bottom:1px solid ${LINE};vertical-align:top}
+        .sp-info td{padding:12px 14px;border-bottom:1px solid ${LINE};color:${INK};line-height:1.6;overflow-wrap:anywhere}
+        .sp-info tr:last-child>*{border-bottom:0}
         .sp-row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding:0 16px 4px;margin:0 -16px}
         .sp-row::-webkit-scrollbar{display:none}
-        .sp-card{flex:0 0 132px;text-decoration:none;color:inherit}
-        .sp-card .th{width:132px;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#f3f1ec;position:relative}
+        .sp-card{flex:0 0 140px;text-decoration:none;color:inherit}
+        .sp-card .th{width:140px;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:${BAND};position:relative}
         .sp-card .th>div[aria-hidden="true"]{position:absolute;inset:0}
         .sp-card .th img{position:absolute;inset:0;width:100%;height:100%;padding:4px;object-fit:contain;object-position:center;display:block}
-        .sp-card .so{position:absolute;inset:0;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
-        .sp-card .nm{min-height:2.8em;font-size:12px;line-height:1.4;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#333}
-        .sp-card .pr{margin-top:4px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
-        .sp-card .pr em{font-style:normal;color:${GREEN};margin-right:4px}
-        .sp-rvsum{display:flex;align-items:center;gap:12px;padding:12px 14px;background:${BAND};border-radius:10px;margin-bottom:14px}
-        .sp-rvsum .big{font-size:26px;font-weight:900;font-variant-numeric:tabular-nums}
+        .sp-card .so{position:absolute;inset:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+        .sp-card .nm{min-height:2.8em;font-size:13px;line-height:1.4;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:${INK}}
+        .sp-card .pr{margin-top:4px;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+        .sp-card .pr em{font-style:normal;color:${ORANGE};margin-right:4px}
+        .sp-rvsum{display:flex;align-items:center;gap:12px;padding:14px 16px;background:${SOFT};border-radius:12px;margin-bottom:10px}
+        .sp-rvsum .big{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
         .sp-rvsum .sub{font-size:12px;color:${MUTED}}
-        .sp-rv{padding:14px 0;border-bottom:1px solid ${LINE}}
+        .sp-rv{padding:16px 0;border-bottom:1px solid ${LINE}}
         .sp-rv .who{display:flex;align-items:center;gap:8px}
-        .sp-rv .av{width:30px;height:30px;border-radius:50%;background:#DCEBD6;color:${GREEN};font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+        .sp-rv .av{width:32px;height:32px;border-radius:50%;background:${TINT};color:${ORANGE};font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
         .sp-rv .nm{font-size:13px;font-weight:600}
-        .sp-rv .dt{font-size:11px;color:${MUTED};margin-left:auto}
-        .sp-rv .opt{font-size:11px;color:${MUTED};margin-top:6px}
-        .sp-rv .tx{font-size:13px;line-height:1.65;color:#333;margin-top:6px;white-space:pre-line;word-break:break-word}
-        .sp-rv .ph{display:flex;gap:6px;margin-top:8px}
-        .sp-rv .ph img{width:72px;height:72px;object-fit:contain;border-radius:6px;background:#eee}
-        .sp-bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:20;background:${CREAM};box-shadow:0 -6px 24px rgba(0,0,0,.08)}
-        .sp-urg{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#E7EFE3;font-size:12px;font-weight:700;color:${GREEN}}
-        .sp-urg span:last-child{color:#4E6B50;font-weight:600;font-variant-numeric:tabular-nums}
-        .sp-btns{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
-        .sp-gift{flex:0 0 112px;height:52px;border-radius:10px;border:1.5px solid ${GREEN};background:#fff;font-size:15px;font-weight:700;color:${GREEN}}
-        .sp-buy{flex:1;height:52px;border-radius:10px;border:0;background:${GREEN};color:#fff;font-size:16px;font-weight:800}
-        .sp-buy:disabled,.sp-gift:disabled{background:#DDD;color:#999;border-color:#DDD;cursor:not-allowed}
-        .sp-dim{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45)}
-        .sp-sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:31;background:${CREAM};border-radius:18px 18px 0 0;padding:10px 16px calc(12px + env(safe-area-inset-bottom));max-height:82svh;overflow:auto;animation:sp-up .22s ease-out}
-        .sp-sheet .grip{width:40px;height:4px;border-radius:2px;background:#DDD;margin:0 auto 14px}
-        .sp-sheet h4{font-size:15px;font-weight:700;margin:0 0 10px}
-        .sp-opt{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 14px;margin-bottom:8px;border:1.5px solid ${LINE};border-radius:10px;background:#fff;font-size:14px;text-align:left}
-        .sp-opt.on{border-color:${GREEN};background:#F1F6EE}
+        .sp-rv .dt{font-size:12px;color:${FAINT};margin-left:auto}
+        .sp-rv .opt{font-size:12px;color:${MUTED};margin-top:8px}
+        .sp-rv .tx{font-size:14px;line-height:1.6;color:${INK};margin-top:6px;white-space:pre-line;word-break:break-word}
+        .sp-rv .ph{display:flex;gap:6px;margin-top:10px}
+        .sp-rv .ph img{width:76px;height:76px;object-fit:cover;border-radius:8px;background:${BAND};cursor:zoom-in}
+        .sp-kakao{display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:12px;background:#FEE500;color:#191600;font-size:14px;font-weight:700;text-decoration:none}
+        .sp-bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:760px;z-index:40;background:#fff;border-top:1px solid ${LINE};box-shadow:0 -6px 20px rgba(0,0,0,.06)}
+        .sp-urg{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 16px;background:${SOFT};font-size:13px;font-weight:600;color:${ORANGE}}
+        .sp-urg span:last-child{color:${INK};font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+        .sp-btns{display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+        .sp-gift{flex:0 0 108px;height:52px;border-radius:12px;border:1px solid ${INK};background:#fff;font-size:15px;font-weight:700;color:${INK}}
+        .sp-buy{flex:1;height:52px;border-radius:12px;border:0;background:${ORANGE};color:#fff;font-size:16px;font-weight:700;transition:background .15s}
+        .sp-buy:hover:not(:disabled){background:#A8370B}
+        .sp-buy:disabled,.sp-gift:disabled{background:#E3E3E3;color:${FAINT};border-color:#E3E3E3;cursor:not-allowed}
+        .sp-dim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.5)}
+        .sp-sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:560px;z-index:81;background:#fff;border-radius:20px 20px 0 0;padding:12px 18px calc(14px + env(safe-area-inset-bottom));max-height:82svh;overflow:auto;animation:sp-up .22s ease-out}
+        .sp-sheet .grip{width:40px;height:4px;border-radius:2px;background:#DADADA;margin:0 auto 14px}
+        .sp-sheet-close{position:absolute;right:14px;top:12px;display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:50%;background:${BAND};color:${INK};font-size:22px}
+        .sp-sheet h4{font-size:19px;font-weight:700;margin:14px 0 14px}
+        .sp-opt{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;padding:14px 16px;margin-bottom:8px;border:1px solid #DADADA;border-radius:12px;background:#fff;font-size:14px;line-height:1.5;text-align:left;color:${INK}}
+        .sp-opt.on{border-color:${ORANGE};background:${TINT};box-shadow:inset 0 0 0 1px ${ORANGE}}
         .sp-opt.dead{color:#B5B5B5;text-decoration:line-through}
-        .sp-opt .p{font-weight:700;font-variant-numeric:tabular-nums}
-        .sp-line{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;margin-bottom:8px;background:${BAND};border-radius:10px;font-size:13px}
-        .sp-step{display:inline-flex;align-items:center;border:1px solid #D9D9D9;border-radius:8px;background:#fff;overflow:hidden}
-        .sp-step button{width:34px;height:34px;border:0;background:none;font-size:18px;color:#555}
+        .sp-opt .p{flex-shrink:0;font-weight:700;font-variant-numeric:tabular-nums}
+        .sp-line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin-bottom:8px;background:#F7F7F7;border-radius:12px;font-size:14px}
+        .sp-step{display:inline-flex;align-items:center;border:1px solid #DADADA;border-radius:10px;background:#fff;overflow:hidden}
+        .sp-step button{width:40px;height:40px;border:0;background:none;font-size:18px;color:${INK}}
         .sp-step span{width:36px;text-align:center;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
-        .sp-total{display:flex;justify-content:space-between;align-items:baseline;padding:14px 0 10px;border-top:1px solid ${LINE};margin-top:6px;font-size:13px;color:#555}
-        .sp-total b{font-size:20px;color:${INK};font-variant-numeric:tabular-nums}
-        .sp-note{font-size:12px;color:${MUTED};margin:0 0 10px;line-height:1.5}
-        .sp-toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);z-index:40;background:rgba(0,0,0,.8);color:#fff;font-size:13px;padding:10px 16px;border-radius:999px;white-space:nowrap}
-        .sp-lb{position:fixed;inset:0;z-index:50;width:calc(100% - 24px);max-width:960px;height:calc(100svh - 24px);max-height:none;margin:auto;padding:0;border:0;border-radius:12px;background:#fffdf8;color:${INK};overflow:hidden}
+        .sp-total{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:16px 0 12px;border-top:1px solid ${LINE};margin-top:8px;font-size:12px;line-height:1.6;color:${MUTED}}
+        .sp-total b{flex-shrink:0;font-size:22px;color:${INK};font-variant-numeric:tabular-nums}
+        .sp-cart{width:100%;height:50px;margin-bottom:8px;border:1px solid ${INK};border-radius:12px;background:#fff;color:${INK};font-size:15px;font-weight:700}
+        .sp-cart:disabled{border-color:#E3E3E3;color:${FAINT};cursor:not-allowed}
+        .sp-note{font-size:13px;color:${MUTED};margin:0 0 10px;line-height:1.5}
+        .sp-toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);z-index:90;background:rgba(25,25,25,.9);color:#fff;font-size:13px;padding:10px 16px;border-radius:999px;white-space:nowrap}
+        .sp-lb{position:fixed;inset:0;z-index:90;width:calc(100% - 24px);max-width:960px;height:calc(100svh - 24px);max-height:none;margin:auto;padding:0;border:0;border-radius:12px;background:#fff;color:${INK};overflow:hidden}
         .sp-lb[open]{display:flex;flex-direction:column}
         .sp-lb::backdrop{background:rgba(0,0,0,.85)}
         .sp-lb__head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:8px 12px;border-bottom:1px solid ${LINE};font-size:14px}
-        .sp-lb__head button{min-width:44px;min-height:44px;border:1px solid ${LINE};border-radius:8px;background:#fff;color:${INK}}
+        .sp-lb__head button{min-width:44px;min-height:44px;border:1px solid ${LINE};border-radius:10px;background:#fff;color:${INK}}
         .sp-lb__body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px}
         .sp-lb img{display:block;width:100%;height:auto;max-width:100%;margin:auto}
         @keyframes sp-up{from{transform:translate(-50%,40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+        @media(min-width:761px){.sp-head{padding:26px 24px 8px}.sp-sec{padding:28px 24px}.sp-row{padding:0 24px 4px;margin:0 -24px}}
+        @media(max-width:760px){.sp-tabs{top:58px}}
+        @media(max-width:370px){.sp-opt{padding:12px;font-size:13px}.sp-sheet{padding:12px 14px 20px}.sp-price .rate,.sp-price .now{font-size:26px}}
+        @media(prefers-reduced-motion:reduce){.sp-sheet{animation:none}.sp-desc{transition:none}}
       `}</style>
 
       {/* 상단 슬라이드 */}
@@ -401,6 +421,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
             </button>
           ))}
         </div></ScrollRail>
+        {images.length > 1 && <span className="sp-count" aria-hidden>{slide + 1} / {images.length}</span>}
         {images.length > 0 && <p className="sp-photo-hint">사진을 누르면 크게 볼 수 있어요</p>}
         {socialPill && <span className="sp-pill">{socialPill}</span>}
         {(soldout || saleState === "ended") && (
@@ -410,18 +431,15 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         )}
       </div>
 
-      {/* 한정특가 잔여 */}
+      {/* 공구 마감 바 — 마감 시각이 있으면 카운트다운, 없으면 남은 수량 */}
       {saleState === "open" && !soldout && (
-        <>
-          <div className="sp-deal">
-            <span>한정 수량 · <b>{product.stock.toLocaleString()}개</b> 남았어요</span>
-            {endLeft ? <span className="t">종료까지 {endLeft}</span> : <span className="t">수확분 소진 시 마감</span>}
-          </div>
-          <div className="sp-dealbar"><i style={{ width: `${Math.round(soldRatio * 100)}%` }} /></div>
-        </>
+        <div className="sp-deal">
+          {endLeft ? <><span>공구 마감까지</span><span className="t">{endLeft}</span></>
+            : <><span>수확분 소진 시 마감</span><span className="t">{product.stock.toLocaleString()}개 남음</span></>}
+        </div>
       )}
       {saleState === "upcoming" && (
-        <div className="sp-deal"><span>오픈 예정</span><span className="t">{product.sale_start_at ? fmtDate(product.sale_start_at) + " 오픈" : ""}</span></div>
+        <div className="sp-deal soon"><span>오픈 예정</span><span className="t">{product.sale_start_at ? fmtDate(product.sale_start_at) + " 오픈" : ""}</span></div>
       )}
 
       {/* 제목·가격 */}
@@ -437,14 +455,15 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           ) : product.trust && product.trust.count > 0 ? (
             <span><b>{product.trust.rating.toFixed(2)}</b> · {product.trust.source} 리뷰 {product.trust.count.toLocaleString()}건</span>
           ) : (
-            <span style={{ color: MUTED }}>첫 후기를 기다리고 있어요</span>
+            <span>첫 후기를 기다리고 있어요</span>
           )}
         </div>}
-        <div className="sp-price">
+        {priceGap > 0 && <div className="sp-deal-chip"><span>공구가</span><span className="was">{won(product.original_price!)}</span></div>}
+        <div className="sp-price" style={priceGap > 0 ? undefined : { marginTop: 16 }}>
           {discount && <span className="rate">{discount}%</span>}
           <span className="now">{won(price)}</span>
-          {product.original_price && product.original_price > price && <span className="was">{won(product.original_price)}</span>}
         </div>
+        {priceGap > 0 && <div className="sp-save">정가보다 {won(priceGap)} 저렴해요</div>}
         {options.length > 0 && <div className="sp-option-guide">
           <strong>옵션별 구성·등급과 가격을 확인해주세요</strong>
           <p style={{ margin: "4px 0 8px" }}>상품명과 이미지에는 여러 옵션이 함께 소개될 수 있습니다. 실제 구성·등급은 선택한 옵션을 기준으로 확인해주세요.</p>
@@ -453,14 +472,12 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           </div>)}
         </div>}
         {linkCode && (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, padding: "5px 10px", borderRadius: 999, background: "#E7EFE3", color: GREEN, fontSize: 12, fontWeight: 700 }}>
-            전용 링크 가격이 적용됐어요
-          </div>
+          <div className="sp-linkpill">전용 링크 가격이 적용됐어요</div>
         )}
-        <p style={{fontSize:13,marginTop:12}}>{expectedShipLabel(product.expected_ship_date)}</p>
-        <div className="sp-ship">
-          <span className="k">배송</span>
-          <span>{shippingLabel(product)} · 산지 직송</span>
+        <div className="sp-infobox">
+          <span className="k">배송</span><span>{shippingLabel(product)} · 산지 직송</span>
+          <span className="k">출고</span><span>{expectedShipLabel(product.expected_ship_date)}</span>
+          {product.origin && <><span className="k">원산지</span><span>{product.origin}</span></>}
         </div>
       </div>
 
@@ -583,8 +600,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
       </div>
 
       <div className="sp-sec" style={{ paddingTop: 0 }}>
-        <a href={kakaoUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 10, background: "#FEE500", color: "#191600", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
-          <span style={{ width: 16, height: 16, borderRadius: "50%", background: "#191600", display: "inline-block" }} />
+        <a className="sp-kakao" href={kakaoUrl} target="_blank" rel="noreferrer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#191600" aria-hidden><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7L5.6 21l4.3-2.6c.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>
           카카오톡으로 문의하기
         </a>
       </div>
@@ -655,7 +672,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
               <span>예상 {totalCount}개 · 지역 추가비·설치비 별도{shipping > 0 ? ` · 배송비 ${won(shipping)}` : " · 무료배송"}</span>
               <b>{won(itemsTotal + shipping)}</b>
             </div>
-            {!linkCode && <button type="button" disabled={!canBuy||cartBusy} onClick={addToCart} style={{width:'100%',padding:12,marginBottom:8,border:'1px solid #2F5D34',borderRadius:10,background:'#fff',color:GREEN}}>{cartBusy?'담는 중…':'장바구니에 담기'}</button>}
+            {!linkCode && <button type="button" className="sp-cart" disabled={!canBuy||cartBusy} onClick={addToCart}>{cartBusy?'담는 중…':'장바구니에 담기'}</button>}
             <button className="sp-buy" style={{ width: "100%" }} disabled={!canBuy || going} onClick={checkout}>
               {demo ? "재고 마감" : going ? "이동 중..." : sheet === "gift" ? "선물 결제하기" : "바로 구매하기"}
             </button>

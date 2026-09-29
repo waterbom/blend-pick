@@ -63,7 +63,7 @@ export default function PhoneVerifyField({
 
   if (verified) {
     return (
-      <p className="mt-1.5 text-xs font-bold" style={{ color: "#2D5A27" }}>✓ 휴대폰 인증 완료</p>
+      <p className="mt-1.5 text-xs font-bold" style={{ color: "var(--accent)" }}>✓ 휴대폰 인증 완료</p>
     );
   }
 

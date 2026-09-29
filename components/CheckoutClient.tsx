@@ -133,7 +133,7 @@ export default function CheckoutClient({
 
   const inputClass = "ds-input";
   const inputStyle = {};
-  const focusOn = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = "#244B1F");
+  const focusOn = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = "var(--accent-hover)");
   const focusOff = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = "#E4E1D6");
 
   return (
@@ -171,7 +171,7 @@ export default function CheckoutClient({
       <section>
         <div className="ds-section-title">
           <span>배송 정보</span>
-          <label className="flex items-center gap-1.5 text-xs font-sans cursor-pointer tracking-normal" style={{ color: "#2D5A27", fontWeight: 600 }}>
+          <label className="flex items-center gap-1.5 text-xs font-sans cursor-pointer tracking-normal" style={{ color: "var(--accent)", fontWeight: 600 }}>
             <input type="checkbox" name="sameAsBuyer" checked={form.sameAsBuyer} onChange={handleChange} />
             구매자 정보와 동일
           </label>
@@ -253,12 +253,12 @@ export default function CheckoutClient({
             </div>
             <div className="flex justify-between">
               <span style={{ color: "#6B7263" }}>배송비</span>
-              <span className="ds-mono font-semibold" style={shippingCost === 0 ? { color: "#2D5A27" } : undefined}>
+              <span className="ds-mono font-semibold" style={shippingCost === 0 ? { color: "var(--accent)" } : undefined}>
                 {shippingCost === 0 ? "무료" : `${shippingCost.toLocaleString()}원`}
               </span>
             </div>
           </div>
-          <div className="flex justify-between items-baseline px-6 py-4" style={{ background: "#F6F4EE", borderTop: "2px solid #244B1F" }}>
+          <div className="flex justify-between items-baseline px-6 py-4" style={{ background: "var(--surface-soft)", borderTop: "2px solid var(--accent-hover)" }}>
             <span className="text-xs" style={{ letterSpacing: "0.14em", color: "#7A8B6F" }}>총 결제 금액</span>
             <span className="font-bold text-2xl" style={{ color: "#1C2418" }}>{totalAmount.toLocaleString()}원</span>
           </div>

@@ -36,21 +36,21 @@ export default function SanjiWhy() {
   return (
     <section ref={root} className="sj-why">
       <style>{`
-        .sj-why{position:relative;z-index:1;overflow:hidden;max-width:390px;margin:0 auto;padding:290px 24px 64px;display:flex;flex-direction:column;gap:28px;color:#1a1a17;font-family:'Noto Sans KR',sans-serif;background:linear-gradient(180deg,#0b150e 0px,#1c2a1c 90px,#8f8a72 190px,#fbf7ee 270px,#fbf7ee 100%)}
+        .sj-why{position:relative;z-index:1;overflow:hidden;max-width:390px;margin:0 auto;padding:290px 24px 64px;display:flex;flex-direction:column;gap:28px;color:#191919;font-family:inherit;background:linear-gradient(180deg,#191919 0px,#2a2a2a 90px,#9a9a9a 190px,#F7F7F7 270px,#F7F7F7 100%)}
         .sj-why__glow{position:absolute;left:50%;top:40px;width:340px;height:340px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,138,80,.55) 0%,rgba(255,138,80,.18) 40%,rgba(255,138,80,0) 70%);filter:blur(18px);pointer-events:none}
         .sj-reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
         .sj-reveal.is-in{opacity:1;transform:none}
         .sj-why__head{display:flex;flex-direction:column;gap:10px}
-        .sj-why__label{font-size:12px;font-weight:700;color:#ff6a3d;letter-spacing:.08em}
-        .sj-why__title{font-size:28px;line-height:1.25;font-weight:900;letter-spacing:-.03em;word-break:keep-all;margin:0}
-        .sj-why__sub{font-size:14px;line-height:1.6;color:#6b675e;word-break:keep-all;margin:0}
+        .sj-why__label{font-size:12px;font-weight:700;color:#C9430E;letter-spacing:.08em}
+        .sj-why__title{font-size:28px;line-height:1.3;font-weight:700;letter-spacing:-.03em;word-break:keep-all;margin:0}
+        .sj-why__sub{font-size:14px;line-height:1.6;color:#6E6E6E;word-break:keep-all;margin:0}
         .sj-why__list{display:flex;flex-direction:column;gap:14px}
-        .sj-wcard{display:grid;grid-template-columns:120px 1fr;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(60,40,10,.08)}
-        .sj-wcard__img{width:120px;height:120px;background-color:#e9e3d3;background-size:cover;background-repeat:no-repeat}
+        .sj-wcard{display:grid;grid-template-columns:120px 1fr;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.05)}
+        .sj-wcard__img{width:120px;height:120px;background-color:#EDEDED;background-size:cover;background-repeat:no-repeat}
         .sj-wcard__body{padding:16px 16px 16px 18px;display:flex;flex-direction:column;justify-content:center;gap:6px}
-        .sj-wcard__num{font-size:11px;font-weight:700;color:#ff6a3d}
-        .sj-wcard__title{font-size:17px;font-weight:900;letter-spacing:-.02em}
-        .sj-wcard__desc{font-size:13px;line-height:1.5;color:#6b675e;word-break:keep-all;text-wrap:pretty}
+        .sj-wcard__num{font-size:12px;font-weight:700;color:#C9430E}
+        .sj-wcard__title{font-size:17px;font-weight:700;letter-spacing:-.02em}
+        .sj-wcard__desc{font-size:13px;line-height:1.5;color:#6E6E6E;word-break:keep-all;text-wrap:pretty}
         @media (prefers-reduced-motion: reduce){.sj-reveal{opacity:1;transform:none;transition:none}}
       `}</style>
 

@@ -133,7 +133,7 @@ export default function ReturnRequestForm({
               <div key={it.item_id} className="flex items-center gap-3 py-2 px-3"
                 style={{ border: "1px solid", borderColor: on ? "#C7D6C0" : "#F0EDE4", background: on ? "#FAFBF8" : "#fff" }}>
                 <input type="checkbox" checked={on} onChange={() => toggleItem(it)}
-                  className="w-4 h-4 accent-[#2D5A27] shrink-0" />
+                  className="w-4 h-4 accent-[var(--accent)] shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm truncate" style={{ color: "#1C2418" }}>{it.product_name}</p>
                   {it.option_label && <p className="text-xs truncate" style={{ color: "#8B927F" }}>{it.option_label}</p>}
@@ -208,7 +208,7 @@ export default function ReturnRequestForm({
         ) : (
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input type="checkbox" checked={feeAgreed} onChange={(e) => setFeeAgreed(e.target.checked)}
-              className="w-4 h-4 mt-0.5 accent-[#2D5A27] shrink-0" />
+              className="w-4 h-4 mt-0.5 accent-[var(--accent)] shrink-0" />
             <span className="text-sm leading-relaxed" style={{ color: "#4A5442" }}>
               고객 사유(단순 변심 등)의 {kind === "exchange" ? "교환은 왕복 배송비" : "반품은 반송 배송비"}를
               고객이 부담하는 것에 동의합니다.

@@ -124,12 +124,12 @@ export default function OrderLookupClient() {
                 <div className="flex items-center justify-between px-5 py-3 flex-wrap gap-2" style={{ borderBottom: "1px solid #E4E1D6", background: "#FAFAF6" }}>
                   <div className="flex items-baseline gap-3 min-w-0 flex-wrap">
                     <span className="ds-mono text-xs font-semibold" style={{ color: "#5C6553" }}>{o.paid_date || ""}</span>
-                    <span className="ds-mono text-xs font-bold" style={{ color: "#244B1F" }}>{o.order_number}</span>
+                    <span className="ds-mono text-xs font-bold" style={{ color: "var(--accent-hover)" }}>{o.order_number}</span>
                     {isHotel && (
-                      <span className="text-[10px] font-bold px-2 py-0.5" style={{ letterSpacing: "0.08em", color: "#244B1F", background: "#EAF0E6" }}>호텔 예약</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5" style={{ letterSpacing: "0.08em", color: "var(--accent-hover)", background: "var(--accent-soft)" }}>호텔 예약</span>
                     )}
                   </div>
-                  <span className="text-xs font-semibold shrink-0" style={{ color: o.status === "cancelled" ? "#8B927F" : "#2D5A27" }}>{st}</span>
+                  <span className="text-xs font-semibold shrink-0" style={{ color: o.status === "cancelled" ? "#8B927F" : "var(--accent)" }}>{st}</span>
                 </div>
                 <div className="px-5 py-4">
                   {(o.items ?? []).map((it, i) => (

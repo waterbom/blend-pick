@@ -225,7 +225,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
 
   const inputClass = "ds-input";
   const inputStyle = {};
-  const focusOn = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = "#244B1F");
+  const focusOn = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = "var(--accent-hover)");
   const focusOff = (e: React.FocusEvent<HTMLInputElement>) => (e.target.style.borderColor = "#E4E1D6");
 
   if (!checkoutData) {
@@ -344,7 +344,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
       <section className="checkout-panel">
         <div className="ds-section-title">
           <span><i className="checkout-section-number">03</i>배송 정보</span>
-          <label className="flex items-center gap-1.5 text-xs font-sans cursor-pointer tracking-normal" style={{ color: "#2D5A27", fontWeight: 600 }}>
+          <label className="flex items-center gap-1.5 text-xs font-sans cursor-pointer tracking-normal" style={{ color: "var(--accent)", fontWeight: 600 }}>
             <input type="checkbox" name="sameAsBuyer" checked={form.sameAsBuyer} onChange={handleChange} />
             구매자 정보와 동일
           </label>

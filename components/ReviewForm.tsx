@@ -10,7 +10,7 @@ import PhoneVerifyField from "@/components/PhoneVerifyField";
  * · 글자수 카운터(모노), 빠른 입력 칩, 88px 사진 슬롯(0/3, 이모지 없음)
  * · 구매자 확인은 연한 패널로 격하 (비회원만, accept=image/* 로 모바일 카메라 연동)
  */
-const INK = "#1C2418", GREEN = "#244B1F", HAIR = "#E4E1D6";
+const INK = "#1C2418", GREEN = "var(--accent-hover)", HAIR = "#E4E1D6";
 const STAR_HINTS = ["별점을 선택해 주세요", "별로예요", "아쉬워요", "보통이에요", "좋아요", "아주 좋아요"];
 const CHIPS = ["아이가 좋아해요", "구성이 알차요", "배송이 빨라요"];
 

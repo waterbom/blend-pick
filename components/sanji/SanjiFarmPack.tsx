@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 // 에셋 (public/sanji/): farm-harvester / farm-machine / farm-peach / farm-hands, pack-potato / pack-aircap (.png)
 // 농장 4컷은 farm-*.mp4 영상(GIF 원본을 H.264로 변환, 720px) + farm-*.png 포스터. 영상 교체는 mp4만 바꾸면 된다.
 
-const ACCENT = "#ff6a3d";
+const ACCENT = "#C9430E"; // B안 오렌지
 
 // video가 있으면 영상(무음·자동재생·반복)으로, img는 영상 로딩 전 포스터 겸 대체 이미지
 const CUTS: { key: string; step: string; title: string; img: string; video?: string; half?: boolean }[] = [
@@ -56,40 +56,40 @@ export default function SanjiFarmPack() {
   return (
     <div ref={root}>
       <style>{`
-        .sj-farm,.sj-pack{max-width:390px;margin:0 auto;color:#1a1a17;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column}
-        .sj-farm{background:#fbf7ee;padding:24px 0 72px;gap:24px}
-        .sj-pack{position:relative;overflow:hidden;background:linear-gradient(180deg,#fbf7ee 0px,#f3e6d2 140px,#f3e6d2 100%);padding:56px 24px 72px;gap:28px}
+        .sj-farm,.sj-pack{max-width:390px;margin:0 auto;color:#191919;font-family:inherit;display:flex;flex-direction:column}
+        .sj-farm{background:#F7F7F7;padding:24px 0 72px;gap:24px}
+        .sj-pack{position:relative;overflow:hidden;background:linear-gradient(180deg,#F7F7F7 0px,#FFF6EF 140px,#FFF6EF 100%);padding:56px 24px 72px;gap:28px}
         .sj-fp-label{font-size:12px;font-weight:700;color:${ACCENT};letter-spacing:.08em}
-        .sj-fp-title{font-size:28px;line-height:1.25;font-weight:900;letter-spacing:-.03em;word-break:keep-all;margin:0}
-        .sj-fp-sub{font-size:14px;line-height:1.6;color:#6b675e;word-break:keep-all;margin:0}
+        .sj-fp-title{font-size:28px;line-height:1.3;font-weight:700;letter-spacing:-.03em;word-break:keep-all;margin:0}
+        .sj-fp-sub{font-size:14px;line-height:1.6;color:#6E6E6E;word-break:keep-all;margin:0}
         .sj-reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
         .sj-reveal.is-in{opacity:1;transform:none}
         .sj-farm__head{padding:0 24px;display:flex;flex-direction:column;gap:10px}
         .sj-stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 24px}
-        .sj-stat{background:#fff;border-radius:18px;padding:22px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:0 6px 24px rgba(60,40,10,.08)}
-        .sj-stat__num{font-size:34px;font-weight:900;letter-spacing:-.04em;color:${ACCENT};line-height:1}
-        .sj-stat__label{font-size:13px;color:#6b675e}
+        .sj-stat{background:#fff;border-radius:18px;padding:22px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:0 6px 20px rgba(0,0,0,.05)}
+        .sj-stat__num{font-size:34px;font-weight:700;letter-spacing:-.04em;color:${ACCENT};line-height:1}
+        .sj-stat__label{font-size:13px;color:#6E6E6E}
         .sj-gifs{display:flex;flex-direction:column;gap:12px;padding:0 24px}
         .sj-gifs__row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-        .sj-gif{position:relative;height:220px;border-radius:20px;overflow:hidden;background:#e9e3d3}
+        .sj-gif{position:relative;height:220px;border-radius:20px;overflow:hidden;background:#EDEDED}
         .sj-gif--half{height:200px}
         .sj-gif__media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background-size:cover;background-position:center;background-repeat:no-repeat;animation:sj-drift 13s ease-in-out infinite alternate}
         .sj-gif__shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.6) 100%)}
         .sj-gif__cap{position:absolute;left:18px;right:18px;bottom:16px;color:#fff;display:flex;flex-direction:column;gap:4px}
         .sj-gif--half .sj-gif__cap{left:14px;right:14px;bottom:14px}
         .sj-gif__step{font-size:11px;font-weight:700;opacity:.8}
-        .sj-gif__title{font-size:17px;font-weight:900;letter-spacing:-.02em;word-break:keep-all}
+        .sj-gif__title{font-size:17px;font-weight:700;letter-spacing:-.02em;word-break:keep-all}
         .sj-gif--half .sj-gif__title{font-size:14px}
         .sj-pack__head{display:flex;flex-direction:column;gap:10px;text-align:center}
         .sj-pack__photo{position:relative}
-        .sj-pack__main{height:260px;border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(60,40,10,.18);background:#e9e3d3}
+        .sj-pack__main{height:260px;border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,.14);background:#EDEDED}
         .sj-pack__main i{display:block;width:100%;height:100%;background-size:cover;background-position:center;animation:sj-drift 16s ease-in-out infinite alternate}
-        .sj-pack__inset{position:absolute;right:-6px;bottom:-34px;width:150px;height:150px;border-radius:18px;overflow:hidden;border:5px solid #fbf7ee;box-shadow:0 12px 30px rgba(60,40,10,.22);transform:rotate(4deg);background:#e2d9c6}
+        .sj-pack__inset{position:absolute;right:-6px;bottom:-34px;width:150px;height:150px;border-radius:18px;overflow:hidden;border:5px solid #fff;box-shadow:0 12px 30px rgba(0,0,0,.18);transform:rotate(4deg);background:#E3E3E3}
         .sj-pack__inset i{display:block;width:100%;height:100%;background-size:cover;background-position:center}
         .sj-pack__list{display:flex;flex-direction:column;gap:10px;margin-top:22px}
-        .sj-prow{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 6px 24px rgba(60,40,10,.06)}
+        .sj-prow{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 6px 20px rgba(0,0,0,.04)}
         .sj-prow b{font-size:14px;font-weight:700}
-        .sj-prow span{font-size:12px;color:#6b675e;white-space:nowrap;flex-shrink:0}
+        .sj-prow span{font-size:12px;color:#6E6E6E;white-space:nowrap;flex-shrink:0}
         .sj-prow .hot{color:${ACCENT};font-weight:700}
         @keyframes sj-drift{0%{transform:scale(1) translate(0,0)}100%{transform:scale(1.12) translate(-2%,-2%)}}
         @media (prefers-reduced-motion: reduce){.sj-reveal{opacity:1;transform:none;transition:none}.sj-gif__media,.sj-pack__main i{animation:none}}

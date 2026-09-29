@@ -21,7 +21,7 @@ export default function PrivacyConsent({
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="mt-0.5 w-4 h-4 accent-[#2D5A27]"
+          className="mt-0.5 w-4 h-4 accent-[var(--accent)]"
         />
         <span className="text-[13px] leading-relaxed" style={{ color: "#1C2418" }}>
           <b>[필수]</b> 개인정보 수집·이용에 동의합니다.{" "}
@@ -29,7 +29,7 @@ export default function PrivacyConsent({
             type="button"
             onClick={(e) => { e.preventDefault(); setOpen(!open); }}
             className="text-xs font-semibold underline"
-            style={{ color: "#2D5A27" }}
+            style={{ color: "var(--accent)" }}
           >
             {open ? "내용 접기" : "내용 보기"}
           </button>

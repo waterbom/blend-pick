@@ -58,7 +58,7 @@ export default async function ExtraPayPage({
           <div className="text-4xl mb-3">⚠️</div>
           <p className="text-sm font-bold" style={{ fontFamily: "'Noto Serif KR', serif", color: "#1C2418" }}>유효하지 않은 결제 링크예요.</p>
           <p className="text-xs mt-1" style={{ color: "#8B927F" }}>링크가 만료되었거나 잘못되었습니다. 담당자에게 문의해주세요.</p>
-          <Link href="/" className="inline-block mt-5 text-xs" style={{ color: "#244B1F" }}>← 홈으로</Link>
+          <Link href="/" className="inline-block mt-5 text-xs" style={{ color: "var(--accent-hover)" }}>← 홈으로</Link>
         </div>
       </main>
     );

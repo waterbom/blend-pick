@@ -30,19 +30,19 @@ export default function SanjiHero({ homeHref = "/" }: { homeHref?: string }) {
   return (
     <section className="sj-hero">
       <style>{`
-        .sj-hero{position:relative;z-index:2;width:100%;max-width:390px;height:844px;height:100svh;margin:0 auto;background:#0b150e;font-family:'Noto Sans KR',sans-serif;color:#fff}
+        .sj-hero{position:relative;z-index:2;width:100%;max-width:390px;height:844px;height:100svh;margin:0 auto;background:#191919;font-family:inherit;color:#fff}
         .sj-hero__clip{position:absolute;inset:0;overflow:hidden}
         .sj-hero__bg{position:absolute;inset:0;background-repeat:no-repeat;background-size:auto 900px;background-position:50% -40px;filter:saturate(1.1)}
-        .sj-hero__fallback{position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 30%,#2f5a33 0%,#183523 45%,#0b150e 100%)}
-        .sj-hero__veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,20,12,.55) 0%,rgba(8,20,12,.25) 30%,rgba(8,20,12,.55) 55%,rgba(8,20,12,.94) 78%,#0b150e 100%)}
+        .sj-hero__fallback{position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 30%,#3a3a3a 0%,#262626 45%,#191919 100%)}
+        .sj-hero__veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,20,20,.55) 0%,rgba(20,20,20,.25) 30%,rgba(20,20,20,.55) 55%,rgba(20,20,20,.94) 78%,#191919 100%)}
         .sj-hero__top{position:absolute;top:16px;left:20px;right:20px;display:flex;justify-content:space-between;align-items:center;z-index:2}
-        .sj-brand{display:inline-flex;align-items:center;gap:8px;font-weight:900;font-size:15px;letter-spacing:-.02em;color:#fff;text-decoration:none;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(251,248,241,.92);color:#2F5D34;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+        .sj-brand{display:inline-flex;align-items:center;gap:8px;font-weight:900;font-size:15px;letter-spacing:-.02em;color:#fff;text-decoration:none;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,.94);color:#191919;box-shadow:0 2px 8px rgba(0,0,0,.25)}
         .sj-brand img{height:36px;width:auto;display:block}
         .sj-badges{display:flex;gap:6px}
         .sj-badge{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.6);font-size:9px;font-weight:700;letter-spacing:-.02em;background-color:rgba(255,255,255,.12);background-size:cover;background-position:center;backdrop-filter:blur(4px);color:#fff}
         .sj-hero__copy{position:absolute;left:24px;right:24px;top:300px;display:flex;flex-direction:column;gap:14px;z-index:2;animation:sj-rise .6s ease-out both}
         .sj-headline{font-size:34px;line-height:1.22;font-weight:900;letter-spacing:-.03em;text-shadow:0 2px 14px rgba(0,0,0,.5);word-break:keep-all;margin:0}
-        .sj-headline em{font-style:normal;color:#ff7a45}
+        .sj-headline em{font-style:normal;color:#FF8A4C}
         .sj-tags{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;font-weight:500;color:rgba(255,255,255,.9)}
         .sj-tags span{padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(6px);white-space:nowrap}
         .sj-cta-wrap{position:relative;margin-top:22px}
@@ -50,25 +50,25 @@ export default function SanjiHero({ homeHref = "/" }: { homeHref?: string }) {
         .sj-bubble{position:relative;display:flex;align-items:center;gap:6px;background:#fee500;color:#191600;font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.35);text-decoration:none;animation:sj-bob 2.2s ease-in-out infinite}
         .sj-bubble::before{content:"";width:14px;height:14px;border-radius:50%;background:#191600}
         .sj-bubble::after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:#fee500;transform:translateX(-50%) rotate(45deg)}
-        .sj-cta{display:flex;justify-content:center;align-items:center;gap:6px;height:54px;border-radius:16px;text-decoration:none;color:#fff;font-size:17px;font-weight:700;background:linear-gradient(95deg,#ff6a3d 0%,#ff8f3a 55%,#ffb03a 100%);box-shadow:0 10px 30px rgba(255,122,69,.45)}
+        .sj-cta{display:flex;justify-content:center;align-items:center;gap:6px;height:54px;border-radius:16px;text-decoration:none;color:#fff;font-size:17px;font-weight:700;background:#C9430E;box-shadow:0 10px 30px rgba(201,67,14,.4)}
         .sj-cta b{font-size:20px;line-height:1;font-weight:700}
         .sj-phone{position:absolute;left:50%;bottom:-200px;transform:translateX(-50%);width:250px;height:420px;border-radius:38px;background:#111;border:6px solid #2a2a2a;overflow:hidden;box-shadow:0 -20px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);z-index:1;animation:sj-phone-in .8s .2s ease-out both}
         .sj-phone__notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:90px;height:22px;background:#2a2a2a;border-radius:0 0 14px 14px;z-index:1}
         .sj-screen{position:absolute;inset:0;background:#fff;color:#111;padding:34px 12px 12px;display:flex;flex-direction:column;gap:10px}
         .sj-screen__head{display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#444}
-        .sj-screen__head .live{color:#ff6a3d}
+        .sj-screen__head .live{color:#C9430E}
         .sj-card{border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.12);background:#fff}
-        .sj-card__thumb{position:relative;height:120px;overflow:hidden;background:linear-gradient(135deg,#f3e9d2,#dfe9d0)}
+        .sj-card__thumb{position:relative;height:120px;overflow:hidden;background:linear-gradient(135deg,#F4F4F4,#FFF1EA)}
         .sj-card__thumb i{position:absolute;inset:0;background-size:cover;background-position:50% 45%}
-        .sj-card__tag{position:absolute;top:8px;left:8px;background:#ff6a3d;color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px}
+        .sj-card__tag{position:absolute;top:8px;left:8px;background:#FFD43B;color:#191919!important;color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px}
         .sj-card__body{padding:10px 10px 12px;display:flex;flex-direction:column;gap:6px}
         .sj-card__origin{font-size:11px;color:#777}
         .sj-card__title{font-size:13px;font-weight:700;letter-spacing:-.02em}
         .sj-card__price{display:flex;align-items:baseline;gap:6px}
-        .sj-card__price .rate{font-size:12px;color:#ff6a3d;font-weight:900}
+        .sj-card__price .rate{font-size:12px;color:#C9430E;font-weight:900}
         .sj-card__price .won{font-size:15px;font-weight:900}
-        .sj-bar{height:6px;border-radius:3px;background:#f0ede6;overflow:hidden}
-        .sj-bar i{display:block;width:72%;height:100%;background:linear-gradient(90deg,#ff6a3d,#ffb03a)}
+        .sj-bar{height:6px;border-radius:3px;background:#EDEDED;overflow:hidden}
+        .sj-bar i{display:block;width:72%;height:100%;background:#C9430E}
         .sj-card__meta{display:flex;justify-content:space-between;font-size:10px;color:#666}
         @keyframes sj-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
         @keyframes sj-rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}

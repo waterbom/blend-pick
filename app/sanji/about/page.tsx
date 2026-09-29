@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "산지픽 이야기" };
 export default async function SanjiAbout() {
   const homeHref = (await sanjiLinkBase()) || "/";
   return (
-    <main style={{ background: "#0b150e", minHeight: "100svh" }}>
+    <main style={{ background: "#191919", minHeight: "100svh" }}>
       <SanjiHero homeHref={homeHref} />
       <SanjiWhy />
       <SanjiFarmPack />
