@@ -17,15 +17,15 @@ const originalFetch=global.fetch;const observations=[];
 function observe(name,value){observations.push({name,...value});console.log('OBSERVATION',JSON.stringify(observations.at(-1)));}
 mocks['@/lib/return-notify']={sendReturnRefundSMS:async()=>{throw Error('SMS blocked');}};
 mocks['@/lib/hotel-notify']={sendCancellationSMS:async()=>({ok:true})};
-before(async()=>{await setup(db,id);await db.exec("ALTER TABLE orders ADD COLUMN stay_check_in date; ALTER TABLE orders ADD COLUMN stay_check_out date; CREATE TABLE hotel_room_inventory(stay_date date,room_type text,booked int);");});
-beforeEach(async()=>{site='sanjipick';auth=true;hook=null;global.fetch=async()=>{throw Error('UNMOCKED NETWORK BLOCKED');};await db.exec('TRUNCATE payment_attempts,products_shop,product_options,product_addons,orders,order_items,settlements,campaign_costs,influencer_payouts,product_secret_links,order_refund_amounts,product_images,order_returns,order_return_events,hotel_room_inventory CASCADE');});
+before(async()=>{await setup(db,id);await db.exec(fs.readFileSync('scripts/admin-workflow.sql','utf8'));await db.exec("ALTER TABLE orders ADD COLUMN stay_check_in date; ALTER TABLE orders ADD COLUMN stay_check_out date; CREATE TABLE hotel_room_inventory(stay_date date,room_type text,booked int);");});
+beforeEach(async()=>{site='sanjipick';auth=true;hook=null;global.fetch=async()=>{throw Error('UNMOCKED NETWORK BLOCKED');};await db.exec('TRUNCATE admin_dispatch_batches,payment_attempts,products_shop,product_options,product_addons,orders,order_items,settlements,campaign_costs,influencer_payouts,product_secret_links,order_refund_amounts,product_images,order_returns,order_return_events,hotel_room_inventory CASCADE');});
 after(async()=>{global.fetch=originalFetch;if(process.env.ADMIN_REVIEW_OBSERVATIONS_PATH)fs.writeFileSync(process.env.ADMIN_REVIEW_OBSERVATIONS_PATH,JSON.stringify(observations,null,2));await db.close();});
 async function product(n=1,price=100000,stock=20){await query("INSERT INTO products_shop(id,name,category,price,stock,status,is_visible,shipping_type,shipping_cost,supply_price,influencer_rate,influencer_id,tax_type) VALUES($1,$2,'산지픽',$3,$4,'active',true,'free',0,20000,10,$5,'taxable')",[id(n),'상품'+n,price,stock,id(999)]);}
 async function order(n=10,total=100000,status='paid',pid=1){await query("INSERT INTO orders(id,site,order_type,order_number,paid_at,status,total_amount,shipping_fee,payment_key,payment_method,influencer_id,influencer_name,commission_rate) VALUES($1,'sanjipick','shop',$2,NOW(),$3,$4,0,$5,'계좌이체',$6,'테스트 인플루언서',10)",[id(n),'ORDER'+n,status,total,'mock-'+n,id(999)]);if(pid!==null)await query("INSERT INTO order_items(order_id,product_id,product_ref,product_name,quantity,unit_price,supply_price,tax_type) VALUES($1,$2,$2,$3,1,$4,20000,'taxable')",[id(n),id(pid),'상품'+pid,total]);}
 const profit=async()=>await (await api('admin/profit').GET(req())).json();
 const inf=async()=>await (await api('admin/influencer-settlements').GET()).json();
 const confirm=n=>api('admin/influencer-payouts').POST(req('/x','POST',{campaign_id:id(n),influencer_id:id(999)}));
-const checkout=(n=1)=>({paymentKey:'approve-'+n,orderId:'provider-'+n,amount:100000,checkoutData:{productId:id(1),quantity:1,unitPrice:100000,totalAmount:100000,shippingCost:0}});
+const checkout=(n=1)=>({paymentKey:'approve-'+n,orderId:'provider-'+n,amount:100000,checkoutData:{...require('./support/checkout-contact.cjs'),productId:id(1),quantity:1,unitPrice:100000,totalAmount:100000,shippingCost:0}});
 function mockApprove(){let calls=0;global.fetch=async(url,opts)=>{calls++;const p=JSON.parse(opts.body);return Response.json({paymentKey:p.paymentKey,orderId:p.orderId,totalAmount:p.amount,status:'DONE',method:'계좌이체'});};return ()=>calls;}
 
 // These tests assert the desired process invariant. Failures reveal gaps in the reviewed commit.
@@ -82,7 +82,8 @@ test('F5 foreign-site and unauthenticated return completion cannot create refund
 test('F6 new product through payment shipment delivery return and revenue report',async()=>{
  const {pid}=await createForm(baseForm());const d=checkout();d.checkoutData.productId=pid;mockApprove();const paid=await api('payment/shop-confirm').POST(req('/x','POST',d));assert.equal(paid.status,200);
  const o=(await query('SELECT id,payment_key FROM orders')).rows[0],context={params:Promise.resolve({id:o.id})};const detail=api('admin/orders/[id]');
- for(const status of ['confirmed','preparing','shipped','delivered'])assert.equal((await detail.PATCH(req('/x','PATCH',{status,tracking_company:'04',tracking_number:'001234567890'}),context)).status,200);
+ await load('lib/admin-dispatch.ts',mocks).confirmDispatch(site,id(501),[o.id]);
+ for(const status of ['shipped','delivered'])assert.equal((await detail.PATCH(req('/x','PATCH',{status,tracking_company:'04',tracking_number:'001234567890'}),context)).status,200);
  await query("UPDATE orders SET status='return_requested' WHERE id=$1",[o.id]);await query("INSERT INTO order_returns(id,order_id,kind,status,prev_status,reason) VALUES($1,$2,'return','requested','delivered','부분 반품')",[id(50),o.id]);
  const returns=api('admin/returns');assert.equal((await returns.PATCH(req('/x','PATCH',{id:id(50),action:'collect'}))).status,200);
  global.fetch=async()=>Response.json({paymentKey:o.payment_key,totalAmount:100000,balanceAmount:70000,status:'PARTIAL_CANCELED'});assert.equal((await returns.PATCH(req('/x','PATCH',{id:id(50),action:'complete',refund_amount:30000}))).status,200);

@@ -17,7 +17,7 @@
     "test:admin-final": "node --test tests/admin-final-process.cjs",
     "test:admin-workflow": "node --test tests/admin-workflow.cjs",
     "test:shipping": "node --test tests/shipping-fees.cjs",
-    "test:process-edges": "node --test --test-concurrency=1 tests/full-process-edges.cjs",
+    "test:process-edges": "node --test --test-concurrency=1 tests/full-process-edges.cjs tests/commerce-process-regression.cjs",
     "test:images": "node --test tests/uploaded-images.cjs",
     "test:commerce-automation": "node --test tests/commerce-automation.cjs tests/storefront-monitor.cjs",
     "test:buyer": "node --test tests/buyer-flow.cjs tests/buyer-convenience.cjs tests/buyer-checkout-events.cjs tests/meta-pixel.cjs",

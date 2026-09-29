@@ -57,7 +57,7 @@ export default function CustomerOrders({ orders, sanjiBase, query }: { query?:Ac
                         <span className="ds-mono text-[11px] truncate" style={{ color: "var(--text-muted)" }}>{order.order_number}</span>
                       </div>
                       <span className={`text-xs font-semibold shrink-0 ${statusInfo.color}`}>
-                        {statusInfo.label}
+                        {order.has_returnable_items ? '부분 반품완료' : statusInfo.label}
                       </span>
                     </div>
 
@@ -165,7 +165,7 @@ export default function CustomerOrders({ orders, sanjiBase, query }: { query?:Ac
                         {["paid", "confirmed", "preparing", "shipped"].includes(order.status) && (
                           <CancelOrderButton orderId={order.id} status={order.status} />
                         )}
-                        {["shipped", "delivered"].includes(order.status) &&
+                        {(["shipped", "delivered", "exchange_completed"].includes(order.status) || order.has_returnable_items) &&
                           !(order.latest_return && ["requested", "collecting"].includes(order.latest_return.status)) && (
                           <Link
                             href={`${sanjiBase ?? ""}/mypage/returns/new?order=${order.id}`}

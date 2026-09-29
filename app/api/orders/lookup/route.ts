@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import shopPool from "@/lib/db-shop";
 import { isPhoneVerified, normPhone } from "@/lib/phone-verify";
+import { returnableItems } from '@/lib/return-quantities';
 
 // 비회원 주문 조회 — 휴대폰 인증(phone_verified 쿠키)된 번호의 주문·예약 전체
 export async function POST(req: NextRequest) {
@@ -39,5 +40,8 @@ export async function POST(req: NextRequest) {
       LIMIT 50`,
     [p, site.key]
   );
+  for (const order of r.rows) {
+    if (order.status === 'return_completed') order.has_returnable_items = (await returnableItems(shopPool,order.id)).length > 0;
+  }
   return NextResponse.json({ ok: true, orders: r.rows });
 }

@@ -273,13 +273,13 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
         ? "\n각 주문의 배송비를 뺀 금액이 토스로 환불됩니다."
         : "\n결제 금액이 토스로 전액 환불됩니다."
       : "";
-    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?${extra}`)) return;
+    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?${extra}${action === "cancel_confirm" ? "\n공급사에 모든 선택 주문의 출고 중지 또는 회수 완료를 확인한 경우에만 승인하세요." : ""}`)) return;
     setActing(true);
     try {
       const res = await fetch("/api/admin/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping }),
+        body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping, dispatch_stop_confirmed: action === "cancel_confirm" }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || d.error) alert(d.error || "처리에 실패했어요.");

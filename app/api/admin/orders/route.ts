@@ -89,7 +89,7 @@ export async function PATCH(req: Request) {
     if (!admin)
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const site = (await currentAdminSite()).key;
-    const { orderIds, action, deduct_shipping } = await req.json();
+    const { orderIds, action, deduct_shipping, dispatch_stop_confirmed } = await req.json();
     if (!Array.isArray(orderIds) || orderIds.length === 0) {
         return NextResponse.json({ error: "주문 ID가 없습니다" }, { status: 400 });
     }
@@ -110,7 +110,8 @@ export async function PATCH(req: Request) {
     // 취소요청 반려 — 환불 없이 주문을 원래 흐름으로 복귀 (운송장이 있으면 배송중, 없으면 주문확인)
     if (action === "cancel_reject") {
         const r = await shopPool.query(`UPDATE orders
-          SET status = CASE WHEN tracking_number IS NOT NULL THEN 'shipped' ELSE 'confirmed' END,
+          SET status = COALESCE(cancel_request_prev_status,CASE WHEN tracking_number IS NOT NULL THEN 'shipped' ELSE 'preparing' END),
+              cancel_request_prev_status=NULL,
               updated_at = NOW()
         WHERE id = ANY($1::uuid[]) AND site = $2 AND status = 'cancel_requested'`, [orderIds, site]);
         return NextResponse.json({ ok: true, updated: r.rowCount });
@@ -123,11 +124,12 @@ export async function PATCH(req: Request) {
     // 취소요청 승인은 단순 상태 변경이 아니라 환불이 걸린 작업 — 건별로 취소 엔진을 태운다
     // (토스 전액 환불 → 상태 취소 → 재고 복원, 환불 실패 건은 상태 유지하고 건수로 보고)
     if (action === "cancel_confirm") {
+        if (dispatch_stop_confirmed !== true) return NextResponse.json({error:'선택 주문의 공급사 출고 중지 또는 회수 완료를 확인해주세요.'},{status:409});
         const targets = await shopPool.query(`SELECT id FROM orders WHERE id = ANY($1::uuid[]) AND site = $2 AND status = 'cancel_requested'`, [orderIds, site]);
         let updated = 0;
         const failed: string[] = [];
         for (const row of targets.rows) {
-            const r = await cancelShopOrder(row.id, deduct_shipping ? "취소요청 승인 (단순 변심)" : "취소요청 승인", { deductShipping: !!deduct_shipping });
+            const r = await cancelShopOrder(row.id, deduct_shipping ? "취소요청 승인 (단순 변심)" : "취소요청 승인", { site, deductShipping: !!deduct_shipping, dispatchStopConfirmed:true, adminName:admin.name||admin.email||'관리자' });
             if (r.ok)
                 updated++;
             else

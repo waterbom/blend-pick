@@ -1,82 +1,52 @@
-import { NextRequest, NextResponse } from "next/server";
-import { siteFromRequest } from "@/lib/site-request";
-import { cookies } from "next/headers";
-import shopPool from "@/lib/db-shop";
-import { randomBytes } from "crypto";
-import { verifyPayLink } from "@/lib/pay-link";
-import { isPhoneVerified } from "@/lib/phone-verify";
-
-function genOrderNumber() {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  return `BP-E-${date}-${randomBytes(3).toString("hex").toUpperCase()}`;
-}
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createHash, randomBytes } from 'crypto';
+import shopPool from '@/lib/db-shop';
+import { siteFromRequest } from '@/lib/site-request';
+import { verifyPayLink } from '@/lib/pay-link';
+import { isPhoneVerified } from '@/lib/phone-verify';
+import { buyerContactError } from '@/lib/checkout-contact';
+import { processPaymentAttempt, purchaseResult, PurchaseError, type PurchaseSnapshot } from '@/lib/payment-attempt';
 
 export async function POST(req: NextRequest) {
-  const { paymentKey, orderId, amount, token, name, phone } = await req.json();
-  const secretKey = process.env.TOSS_SECRET_KEY!;
-
-  // 1. 링크 토큰 검증 + 금액 변조 확인 (승인 전)
-  const info = token ? await verifyPayLink(token) : null;
-  if (!info) return NextResponse.json({ ok: false, error: "유효하지 않은 결제 링크입니다." }, { status: 400 });
-  if (info.site !== siteFromRequest(req)) return NextResponse.json({ ok: false, error: "결제 링크가 발급된 사이트에서 결제해주세요." }, { status: 400 });
-  if (Number(amount) !== info.amount) {
-    return NextResponse.json({ ok: false, error: "결제 금액이 일치하지 않습니다." }, { status: 400 });
-  }
-
-  // 2. 휴대폰 인증 확인 — 결제자 본인 번호로 SMS 인증을 마친 상태여야 승인 진행
-  const verifiedTok = (await cookies()).get("phone_verified")?.value;
-  if (!(await isPhoneVerified(verifiedTok, phone || ""))) {
-    return NextResponse.json({ ok: false, error: "휴대폰 인증이 필요합니다. 인증 후 다시 시도해주세요." }, { status: 401 });
-  }
-
-  // 3. 토스 승인
-  const tossRes = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ paymentKey, orderId, amount }),
-  });
-  const tossData = await tossRes.json();
-  if (!tossRes.ok) {
-    return NextResponse.json({ ok: false, error: tossData.message || "결제 승인 실패" }, { status: 400 });
-  }
-
-  // 4. 주문 저장 (order_type='extra')
-  const orderNumber = genOrderNumber();
-  const memoText = info.label;
-  const client = await shopPool.connect();
-  let saved = false;
-  try {
-    await client.query("BEGIN");
-    const { rows } = await client.query(
-      `INSERT INTO orders (
-        order_number, buyer_name, buyer_phone, recipient_name, recipient_phone,
-        addr_memo, total_amount, shipping_fee, status, payment_key, payment_method, paid_at, order_type, site
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,0,'paid',$8,$9,NOW(),'extra',$10)
-      RETURNING id`,
-      // 같은 파라미터($2)를 두 컬럼에 재사용하면 컬럼 타입이 다를 때
-      // "inconsistent types deduced for parameter" 에러가 나므로 자리마다 별도 파라미터로 전달
-      [orderNumber, name || "-", phone || "-", name || "-", phone || "-", memoText, info.amount, paymentKey, tossData.method, info.site]
-    );
-    await client.query(
-      `INSERT INTO order_items (order_id, product_id, product_name, option_label, unit_price, quantity)
-       VALUES ($1, NULL, $2, $3, $4, 1)`,
-      [rows[0].id, info.label, "", info.amount]
-    );
-    await client.query("COMMIT");
-    saved = true;
-  } catch (e) {
-    await client.query("ROLLBACK");
-    console.error("[extra-confirm] 저장 실패:", e);
-  } finally {
-    client.release();
-  }
-
-  if (!saved) {
-    return NextResponse.json({ ok: false, error: "결제는 승인됐으나 저장에 실패했어요. 고객센터로 문의해주세요." }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true, orderNumber, amount: info.amount, label: info.label });
+    try {
+        const body = await req.json().catch(() => null);
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new PurchaseError('결제 요청을 확인해주세요.', 400);
+        const { paymentKey, orderId, amount, token, name, phone } = body;
+        const site = siteFromRequest(req);
+        if (typeof paymentKey !== 'string' || !paymentKey || paymentKey.length > 200 || typeof orderId !== 'string' || !orderId || orderId.length > 200 || !Number.isSafeInteger(amount) || amount <= 0 || typeof token !== 'string' || !token || token.length > 10000)
+            throw new PurchaseError('결제 요청을 확인해주세요.', 400);
+        const contactError = buyerContactError(name, phone);
+        if (contactError) throw new PurchaseError(contactError, 400);
+        if (!await isPhoneVerified((await cookies()).get('phone_verified')?.value, phone)) throw new PurchaseError('휴대폰 인증이 필요합니다. 인증 후 다시 시도해주세요.', 401);
+        const hash = createHash('sha256').update(JSON.stringify({ kind: 'extra', amount, token, name, phone })).digest('hex');
+        const prior = (await shopPool.query('SELECT * FROM payment_attempts WHERE payment_key=$1', [paymentKey])).rows[0];
+        if (prior) {
+            if (prior.site !== site || prior.provider_order_id !== orderId || prior.request_hash !== hash || prior.snapshot.orderType !== 'extra') throw new PurchaseError('기존 결제 요청과 일치하지 않습니다.');
+            // Persisted attempts remain recoverable after the original link expires.
+            return NextResponse.json(prior.status === 'completed' ? await purchaseResult(prior) : await processPaymentAttempt(paymentKey, site, prior.status !== 'prepared'));
+        }
+        const info = await verifyPayLink(token);
+        if (!info || info.site !== site || info.amount !== amount) throw new PurchaseError('유효한 결제 링크와 금액을 확인해주세요.', 400);
+        const snapshot: PurchaseSnapshot = {
+            orderType: 'extra', orderNumber: `${site === 'sanjipick' ? 'SJ' : 'BP'}-E-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(6).toString('hex').toUpperCase()}`,
+            userId: null, buyerName: name, buyerPhone: phone, buyerEmail: null, recipientName: name, recipientPhone: phone,
+            zipcode: '', address: '', detail: '', memo: info.label, shipping: 0, influencerId: null, influencerName: null,
+            items: [{ productId: null, productRef: null, optionId: null, name: info.label, optionLabel: '', unitPrice: amount, quantity: 1, supplyPrice: null, commissionRate: null, taxType: null }],
+            linkCode: null, linkStartAt: null, linkEndAt: null, cartIds: [],
+        };
+        const client = await shopPool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [paymentKey]);
+            const existing = await client.query('SELECT payment_key FROM payment_attempts WHERE payment_key=$1 OR provider_order_id=$2 UNION ALL SELECT payment_key FROM orders WHERE payment_key=$1', [paymentKey, orderId]);
+            if (existing.rows.length) throw new PurchaseError('이미 처리되었거나 처리 중인 결제입니다. 주문 내역에서 확인해주세요.');
+            await client.query('INSERT INTO payment_attempts(payment_key,provider_order_id,site,request_hash,amount,snapshot) VALUES($1,$2,$3,$4,$5,$6::jsonb)', [paymentKey, orderId, site, hash, amount, JSON.stringify(snapshot)]);
+            await client.query('COMMIT');
+        } catch (e) { await client.query('ROLLBACK'); throw e; }
+        finally { client.release(); }
+        return NextResponse.json(await processPaymentAttempt(paymentKey, site));
+    } catch (e) {
+        return NextResponse.json({ ok: false, error: e instanceof PurchaseError ? e.message : '결제 요청을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' }, { status: e instanceof PurchaseError ? e.status : 503 });
+    }
 }

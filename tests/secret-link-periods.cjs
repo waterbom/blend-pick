@@ -113,6 +113,7 @@ test('shop and cart approval handlers never contact payment API for invalid link
   for(const kind of ['shop','cart']){
    const post=load(`app/api/payment/${kind}-confirm/route.ts`,mocks).POST;
    const checkoutData=kind==='shop'?{productId:id(1),quantity:1,unitPrice:10000,linkCode:'wrongcode',shippingCost:0,totalAmount:10000}:{items:[{product_id:id(1),quantity:1,price:10000,link_code:'wrongcode'}],shippingCost:0,totalAmount:10000};
+   Object.assign(checkoutData,require('./support/checkout-contact.cjs'));
    const res=await post(new NextRequest('https://sanjipick.blendpunch.com/api/payment/'+kind+'-confirm',{method:'POST',headers:{'content-type':'application/json',host:'sanjipick.blendpunch.com'},body:JSON.stringify({paymentKey:'TEST',orderId:'TEST',amount:10000,checkoutData})}));
    assert.equal(res.status,400);assert.equal((await res.json()).error,rules.INVALID_LINK);
   }
@@ -138,6 +139,7 @@ test('approved shop and cart persist verified channel, period, option id/name an
   for(const kind of ['shop','cart']){
    const post=load(`app/api/payment/${kind}-confirm/route.ts`,mocks).POST;
    const checkoutData=kind==='shop'?{productId:id(2),productName:'FORGED',optionLabel:'FORGED',optionId:id(102),quantity:1,unitPrice:12300,linkCode:code,shippingCost:0,totalAmount:12300}:{items:[{product_id:id(2),option_id:id(102),quantity:1,price:1,extra_price:2,name:'FORGED',link_code:code}],shippingCost:0,totalAmount:12300};
+   Object.assign(checkoutData,require('./support/checkout-contact.cjs'));
    const res=await post(new NextRequest('https://sanjipick.blendpunch.com/api/payment/'+kind+'-confirm',{method:'POST',headers:{'content-type':'application/json',host:'sanjipick.blendpunch.com'},body:JSON.stringify({paymentKey:'mock-'+kind,orderId:'TEST-'+kind,amount:12300,checkoutData})}));
    assert.equal(res.status,200,JSON.stringify(await res.json()));
    const saved=(await db.query('SELECT o.sales_channel,o.link_end_at,i.unit_price,i.option_id,i.product_name,i.option_label FROM orders o JOIN order_items i ON i.order_id=o.id WHERE payment_key=$1',['mock-'+kind])).rows[0];

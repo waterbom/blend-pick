@@ -18,17 +18,19 @@ const originalFetch=global.fetch;const observations=[];
 function observe(name,value){observations.push({name,...value});console.log('OBSERVATION',JSON.stringify(observations.at(-1)));}
 mocks['@/lib/return-notify']={sendReturnRefundSMS:async()=>{throw Error('SMS blocked');}};
 mocks['@/lib/hotel-notify']={sendCancellationSMS:async()=>({ok:true})};
-before(async()=>{await setup(db,id);await db.exec("ALTER TABLE orders ADD COLUMN stay_check_in date; ALTER TABLE orders ADD COLUMN stay_check_out date; CREATE TABLE hotel_room_inventory(stay_date date,room_type text,booked int); ALTER TABLE products ADD COLUMN brand text, ADD COLUMN product_image text, ADD COLUMN category text, ADD COLUMN consumer_price int, ADD COLUMN groupbuy_price int, ADD COLUMN set_options jsonb, ADD COLUMN shipping_type text, ADD COLUMN shipping_cost int, ADD COLUMN status text, ADD COLUMN visibility_status text; ALTER TABLE campaigns ADD COLUMN is_archived boolean DEFAULT false, ADD COLUMN supply_price int;");});
-beforeEach(async()=>{site='sanjipick';auth=true;hook=null;global.fetch=async()=>{throw Error('UNMOCKED NETWORK BLOCKED');};await db.exec('TRUNCATE products,campaigns,payment_attempts,products_shop,product_options,product_addons,orders,order_items,settlements,campaign_costs,influencer_payouts,product_secret_links,order_refund_amounts,product_images,order_returns,order_return_events,hotel_room_inventory CASCADE');});
+before(async()=>{await setup(db,id);await db.exec(fs.readFileSync('scripts/admin-workflow.sql','utf8'));await db.exec("ALTER TABLE orders ADD COLUMN stay_check_in date; ALTER TABLE orders ADD COLUMN stay_check_out date; CREATE TABLE hotel_room_inventory(stay_date date,room_type text,booked int); ALTER TABLE products ADD COLUMN brand text, ADD COLUMN product_image text, ADD COLUMN category text, ADD COLUMN consumer_price int, ADD COLUMN groupbuy_price int, ADD COLUMN set_options jsonb, ADD COLUMN shipping_type text, ADD COLUMN shipping_cost int, ADD COLUMN status text, ADD COLUMN visibility_status text; ALTER TABLE campaigns ADD COLUMN is_archived boolean DEFAULT false, ADD COLUMN supply_price int;");});
+beforeEach(async()=>{site='sanjipick';auth=true;hook=null;global.fetch=async()=>{throw Error('UNMOCKED NETWORK BLOCKED');};await db.exec('TRUNCATE admin_dispatch_batches,products,campaigns,payment_attempts,products_shop,product_options,product_addons,orders,order_items,settlements,campaign_costs,influencer_payouts,product_secret_links,order_refund_amounts,product_images,order_returns,order_return_events,hotel_room_inventory CASCADE');});
 after(async()=>{global.fetch=originalFetch;if(process.env.ADMIN_REVIEW_OBSERVATIONS_PATH)fs.writeFileSync(process.env.ADMIN_REVIEW_OBSERVATIONS_PATH,JSON.stringify(observations,null,2));await db.close();});
 async function product(n=1,price=100000,stock=20){await query("INSERT INTO products_shop(id,name,category,price,stock,status,is_visible,shipping_type,shipping_cost,supply_price,influencer_rate,influencer_id,tax_type) VALUES($1,$2,'산지픽',$3,$4,'active',true,'free',0,20000,10,$5,'taxable')",[id(n),'상품'+n,price,stock,id(999)]);}
 async function order(n=10,total=100000,status='paid',pid=1){await query("INSERT INTO orders(id,site,order_type,order_number,paid_at,status,total_amount,shipping_fee,payment_key,payment_method,influencer_id,influencer_name,commission_rate) VALUES($1,'sanjipick','shop',$2,NOW(),$3,$4,0,$5,'계좌이체',$6,'테스트 인플루언서',10)",[id(n),'ORDER'+n,status,total,'mock-'+n,id(999)]);if(pid!==null)await query("INSERT INTO order_items(order_id,product_id,product_ref,product_name,quantity,unit_price,supply_price,tax_type) VALUES($1,$2,$2,$3,1,$4,20000,'taxable')",[id(n),id(pid),'상품'+pid,total]);}
 
 for (const key of ['blendpick','sanjipick']) {
   async function seed(status='paid') { site=key;await product();await order(10,100000,status);await native('UPDATE orders SET site=$1,buyer_phone=$2',[key,'01000000000']); }
-  test(`${key}: full manual paid-confirmed-preparing-shipped-delivered flow settles exactly once`,async()=>{
+  test(`${key}: confirmed dispatch followed by manual shipment and delivery settles exactly once`,async()=>{
     await seed();const route=api('admin/orders/[id]');
-    for(const status of ['confirmed','preparing','shipped','delivered']) {
+    await native("UPDATE orders SET buyer_name='테스트',addr_zipcode='12345',addr_address='테스트 주소' WHERE id=$1",[id(10)]);
+    await load('lib/admin-dispatch.ts',mocks).confirmDispatch(site,id(501),[id(10)]);
+    for(const status of ['shipped','delivered']) {
       const res=await route.PATCH(req('/x','PATCH',{status,...(status==='shipped'?{tracking_company:'04',tracking_number:'001234567890'}:{})}),ctx(10));
       assert.equal(res.status,200,await res.text());
     }
@@ -79,7 +81,7 @@ test('shipment import null body responds with a client error',async()=>{
 // Legacy campaign checkout is still called by app/checkout/success/page.tsx.
 for (const key of ['blendpick','sanjipick']) {
   async function seedCampaign(){site=key;await product();await native("INSERT INTO products(id,name,category,consumer_price,groupbuy_price,shipping_type,shipping_cost,status,visibility_status) VALUES($1,'DB 상품',$2,100000,90000,'free',0,'active','active')",[id(1),key==='sanjipick'?'산지픽':'생활']);}
-  function payload(){return {paymentKey:'isolated-campaign-key',orderId:'isolated-campaign-order',amount:90000,checkoutData:{productId:id(1),productName:'격리 테스트 상품',quantity:1,unitPrice:90000,totalAmount:90000,shippingCost:0,customerName:'가상 구매자',customerPhone:'01000000000',shippingAddress:'격리 테스트 주소'}};}
+  function payload(){return {paymentKey:'isolated-campaign-key',orderId:'isolated-campaign-order',amount:90000,checkoutData:{...require('./support/checkout-contact.cjs'),productId:id(1),productName:'격리 테스트 상품',quantity:1,unitPrice:90000,totalAmount:90000,shippingCost:0,customerName:'가상 구매자',customerPhone:'01000000000',shippingAddress:'격리 테스트 주소'}};}
   function provider(counter){let approved;global.fetch=async(url,options)=>{const method=options?.method||'GET';if(method==='POST'){assert.equal(url,'https://api.tosspayments.com/v1/payments/confirm');const b=JSON.parse(options.body);counter.push({...b,method});approved={method:'카드',status:'DONE',totalAmount:b.amount,paymentKey:b.paymentKey,orderId:b.orderId};}else{assert.equal(url,'https://api.tosspayments.com/v1/payments/isolated-campaign-key');counter.push({method});}return Response.json(approved);};}
   test(`${key}: campaign rejects coherent underpricing, bad option, wrong site and inactive product before PG`,async()=>{
     await seedCampaign();const calls=[];provider(calls);const route=api('payment/confirm');
@@ -170,7 +172,7 @@ test('identical whitespace-normalized rows collapse while other valid orders pro
   assert.ok((await native('SELECT status,tracking_number FROM orders')).rows.every(r=>r.status==='shipped'&&r.tracking_number==='001234567890'));
 });
 test('manual invoice validation normalizes legacy carrier and preserves leading zero and explicit no-invoice workflow',async()=>{
-  await product();await order();const route=api('admin/orders/[id]');
+  await product();await order(10,100000,'preparing');const route=api('admin/orders/[id]');
   for(const body of [{tracking_company:'unknown',tracking_number:'123'},{tracking_company:'04',tracking_number:123},{tracking_company:'04',tracking_number:'1'.repeat(101)},{tracking_number:'123'}]) {
     assert.equal((await route.PATCH(req('/x','PATCH',{status:'shipped',...body}),ctx(10))).status,400);
   }

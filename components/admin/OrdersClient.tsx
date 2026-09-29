@@ -260,14 +260,14 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
         ? "\n각 주문의 배송비를 뺀 금액이 토스로 환불됩니다."
         : "\n결제 금액이 토스로 전액 환불됩니다."
       : "";
-    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?${extra}`)) return;
+    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?${extra}${action === "cancel_confirm" ? "\n공급사에 모든 선택 주문의 출고 중지 또는 회수 완료를 확인한 경우에만 승인하세요." : ""}`)) return;
     setActing(true);
 
     try {
     const res = await fetch("/api/admin/orders", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping }),
+      body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping, dispatch_stop_confirmed: action === "cancel_confirm" }),
     });
     const d = await res.json().catch(() => ({}));
     if (!res.ok || d.error) alert(d.error || "처리에 실패했어요.");
@@ -287,16 +287,17 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
 
   // 개별 주문 취소 — 토스 전액 환불 + 상태 취소 + 재고 복원까지 서버가 한 번에 처리
   const CANCELLABLE = ["paid", "confirmed", "preparing", "cancel_requested"];
-  async function handleCancelOne(o: { id: string; order_number: string; buyer_name: string; total_amount: number }) {
+  async function handleCancelOne(o: { id: string; order_number: string; buyer_name: string; total_amount: number; status: string }) {
+    const needsStop = ["preparing", "shipped", "delivered", "cancel_requested"].includes(o.status);
     if (!confirm(
-      `${o.order_number} (${o.buyer_name}) 주문을 취소할까요?\n결제금액 ${Number(o.total_amount).toLocaleString()}원이 토스로 전액 환불됩니다.`
+      `${o.order_number} (${o.buyer_name}) 주문을 취소할까요?\n결제금액 ${Number(o.total_amount).toLocaleString()}원이 토스로 전액 환불됩니다.${needsStop ? "\n공급사 출고 중지 또는 회수 완료를 확인한 경우에만 승인하세요." : ""}`
     )) return;
     setActing(true);
     try {
       const res = await fetch(`/api/admin/orders/${o.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "cancelled" }),
+        body: JSON.stringify({ status: "cancelled", dispatch_stop_confirmed: needsStop }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { alert(d.error || "취소에 실패했어요."); return; }
@@ -308,16 +309,21 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
     }
   }
 
-  // 상태 변경 없이 선택 주문의 발주 엑셀만 다시 다운로드 (분실/재출력용)
-  function handleDownloadOnly() {
-    const selectedOrders = orders.filter((o) => selected.has(o.id));
-    if (selectedOrders.length === 0) return;
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    downloadXlsx(`발주_${date}.xlsx`, COLUMNS, toOrderRows(selectedOrders), "발주");
+  async function saveDispatchDownload(b: {snapshot:Order[];excluded:{order_number:string;reason:string}[]}, filename:string) {
+    if (b.excluded?.length) alert(`출고 대상에서 ${b.excluded.length}건을 제외했습니다.\n${b.excluded.map(o=>`${o.order_number}: ${o.reason}`).join("\n")}`);
+    if (!b.snapshot?.length) { alert("현재 출고 가능한 주문이 없습니다."); return; }
+    await downloadXlsx(filename, COLUMNS, toOrderRows(b.snapshot), "발주");
   }
-
+  async function handleDownloadOnly() {
+    if (!selected.size) return;
+    try {
+      const r=await fetch("/api/admin/dispatches",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"download",orderIds:[...selected]})});
+      const b=await r.json();if(!r.ok)throw Error(b.error||"출고 대상을 확인하지 못했습니다.");
+      await saveDispatchDownload(b,`발주_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } catch(e) { alert(e instanceof Error?e.message:"파일을 받지 못했습니다."); }
+  }
   async function downloadBatch(id:string){
-    try{const r=await fetch(`/api/admin/dispatches?id=${id}`);const b=await r.json();if(!r.ok)throw Error();await downloadXlsx(`발주확정_${id.slice(0,8)}.xlsx`,COLUMNS,toOrderRows(b.snapshot),"발주");}
+    try{const r=await fetch(`/api/admin/dispatches?id=${id}`);const b=await r.json();if(!r.ok)throw Error(b.error);await saveDispatchDownload(b,`발주확정_${id.slice(0,8)}.xlsx`);}
     catch{alert("파일을 받지 못했습니다. 발주 이력에서 다시 다운로드해주세요.");}
   }
   async function handleDispatch(){

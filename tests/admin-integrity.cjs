@@ -21,7 +21,7 @@ async function order(n=10,total=100000,status='paid',pid=1){await query("INSERT 
 const profit=async()=>await (await api('admin/profit').GET(req())).json();
 const inf=async()=>await (await api('admin/influencer-settlements').GET()).json();
 const confirm=n=>api('admin/influencer-payouts').POST(req('/x','POST',{campaign_id:id(n),influencer_id:id(999)}));
-const checkout=(n=1)=>({paymentKey:'approve-'+n,orderId:'provider-'+n,amount:100000,checkoutData:{productId:id(1),quantity:1,unitPrice:100000,totalAmount:100000,shippingCost:0}});
+const checkout=(n=1)=>({paymentKey:'approve-'+n,orderId:'provider-'+n,amount:100000,checkoutData:{...require('./support/checkout-contact.cjs'),productId:id(1),quantity:1,unitPrice:100000,totalAmount:100000,shippingCost:0}});
 function mockApprove(){let calls=0;global.fetch=async(url,opts)=>{calls++;const p=JSON.parse(opts.body);return Response.json({paymentKey:p.paymentKey,orderId:p.orderId,totalAmount:p.amount,status:'DONE',method:'계좌이체'});};return ()=>calls;}
 
 test('A1 import enforces supply cost and host category; errors are per row',async()=>{
@@ -61,7 +61,7 @@ test('A6 transfer fees stay 1650 after delivery and remain explicitly estimated'
 test('A7 individual cancellation writes refund once, restores once and forbids cancelled to delivered',async()=>{
  await product();await order(10,100000,'shipped');await api('admin/shipments/deliver').PATCH(req('/x','PATCH',{orderIds:[id(10)]}));
  let calls=0;global.fetch=async()=>{calls++;return Response.json({paymentKey:'mock-10',totalAmount:100000,balanceAmount:0,status:'CANCELED'});};const route=api('admin/orders/[id]');
- for(let n=0;n<2;n++)assert.equal((await route.PATCH(req('/x','PATCH',{status:'cancelled'}),ctx(10))).status,200);
+ for(let n=0;n<2;n++)assert.equal((await route.PATCH(req('/x','PATCH',{status:'cancelled',dispatch_stop_confirmed:true}),ctx(10))).status,200);
  assert.equal(calls,1);assert.equal((await query('SELECT SUM(amount)::int n FROM order_refund_amounts')).rows[0].n,100000);
  assert.equal((await query('SELECT stock FROM products_shop')).rows[0].stock,21);
  assert.equal((await route.PATCH(req('/x','PATCH',{status:'delivered'}),ctx(10))).status,409);
@@ -89,7 +89,7 @@ test('A10 reserved last unit blocks a second checkout while first approval is in
 });
 test('A11 addon cost is snapshotted; legacy missing cost preserves sales and marks profit unknown',async()=>{
  await product();await query("INSERT INTO product_addons(product_id,name,extra_price,is_active,supply_price) VALUES($1,'포장',5000,true,1000)",[id(1)]);mockApprove();
- const data={paymentKey:'addon',orderId:'addon-order',amount:105000,checkoutData:{items:[{product_id:id(1),quantity:1},{product_id:null,quantity:1,is_addon:true,name:'[추가] 포장',price:5000}],totalAmount:105000,shippingCost:0}};
+ const data={paymentKey:'addon',orderId:'addon-order',amount:105000,checkoutData:{...require('./support/checkout-contact.cjs'),items:[{product_id:id(1),quantity:1},{product_id:null,quantity:1,is_addon:true,name:'[추가] 포장',price:5000}],totalAmount:105000,shippingCost:0}};
  const res=await api('payment/cart-confirm').POST(req('/x','POST',data));assert.equal(res.status,200);
  const addon=(await query('SELECT supply_price,product_ref FROM order_items WHERE product_id IS NULL')).rows[0];assert.equal(addon.supply_price,1000);assert.equal(addon.product_ref,id(1));
  assert.equal((await profit())[0].gross,105000);await query('UPDATE order_items SET supply_price=NULL WHERE product_id IS NULL');const row=(await profit())[0];assert.equal(row.gross,105000);assert.equal(row.missing_supply,1);assert.equal(row.net_profit,null);
@@ -142,7 +142,7 @@ test('payout payment marking rejects a refund after confirmation; repeated paid 
 });
 test('cart stores each product rate and tax at payment time, independent of cart ordering',async()=>{
  await product(1,40000);await product(2,60000);await query("UPDATE products_shop SET influencer_rate=20,tax_type='exempt' WHERE id=$1",[id(2)]);mockApprove();
- const d={paymentKey:'mixed',orderId:'mixed-order',amount:100000,checkoutData:{influencerId:id(999),items:[{product_id:id(1),quantity:1},{product_id:id(2),quantity:1}],totalAmount:100000,shippingCost:0}};
+ const d={paymentKey:'mixed',orderId:'mixed-order',amount:100000,checkoutData:{...require('./support/checkout-contact.cjs'),influencerId:id(999),items:[{product_id:id(1),quantity:1},{product_id:id(2),quantity:1}],totalAmount:100000,shippingCost:0}};
  assert.equal((await api('payment/cart-confirm').POST(req('/x','POST',d))).status,200);
  await query('UPDATE products_shop SET influencer_rate=99');const rows=await inf();assert.equal(rows.reduce((s,r)=>s+r.commission,0),16000);assert.equal((await profit())[0].sales_vat,3636);
 });

@@ -219,7 +219,7 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
       await db.query('UPDATE products_shop SET category=$1',[site==='sanjipick'?'산지픽':'생활']);
       for (const endpoint of ['shop-confirm','cart-confirm','confirm']) {
         global.fetch=async(url,opts)=>{assert.equal(url,'https://api.tosspayments.com/v1/payments/confirm');assert.equal(JSON.parse(opts.body).amount,10000);return Response.json({method:'card',status:'DONE',totalAmount:10000,paymentKey:JSON.parse(opts.body).paymentKey,orderId:JSON.parse(opts.body).orderId});};
-        const cd={productId:product,productName:'Fruit',unitPrice:10000,quantity:1,totalAmount:10000,shippingCost:0,customerName:'Test',customerPhone:'01000000000',shippingAddress:'Test',campaignId:campaign,items:[{id:id(200),product_id:product,name:'Fruit',unit_price:10000,price:10000,quantity:1}]};
+        const cd={...require('./support/checkout-contact.cjs'),productId:product,productName:'Fruit',unitPrice:10000,quantity:1,totalAmount:10000,shippingCost:0,customerName:'Test',customerPhone:'01000000000',shippingAddress:'Test',campaignId:campaign,items:[{id:id(200),product_id:product,name:'Fruit',unit_price:10000,price:10000,quantity:1}]};
         if (endpoint === 'cart-confirm') {
           await db.query('DELETE FROM cart');
           await db.query('INSERT INTO cart(id,user_id,site) VALUES ($1,$2,$3),($4,$2,$5),($6,$7,$3)',[id(200),user,site,id(201),site==='sanjipick'?'blendpick':'sanjipick',id(202),id(999)]);

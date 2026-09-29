@@ -2,6 +2,9 @@
 ALTER TABLE products_shop ADD COLUMN IF NOT EXISTS archived_at timestamptz;
 ALTER TABLE product_addons ADD COLUMN IF NOT EXISTS supply_price integer CHECK (supply_price >= 0);
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS product_ref uuid;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_request_prev_status text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS dispatch_stop_confirmed_at timestamptz;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS dispatch_stop_confirmed_by text;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_rate numeric;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS tax_type text;
 UPDATE order_items SET product_ref=product_id WHERE product_ref IS NULL AND product_id IS NOT NULL;

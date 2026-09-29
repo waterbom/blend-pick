@@ -3,8 +3,9 @@ import shopPool from '@/lib/db-shop';
 import { shipmentCarriers } from '@/lib/shipment-carriers';
 import { IMPORT_POLICY_VERSION, normalizeImportRows, reviewImport, summarizeImport, suffixBase, type ImportRow, type ImportReview } from '@/lib/tracking-import';
 import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/refund-fulfillment';
-import { enqueue, processQueue } from '@/lib/shipment-outbox.cjs';
-import { shipmentSMSText } from '@/lib/ship-notify';
+import { processQueue } from '@/lib/shipment-outbox.cjs';
+import { registerShipment } from '@/lib/shipment-transition';
+import type { SiteKey } from '@/lib/sites';
 import { smsConfigured, sendSMS } from '@/lib/sms';
 
 export class ShipmentImportError extends Error {
@@ -95,13 +96,8 @@ export async function commitShipmentImport(site: string, admin: Admin, body: unk
       }
       await c.query('SAVEPOINT shipment_order');
       try {
-        const updated = await c.query(`UPDATE orders SET status='shipped',shipped_at=COALESCE(shipped_at,NOW()),
-          tracking_company=$2,tracking_number=$3,updated_at=NOW()
-          WHERE order_number=$1 AND site=$4 AND id=$5 AND status='preparing'
-          RETURNING COALESCE(recipient_name,buyer_name) AS name`,
-        [row.resolved_order, row.carrier, row.tracking_number, site, row.order_id]);
-        if (updated.rowCount !== 1) throw new ShipmentImportError('주문 상태가 변경되었습니다. 미리보기를 다시 실행해주세요.');
-        await enqueue(c, row.resolved_order, site, row.tracking_number, shipmentSMSText({ buyerName: updated.rows[0].name || '', orderNumber: row.resolved_order!, carrier: row.carrier, trackingNumber: row.tracking_number, site }));
+        const updated = await registerShipment(c, { id: row.order_id, orderNumber: row.resolved_order!, site: site as SiteKey, carrier: row.carrier!, tracking: row.tracking_number });
+        if (!updated) throw new ShipmentImportError('주문 상태가 변경되었습니다. 미리보기를 다시 실행해주세요.');
         await c.query('RELEASE SAVEPOINT shipment_order');
         row.current_status = 'shipped';
         notify.push(row.resolved_order!);

@@ -87,7 +87,7 @@ function req(siteKey, path, cookie = '', body) {
   global.fetch = async () => { external++; throw Error('External request must be mocked'); };
   await test('foreign-site cart checkout is rejected before Toss approval', async () => {
     const confirm = load('app/api/payment/cart-confirm/route.ts',mocks).POST;
-    const res=await confirm(req('sanjipick','/api/payment/cart-confirm','',{checkoutData:{items:[{id:shopCart.id,product_id:product}]}}));
+    const res=await confirm(req('sanjipick','/api/payment/cart-confirm','',{checkoutData:{...require('./support/checkout-contact.cjs'),items:[{id:shopCart.id,product_id:product}]}}));
     assert.equal(res.status,400);assert.equal(external,0);
   });
   await test('Shop preview paths redirect to canonical Sanji and cookie cannot change payment site', async () => {

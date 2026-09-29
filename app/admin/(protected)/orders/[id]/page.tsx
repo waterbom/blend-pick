@@ -53,6 +53,7 @@ async function getOrder(id: string) {
       o.total_amount, o.shipping_fee,
       o.payment_method, o.payment_key,
       o.tracking_company, o.tracking_number,
+      o.dispatch_stop_confirmed_at, o.dispatch_stop_confirmed_by,
       o.paid_at, o.created_at,
       json_agg(
         json_build_object(
@@ -215,6 +216,13 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
+      {order.status === 'cancel_requested' && <div className="border border-amber-200 bg-amber-50 p-5 text-sm">
+        <p>취소 요청이 접수되었습니다. 공급사 출고 중지 또는 회수 완료를 확인한 뒤 환불해주세요.</p>
+        <Link href="/admin/shipments#flow-cancel_requested" className="mt-2 inline-block underline">취소 요청 처리로 이동</Link>
+      </div>}
+      {order.dispatch_stop_confirmed_at && <p className="text-xs text-gray-500">
+        출고 중지·회수 확인: {order.dispatch_stop_confirmed_by || '관리자'} · {new Date(order.dispatch_stop_confirmed_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})}
+      </p>}
       {/* 운송장 입력 */}
       <TrackingForm
         orderId={order.id}

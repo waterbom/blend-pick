@@ -7,6 +7,9 @@ import shopPool from "@/lib/db-shop";
 import { cancelShopOrder } from "@/lib/order-cancel";
 import { recordDeliverySettlement } from "@/lib/delivery-settlement.cjs";
 import { validateTracking } from '@/lib/tracking-validation';
+import { registerShipment } from '@/lib/shipment-transition';
+import { processQueue } from '@/lib/shipment-outbox.cjs';
+import { smsConfigured, sendSMS } from '@/lib/sms';
 async function getAdmin() {
     const cookieStore = await cookies();
     const token = cookieStore.get("admin_token")?.value;
@@ -59,25 +62,43 @@ export async function PATCH(request: Request, { params }: {
         }
     }
     if (status === 'cancelled') {
-        const result = await cancelShopOrder(id, '관리자 주문 취소', { site });
+        const result = await cancelShopOrder(id, '관리자 주문 취소', { site, dispatchStopConfirmed:body.dispatch_stop_confirmed===true,adminName:admin.name||admin.email||'관리자' });
         return NextResponse.json(result, result.ok ? undefined : { status: result.httpStatus });
     }
-    const transitions: Record<string, string[]> = { confirmed: ['paid'], preparing: ['paid', 'confirmed'], shipped: ['paid', 'confirmed', 'preparing'], delivered: ['shipped'], cancel_requested: ['paid', 'confirmed', 'preparing'] };
+    if (status === 'preparing') return NextResponse.json({error:'발주 확정 화면에서 주문과 배송지를 확인해주세요.'},{status:409});
+    const transitions: Record<string, string[]> = { confirmed: ['paid'], shipped: ['preparing'], delivered: ['shipped'], cancel_requested: ['paid', 'confirmed', 'preparing'] };
     if (typeof status !== 'string' || !Object.hasOwn(transitions, status))
         return NextResponse.json({ error: '해당 처리는 교환·반품 신청 상세에서 진행해주세요.' }, { status: 409 });
     const client = await shopPool.connect();
+    let released = false;
     try {
         await client.query("BEGIN");
         // 취소 전환 시 재고 복원용 — 이전 상태 확인 (이미 취소된 주문은 중복 복원 방지)
-        const prev = await client.query(`SELECT status FROM orders WHERE id = $1 AND site = $2 FOR UPDATE`, [id, site]);
+        const prev = await client.query(`SELECT status,order_number FROM orders WHERE id = $1 AND site = $2 FOR UPDATE`, [id, site]);
         const prevStatus = prev.rows[0]?.status;
         if (!transitions[status].includes(prevStatus)) {
             await client.query('ROLLBACK');
             return NextResponse.json({ error: '현재 주문 상태에서 변경할 수 없습니다.' }, { status: 409 });
         }
+        if (status === 'shipped' && tracking_company && tracking_number) {
+            const orderNumber = prev.rows[0].order_number;
+            if (!await registerShipment(client, { id, orderNumber, site, carrier: tracking_company, tracking: tracking_number })) {
+                await client.query('ROLLBACK');
+                return NextResponse.json({ error: '주문 상태가 변경되었습니다. 다시 확인해주세요.' }, { status: 409 });
+            }
+            await client.query('COMMIT');
+            client.release(); released = true;
+            // Sending happens after commit; a failure leaves the durable queue available to the worker.
+            if (smsConfigured()) {
+                try { await processQueue(shopPool, sendSMS, { limit: 1, site, orderNumber }); }
+                catch { console.error('Shipment notification queue deferred'); }
+            }
+            return NextResponse.json({ ok: true, status });
+        }
         // 주문 상태 변경 (운송장 정보 있으면 함께 저장)
         const { rows } = await client.query(`UPDATE orders
        SET status = $1,
+           cancel_request_prev_status = CASE WHEN $1 = 'cancel_requested' THEN status ELSE cancel_request_prev_status END,
            shipped_at   = CASE WHEN $1 = 'shipped'   THEN COALESCE(shipped_at, NOW())   ELSE shipped_at END,
            delivered_at = CASE WHEN $1 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
            tracking_company = COALESCE($3, tracking_company),
@@ -100,6 +121,6 @@ export async function PATCH(request: Request, { params }: {
         return NextResponse.json({ error: isRefundFulfillmentConflict(e) ? REFUND_FULFILLMENT_MESSAGE : "Internal server error" }, { status: isRefundFulfillmentConflict(e) ? 409 : 500 });
     }
     finally {
-        client.release();
+        if (!released) client.release();
     }
 }

@@ -3,13 +3,14 @@ import { cookies } from 'next/headers';
 import { verifyAdminToken } from '@/lib/auth';
 import { currentAdminSite } from '@/lib/admin-site';
 import shopPool from '@/lib/db-shop';
-import { confirmDispatch, DispatchError } from '@/lib/admin-dispatch';
+import { confirmDispatch, currentDispatchExport, DispatchError } from '@/lib/admin-dispatch';
 async function authorized() { const t = (await cookies()).get('admin_token')?.value; return t && await verifyAdminToken(t); }
 export async function POST(req: Request) {
     if (!await authorized())
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     try {
         const b = await req.json();
+        if (b.action === 'download') return NextResponse.json(await currentDispatchExport((await currentAdminSite()).key,b.orderIds));
         return NextResponse.json(await confirmDispatch((await currentAdminSite()).key, b.request_key, b.orderIds));
     }
     catch (e) {
@@ -23,5 +24,13 @@ export async function GET(req: Request) {
     if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     const r = id ? await shopPool.query('SELECT id,snapshot,created_at FROM admin_dispatch_batches WHERE site=$1 AND id=$2', [site, id]) : await shopPool.query('SELECT id,request_key,created_at,cardinality(order_ids) AS order_count FROM admin_dispatch_batches WHERE site=$1 ORDER BY created_at DESC LIMIT 10', [site]);
-    return id ? NextResponse.json(r.rows[0] ?? { error: '이력을 찾을 수 없습니다.' }, { status: r.rows.length ? 200 : 404 }) : NextResponse.json(r.rows);
+    if (!id) return NextResponse.json(r.rows);
+    const batch = r.rows[0];
+    if (!batch) return NextResponse.json({error:'이력을 찾을 수 없습니다.'},{status:404});
+    try {
+        const current = await currentDispatchExport(site,batch.snapshot.map((o: {id:string})=>o.id),batch.snapshot);
+        return NextResponse.json({...batch,...current});
+    } catch(e) {
+        return NextResponse.json({error:e instanceof DispatchError?e.message:'현재 출고 대상을 확인하지 못했습니다.'},{status:e instanceof DispatchError?e.status:500});
+    }
 }

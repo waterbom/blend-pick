@@ -5,18 +5,18 @@ import { useRouter } from "next/navigation";
 
 /**
  * 주문 취소 버튼 — 상태에 따라 다르게 동작.
- * · 발송 전(paid/confirmed/preparing): 즉시 취소 + 전액 환불
- * · 배송중(shipped, 운송장 등록됨): "취소 요청"만 접수 (관리자가 출고 여부 확인 후 처리)
+ * · paid/confirmed: 즉시 취소 + 전액 환불
+ * · preparing/shipped: 공급사 출고 중지 확인 후 환불
  */
 export default function CancelOrderButton({ orderId, status = "paid" }: { orderId: string; status?: string }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const instant = ["paid", "confirmed", "preparing"].includes(status); // 발송 전엔 즉시 취소
+  const instant = ["paid", "confirmed"].includes(status);
 
   async function handleCancel() {
     const msg = instant
       ? "주문을 취소할까요?\n결제하신 금액이 전액 환불됩니다."
-      : "취소 요청을 보낼까요?\n\n이미 운송장이 등록된 주문이라, 택배가 이미 출고된 경우에는 취소가 불가할 수 있어요. 확인 후 처리해 드려요.\n단순 변심에 의한 취소는 배송비를 제외한 금액이 환불됩니다.";
+      : "취소 요청을 보낼까요?\n\n공급사에서 상품을 준비 중이므로 출고 중지 여부를 확인한 뒤 환불됩니다. 이미 출고됐다면 회수가 필요할 수 있어요.";
     if (!confirm(msg)) return;
     setLoading(true);
     try {

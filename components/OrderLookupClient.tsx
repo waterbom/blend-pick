@@ -10,6 +10,7 @@ interface LookupOrder {
   order_number: string;
   order_type: "shop" | "campaign" | "hotel";
   status: string;
+  has_returnable_items?: boolean;
   total_amount: number;
   tracking_company: string | null;
   tracking_number: string | null;
@@ -57,10 +58,10 @@ export default function OrderLookupClient() {
 
   // 비회원 주문 취소 — 발송 전엔 즉시 전액 환불, 운송장 등록 후엔 취소 요청 접수
   async function handleCancel(o: LookupOrder) {
-    const instant = ["paid", "confirmed", "preparing"].includes(o.status);
+    const instant = ["paid", "confirmed"].includes(o.status);
     const msg = instant
       ? "주문을 취소할까요?\n결제하신 금액이 전액 환불됩니다."
-      : "취소 요청을 보낼까요?\n\n이미 운송장이 등록된 주문이라, 택배가 이미 출고된 경우에는 취소가 불가할 수 있어요. 확인 후 처리해 드려요.\n단순 변심에 의한 취소는 배송비를 제외한 금액이 환불됩니다.";
+      : "취소 요청을 보낼까요?\n\n공급사에서 상품을 준비 중이므로 출고 중지 여부를 확인한 뒤 환불됩니다. 이미 출고됐다면 회수가 필요할 수 있어요.";
     if (!confirm(msg)) return;
     setCancelling(o.id);
     try {
@@ -118,7 +119,7 @@ export default function OrderLookupClient() {
           )}
           {orders.map((o) => {
             const isHotel = o.order_type === "hotel";
-            const st = (isHotel ? hotelStatus[o.status] : STATUS_LABEL[o.status]) ?? o.status;
+            const st = o.has_returnable_items ? "부분 반품완료" : (isHotel ? hotelStatus[o.status] : STATUS_LABEL[o.status]) ?? o.status;
             return (
               <div key={o.id} className="ds-card">
                 <div className="flex items-center justify-between px-5 py-3 flex-wrap gap-2" style={{ borderBottom: "1px solid #E4E1D6", background: "#FAFAF6" }}>
@@ -163,15 +164,15 @@ export default function OrderLookupClient() {
                           {carrierName(o.tracking_company)} 배송 조회
                         </a>
                       )}
-                      {/* 발송 전엔 즉시 취소, 운송장 등록 후엔 취소 요청 — 회원 마이페이지와 같은 정책 */}
+                      {/* 발주 전엔 즉시 취소, 배송준비 이후엔 취소 요청 — 회원 마이페이지와 같은 정책 */}
                       {!isHotel && ["paid", "confirmed", "preparing", "shipped"].includes(o.status) && (
                         <button onClick={() => handleCancel(o)} disabled={cancelling === o.id}
                           className="text-xs px-3.5 py-2 disabled:opacity-50"
                           style={{ border: "1px solid #E8C9C9", color: "#B4423C", background: "#FDF7F7" }}>
-                          {cancelling === o.id ? "처리 중..." : ["shipped"].includes(o.status) ? "취소 요청" : "주문 취소"}
+                          {cancelling === o.id ? "처리 중..." : ["preparing", "shipped"].includes(o.status) ? "취소 요청" : "주문 취소"}
                         </button>
                       )}
-                      {!isHotel && ["shipped", "delivered"].includes(o.status) && (
+                      {!isHotel && (["shipped", "delivered", "exchange_completed"].includes(o.status) || o.has_returnable_items) && (
                         <a href={`/orders/returns/new?order=${o.id}`}
                           className="text-xs px-3.5 py-2" style={{ border: "1px solid #E4E1D6", color: "#4A5442" }}>
                           교환·반품 신청

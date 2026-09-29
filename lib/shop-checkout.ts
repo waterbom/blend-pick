@@ -10,10 +10,11 @@ import { infRefFromCookie } from "@/lib/inf-ref";
 import { verifyCartAmount, verifySingleAmount, type CartAmountItem } from "@/lib/order-amount";
 import { processPaymentAttempt, purchaseResult, PurchaseError, type PurchaseSnapshot } from "@/lib/payment-attempt";
 import { createHash, randomBytes } from "crypto";
+import { checkoutContactError } from '@/lib/checkout-contact';
 export async function shopCheckout(req: NextRequest, kind: 'shop' | 'cart') {
     try {
         const site = siteFromRequest(req), { paymentKey, orderId, amount, checkoutData: d } = await req.json();
-        if (typeof paymentKey !== 'string' || !paymentKey || paymentKey.length > 200 || typeof orderId !== 'string' || !orderId || !Number.isSafeInteger(amount) || amount <= 0 || !d)
+        if (typeof paymentKey !== 'string' || !paymentKey || paymentKey.length > 200 || typeof orderId !== 'string' || !orderId || orderId.length > 200 || !Number.isSafeInteger(amount) || amount <= 0 || !d || typeof d !== 'object' || Array.isArray(d))
             throw new PurchaseError('결제 요청을 확인해주세요.', 400);
         const hash = createHash('sha256').update(JSON.stringify({ kind, amount, checkoutData: d })).digest('hex');
         const prior = await shopPool.query('SELECT * FROM payment_attempts WHERE payment_key=$1', [paymentKey]);
@@ -27,6 +28,8 @@ export async function shopCheckout(req: NextRequest, kind: 'shop' | 'cart') {
         const legacy = await shopPool.query('SELECT id FROM orders WHERE payment_key=$1', [paymentKey]);
         if (legacy.rows.length)
             throw new PurchaseError('이미 처리된 결제입니다. 주문 내역에서 확인해주세요.');
+        const contactError = checkoutContactError(d);
+        if (contactError) throw new PurchaseError(contactError, 400);
         const cookieStore = await cookies(), token = cookieStore.get('shop_token')?.value;
         const user = token ? await verifyToken(token) : null, userId = user?.id ?? null;
         if (phoneVerifyOn() && !userId && !await isPhoneVerified(cookieStore.get('phone_verified')?.value, d.customerPhone || ''))

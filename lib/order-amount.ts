@@ -9,7 +9,7 @@ import { cleanLinkCode, linkApplies, secretUnitPrice, INVALID_LINK } from "@/lib
 export interface VerifiedItem {
     productId: string | null;
     optionId: string | null;
-    productRef: string;
+    productRef: string | null;
     name: string;
     optionLabel: string | null;
     unitPrice: number;

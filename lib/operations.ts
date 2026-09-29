@@ -69,6 +69,15 @@ export async function getTodayWork(site: SiteKey): Promise<WorkGroup[]> {
         FROM order_returns r JOIN orders o ON o.id = r.order_id WHERE o.site = $1 AND r.status = 'requested'
         ORDER BY r.created_at ASC, r.id ASC LIMIT 30`, params: [site],
       item: (row: Row) => ({ href: `/admin/shipments?tab=${row.kind === 'exchange' ? 'exchange_requested' : 'return_requested'}&requestId=${encodeURIComponent(row.id)}`, priority: "today" as const, actionLabel: row.kind === 'exchange' ? "교환 신청 검토" : "반품 신청 검토", nextAction: "신청 상세에서 사유·사진·수거지를 확인하고 수거 진행 여부를 판단하세요." }) },
+    { key: 'cancellations', title: '취소 요청 · 출고 중지 확인', explanation: '배송준비 이후 취소 요청입니다. 공급사의 출고 중지 또는 회수 완료를 확인하기 전에는 환불하지 않습니다.',
+      steps: ['공급사에 출고 중지 요청', '미출고 또는 회수 완료 확인', '배송관리의 취소 요청에서 승인·환불 또는 반려'],
+      resolvedWhen: '출고 중지를 확인하고 취소 승인하거나 요청을 반려하면 목록에서 제외됩니다.', sortLabel: '마지막 변경이 오래된 순', origin: '마지막 변경',
+      sql: `SELECT o.id,o.order_number AS label,'공급사 출고 중지 또는 회수 확인 대기' AS detail,
+          EXTRACT(EPOCH FROM (NOW()-(to_jsonb(o)->>'updated_at')::timestamptz))/3600 AS age_hours,
+          to_char((to_jsonb(o)->>'updated_at')::timestamptz AT TIME ZONE 'Asia/Seoul','YYYY/MM/DD HH24:MI') AS event_at,COUNT(*) OVER() AS total
+          FROM orders o WHERE o.site=$1 AND o.status='cancel_requested' AND o.order_type IN ('shop','campaign')
+          ORDER BY (to_jsonb(o)->>'updated_at')::timestamptz ASC NULLS FIRST,o.id LIMIT 30`, params:[site],
+      item: (_row: Row) => ({href:'/admin/shipments#flow-cancel_requested',priority:'first' as const,actionLabel:'취소 요청 확인',nextAction:'공급사 출고 중지 또는 회수 완료를 확인한 뒤 취소 승인하세요.'}) },
   ];
   return Promise.all(specs.map(async spec => {
     const { rows } = await shopPool.query<Row>(spec.sql, spec.params);

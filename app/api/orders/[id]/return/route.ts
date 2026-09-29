@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
-import { RETURN_REASONS, SELLER_FAULT_REASONS } from "@/lib/returns";
+import { RETURN_REASONS, SELLER_FAULT_REASONS, returnRequestStatus } from "@/lib/returns";
+import { returnableItems } from '@/lib/return-quantities';
 import { isPhoneVerified } from "@/lib/phone-verify";
 
 // POST /api/orders/[id]/return — 교환·반품 신청 (배송중·배송완료 주문만)
@@ -67,7 +68,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!["shop", "campaign"].includes(order.order_type)) {
     return NextResponse.json({ error: "교환·반품 신청 대상 주문이 아니에요." }, { status: 400 });
   }
-  if (!["shipped", "delivered"].includes(order.status)) {
+  if (!returnRequestStatus(order.status)) {
     return NextResponse.json(
       { error: "배송 중이거나 배송 완료된 주문만 교환·반품 신청이 가능해요." },
       { status: 400 }
@@ -123,7 +124,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     await client.query("BEGIN");
     const locked = await client.query('SELECT status FROM orders WHERE id=$1 AND site=$2 FOR UPDATE',[id,site.key]);
-    if (!locked.rows[0] || !['shipped','delivered'].includes(locked.rows[0].status)) {
+    if (!locked.rows[0] || !returnRequestStatus(locked.rows[0].status)) {
       await client.query('ROLLBACK');
       return NextResponse.json({error:'주문 상태가 변경되었습니다. 다시 확인해주세요.'},{status:409});
     }
@@ -131,6 +132,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (busy.rows.length) {
       await client.query('ROLLBACK');
       return NextResponse.json({error:'이미 처리 중인 신청이 있습니다.'},{status:409});
+    }
+    const available = new Map((await returnableItems(client,id)).map(item=>[item.item_id,item.quantity]));
+    if (reqItems.some((item: {item_id:string;quantity:number}) => item.quantity > (available.get(item.item_id) ?? 0))) {
+      await client.query('ROLLBACK');
+      return NextResponse.json({error:'이미 반품한 수량을 제외한 남은 상품만 신청할 수 있어요.'},{status:400});
     }
     order.status=locked.rows[0].status;
     const r = await client.query(

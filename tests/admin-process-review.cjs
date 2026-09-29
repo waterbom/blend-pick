@@ -24,7 +24,7 @@ async function order(n=10,total=100000,status='paid',pid=1){await query("INSERT 
 const profit=async()=>await (await api('admin/profit').GET(req())).json();
 const inf=async()=>await (await api('admin/influencer-settlements').GET()).json();
 const confirm=n=>api('admin/influencer-payouts').POST(req('/x','POST',{campaign_id:id(n),influencer_id:id(999)}));
-const checkout=(n=1)=>({paymentKey:'approve-'+n,orderId:'provider-'+n,amount:100000,checkoutData:{productId:id(1),quantity:1,unitPrice:100000,totalAmount:100000,shippingCost:0}});
+const checkout=(n=1)=>({paymentKey:'approve-'+n,orderId:'provider-'+n,amount:100000,checkoutData:{...require('./support/checkout-contact.cjs'),productId:id(1),quantity:1,unitPrice:100000,totalAmount:100000,shippingCost:0}});
 function mockApprove(){let calls=0;global.fetch=async(url,opts)=>{calls++;const p=JSON.parse(opts.body);return Response.json({paymentKey:p.paymentKey,orderId:p.orderId,totalAmount:p.amount,status:'DONE',method:'계좌이체'});};return ()=>calls;}
 
 // These tests assert the desired process invariant. Failures reveal gaps in the reviewed commit.

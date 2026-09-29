@@ -9,6 +9,7 @@ import { isPhoneVerified } from '@/lib/phone-verify';
 import { siteFromRequest } from '@/lib/site-request';
 import { SITES, type SiteKey } from '@/lib/sites';
 import { processPaymentAttempt, purchaseResult, PurchaseError, type PurchaseSnapshot } from '@/lib/payment-attempt';
+import { checkoutContactError } from '@/lib/checkout-contact';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const money = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0 && n <= 2147483647;
@@ -35,6 +36,8 @@ export async function campaignCheckout(req: NextRequest) {
     }
     const legacy = await shopPool.query('SELECT id FROM orders WHERE payment_key=$1', [paymentKey]);
     if (legacy.rows.length) throw new PurchaseError('이미 처리된 결제입니다. 주문 내역에서 확인해주세요.');
+    const contactError = checkoutContactError(d);
+    if (contactError) throw new PurchaseError(contactError, 400);
     if (typeof d.productId !== 'string' || !uuid.test(d.productId) || !Number.isSafeInteger(d.quantity) || d.quantity < 1 || d.quantity > 2147483647 ||
         !money(d.unitPrice) || !money(d.shippingCost) || !money(d.totalAmount)) throw new PurchaseError('상품과 수량을 다시 확인해주세요.', 400);
     const found = await pool.query(`SELECT id,name,category,consumer_price,groupbuy_price,set_options,shipping_type,shipping_cost

@@ -38,6 +38,11 @@ const mocks={'@/lib/db-shop':pool};
   const g=(await get('blendpick'))[3];assert.equal(g.total,2);assert.equal(new Set(g.items.map(x=>x.id)).size,2);
   for(const x of g.items){assert.match(x.detail,/상품 불량/);const u=new URL(x.href,'https://preview.invalid');assert.equal(u.searchParams.get('requestId'),x.id);assert.equal(u.searchParams.get('tab'),x.id===id(30)?'return_requested':'exchange_requested')}
  });
+ await test('supplier-stop cancellation requests are visible and scoped to their own site',async()=>{
+  for(const [n,site,type] of [[50,'blendpick','shop'],[51,'sanjipick','shop'],[52,'blendpick','hotel']])
+   await db.query("INSERT INTO orders(id,site,order_number,status,order_type) VALUES($1,$2,$3,'cancel_requested',$4)",[id(n),site,'CANCEL-'+n,type]);
+  const group=(await get('blendpick')).find(g=>g.key==='cancellations');assert.equal(group.total,1);assert.equal(group.items[0].id,id(50));assert.equal(group.items[0].priority,'first');assert.equal(group.items[0].href,'/admin/shipments#flow-cancel_requested');
+ });
  await test('counts remain total when display is capped; deterministic oldest-first order',async()=>{
   for(let n=100;n<132;n++)await db.query(`INSERT INTO orders(id,site,order_number,status,paid_at) VALUES($1,'blendpick',$2,'paid','2020-01-01')`,[id(n),'OLD-'+n]);
   const g=(await get('blendpick'))[0];assert.equal(g.total,35);assert.equal(g.items.length,30);assert.equal(g.items[0].id,id(100));

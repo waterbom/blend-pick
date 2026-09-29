@@ -3,7 +3,7 @@ import type { SiteKey } from "@/lib/sites";
 import type { VerifiedItem } from "@/lib/order-amount";
 import { normalizePaymentMethod } from "@/lib/payment-fees.cjs";
 export interface PurchaseSnapshot {
-    orderType?: 'shop' | 'campaign';
+    orderType?: 'shop' | 'campaign' | 'extra';
     campaignId?: string | null;
     orderNumber: string;
     userId: string | null;
@@ -57,7 +57,8 @@ export async function purchaseResult(a: PaymentAttempt, method?: string) {
         method = stored === 'transfer' ? '계좌이체' : stored === 'card' ? '카드' : stored;
     }
     return { ok: true, orderNumber: a.snapshot.orderNumber, productName: a.snapshot.items[0]?.name, itemCount: a.snapshot.items.length, totalAmount: Number(a.amount), paymentMethod: method,
-        pixelItems: a.snapshot.items.map(i => ({ id: i.productId || i.productRef, quantity: i.quantity, price: Number(i.unitPrice) })),
+        ...(a.snapshot.orderType === 'extra' ? { amount: Number(a.amount), label: a.snapshot.items[0]?.name } : {}),
+        pixelItems: a.snapshot.items.map(i => ({ id: i.productId || i.productRef || 'extra-payment', quantity: i.quantity, price: Number(i.unitPrice) })),
     }; }
 async function releaseReservation(a: PaymentAttempt) {
     const c = await shopPool.connect();

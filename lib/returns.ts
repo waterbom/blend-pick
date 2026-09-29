@@ -35,3 +35,7 @@ export interface ReturnItem {
   unit_price: number;
   quantity: number;
 }
+
+export function returnRequestStatus(status: string) {
+  return ['shipped','delivered','exchange_completed','return_completed'].includes(status);
+}

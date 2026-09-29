@@ -1,6 +1,7 @@
 import {accountFilters,type AccountQuery} from "@/lib/account-filters";
 import shopPool from "@/lib/db-shop";
 import type { SiteKey } from "@/lib/sites";
+import { returnableItems } from '@/lib/return-quantities';
 
 export async function getOrders(userId: string, site: SiteKey, query?:AccountQuery) {
   try {
@@ -44,10 +45,12 @@ export async function getOrders(userId: string, site: SiteKey, query?:AccountQue
       LIMIT ${query?21:20} OFFSET ${(q.page-1)*20}`,
       params
     );
+    for (const order of result.rows) {
+      if (order.status === 'return_completed') order.has_returnable_items = (await returnableItems(shopPool,order.id)).length > 0;
+    }
     return result.rows;
   } catch (error) {
     console.error("[mypage] 주문 조회 실패", error);
     return null;
   }
 }
-

@@ -35,6 +35,7 @@ export default function TrackingForm({
   const alreadyShipped = ["shipped", "delivered"].includes(currentStatus);
   const canRepairTracking = currentStatus === "shipped" && (!trackingCompany?.trim() || !trackingNumber?.trim());
   const canCancel = currentStatus === "paid";
+  const canRegisterTracking = currentStatus === "preparing" || canRepairTracking;
 
   async function handleSaveTracking() {
     const checked = validateTracking(company, number);
@@ -86,6 +87,7 @@ export default function TrackingForm({
   return (
     <div id="tracking" className="bg-white rounded-none border border-gray-100 p-5 scroll-mt-6">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">배송 처리</h2>
+      {["paid", "confirmed"].includes(currentStatus) && <p className="text-xs text-amber-700 mb-4">판매 관리에서 발주를 확정한 뒤 송장을 등록해주세요.</p>}
       {canRepairTracking && <p className="text-xs text-amber-700 mb-4">누락된 송장 정보를 보완해주세요. 배송중 상태와 기존 출고 시각은 유지됩니다.</p>}
 
       {/* 운송장 입력 */}
@@ -95,7 +97,7 @@ export default function TrackingForm({
           <select
             value={company}
             onChange={(e) => setCompany(e.target.value)}
-            disabled={alreadyShipped && !canRepairTracking}
+            disabled={!canRegisterTracking}
             className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-[#C7D6C0] disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="">택배사 선택</option>
@@ -110,13 +112,13 @@ export default function TrackingForm({
             type="text"
             value={number}
             onChange={(e) => setNumber(e.target.value)}
-            disabled={alreadyShipped && !canRepairTracking}
+            disabled={!canRegisterTracking}
             placeholder="운송장번호 입력"
             className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-[#C7D6C0] disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
 
-        {(!alreadyShipped || canRepairTracking) && (
+        {canRegisterTracking && (
           <button
             onClick={handleSaveTracking}
             disabled={!company || !number.trim() || loading}

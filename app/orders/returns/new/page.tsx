@@ -5,6 +5,8 @@ import shopPool from "@/lib/db-shop";
 import { verifiedPhoneOf, normPhone } from "@/lib/phone-verify";
 import Header from "@/components/Header";
 import ReturnRequestForm from "@/components/ReturnRequestForm";
+import { returnableItems } from '@/lib/return-quantities';
+import { returnRequestStatus } from '@/lib/returns';
 
 // 비회원 교환·반품 신청 폼 — 주문 조회(휴대폰 인증) 후 진입.
 // phone_verified 쿠키(30분)의 번호와 주문의 결제 휴대폰이 일치해야 열린다.
@@ -38,7 +40,7 @@ export default async function GuestReturnNewPage({
   );
   const order = rows[0];
   if (!order || normPhone(order.buyer_phone || "") !== phone) redirect("/orders/lookup");
-  if (!["shipped", "delivered"].includes(order.status)) redirect("/orders/lookup");
+  if (!returnRequestStatus(order.status)) redirect("/orders/lookup");
 
   // 진행 중 신청이 있으면 폼 대신 조회 화면으로 (중복 차단)
   const dup = await shopPool.query(
@@ -46,6 +48,8 @@ export default async function GuestReturnNewPage({
     [orderId]
   );
   if (dup.rows[0]) redirect("/orders/lookup");
+  const available = await returnableItems(shopPool,order.id);
+  if (!available.length) redirect('/orders/lookup');
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -58,7 +62,7 @@ export default async function GuestReturnNewPage({
         <p className="ds-mono text-xs mb-8" style={{ color: "#8B927F" }}>{order.order_number}</p>
         <ReturnRequestForm
           orderId={order.id}
-          items={order.items}
+          items={available}
           defaultAddress={order.addr_address || ""}
           defaultAddressDetail={order.addr_detail || ""}
           doneHref="/orders/lookup"

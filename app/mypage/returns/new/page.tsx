@@ -6,6 +6,8 @@ import { verifyToken } from "@/lib/auth";
 import shopPool from "@/lib/db-shop";
 import Header from "@/components/Header";
 import ReturnRequestForm from "@/components/ReturnRequestForm";
+import { returnableItems } from '@/lib/return-quantities';
+import { returnRequestStatus } from '@/lib/returns';
 
 // 교환·반품 신청 폼 — 마이페이지에서 배송중·배송완료 주문만 진입
 export default async function ReturnNewPage({
@@ -41,7 +43,7 @@ export default async function ReturnNewPage({
     [orderId, payload.id, site.key]
   );
   const order = rows[0];
-  if (!order || !["shipped", "delivered"].includes(order.status)) redirect(mypageHref);
+  if (!order || !returnRequestStatus(order.status)) redirect(mypageHref);
 
   // 진행 중 신청이 있으면 폼 대신 마이페이지로 (중복 차단)
   const dup = await shopPool.query(
@@ -49,6 +51,8 @@ export default async function ReturnNewPage({
     [orderId]
   );
   if (dup.rows[0]) redirect(mypageHref);
+  const available = await returnableItems(shopPool,order.id);
+  if (!available.length) redirect(mypageHref);
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -62,7 +66,7 @@ export default async function ReturnNewPage({
         <ReturnRequestForm
           doneHref={mypageHref}
           orderId={order.id}
-          items={order.items}
+          items={available}
           defaultAddress={order.addr_address || ""}
           defaultAddressDetail={order.addr_detail || ""}
         />
