@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -64,10 +65,10 @@ export default function MembersClient() {
       if (status) p.set("status", status);
       if (pendingOnly) p.set("pending", "1");
       const res = await fetch(`/api/admin/members?${p}`);
-      const d = await res.json();
+      const d = await readApiJson(res, "회원 목록을 불러오지 못했습니다.");
       setMembers(Array.isArray(d.members) ? d.members : []);
       if (d.summary) setSummary(d.summary);
-    } finally {
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setLoading(false);
     }
   }, [q, role, status, pendingOnly]);
@@ -81,8 +82,8 @@ export default function MembersClient() {
     setDetailLoading(true);
     try {
       const res = await fetch(`/api/admin/members/${id}`);
-      setDetail(await res.json());
-    } finally {
+      setDetail(await readApiJson(res, "회원 정보를 불러오지 못했습니다."));
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setDetailLoading(false);
     }
   }
@@ -96,12 +97,10 @@ export default function MembersClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: m.id, action, ...extra }),
       });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok || d.error) { alert(d.error || "처리에 실패했어요."); return; }
+      const d = await readApiJson(res);
+      if (!res.ok || d.error) { alert(apiErrorMessage(d, "처리에 실패했어요.")); return; }
       await load();
-    } catch {
-      alert("네트워크 문제로 요청이 전달되지 않았어요.");
-    } finally {
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setActingId(null);
     }
   }

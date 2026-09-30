@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useMemo, useState } from "react";
 import { BOOKABLE_FROM, BOOKABLE_TO, refundRateFor, PACKAGES, ROOM_META, type PkgKey, type RoomType } from "@/lib/hotel";
@@ -143,12 +144,14 @@ export default function ReservationsClient() {
 
   useEffect(() => {
     fetch("/api/admin/reservations")
-      .then((r) => r.json())
-      .then((d) => { setRows(Array.isArray(d) ? d : []); setLoading(false); });
+      .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
+      .then((d) => setRows(Array.isArray(d) ? d : []))
+      .catch(error => alert(apiErrorMessage(error)))
+      .finally(() => setLoading(false));
     fetch("/api/admin/reservations/notify")
-      .then((r) => r.json())
+      .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((d) => setPending(typeof d.pending === "number" ? d.pending : null))
-      .catch(() => {});
+      .catch(error => alert(apiErrorMessage(error)));
   }, []);
 
   async function sendAlimtalk() {
@@ -156,16 +159,16 @@ export default function ReservationsClient() {
     setSending(true);
     try {
       const res = await fetch("/api/admin/reservations/notify", { method: "POST" });
-      const d = await res.json().catch(() => ({}));
+      const d = await readApiJson(res);
       if (!res.ok || d.ok === false) {
-        alert(d.error || "발송에 실패했습니다.");
+        alert(apiErrorMessage(d, "발송에 실패했습니다."));
       } else {
         setPending(0);
         let msg = `발송 완료 — 성공 ${d.sent}건 / 실패 ${d.failed}건 (대상 ${d.total}건)`;
         if (d.errors?.length) msg += `\n\n실패 예시:\n${d.errors.join("\n")}`;
         alert(msg);
       }
-    } finally {
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setSending(false);
     }
   }
@@ -181,7 +184,7 @@ export default function ReservationsClient() {
   const [dateResult, setDateResult] = useState<{ diff: number; refunded: number; needRepay: boolean; payLink: string | null } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   // 날짜 고르는 동안 대상 기간 잔여 객실 자동 확인 (본인 예약 반납분 포함해서 계산)
-  const [avail, setAvail] = useState<{ checking: boolean; available?: boolean; minRemaining?: number; soldOutDates?: string[] } | null>(null);
+  const [avail, setAvail] = useState<{ checking: boolean; error?: string; available?: boolean; minRemaining?: number; soldOutDates?: string[] } | null>(null);
 
   useEffect(() => {
     if (!dateEdit || !newIn || !newOut || newOut <= newIn) { setAvail(null); return; }
@@ -192,10 +195,10 @@ export default function ReservationsClient() {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, pkg: newPkg, room: newRoom, preview: true }),
         });
-        const d = await res.json().catch(() => ({}));
+        const d = await readApiJson(res);
         if (res.ok && d.ok) setAvail({ checking: false, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates });
-        else setAvail(null);
-      } catch { setAvail(null); }
+        else setAvail({ checking: false, error: apiErrorMessage(d, "객실 재고를 확인하지 못했습니다.") });
+      } catch (error) { setAvail({ checking: false, error: apiErrorMessage(error) }); }
     }, 400);
     return () => clearTimeout(t);
   }, [dateEdit, newIn, newOut, newPkg, newRoom]);
@@ -234,11 +237,11 @@ export default function ReservationsClient() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, pkg: newPkg, room: newRoom, preview: true }),
       });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.ok) { alert(d.error || "요금 계산에 실패했습니다."); return; }
+      const d = await readApiJson(res);
+      if (!res.ok || !d.ok) { alert(apiErrorMessage(d, "요금 계산에 실패했습니다.")); return; }
       setLinkCopied(false);
       setDatePreview({ diff: d.diff, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, pkgLabel: d.pkgLabel, room: d.room, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [], payLink: d.payLink ?? null });
-    } finally {
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setChanging(false);
     }
   }
@@ -252,15 +255,15 @@ export default function ReservationsClient() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, pkg: newPkg, room: newRoom }),
       });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.ok) { alert(d.error || "예약 변경에 실패했습니다."); return; }
+      const d = await readApiJson(res);
+      if (!res.ok || !d.ok) { alert(apiErrorMessage(d, "예약 변경에 실패했습니다.")); return; }
       // 미리보기 상태를 지워야 완료 화면으로 전환됨 (화면 분기가 미리보기 우선이라 안 지우면 그대로 떠있음)
       setDatePreview(null);
       setLinkCopied(false);
       setDateResult({ diff: d.diff, refunded: d.refunded, needRepay: d.needRepay, payLink: d.payLink ?? null });
-      const rr = await fetch("/api/admin/reservations").then((r) => r.json());
+      const rr = await fetch("/api/admin/reservations").then((r) => readApiJson(r, "정보를 불러오지 못했습니다."));
       setRows(Array.isArray(rr) ? rr : []);
-    } finally {
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setChanging(false);
     }
   }
@@ -372,36 +375,38 @@ export default function ReservationsClient() {
     }
     const prev = rows;
     setRows((p) => p.map((r) => (r.id === id ? { ...r, status } : r)));
-    const res = await fetch("/api/admin/reservations", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status, fullRefund }),
-    });
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      alert(d.error || "처리에 실패했습니다.");
-      setRows(prev); // 롤백
-    } else if (status === "cancelled") {
-      const d = await res.json().catch(() => ({}));
-      const refundMsg = d.refundAmount != null
-        ? `${Number(d.refundAmount).toLocaleString()}원 환불 (${d.refundNote ?? "규정 적용"})`
-        : "환불 처리";
-      alert(`취소 완료 — ${refundMsg}${d.smsSent ? " + 취소 문자 발송" : " (취소 문자는 발송되지 않았어요)"}`);
-    } else if (status === "paid" && prev.find((r) => r.id === id)?.status === "awaiting") {
-      const d = await res.json().catch(() => ({}));
-      alert(`승인 완료 — 예약확정${d.smsSent ? " + 확정 문자 발송" : " (문자는 발송되지 않았어요 — 문자 설정 확인)"}`);
+    try {
+      const res = await fetch("/api/admin/reservations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status, fullRefund }),
+      });
+      const d = await readApiJson(res, "처리에 실패했습니다.");
+      if (status === "cancelled") {
+        const refundMsg = d.refundAmount != null
+          ? `${Number(d.refundAmount).toLocaleString()}원 환불 (${d.refundNote ?? "규정 적용"})`
+          : "환불 처리";
+        alert(`취소 완료 — ${refundMsg}${d.smsSent ? " + 취소 문자 발송" : " (취소 문자는 발송되지 않았어요)"}`);
+      } else if (status === "paid" && prev.find((r) => r.id === id)?.status === "awaiting") {
+        alert(`승인 완료 — 예약확정${d.smsSent ? " + 확정 문자 발송" : " (문자는 발송되지 않았어요 — 문자 설정 확인)"}`);
+      }
+    } catch (error) {
+      setRows(prev);
+      alert(apiErrorMessage(error));
     }
   }
 
   // 호텔 전달/확인 도장 — 도장 후 목록 새로고침
   async function markDelivery(id: string, action: "sent" | "confirmed") {
-    const res = await fetch("/api/admin/reservations/delivery", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: [id], action }),
-    });
-    if (!res.ok) { alert("처리에 실패했어요."); return; }
-    const rr = await fetch("/api/admin/reservations").then((r) => r.json());
-    setRows(Array.isArray(rr) ? rr : []);
+    try {
+      const res = await fetch("/api/admin/reservations/delivery", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [id], action }),
+      });
+      await readApiJson(res, "처리에 실패했어요.");
+      const rr = await fetch("/api/admin/reservations").then((r) => readApiJson(r, "정보를 불러오지 못했습니다."));
+      setRows(Array.isArray(rr) ? rr : []);
+    } catch (error) { alert(apiErrorMessage(error)); }
   }
 
   // 전달 배지 + 도장 버튼 — 데스크톱 행/모바일 카드 공용
@@ -873,6 +878,8 @@ export default function ReservationsClient() {
                 {avail && (
                   avail.checking ? (
                     <p className="text-xs text-gray-400">잔여 객실 확인 중…</p>
+                  ) : avail.error ? (
+                    <p role="alert" className="text-sm text-red-600">{avail.error}</p>
                   ) : avail.available ? (
                     <div className="rounded-none bg-green-50 px-3 py-2 text-xs text-green-700">
                       ✅ 변경 가능 — 해당 기간 잔여 <b>최소 {avail.minRemaining}실</b>

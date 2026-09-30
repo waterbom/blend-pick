@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useState } from "react";
 import CopyLinkButton from "@/components/CopyLinkButton";
@@ -39,56 +40,66 @@ export default function CampaignsClient() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/campaigns");
-    if (res.ok) setRows(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/campaigns");
+      const data = await readApiJson(res, "공구 목록을 불러오지 못했습니다.");
+      setRows(data);
+    } catch (error) { alert(apiErrorMessage(error)); }
+    finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
   async function openDetail(id: string) {
     if (openId === id) { setOpenId(null); return; }
-    const res = await fetch(`/api/admin/campaigns/${id}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    setRate(data.commission_rate != null ? String(Number(data.commission_rate)) : "");
-    setSupply(data.supply_price != null ? String(data.supply_price) : "");
-    setCosts(data.costs ?? []);
-    setOpenId(id);
+    try {
+      const res = await fetch(`/api/admin/campaigns/${id}`);
+      const data = await readApiJson(res, "공구 정보를 불러오지 못했습니다.");
+      setRate(data.commission_rate != null ? String(Number(data.commission_rate)) : "");
+      setSupply(data.supply_price != null ? String(data.supply_price) : "");
+      setCosts(data.costs ?? []);
+      setOpenId(id);
+    } catch (error) { alert(apiErrorMessage(error)); }
   }
 
   async function saveSettings(id: string) {
     setSaving(true);
-    const res = await fetch(`/api/admin/campaigns/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        commission_rate: rate === "" ? null : Number(rate),
-        supply_price: supply === "" ? null : Number(supply),
-      }),
-    });
-    setSaving(false);
-    if (res.ok) { await load(); alert("저장되었습니다. (이후 결제되는 주문부터 적용)"); }
-    else alert("저장 실패");
+    try {
+      const res = await fetch(`/api/admin/campaigns/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commission_rate: rate === "" ? null : Number(rate),
+          supply_price: supply === "" ? null : Number(supply),
+        }),
+      });
+      await readApiJson(res, "저장에 실패했습니다.");
+      await load();
+      alert("저장되었습니다. (이후 결제되는 주문부터 적용)");
+    } catch (error) { alert(apiErrorMessage(error)); }
+    finally { setSaving(false); }
   }
 
   async function addCost(id: string) {
     if (!newCost.amount) { alert("금액을 입력해주세요."); return; }
-    const res = await fetch(`/api/admin/campaigns/${id}/costs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: newCost.category, amount: Number(newCost.amount), memo: newCost.memo }),
-    });
-    if (res.ok) {
-      const { id: costId } = await res.json();
+    try {
+      const res = await fetch(`/api/admin/campaigns/${id}/costs`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: newCost.category, amount: Number(newCost.amount), memo: newCost.memo }),
+      });
+      const { id: costId } = await readApiJson(res, "비용 추가에 실패했습니다.");
       setCosts((c) => [...c, { id: costId, category: newCost.category, amount: Math.round(Number(newCost.amount)), memo: newCost.memo || null }]);
       setNewCost({ category: "ad", amount: "", memo: "" });
       load();
-    } else alert("추가 실패");
+    } catch (error) { alert(apiErrorMessage(error)); }
   }
 
   async function removeCost(id: string, costId: string) {
-    const res = await fetch(`/api/admin/campaigns/${id}/costs/${costId}`, { method: "DELETE" });
-    if (res.ok) { setCosts((c) => c.filter((x) => x.id !== costId)); load(); }
+    try {
+      const res = await fetch(`/api/admin/campaigns/${id}/costs/${costId}`, { method: "DELETE" });
+      await readApiJson(res, "비용 삭제에 실패했습니다.");
+      setCosts((c) => c.filter((x) => x.id !== costId));
+      load();
+    } catch (error) { alert(apiErrorMessage(error)); }
   }
 
   const inp = "border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-[#C7D6C0]";

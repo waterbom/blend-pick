@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -43,13 +44,13 @@ export default function ShippingFlowClient({initialTab, initialRequestId}: {init
     const task = (async () => {
       try {
         const response = await fetch('/api/admin/orders', {cache: 'no-store'});
-        const rows = await response.json();
-        if (!response.ok || !Array.isArray(rows)) throw Error('배송 현황을 불러오지 못했습니다. 다시 조회해주세요.');
+        const rows = await readApiJson(response);
+        if (!response.ok || !Array.isArray(rows)) throw Error(apiErrorMessage(rows, '배송 현황을 불러오지 못했습니다. 다시 조회해주세요.'));
         if (!mounted.current) return;
         setOrders(rows.filter((o: Order) => (o.site || 'blendpick') === site));
         setUpdated(new Date().toLocaleTimeString('ko-KR', {timeZone:'Asia/Seoul'}));
         setError(''); setLoaded(true);
-      } catch(e) { if(mounted.current) setError(e instanceof Error ? e.message : '배송 현황 조회 실패'); }
+      } catch(e) { if(mounted.current) setError(apiErrorMessage(e, '배송 현황 조회 실패')); }
     })().finally(() => { active.current = null; });
     active.current = task;
     return task;

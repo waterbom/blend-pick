@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useState } from "react";
 import type { Worksheet, Cell } from "exceljs";
@@ -93,8 +94,8 @@ export default function HotelRosterClient() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ order_numbers: nums }),
       });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.ok) { setError(d.error || "조회에 실패했어요."); return; }
+      const d = await readApiJson(res);
+      if (!res.ok || !d.ok) { setError(apiErrorMessage(d, "조회에 실패했어요.")); return; }
 
       let cancelled = 0, changed = 0;
       for (const r of dataRowNums) {
@@ -183,7 +184,7 @@ export default function HotelRosterClient() {
       setResult({ total: nums.length, cancelled, changed });
     } catch (e) {
       console.error(e);
-      setError("파일 처리 중 오류가 발생했어요.");
+      setError(apiErrorMessage(e, "파일 처리 중 오류가 발생했어요."));
     } finally {
       setBusy(false);
     }

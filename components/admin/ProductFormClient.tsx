@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { productSeo } from "@/lib/product-seo";
 import { useState, useEffect, useRef, createContext, useContext } from "react";
@@ -100,7 +101,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
   });
 
   useEffect(() => {
-    fetch("/api/admin/categories").then(async r => {if(!r.ok)throw new Error();return r.json();}).then(d=>{if(Array.isArray(d))setCategories(d);}).catch(() => setError("상품 분류를 불러오지 못했습니다. 새로고침해주세요."));
+    fetch("/api/admin/categories").then(r => readApiJson(r, "상품 분류를 불러오지 못했습니다.")).then(d=>{if(Array.isArray(d))setCategories(d);}).catch(error => setError(apiErrorMessage(error)));
   }, []);
 
   useEffect(()=>{
@@ -112,11 +113,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
   useEffect(() => {
     if (mode !== "new") return;
     fetch("/api/admin/influencers")
-      .then(r => r.json())
+      .then(r => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((rows: { id: string; name: string }[]) => {
         if (Array.isArray(rows)) setInfList(rows.map(r => ({ id: r.id, name: r.name })));
       })
-      .catch(() => {});
+      .catch(error => setError(apiErrorMessage(error)));
   }, [mode]);
 
   const infNameOf = (id: string) => infList.find(i => i.id === id)?.name ?? "";
@@ -227,8 +228,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
     if (mode !== "edit" || !productId) return;
     setLoading(true);
     fetch(`/api/admin/products/${productId}`)
-      .then(r => r.json())
+      .then(r => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((data) => fillFromData(data))
+      .catch(error => setError(apiErrorMessage(error)))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, productId]);
@@ -245,12 +247,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
     if (!code) return;
     setCopyBusy(true);
     try {
-      const list = await fetch("/api/admin/products").then(r => r.json());
+      const list = await fetch("/api/admin/products").then(r => readApiJson(r, "정보를 불러오지 못했습니다."));
       const hit = Array.isArray(list)
         ? list.find((p: { product_code?: string | null }) => String(p.product_code || "").toUpperCase() === code)
         : null;
       if (!hit) { alert(`상품코드 ${code} 를 찾을 수 없어요.`); return; }
-      const data = await fetch(`/api/admin/products/${hit.id}`).then(r => r.json());
+      const data = await fetch(`/api/admin/products/${hit.id}`).then(r => readApiJson(r, "정보를 불러오지 못했습니다."));
       fillFromData(data, { stripTagPrefix: true });
       const isGroupbuy = (data.sale_type ?? "always") === "groupbuy";
       setCopyLocked(isGroupbuy);
@@ -259,7 +261,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
         `"${data.name}" 정보를 불러왔어요.` +
         (isGroupbuy ? " 공구 상품이라 인플루언서 태그와 공구기간만 수정할 수 있어요." : "")
       );
-    } finally {
+    } catch (error) { setError(apiErrorMessage(error)); } finally {
       setCopyBusy(false);
     }
   }
@@ -309,13 +311,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
       const fd = new FormData();
       fd.append("file", await shrinkImage(file));
       const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
-      const data = await res.json().catch(() => null);
+      const data = await readApiJson(res);
       if (res.ok && data?.url) setImage(i, data.url);
-      else setError(uploadErrorMessage(res.status, data));
-    } catch {
-      setError("사진 업로드 중 연결이 끊겼어요. 네트워크를 확인하고 다시 시도해주세요.");
-    }
-    setUploadingSlot(null);
+      else setError(apiErrorMessage(data, uploadErrorMessage(res.status, data)));
+    } catch (error) { setError(apiErrorMessage(error)); }
+    finally { setUploadingSlot(null); }
   }
 
   const optionDrag = useRef<number | null>(null);
@@ -473,79 +473,85 @@ export default function ProductFormClient({ mode, productId }: Props) {
     if(invalid){setStep(2);setError(invalid);setSaving(false);return;}
     if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setStep(3); setError("비전시 링크 시작·종료 일시를 확인해주세요."); setSaving(false); return; }
 
+    const created: string[] = [];
     try {
-    // 공동구매 + 인플루언서 태그 → 태그별로 상품 복제 등록 (제목 양식 + 개별 공구기간)
-    if (mode === "new" && form.sale_type === "groupbuy" && infTags.length > 0) {
-      for (const [i, t] of infTags.entries()) {
-        if (!t.influencerId) { setError(`${i + 1}번째 태그의 인플루언서를 선택해주세요.`); setSaving(false); return; }
-        if (!t.start || !t.end) { setError(`${infNameOf(t.influencerId)}의 공구기간(시작·종료)을 입력해주세요.`); setSaving(false); return; }
-        if (t.end <= t.start) { setError(`${infNameOf(t.influencerId)}의 공구 종료가 시작보다 빨라요.`); setSaving(false); return; }
-      }
-      const dupIds = new Set(infTags.map(t => t.influencerId));
-      if (dupIds.size !== infTags.length) { setError("같은 인플루언서가 중복 태그되어 있어요."); setSaving(false); return; }
-
-      const base = buildPayload();
-      const created: string[] = [];
-      for (const t of infTags) {
-        const res = await fetch("/api/admin/products", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...base,
-            name: taggedTitle(infNameOf(t.influencerId)),
-            sale_start_at: kstISO(t.start),
-            sale_end_at: kstISO(t.end),
-            influencer_id: t.influencerId, // 소속 인플루언서 — 본인 페이지에만 노출·본인 링크만 귀속
-          }),
-        });
-        if (!res.ok) {
-          const d = await res.json().catch(() => ({}));
-          setError(
-            res.status === 401
-              ? SESSION_EXPIRED_MSG
-              : `${infNameOf(t.influencerId)} 상품 등록 실패${created.length ? ` (${created.join(", ")}은 이미 등록됨)` : ""}: ${d.error || "오류"}`
-          );
-          setSaving(false);
-          return;
+      // 공동구매 + 인플루언서 태그 → 태그별로 상품 복제 등록 (제목 양식 + 개별 공구기간)
+      if (mode === "new" && form.sale_type === "groupbuy" && infTags.length > 0) {
+        for (const [i, t] of infTags.entries()) {
+          if (!t.influencerId) { setError(`${i + 1}번째 태그의 인플루언서를 선택해주세요.`); setSaving(false); return; }
+          if (!t.start || !t.end) { setError(`${infNameOf(t.influencerId)}의 공구기간(시작·종료)을 입력해주세요.`); setSaving(false); return; }
+          if (t.end <= t.start) { setError(`${infNameOf(t.influencerId)}의 공구 종료가 시작보다 빨라요.`); setSaving(false); return; }
         }
-        created.push(infNameOf(t.influencerId));
-      }
-      router.push("/admin/products");
-      router.refresh();
-      setSaving(false);
-      return;
-    }
+        const dupIds = new Set(infTags.map(t => t.influencerId));
+        if (dupIds.size !== infTags.length) { setError("같은 인플루언서가 중복 태그되어 있어요."); setSaving(false); return; }
 
-    const url = mode === "new" ? "/api/admin/products" : `/api/admin/products/${productId}`;
-    const method = mode === "new" ? "POST" : "PATCH";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildPayload()),
-    });
-    if (res.ok) {
-      // 비전시 링크를 켰는데 아직 코드가 없으면 저장과 함께 자동 발급 (등록 직후 / 수정에서 처음 켠 경우)
-      if (useLink && isSanjiCat && Date.parse(kstISO(form.link_end_at)!) > Date.now()) {
-        const saved = await res.json().catch(() => ({}));
-        const savedId = mode === "new" ? saved.id : productId;
-        if (savedId) {
-          const lr = await fetch(`/api/admin/products/${savedId}/secret-link`, {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({expected_updated_at:saved.updated_at}),
-          }).catch(() => null);
-          if (!lr || !lr.ok) alert("상품은 저장됐지만 비전시 링크 발급에 실패했어요. 수정 화면에서 「지금 발급」을 눌러주세요.");
+        const base = buildPayload();
+        for (const t of infTags) {
+          const res = await fetch("/api/admin/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...base,
+              name: taggedTitle(infNameOf(t.influencerId)),
+              sale_start_at: kstISO(t.start),
+              sale_end_at: kstISO(t.end),
+              influencer_id: t.influencerId, // 소속 인플루언서 — 본인 페이지에만 노출·본인 링크만 귀속
+            }),
+          });
+          const d = await readApiJson(res);
+          if (!res.ok || d.ok === false || d.error) {
+            setError(
+              res.status === 401
+                ? apiErrorMessage({ ...d, error: SESSION_EXPIRED_MSG })
+                : `${infNameOf(t.influencerId)} 상품 등록 실패${created.length ? ` (${created.join(", ")}은 이미 등록됨)` : ""}: ${apiErrorMessage(d, "오류")}`
+            );
+            setSaving(false);
+            return;
+          }
+          created.push(infNameOf(t.influencerId));
         }
+        router.push("/admin/products");
+        router.refresh();
+        setSaving(false);
+        return;
       }
-      router.push("/admin/products");
-      router.refresh();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setError(
-        res.status === 401
-          ? SESSION_EXPIRED_MSG
-          : d.error || (mode === "new" ? "등록 실패" : "수정 실패")
-      );
-    }
-    } catch { setError("저장 결과를 확인하지 못했습니다. 상품 목록을 확인한 뒤 다시 시도해주세요."); } finally { setSaving(false); }
+
+      const url = mode === "new" ? "/api/admin/products" : `/api/admin/products/${productId}`;
+      const method = mode === "new" ? "POST" : "PATCH";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      const d = await readApiJson(res);
+      if (res.ok && d.ok !== false && !d.error) {
+        // 비전시 링크를 켰는데 아직 코드가 없으면 저장과 함께 자동 발급 (등록 직후 / 수정에서 처음 켠 경우)
+        if (useLink && isSanjiCat && Date.parse(kstISO(form.link_end_at)!) > Date.now()) {
+          const saved = d;
+          const savedId = mode === "new" ? saved.id : productId;
+          if (savedId) {
+            try {
+              const lr = await fetch(`/api/admin/products/${savedId}/secret-link`, {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({expected_updated_at:saved.updated_at}),
+              });
+              await readApiJson(lr, "비전시 링크 발급에 실패했습니다.");
+            } catch (error) {
+              alert(`상품은 저장됐지만 비전시 링크 발급 결과를 확인하지 못했어요. 수정 화면에서 링크 상태를 확인해주세요. ${apiErrorMessage(error)}`);
+            }
+          }
+        }
+        router.push("/admin/products");
+        router.refresh();
+      } else {
+        setError(
+          res.status === 401
+            ? apiErrorMessage({ ...d, error: SESSION_EXPIRED_MSG })
+            : apiErrorMessage(d, mode === "new" ? "등록 실패" : "수정 실패")
+        );
+      }
+    } catch (error) {
+      setError(`${created.length ? `${created.join(", ")}은 이미 등록됨. ` : ""}${apiErrorMessage(error)} 상품 목록에서 처리 결과를 확인해주세요.`);
+    } finally { setSaving(false); }
   }
 
   // ── 비밀링크 발급/재발급/해제 ────────────────────────────────
@@ -557,23 +563,25 @@ export default function ProductFormClient({ mode, productId }: Props) {
     if (!productId) return;
     setLinkBusy(true);
     setError("");
-    const res = await fetch(`/api/admin/products/${productId}/secret-link`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({expected_updated_at:loadedVersion}),
-    });
-    const d = await res.json().catch(() => ({}));
-    if (res.ok) { setLinkCode(d.code); setLoadedVersion(d.updated_at); }
-    else setError(res.status === 401 ? SESSION_EXPIRED_MSG : d.error || "비밀링크 발급에 실패했어요.");
-    setLinkBusy(false);
+    try {
+      const res = await fetch(`/api/admin/products/${productId}/secret-link`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({expected_updated_at:loadedVersion}),
+      });
+      const d = await readApiJson(res);
+      if (res.ok) { setLinkCode(d.code); setLoadedVersion(d.updated_at); }
+      else setError(res.status === 401 ? apiErrorMessage({ ...d, error: SESSION_EXPIRED_MSG }) : apiErrorMessage(d, "비밀링크 발급에 실패했어요."));
+    } catch (error) { setError(apiErrorMessage(error)); } finally { setLinkBusy(false); }
   }
 
   async function revokeLink() {
     if (!productId || !confirm("해제하면 이 링크는 잘못된 요청으로 표시되고 같은 기간에는 재발급할 수 없습니다. 해제할까요?")) return;
     setLinkBusy(true);
-    const res = await fetch(`/api/admin/products/${productId}/secret-link`, { method: "DELETE", headers: {"Content-Type":"application/json"}, body: JSON.stringify({expected_updated_at:loadedVersion}) });
-    const d = await res.json().catch(() => ({}));
-    if (res.ok) { setLinkCode(null); setLoadedVersion(d.updated_at); }
-    else setError(res.status === 401 ? SESSION_EXPIRED_MSG : "해제에 실패했어요.");
-    setLinkBusy(false);
+    try {
+      const res = await fetch(`/api/admin/products/${productId}/secret-link`, { method: "DELETE", headers: {"Content-Type":"application/json"}, body: JSON.stringify({expected_updated_at:loadedVersion}) });
+      const d = await readApiJson(res);
+      if (res.ok) { setLinkCode(null); setLoadedVersion(d.updated_at); }
+      else setError(res.status === 401 ? apiErrorMessage({ ...d, error: SESSION_EXPIRED_MSG }) : apiErrorMessage(d, "해제에 실패했어요."));
+    } catch (error) { setError(apiErrorMessage(error)); } finally { setLinkBusy(false); }
   }
 
   async function copyLink() {
@@ -588,9 +596,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   async function handleDelete() {
     if (!confirm("판매를 중단하고 보관할까요? 주문·정산 이력은 유지됩니다.")) return;
-    await fetch(`/api/admin/products/${productId}`, { method: "DELETE" });
-    router.push("/admin/products");
-    router.refresh();
+    try {
+      const res = await fetch(`/api/admin/products/${productId}`, { method: "DELETE" });
+      await readApiJson(res, "상품 보관에 실패했습니다.");
+      router.push("/admin/products");
+      router.refresh();
+    } catch (error) { setError(apiErrorMessage(error)); }
   }
 
   const inp = "w-full border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]";

@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import ProfitCharts from "@/components/admin/charts/ProfitCharts";
 import { useEffect, useMemo, useState } from "react";
@@ -53,10 +54,9 @@ export default function ProfitClient() {
     if (site) p.set("site", site);
     try {
       const res = await fetch(`/api/admin/profit?${p.toString()}`);
-      if (!res.ok) throw new Error("수익 내역을 불러오지 못했습니다.");
-      setRows(await res.json());
-    } catch {
-      setError("수익 내역을 불러오지 못했습니다. 다시 조회해 주세요.");
+      setRows(await readApiJson(res, "수익 내역을 불러오지 못했습니다."));
+    } catch (error) {
+      setError(apiErrorMessage(error, "수익 내역을 불러오지 못했습니다. 다시 조회해 주세요."));
     } finally {
       setLoading(false);
     }
@@ -66,11 +66,10 @@ export default function ProfitClient() {
     async function initialLoad() {
       try {
         const res = await fetch("/api/admin/profit");
-        if (!res.ok) throw new Error("수익 조회 실패");
-        const data = await res.json();
+        const data = await readApiJson(res, "수익 내역을 불러오지 못했습니다.");
         if (active) setRows(data);
-      } catch {
-        if (active) setError("수익 내역을 불러오지 못했습니다. 다시 조회해 주세요.");
+      } catch (error) {
+        if (active) setError(apiErrorMessage(error, "수익 내역을 불러오지 못했습니다. 다시 조회해 주세요."));
       } finally {
         if (active) setLoading(false);
       }

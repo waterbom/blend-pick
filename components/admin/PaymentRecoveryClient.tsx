@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
+import { useEffect, useRef, useState } from "react";
 type Row = {
     provider_order_id: string;
     amount: number;
@@ -19,7 +19,7 @@ export default function PaymentRecoveryClient() {
         setRows(data); setLoaded(true);
     }
     catch (e) {
-        setError(e instanceof Error ? e.message : '결제 확인 목록을 불러오지 못했습니다.');
+        setError(apiErrorMessage(e, '결제 확인 목록을 불러오지 못했습니다.'));
     } }
     useEffect(() => { void load(); }, []);
     async function recover(id: string) { if (recovering.current) return; recovering.current = true; setBusy(true); setError(''); try {
@@ -30,7 +30,7 @@ export default function PaymentRecoveryClient() {
         await load();
     }
     catch (e) {
-        setError(e instanceof Error ? e.message : '확인 실패');
+        setError(apiErrorMessage(e, '확인 실패'));
     }
     finally {
         recovering.current = false;

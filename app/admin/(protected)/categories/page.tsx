@@ -1,11 +1,12 @@
 'use client';
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 import { useEffect,useState } from 'react';
 type Category={id:string;name:string;hidden:boolean;merged_into:string|null;product_count:number};
 export default function CategoriesPage(){
  const [rows,setRows]=useState<Category[]>([]),[name,setName]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[showHidden,setShowHidden]=useState(false),[targets,setTargets]=useState<Record<string,string>>({});
- async function load(){try{const r=await fetch('/api/admin/categories?all=1');if(!r.ok)throw Error('분류 조회 실패');setRows(await r.json());}catch{setError('분류를 불러오지 못했습니다. 다시 조회해주세요.');}}
+ async function load(){try{const r=await fetch('/api/admin/categories?all=1');setRows(await readApiJson(r,'분류를 불러오지 못했습니다.'));}catch(error){setError(apiErrorMessage(error));}}
  useEffect(()=>{void load();},[]);
- async function mutate(path:string,method:string,body:object){setBusy(true);setError('');try{const r=await fetch(path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();if(!r.ok)throw Error(d.error||'처리 실패');await load();return true;}catch(e){setError((e as Error).message);return false;}finally{setBusy(false);}}
+ async function mutate(path:string,method:string,body:object){setBusy(true);setError('');try{const r=await fetch(path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await readApiJson(r);if(!r.ok)throw Error(apiErrorMessage(d, '처리 실패'));await load();return true;}catch(e){setError(apiErrorMessage(e));return false;}finally{setBusy(false);}}
  return <div className="max-w-4xl space-y-5"><a href="/admin/products" className="text-sm underline">← 상품 관리</a><h1 className="text-xl font-bold">상품 분류 정리</h1><p className="text-sm text-stone-500">자주 쓰는 분류만 등록 화면에 표시합니다. 숨겨도 기존 상품은 유지됩니다. 통합은 같은 사이트 내에서만 적용하며 상품 소속과 주문 이력은 바뀌지 않습니다.</p>
  {error&&<p role="alert" className="bg-red-50 text-red-700 p-4">{error}</p>}
  <form className="flex gap-2" onSubmit={async e=>{e.preventDefault();if(await mutate('/api/admin/categories','POST',{name}))setName('');}}><input aria-label="새 분류명" required maxLength={100} value={name} onChange={e=>setName(e.target.value)} className="border rounded-lg p-2" placeholder="새 상품 분류"/><button disabled={busy} className="bg-emerald-900 text-white rounded-lg px-4">추가</button><button type="button" onClick={load} className="border rounded-lg px-3">새로고침</button></form>

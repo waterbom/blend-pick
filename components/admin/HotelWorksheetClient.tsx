@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -43,12 +44,12 @@ export default function HotelWorksheetClient() {
     try {
       const qs = since ? `?since=${encodeURIComponent(since)}` : "";
       const res = await fetch(`/api/admin/hotel-worksheet${qs}`);
-      const d = await res.json();
-      if (!res.ok || !d.ok) { setError(d.error || "계산에 실패했어요."); return; }
+      const d = await readApiJson(res);
+      if (!res.ok || !d.ok) { setError(apiErrorMessage(d, "계산에 실패했어요.")); return; }
       setData(d);
       if (!since) setSinceInput(d.baseline ? kst(d.baseline).replace(" ", "T") : "");
-    } catch {
-      setError("계산에 실패했어요.");
+    } catch (error) {
+      setError(apiErrorMessage(error, "계산에 실패했어요."));
     } finally {
       setBusy(false);
     }
@@ -168,11 +169,11 @@ export default function HotelWorksheetClient() {
           ],
         }),
       });
-      const resp = await res.json().catch(() => ({}));
+      const resp = await readApiJson(res);
       if (res.ok && resp.ok) { setIssued(resp.issueNo); setStamped(Number(resp.stamped) || 0); }
-      if (!res.ok || !resp.ok) setError("엑셀은 받았지만 발행 기록에 실패했어요 — 다시 시도해주세요.");
-    } catch {
-      setError("지시서 생성 중 오류가 발생했어요.");
+      if (!res.ok || !resp.ok) setError(`엑셀은 받았지만 발행 기록 결과를 확인해주세요. ${apiErrorMessage(resp)}`);
+    } catch (error) {
+      setError(apiErrorMessage(error, "지시서 생성 중 오류가 발생했어요."));
     } finally {
       setBusy(false);
     }

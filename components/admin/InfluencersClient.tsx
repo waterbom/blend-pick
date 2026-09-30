@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -25,9 +26,10 @@ export default function InfluencersClient() {
 
   async function load(query = "") {
     setLoading(true);
-    const res = await fetch(`/api/admin/influencers${query ? `?q=${encodeURIComponent(query)}` : ""}`);
-    if (res.ok) setRows(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/admin/influencers${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+      setRows(await readApiJson(res, "인플루언서 목록을 불러오지 못했습니다."));
+    } catch (error) { alert(apiErrorMessage(error)); } finally { setLoading(false); }
   }
 
   useEffect(() => { load(); }, []);
