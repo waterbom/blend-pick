@@ -1,6 +1,7 @@
 import pool from "@/lib/db";
 import Header from "@/components/Header";
 import PartnersHeader from "@/components/PartnersHeader";
+import { deferDbFreeBuild } from "@/lib/ci-db-free-build";
 
 interface Brand {
   id: string;
@@ -37,6 +38,7 @@ async function getTotalBrandCount(): Promise<number> {
 }
 
 export default async function BlendPickedPage() {
+  await deferDbFreeBuild('/blend-picked');
   const [brands, totalCount] = await Promise.all([getBrands(), getTotalBrandCount()]);
   const moreCount = Math.max(0, totalCount - 8);
 
