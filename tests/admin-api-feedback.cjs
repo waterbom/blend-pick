@@ -26,6 +26,7 @@ const fixtures = {
 function mount(t, component, props = {}) {
   const state = [], effects = [], messages = [], routes = [], requests = [];
   let cursor = 0, result = () => Response.json({ ok: true });
+  let readResult = url => Response.json(fixtures[String(url).split('?')[0]] ?? []);
   const react = { ...React,
     useState(initial) { const i = cursor++; if (!(i in state)) state[i] = typeof initial === 'function' ? initial() : initial; return [state[i], v => { state[i] = typeof v === 'function' ? v(state[i]) : v; }]; },
     useRef(initial) { const i = cursor++; return state[i] ??= { current: initial }; },
@@ -42,7 +43,7 @@ function mount(t, component, props = {}) {
   global.fetch = async (url, options = {}) => {
     requests.push({ url, ...options });
     if (options.method && options.method !== 'GET') return result(url, options);
-    return Response.json(fixtures[String(url).split('?')[0]] ?? []);
+    return readResult(url, options);
   };
   t.mock.method(global, 'setTimeout', () => 1);
   const View = load(component, {
@@ -58,10 +59,50 @@ function mount(t, component, props = {}) {
   return { render, find, button, click, messages, routes, requests,
     async init() { render(); for (const effect of [...effects]) effect(); await flush(); requests.length = 0; messages.length = 0; },
     respond(fn) { result = fn; },
+    respondGet(fn) { readResult = fn; },
     async submit() { await find(n => n.type === 'form' && n.props.onSubmit).props.onSubmit(event); await flush(); },
     feedback() { return [...messages, text(render())].join('\n'); },
   };
 }
+for (const mode of ['server', 'html', 'network']) {
+  test(`influencer settlement ${mode} read failure stays visible until a successful retry`, async t => {
+    const f = mount(t, 'components/admin/InfluencerSettlementsClient.tsx');
+    f.respondGet(() => {
+      if (mode === 'network') throw new TypeError('Failed to fetch');
+      if (mode === 'html') return new Response('<html>private upstream diagnostic</html>', { status: 502, headers: { 'X-Request-ID': requestId } });
+      return Response.json({ ...failure, code: 'DB_UNAVAILABLE' }, { status: 503 });
+    });
+    await f.init();
+    const visible = text(f.render());
+    assert.match(visible, new RegExp(mode === 'network' ? 'NETWORK_ERROR' : mode === 'html' ? 'RESPONSE_INVALID' : 'DB_UNAVAILABLE'));
+    if (mode !== 'network') assert.ok(visible.includes(requestId));
+    assert.doesNotMatch(visible, /정산할 공구 매출이 없어요|private upstream diagnostic|Failed to fetch/);
+    f.respondGet(() => Response.json([]));
+    await f.click('다시 조회');
+    assert.match(text(f.render()), /정산할 공구 매출이 없어요/);
+    assert.doesNotMatch(text(f.render()), /DB_UNAVAILABLE|RESPONSE_INVALID|NETWORK_ERROR/);
+    assert.equal(f.requests.length, 1);
+    assert.ok(f.requests.every(r => !r.method || r.method === 'GET'));
+  });
+}
+test('settlement write success followed by a failed refresh hides stale actions and retries only the read', async t => {
+  const f = mount(t, 'components/admin/InfluencerSettlementsClient.tsx');
+  const row = { campaign_id: 'campaign', influencer_id: 'influencer', product_name: '상품', influencer_name: '파트너',
+    orders: 1, qty: 1, gross: 100000, commission: 10000, rate: 10, business_type: 'general',
+    review_reasons: [], docs_ok: true, payout: null, breakdown: { commission: 10000, supplyValue: 9091, vat: 909, withholding: 0, payout: 10000 } };
+  f.respondGet(() => Response.json([row]));
+  await f.init();
+  f.respondGet(() => Response.json({ ...failure, code: 'DB_UNAVAILABLE' }, { status: 503 }));
+  await f.click('정산 확정');
+  assert.match(text(f.render()), /DB_UNAVAILABLE/);
+  assert.doesNotMatch(text(f.render()), /정산할 공구 매출이 없어요/);
+  assert.ok(!nodes(f.render()).some(n => n.type === 'button' && 'disabled' in n.props && /정산 확정|재확정|지급완료/.test(text(n))));
+  assert.equal(f.requests.filter(r => r.method === 'POST').length, 1);
+  f.respondGet(() => Response.json([{ ...row, payout: { id: 'payout', status: 'pending', commission: 10000, payout_amount: 10000, supply_value: 9091, vat: 909, withholding: 0 } }]));
+  await f.click('다시 조회');
+  assert.equal(f.find(n => n.type === 'button' && 'disabled' in n.props && text(n) === '지급완료').props.disabled, false);
+  assert.equal(f.requests.filter(r => r.method === 'POST').length, 1);
+});
 const scenarios = [
   { name: 'campaign save', component: 'CampaignsClient',
     async prepare(f) { await f.find(n => n.props?.onClick && text(n).includes('테스트 공구')).props.onClick(); },

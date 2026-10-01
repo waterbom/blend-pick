@@ -42,13 +42,18 @@ export default function InfluencerSettlementsClient() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [acting, setActing] = useState(false);
+  const [error, setError] = useState("");
 
   async function load() {
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/admin/influencer-settlements");
       setRows(await readApiJson(res, "정산 목록을 불러오지 못했습니다."));
-    } catch (error) { alert(apiErrorMessage(error)); } finally { setLoading(false); }
+    } catch (error) {
+      setRows([]);
+      setError(apiErrorMessage(error, "정산 목록을 불러오지 못했습니다."));
+    } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -71,7 +76,7 @@ export default function InfluencerSettlementsClient() {
         body: JSON.stringify({ campaign_id: r.campaign_id, influencer_id: r.influencer_id }),
       });
       await readApiJson(res, "정산 확정에 실패했습니다.");
-      load();
+      await load();
     } catch (error) { alert(apiErrorMessage(error)); } finally { setActing(false); }
   }
 
@@ -111,7 +116,7 @@ export default function InfluencerSettlementsClient() {
         body: JSON.stringify({ status }),
       });
       await readApiJson(res, "정산 상태 변경에 실패했습니다.");
-      load();
+      await load();
     } catch (error) { alert(apiErrorMessage(error)); } finally { setActing(false); }
   }
 
@@ -148,6 +153,11 @@ export default function InfluencerSettlementsClient() {
       <div className="space-y-2">
         {loading ? (
           <div className="bg-white rounded-none border border-gray-100 text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
+        ) : error ? (
+          <div role="alert" className="bg-white border border-red-200 p-6 text-sm text-red-700">
+            <p>{error}</p>
+            <button onClick={load} className="mt-3 border border-red-200 px-3 py-2">다시 조회</button>
+          </div>
         ) : visible.length === 0 ? (
           <div className="bg-white rounded-none border border-gray-100 text-center py-16 text-gray-400 text-sm">
             정산할 공구 매출이 없어요

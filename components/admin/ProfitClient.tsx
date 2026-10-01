@@ -8,6 +8,7 @@ import { SITES } from "@/lib/sites";
 import { BUSINESS_TYPE_LABEL, type BusinessType } from "@/lib/settlement";
 
 interface Row {
+  group_key: string;
   campaign_id: string | null;
   label: string;
   influencer_id: string | null;
@@ -198,11 +199,11 @@ export default function ProfitClient() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {visible.map((r) => (
-                <tr key={r.campaign_id ?? r.label} className="hover:bg-gray-50 transition-colors">
+                <tr key={r.group_key} className="hover:bg-gray-50 transition-colors">
                   <td className={`${td} max-w-[260px]`}>
                     <p className="font-medium text-gray-900 truncate">{r.label}</p>
                     <p className="text-xs text-gray-400">
-                      {r.channel === "campaign" ? "공동구매" : r.channel === "hotel" ? "호텔 공구 · 수수료 7%" : "자사몰"}
+                      {r.channel === "campaign" ? "공동구매" : r.channel === "hotel" ? "호텔 공구" : "자사몰"}
                       {r.period && ` · ${r.period}`}
                     </p>
                   </td>
@@ -235,12 +236,13 @@ export default function ProfitClient() {
                   <td className={`${td} text-right text-gray-500`}>−{WON(r.other_costs)}</td>
                   <td className={`${td} text-right text-gray-500`}>
                     −{WON(r.commission)}
-                    {r.channel === "campaign" && r.rate == null && (
+                    {r.review_reasons.includes("주문 당시 수수료율 미확인") && (
                       <span className="text-red-400 ml-1" title="수수료율 미설정">⚠</span>
                     )}
                   </td>
                   <td className={`${td} text-right font-black ${(r.net_profit ?? 0) >= 0 ? "text-gray-900" : "text-red-500"}`}>
                     <span title={r.review_reasons?.join(" · ")}>{WON(r.net_profit)}</span>
+                    {r.review_reasons.length > 0 && <p className="mt-1 max-w-[240px] whitespace-normal text-xs font-normal text-amber-700">{r.review_reasons.join(" · ")}{r.missing_supply > 0 && ` (공급가 미입력 ${r.missing_supply}건)`}</p>}
                   </td>
                 </tr>
               ))}
@@ -257,7 +259,7 @@ export default function ProfitClient() {
                 <td className={`${td} text-right font-bold text-gray-600`}>−{WON(total.other_costs)}</td>
                 <td className={`${td} text-right font-bold text-gray-600`}>−{WON(total.commission)}</td>
                 <td className={`${td} text-right font-black ${(total.net_profit ?? 0) >= 0 ? "text-[#2D5A27]" : "text-red-500"}`}>
-                  {WON(total.net_profit)}원
+                  {WON(total.net_profit)}{total.net_profit == null ? "" : "원"}
                 </td>
               </tr>
             </tfoot>
@@ -269,6 +271,7 @@ export default function ProfitClient() {
         · PG수수료 &quot;예상&quot; = 아직 배송완료(정산 생성) 전 주문이 포함되어 요율(카드 3.63% / 이체 1.65%)로 추정한 금액입니다.
         <br />· ⚠(공급가) = 공급가 미입력 주문은 매출을 유지하고 순이익을 미확정으로 표시합니다. 주문 당시 원가와 대조가 필요합니다. ⚠(수수료) = 수수료율 미설정.
         <br />· 기간 필터는 주문(결제일) 기준이며, 공구별 배송비/기타비용은 공구 단위 입력값이 그대로 반영됩니다.
+        <br />· 같은 공구/자사몰의 공통비용은 조회된 인플루언서별 상품 매출 비중으로 배분합니다. 모두 전액 환불된 경우 주문 수를 기준으로 배분합니다.
         {site === "blendpick" && <><br />· 호텔 공구: 대행 모델 — 공급가(호텔 정산분) 88%. 부가세는 순납부 예상액(매출부가세 − 인플·토스 매입세액공제). 순이익 = 12% − 부가세(순납부) − 인플루언서 정산 5%(귀속 주문만) − 토스 1.7% ≈ 매출의 4.82% (세후 실질). 인플루언서 지급은 [공구 정산]에서 실행됩니다.</>}
       </p>
     </div>

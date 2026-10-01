@@ -15,7 +15,7 @@ test('an unexpected failure has one trace ID and never leaks SQL, credentials, p
  assert.equal(response.headers.get('cache-control'),'no-store');assert.match(body.error,/문의번호/);
  assert.ok(!JSON.stringify([body,...lines]).includes(secret));assert.ok(lines.some(line=>JSON.parse(line).requestId===body.requestId));
 });
-for(const [source,expected,status] of [['22P02','INVALID_INPUT',400],['23505','DUPLICATE_DATA',409],['23503','RELATED_DATA',409],['P2001','REFUND_IN_PROGRESS',409],['40P01','DB_BUSY',503],['42703','DB_SCHEMA_MISMATCH',503],['53300','DB_UNAVAILABLE',503],['ETIMEDOUT','UPSTREAM_TIMEOUT',504]]){
+for(const [source,expected,status] of [['22P02','INVALID_INPUT',400],['23505','DUPLICATE_DATA',409],['23503','RELATED_DATA',409],['P2001','REFUND_IN_PROGRESS',409],['40P01','DB_BUSY',503],['42703','DB_SCHEMA_MISMATCH',503],['42883','DB_SCHEMA_MISMATCH',503],['42804','DB_SCHEMA_MISMATCH',503],['53300','DB_UNAVAILABLE',503],['ETIMEDOUT','UPSTREAM_TIMEOUT',504]]){
  test('database/network failure '+source+' provides a safe cause and actionable response',async t=>{
   const lines=logs(t);const response=await withApiErrors('POST /api/test',async()=>{throw Object.assign(new Error('private SQL data'),{code:source,detail:'personal address'});})();
   const body=await response.json();assert.equal(response.status,status);assert.equal(body.code,expected);assert.ok(body.action);assert.ok(lines.some(l=>JSON.parse(l).sourceCode===source));assert.doesNotMatch(JSON.stringify([body,...lines]),/private SQL|personal address/);

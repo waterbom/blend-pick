@@ -2,7 +2,7 @@ import MetricChart from '@/components/admin/charts/MetricChart';
 import { settlementPoints } from '@/lib/admin-chart-data';
 import { currentAdminSite } from "@/lib/admin-site";
 import type { SiteKey } from "@/lib/sites";
-import {settlementView} from "@/lib/settlement-view";
+import { settlementInPeriod, settlementTotal, settlementView } from "@/lib/settlement-view";
 import Link from "next/link";
 import SiteBadge from "@/components/admin/SiteBadge";
 
@@ -20,15 +20,6 @@ interface SettlementRow {
   created_at: string;
 }
 
-function kstDate(value:string|Date){return new Date(new Date(value).getTime()+9*3600000).toISOString().slice(0,10);}
-function inPeriod(value:string,period?:string){
- const day=kstDate(value),today=kstDate(new Date()),now=new Date(today+'T00:00:00Z');
- if(period==='today')return day===today;
- if(period==='month')return day.slice(0,7)===today.slice(0,7);
- if(period==='week'){now.setUTCDate(now.getUTCDate()-(now.getUTCDay()+6)%7);return day>=now.toISOString().slice(0,10)&&day<=today;}
- return true;
-}
-
 export default async function SettlementsPage({
   searchParams,
 }: {
@@ -37,23 +28,24 @@ export default async function SettlementsPage({
   const site = (await currentAdminSite()).key;
   const { period } = await searchParams;
   const all=await settlementView(site);
-  const sum=(period?:string)=>all.filter(s=>inPeriod(s.settled_at,period)).reduce((n,s)=>n+Number(s.net_amount??0),0);
+  const now = new Date();
+  const sum=(period?:string)=>settlementTotal(all,period,now);
   const stats={today:sum('today'),this_week:sum('week'),this_month:sum('month'),total:sum(),total_fee:all.reduce((n,s)=>n+Number(s.fee),0)};
-  const selected=all.filter(s=>inPeriod(s.settled_at,period));
+  const selected=all.filter(s=>settlementInPeriod(s.settled_at,period,now));
   const settlements=selected.slice(0,200);
   const unresolved=all.filter(s=>s.unresolved).length;
 
   const dashboardCards = [
-    { key: "today", label: "오늘", amount: Number(stats.today) },
-    { key: "week", label: "이번 주", amount: Number(stats.this_week) },
-    { key: "month", label: "이번 달", amount: Number(stats.this_month) },
-    { key: "", label: "총 정산액", amount: Number(stats.total) },
+    { key: "today", label: "오늘", amount: stats.today },
+    { key: "week", label: "이번 주", amount: stats.this_week },
+    { key: "month", label: "이번 달", amount: stats.this_month },
+    { key: "", label: "총 정산액", amount: stats.total },
   ];
 
   return (
     <div>
       {/* 대시보드 카드 */}
-      <p className="text-sm text-gray-500 mb-4">환불을 반영한 정산 예상액입니다. PG 실제 입금액과는 대조가 필요합니다.{unresolved>0 ? ` 환불 미확인 ${unresolved}건은 합계에서 제외했습니다.` : ""}</p>
+      <p className="text-sm text-gray-500 mb-4">배송완료로 생성된 내역의 환불을 반영한 정산 예상액입니다. PG 실제 입금액과는 대조가 필요합니다.{unresolved>0 ? ` 환불 미확인 ${unresolved}건이 포함된 기간의 합계는 확인 필요로 표시합니다.` : ""}</p>
       <div className="bg-white rounded-none border border-gray-100 p-6 mb-6">
         <div className="flex items-center gap-2 mb-5">
           <div className="w-8 h-8 bg-[#2D5A27] rounded-none flex items-center justify-center">
@@ -72,7 +64,7 @@ export default async function SettlementsPage({
               >
                 <div className="text-xs text-gray-400 mb-1">{card.label}</div>
                 <div className="text-2xl font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">
-                  {card.amount.toLocaleString()}<span className="text-sm font-medium text-gray-400 ml-0.5">원</span>
+                  {card.amount == null ? "확인 필요" : <>{card.amount.toLocaleString()}<span className="text-sm font-medium text-gray-400 ml-0.5">원</span></>}
                 </div>
               </Link>
               {i < dashboardCards.length - 1 && (
@@ -136,7 +128,7 @@ export default async function SettlementsPage({
               settlements.map((s) => (
                 <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
-                    {new Date(s.settled_at).toLocaleDateString("ko-KR")}
+                    {new Date(s.settled_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">
                     {s.order_number || "-"} <SiteBadge site={s.site} className="ml-1 font-sans" />
