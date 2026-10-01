@@ -3,6 +3,8 @@ import { getSalesSummary } from '@/lib/sales-statistics';
 import { currentAdminSite } from "@/lib/admin-site";
 import { SITES, type SiteKey } from "@/lib/sites";
 import shopPool from "@/lib/db-shop";
+import { settlementTotal, settlementView } from '@/lib/settlement-view';
+import { reportApiError } from '@/lib/api-errors';
 
 
 // 대시보드 — KPI 스트립(오늘 매출·주문·진행 공구·정산액) + 처리 대기 큐
@@ -21,9 +23,7 @@ async function getStats(site: SiteKey) {
       SELECT
         (SELECT COUNT(*) FROM orders WHERE site = $1 AND status = 'paid' AND order_type IN ('shop', 'campaign')) AS new_orders,
         (SELECT COUNT(*) FROM products_shop WHERE status = 'active' AND stock = 0 AND CASE WHEN $1 = 'sanjipick' THEN category = ANY($2::text[]) ELSE NOT COALESCE(category = ANY($2::text[]), false) END) AS zero_stock,
-        (SELECT COUNT(*) FROM reviews r JOIN orders o ON o.id = r.order_id WHERE o.site = $1 AND r.created_at >= NOW() - INTERVAL '7 days') AS new_reviews,
-        (SELECT COALESCE(SUM(net_amount), 0) FROM settlements s JOIN orders o ON o.id = s.order_id
-          WHERE o.site = $1 AND s.settled_at::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Seoul')::date) AS today_settlement
+        (SELECT COUNT(*) FROM reviews r JOIN orders o ON o.id = r.order_id WHERE o.site = $1 AND r.created_at >= NOW() - INTERVAL '7 days') AS new_reviews
     `, [site, SITES.sanjipick.categories]),
   ]);
   return { g: gongu.rows[0], q: queue.rows[0] };
@@ -36,11 +36,15 @@ export default async function AdminDashboard({searchParams}:{searchParams:Promis
   const site = await currentAdminSite();
   const params = await searchParams;
   const days = ["1","7","30"].includes(params.days || "") ? Number(params.days) : 7;
-  const [counts, sales] = await Promise.all([getStats(site.key).catch(()=>null),getSalesSummary(site.key,days).catch(()=>null)]);
+  const [counts, sales, settlements] = await Promise.all([
+    getStats(site.key).catch(error => { reportApiError(error, 'admin.dashboard.counts'); return null; }),
+    getSalesSummary(site.key,days).catch(error => { reportApiError(error, 'admin.dashboard.sales'); return null; }),
+    settlementView(site.key).catch(error => { reportApiError(error, 'admin.dashboard.settlements'); return null; }),
+  ]);
   const stats = counts ? {
     liveGongu:Number(counts.g.live_gongu), upcoming:Number(counts.g.upcoming),
     newOrders:Number(counts.q.new_orders), zeroStock:Number(counts.q.zero_stock),
-    newReviews:Number(counts.q.new_reviews), todaySettlement:Number(counts.q.today_settlement),
+    newReviews:Number(counts.q.new_reviews), todaySettlement:settlements ? settlementTotal(settlements, 'today') : null,
   } : null;
   return <AdminDashboardView siteKey={site.key} siteName={site.name} date={kstToday()} stats={stats} sales={sales}/>;
 }

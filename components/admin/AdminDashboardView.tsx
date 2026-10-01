@@ -3,14 +3,14 @@ import type { SiteKey } from '@/lib/sites';
 import type { SalesSummary } from '@/lib/sales-statistics';
 import SalesCharts from './charts/SalesCharts';
 import AdminIcon, {type AdminIconName} from './AdminIcon';
-export type DashboardStats = {liveGongu:number;upcoming:number;newOrders:number;zeroStock:number;newReviews:number;todaySettlement:number};
+export type DashboardStats = {liveGongu:number;upcoming:number;newOrders:number;zeroStock:number;newReviews:number;todaySettlement:number|null};
 export default function AdminDashboardView({siteKey,siteName,date,stats,sales}:{siteKey:SiteKey;siteName:string;date:string;stats:DashboardStats|null;sales:SalesSummary|null}) {
  const today=sales?.daily.at(-1);
  const kpis:{label:string;value:string;sub:string;href:string;icon:AdminIconName;tone:string}[]=[
   {label:'오늘 순 결제액',value:today?.net==null?'확인 필요':`${today.net.toLocaleString()}원`,sub:'배송비 포함 · 확인된 환불 반영',href:'/admin/settlements',icon:'wallet',tone:'accent'},
   {label:'오늘 주문',value:today?`${today.orders.toLocaleString()}건`:'확인 필요',sub:'실제 결제 기준 · 테스트 제외',href:'/admin/orders',icon:'box',tone:'white'},
   {label:'진행 중 공구',value:stats?`${stats.liveGongu.toLocaleString()}건`:'확인 필요',sub:stats?`오픈 예정 ${stats.upcoming.toLocaleString()}건`:'공구 현황 조회 필요',href:'/admin/products',icon:'calendar',tone:'white'},
-  {label:'오늘 정산액',value:stats?`${stats.todaySettlement.toLocaleString()}원`:'확인 필요',sub:'배송완료 기준',href:'/admin/settlements',icon:'chart',tone:'peach'},
+  {label:'오늘 정산 예상액',value:stats?.todaySettlement==null?'확인 필요':`${stats.todaySettlement.toLocaleString()}원`,sub:'배송완료 · 환불 반영 · 한국시간 기준',href:'/admin/settlements',icon:'chart',tone:'peach'},
  ];
  const tasks=[
   {label:'신규 주문 확인',sub:'결제 완료된 주문을 확인하세요',value:stats?.newOrders,href:'/admin/orders',icon:'box' as const},

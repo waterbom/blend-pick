@@ -45,7 +45,7 @@ function sourceCode(error: unknown): string | undefined {
   if (!error || typeof error !== 'object') return;
   const e = error as {code?: unknown; cause?: unknown};
   // An allowlist avoids logging identifiers masquerading as error codes.
-  const allowed = /^(?:22P02|22003|23502|23503|23505|23514|40001|40P01|55P03|57014|53300|57P0[123]|42P01|42703|P2001|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT)$/;
+  const allowed = /^(?:22P02|22003|23502|23503|23505|23514|40001|40P01|55P03|57014|53300|57P0[123]|42P01|42703|42883|42804|P2001|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT)$/;
   if (typeof e.code === 'string' && allowed.test(e.code)) return e.code;
   if (e.cause && e.cause !== e && typeof e.cause === 'object') {
     const nested = (e.cause as {code?: unknown}).code;
@@ -61,7 +61,7 @@ export function describeApiError(error: unknown) {
   else if (['22P02','22003','23502','23514'].includes(source || '')) code = 'INVALID_INPUT';
   else if (source === 'P2001') code = 'REFUND_IN_PROGRESS';
   else if (['40001','40P01','55P03','57014'].includes(source || '')) code = 'DB_BUSY';
-  else if (['42P01','42703'].includes(source || '')) code = 'DB_SCHEMA_MISMATCH';
+  else if (['42P01','42703','42883','42804'].includes(source || '')) code = 'DB_SCHEMA_MISMATCH';
   else if (['53300','57P01','57P02','57P03'].includes(source || '')) code = 'DB_UNAVAILABLE';
   else if (['ETIMEDOUT','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT'].includes(source || '') || (error instanceof Error && ['TimeoutError','AbortError'].includes(error.name))) code = 'UPSTREAM_TIMEOUT';
   else if (source) code = 'UPSTREAM_UNAVAILABLE';

@@ -54,7 +54,8 @@ export async function influencerFinance(site: SiteKey, db: import('pg').Pool | i
     for (const p of payouts.rows)
         get(p.campaign_id, p.influencer_id, '(과거 정산 기록)', '(정보 확인 필요)');
     const ids = [...new Set([...buckets.values()].map(b => b.influencer_id))];
-    const info = ids.length ? await pool.query('SELECT * FROM influencers WHERE id=ANY($1::uuid[])', [ids]) : { rows: [] };
+    // The catalog may store IDs as text; shop order/payout references are UUIDs.
+    const info = ids.length ? await pool.query('SELECT * FROM influencers WHERE id::text=ANY($1::text[])', [ids]) : { rows: [] };
     const imap = new Map(info.rows.map(i => [i.id, i]));
     const pmap = new Map(payouts.rows.map(p => [p.campaign_id + ':' + p.influencer_id, p]));
     return [...buckets.entries()].map(([key, b]) => {

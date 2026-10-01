@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
-import { financialOrders, orderAmounts, validDateRange } from "@/lib/order-finance";
+import { allocate, financialOrders, orderAmounts, validDateRange } from "@/lib/order-finance";
 async function handleGET(req: Request) {
     const token = (await cookies()).get('admin_token')?.value;
     if (!token || !await verifyAdminToken(token))
@@ -18,6 +18,7 @@ async function handleGET(req: Request) {
  COALESCE(SUM(amount) FILTER(WHERE category='shipping'),0) AS shipping_cost,
  COALESCE(SUM(amount) FILTER(WHERE category<>'shipping'),0) AS other_costs FROM campaign_costs WHERE site=$1 GROUP BY campaign_id`, [site])]);
     type Row = {
+        group_key: string;
         campaign_id: string | null;
         label: string;
         channel: string;
@@ -46,10 +47,10 @@ async function handleGET(req: Request) {
         const kind = ['hotel', 'extra'].includes(o.order_type) ? 'hotel' : o.campaign_id ? 'campaign' : 'shop';
         if (channel && channel !== kind || site === 'sanjipick' && kind === 'hotel')
             continue;
-        const key = kind === 'hotel' ? 'hotel:' + o.influencer_id : (o.campaign_id || 'shop');
+        const key = `${kind}:${kind === 'hotel' ? '' : o.campaign_id || ''}:${o.influencer_id || 'direct'}`;
         let row = groups.get(key);
         if (!row) {
-            row = { campaign_id: o.campaign_id, label: kind === 'hotel' ? `호텔 공구 · ${o.influencer_name || '직접 유입'}` : o.campaign_id ? o.items[0]?.product_name || '(과거 공구)' : '자사몰 일반판매', channel: kind, influencer_id: kind === 'hotel' ? o.influencer_id : null, influencer_name: kind === 'hotel' ? o.influencer_name : null, business_type: null, period: null, orders: 0, qty: 0, gross: 0, sales_vat: 0, supply_cost: 0, missing_supply: 0, shipping_cost: 0, pg_fee: 0, fee_estimated: false, other_costs: 0, commission: 0, rate: null, net_profit: null, review_reasons: [], refunds: 0 };
+            row = { group_key: key, campaign_id: o.campaign_id, label: kind === 'hotel' ? `호텔 공구 · ${o.influencer_name || '직접 유입'}` : o.campaign_id ? o.items[0]?.product_name || '(과거 공구)' : '자사몰 일반판매', channel: kind, influencer_id: o.influencer_id, influencer_name: o.influencer_name, business_type: null, period: null, orders: 0, qty: 0, gross: 0, sales_vat: 0, supply_cost: 0, missing_supply: 0, shipping_cost: 0, pg_fee: 0, fee_estimated: false, other_costs: 0, commission: 0, rate: null, net_profit: null, review_reasons: [], refunds: 0 };
             groups.set(key, row);
         }
         const a = orderAmounts(o);
@@ -88,24 +89,31 @@ async function handleGET(req: Request) {
                 row.review_reasons.push('환불 후 회수 원가 확인 필요');
         }
     }
-    const campaignIds = [...groups.values()].map(r => r.campaign_id).filter(Boolean);
-    const metadata = campaignIds.length ? await pool.query(`SELECT c.id,p.name AS product_name,c.influencer_id,i.name AS influencer_name,i.business_type,
+    const rows = [...groups.values()];
+    const campaignIds = [...new Set(rows.map(r => r.campaign_id).filter(Boolean))];
+    const influencerIds = [...new Set(rows.map(r => r.influencer_id).filter(Boolean))];
+    const metadata = campaignIds.length ? await pool.query(`SELECT c.id,p.name AS product_name,
  to_char(c.start_date,'YYYY-MM-DD') AS start_date,to_char(c.end_date,'YYYY-MM-DD') AS end_date
- FROM campaigns c LEFT JOIN products p ON p.id=c.product_id LEFT JOIN influencers i ON i.id=c.influencer_id WHERE c.id=ANY($1::uuid[])`, [campaignIds]) : { rows: [] };
-    for (const row of groups.values()) {
+ FROM campaigns c LEFT JOIN products p ON p.id::text=c.product_id::text WHERE c.id::text=ANY($1::text[])`, [campaignIds]) : { rows: [] };
+    const influencers = influencerIds.length ? await pool.query('SELECT id,name,business_type FROM influencers WHERE id::text=ANY($1::text[])', [influencerIds]) : { rows: [] };
+    // Split each shared cost once across the displayed historical owners. Integer
+    // allocation preserves totals; fully refunded groups use order counts instead.
+    for (const cost of costs.rows) {
+        const targets = rows.filter(r => r.channel !== 'hotel' && r.campaign_id === cost.campaign_id);
+        const weights = targets.some(r => r.gross > 0) ? targets.map(r => r.gross) : targets.map(r => r.orders);
+        const shipping = allocate(Number(cost.shipping_cost), weights);
+        const other = allocate(Number(cost.other_costs), weights);
+        targets.forEach((r, i) => { r.shipping_cost = shipping[i]; r.other_costs = other[i]; });
+    }
+    for (const row of rows) {
         const m = metadata.rows.find(m => m.id === row.campaign_id);
         if (m) {
             row.label = m.product_name || row.label;
-            row.influencer_id = m.influencer_id;
-            row.influencer_name = m.influencer_name;
-            row.business_type = m.business_type;
             row.period = m.start_date && m.end_date ? `${m.start_date} ~ ${m.end_date}` : null;
         }
-        const cost = costs.rows.find(c => c.campaign_id === row.campaign_id);
-        if (row.channel !== 'hotel') {
-            row.shipping_cost = Number(cost?.shipping_cost || 0);
-            row.other_costs = Number(cost?.other_costs || 0);
-        }
+        const influencer = influencers.rows.find(i => i.id === row.influencer_id);
+        row.influencer_name ||= influencer?.name || (row.influencer_id ? '(정보 확인 필요)' : null);
+        row.business_type = influencer?.business_type || null;
         row.review_reasons = [...new Set(row.review_reasons)];
         row.net_profit = row.review_reasons.length ? null : row.gross - row.sales_vat - row.supply_cost - row.shipping_cost - row.pg_fee - row.other_costs - row.commission;
     }
