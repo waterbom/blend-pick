@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import pool from "@/lib/db";
+import shopPool from "@/lib/db-shop";
 
 async function handlePOST() {
   const cookieStore = await cookies();
@@ -23,6 +24,17 @@ async function handlePOST() {
     );
   }
 
+  const db=await shopPool.connect();
+  try {
+    await db.query("BEGIN");
+    // Keep financial event keys to prevent the worker from sending the same order notice again.
+    await db.query("DELETE FROM customer_notifications WHERE user_id=$1 AND order_id IS NULL",[String(payload.id)]);
+    await db.query("UPDATE customer_notifications SET user_id=NULL,phone=NULL,status=CASE WHEN status IN ('pending','blocked') THEN 'cancelled' ELSE status END WHERE user_id=$1",[String(payload.id)]);
+    // Retain complaint records for the existing three-year policy without a usable account identity.
+    await db.query("UPDATE customer_questions SET user_id=NULL,guest_hash='withdrawn:'||id::text,is_public=false WHERE user_id=$1",[String(payload.id)]);
+    for(const table of ["customer_interests","customer_addresses","customer_reorder_requests"]) await db.query(`DELETE FROM ${table} WHERE user_id=$1`,[String(payload.id)]);
+    await db.query("COMMIT");
+  } catch(error) {await db.query("ROLLBACK");throw error;} finally {db.release();}
   await pool.query("DELETE FROM shop_users WHERE id = $1", [payload.id]);
 
   const res = NextResponse.json({ ok: true });

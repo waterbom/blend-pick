@@ -46,6 +46,7 @@ export interface SanjiOption {
 }
 
 export interface SanjiReview {
+  seller_reply?: string | null;
   id: string;
   buyer_name: string;
   rating: number;
@@ -113,7 +114,7 @@ export async function getSanjiProducts(): Promise<SanjiCard[]> {
 export async function getSanjiHomeReviews(limit = 8): Promise<SanjiHomeReview[]> {
   try {
     const r = await shopPool.query(
-      `SELECT rv.id, rv.buyer_name, rv.rating, rv.content, rv.created_at, rv.product_id,
+      `SELECT (SELECT rr.reply FROM review_replies rr WHERE rr.review_id=rv.id) AS seller_reply,rv.id, rv.buyer_name, rv.rating, rv.content, rv.created_at, rv.product_id,
               (CASE WHEN rv.images IS NOT NULL AND array_length(rv.images, 1) > 0 THEN rv.images[1] ELSE p.main_image END) AS image,
               p.name AS product_name
          FROM reviews rv JOIN products_shop p ON p.id = rv.product_id
@@ -160,7 +161,8 @@ export async function getSanjiOptions(productId: string): Promise<SanjiOption[]>
 export async function getSanjiReviews(productId: string): Promise<{ list: SanjiReview[]; total: number; average: number }> {
   const [list, sum] = await Promise.all([
     shopPool.query(
-      `SELECT rv.id, rv.buyer_name, rv.rating, rv.content, rv.images, rv.created_at,
+      `SELECT (SELECT rr.reply FROM review_replies rr WHERE rr.review_id=rv.id) AS seller_reply,
+              rv.id, rv.buyer_name, rv.rating, rv.content, rv.images, rv.created_at,
               (SELECT oi.option_label FROM order_items oi
                 WHERE oi.order_id = rv.order_id AND oi.product_id = rv.product_id LIMIT 1) AS option_label
          FROM reviews rv WHERE rv.product_id = $1 AND rv.is_hidden = false

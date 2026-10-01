@@ -1,4 +1,5 @@
 "use client";
+import ReviewReplyEditor from "@/components/admin/ReviewReplyEditor";
 import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useState } from "react";
@@ -11,6 +12,7 @@ interface Review {
   buyer_name: string;
   rating: number;
   content: string;
+  seller_reply?: string;
   images: string[] | null;
   is_hidden: boolean;
   created_at: string;
@@ -126,6 +128,7 @@ export default function ReviewsClient() {
                 <span>{new Date(rv.created_at).toLocaleString("ko-KR")}</span>
               </div>
               <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "#3E423A" }}>{rv.content}</p>
+              <ReviewReplyEditor id={rv.id} initial={rv.seller_reply||""}/>
               {rv.images && rv.images.length > 0 && (
                 <div className="flex gap-2 mt-2">
                   {rv.images.map((img, i) => (

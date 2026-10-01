@@ -1,3 +1,4 @@
+import { sendShipmentMessage } from '@/lib/shipment-message';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import shopPool from '@/lib/db-shop';
 import { shipmentCarriers } from '@/lib/shipment-carriers';
@@ -6,7 +7,7 @@ import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/r
 import { processQueue } from '@/lib/shipment-outbox.cjs';
 import { registerShipment } from '@/lib/shipment-transition';
 import type { SiteKey } from '@/lib/sites';
-import { smsConfigured, sendSMS } from '@/lib/sms';
+import { smsConfigured } from '@/lib/sms';
 import { ApiError, statusErrorCode } from '@/lib/api-errors';
 
 export class ShipmentImportError extends ApiError {
@@ -121,7 +122,7 @@ export async function commitShipmentImport(site: string, admin: Admin, body: unk
   } finally { c.release(); }
   // Notification delivery follows the atomic order/outbox/result commit.
   if (smsConfigured()) for (const orderNumber of notify) {
-    try { await processQueue(shopPool, sendSMS, { limit: 1, site, orderNumber }); }
+    try { await processQueue(shopPool, sendShipmentMessage, { limit: 1, site, orderNumber }); }
     catch { console.error('Shipment notification queue deferred'); }
   }
   return result;

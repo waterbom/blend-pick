@@ -193,6 +193,7 @@ export default function InquiryButton({
           <div className="relative w-full sm:w-[420px] sm:rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden" style={{ background: "#fff" }}>
             {/* 헤더 */}
             <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--warm-gray)" }}>
+              <a href="/support" className="text-sm underline">주문 문의·새 문의 내역</a>
               <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>문의하기</h2>
               <button onClick={() => setOpen(false)} className="text-xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
             </div>

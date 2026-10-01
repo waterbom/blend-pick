@@ -8,6 +8,7 @@ import { carrierName, trackingUrl } from "@/lib/carriers";
 interface LookupOrder {
   id: string;
   order_number: string;
+  shipping_promise?: {date:string;reason:string};
   order_type: "shop" | "campaign" | "hotel";
   status: string;
   has_returnable_items?: boolean;
@@ -143,6 +144,7 @@ export default function OrderLookupClient() {
                   {isHotel && o.check_in && (
                     <p className="text-xs mt-1" style={{ color: "#8B927F" }}>{o.check_in} 입실 ~ {o.check_out} 퇴실</p>
                   )}
+                  {o.shipping_promise&&<p className="text-sm mt-2">출고 예정 · {o.shipping_promise.date}<br/>{o.shipping_promise.reason}</p>}
                   {!isHotel && o.addr_address && (
                     <p className="text-xs mt-1" style={{ color: "#8B927F" }}>
                       배송지 · {o.recipient_name} · {o.addr_address}{o.addr_detail ? ` ${o.addr_detail}` : ""}
@@ -158,6 +160,7 @@ export default function OrderLookupClient() {
                       {Number(o.total_amount).toLocaleString()}원
                     </span>
                     <div className="flex items-center gap-2 flex-wrap">
+                      {!isHotel&&<a className="text-xs px-3.5 py-2 border" href={`/support?order=${o.id}`}>이 주문 문의</a>}
                       {o.tracking_company && o.tracking_number && (
                         <a href={trackingUrl(o.tracking_company, o.tracking_number)} target="_blank" rel="noopener noreferrer"
                           className="text-xs px-3.5 py-2" style={{ border: "1px solid #E4E1D6", color: "#4A5442" }}>

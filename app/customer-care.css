@@ -1,0 +1,12 @@
+.customer-care{margin:28px auto;padding:24px 0;border-top:1px solid var(--line,#e7e1d7);color:var(--text-primary,#302b26);font-size:14px;line-height:1.65}
+.customer-care h2,.customer-care h3{font-weight:700;margin:0 0 14px}.customer-care h2{font-size:22px}.customer-care h3{font-size:16px}
+.customer-care p{margin:10px 0}.customer-care a{color:var(--accent,#3f6b3a);text-decoration:underline;text-underline-offset:3px}
+.care-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.customer-care button{min-height:40px;padding:8px 14px;border:1px solid var(--line,#ded7ca);background:var(--surface-soft,#faf7f0);cursor:pointer}
+.customer-care button:disabled{opacity:.5;cursor:default}.customer-care button:focus-visible,.customer-care a:focus-visible{outline:2px solid var(--accent,#3f6b3a);outline-offset:3px}
+.care-form{display:grid;gap:14px;padding:20px 0;max-width:640px}.care-form label{display:grid;gap:5px}.care-form label:has(input[type=checkbox]){display:flex;align-items:flex-start;gap:9px}
+.care-form input:not([type=checkbox]),.care-form select,.care-form textarea{width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--line,#ded7ca);background:white;color:#302b26;border-radius:3px}
+.care-form textarea{min-height:130px}.customer-care [role=alert]{color:#a52e28;white-space:pre-wrap}.customer-care [role=status]{color:var(--accent,#3f6b3a)}
+.care-info,.care-row{padding:20px 0;border-bottom:1px solid var(--line,#e7e1d7)}.care-info dl>div{display:grid;grid-template-columns:130px 1fr;gap:16px;padding:8px 0}.care-info dt{color:var(--text-muted,#746d63)}.care-info dd{white-space:pre-wrap;overflow-wrap:anywhere}.care-info details{padding:12px 0;border-top:1px solid var(--line,#e7e1d7)}.care-info summary{cursor:pointer}
+.care-page{max-width:960px;margin:auto;padding:30px 20px 90px}.care-muted{color:var(--text-muted,#746d63);font-size:12px}.care-reply{padding:16px;background:var(--surface-soft,#faf7f0);white-space:pre-wrap}.care-grid{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+@media(max-width:540px){.care-info dl>div{grid-template-columns:100px 1fr;gap:10px}.care-actions{gap:9px}.care-page{padding-top:14px}}

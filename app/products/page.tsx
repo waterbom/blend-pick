@@ -60,7 +60,7 @@ interface Product {
 async function getProducts(category?: string) {
   const params: (string | string[])[] = [SANJI_CATS];
   // 판매 시작이 미래로 예약된 상품은 '판매 중'이 아니라 '오픈 예정'에서 노출, 종료일이 지난 공구는 목록에서 제외
-  let where = `WHERE status = 'active' AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[])`;
+  let where = `WHERE status IN ('active','soldout') AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[])`;
   if (category) {
     params.push(category);
     where += ` AND category = $2`;
@@ -126,17 +126,23 @@ function CategoryTab({ href, label, active }: { href: string; label: string; act
 export default async function ShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; q?:string; stock?:string; sort?:string; max?:string }>;
 }) {
-  const raw = (await searchParams).category;
+  const filters = await searchParams;
+  const raw = filters.category;
+  const query=typeof filters.q === "string" ? filters.q.trim().slice(0,100) : "";
   const category = typeof raw === "string" ? raw : undefined;
-  const [products, categories, upcoming, topSellers] = await Promise.all([
+  const [catalog, categories, upcoming, topSellers] = await Promise.all([
     getProducts(category),
     getCategories(),
     getUpcoming(),
     getTopSellerIds(2),
   ]);
 
+  const maxPrice=typeof filters.max==='string'&&/^\d{1,9}$/.test(filters.max)?Number(filters.max):0;
+  const products=catalog.filter(p=>(!query||(p.name+' '+p.brand).toLowerCase().includes(query.toLowerCase()))&&(filters.stock!=='available'||p.status==='active'&&p.stock!==0)&&(!maxPrice||p.price<=maxPrice));
+  if(filters.sort==='price-asc') products.sort((a,b)=>a.price-b.price);
+  if(filters.sort==='price-desc') products.sort((a,b)=>b.price-a.price);
   // 상품 4개 이상이면 컴팩트 4열, 적으면 대형 에디토리얼 2열 (핸드오프 권장)
   const compact = products.length >= 4;
 
@@ -185,6 +191,7 @@ export default async function ShopPage({
         </div>
       )}
 
+      <form className="customer-care max-w-5xl mx-auto px-5 care-form" action="/products"><h3>상품 찾기</h3>{category&&<input type="hidden" name="category" value={category}/>}<label>상품명·브랜드<input name="q" defaultValue={query} maxLength={100} list="catalog-suggestions" placeholder="찾는 상품을 입력해주세요"/></label><datalist id="catalog-suggestions">{catalog.slice(0,100).map(p=><option key={p.id} value={p.name}/>)}</datalist><div className="care-actions"><label>판매 상태<select name="stock" defaultValue={filters.stock||''}><option value="">품절 포함</option><option value="available">구매 가능한 상품</option></select></label><label>정렬<select name="sort" defaultValue={filters.sort||''}><option value="">최신순</option><option value="price-asc">낮은 가격순</option><option value="price-desc">높은 가격순</option></select></label><label>최대 가격<input type="number" name="max" min="0" defaultValue={maxPrice||''} placeholder="제한 없음"/></label><button>검색</button><a href="/products">초기화</a></div></form>
       {/* ── 필터 바 — 캐러셀 밴드의 border-bottom과 겹치지 않게 위 여백·보더 없음 ── */}
       <div style={{ borderBottom: `1px solid ${C.hairline}` }}>
         <div className="max-w-[1240px] mx-auto px-5 lg:px-12 py-4 lg:py-5 flex flex-wrap items-center justify-between gap-3">
@@ -281,10 +288,10 @@ export default async function ShopPage({
                     </div>
                     <div className={compact ? "mt-auto pt-2.5" : "mt-auto pt-3 lg:pt-4"}>
                       {soldOut ? (
-                        // 재입고 알림 기능 준비 전 — 비활성 표시만
+                        // 상품 상세에서 재입고 알림 신청
                         <span className={`inline-block font-semibold ${compact ? "px-4 py-2 text-[12px]" : "px-6 lg:px-7 py-2.5 lg:py-3 text-[13px]"}`}
                           style={{ border: `1px solid ${C.hairline}`, color: C.muted3, cursor: "default" }}>
-                          재입고 알림 (준비 중)
+                          재입고 알림 신청 →
                         </span>
                       ) : (
                         <span className={`inline-block font-bold text-white ${compact ? "px-4 py-2 text-[12px]" : "px-6 lg:px-7 py-2.5 lg:py-3 text-[13px]"}`}

@@ -31,6 +31,7 @@ type Filter = "all" | SanjiKind;
 export default function SanjiCatalog({ products, linkBase, initialQuery = "", initialCategory = "all" }: { products: SanjiCard[]; linkBase: string; initialQuery?: string; initialCategory?: Filter }) {
   const [q, setQ] = useState(initialQuery);
   const filter = initialCategory;
+  const [stockOnly,setStockOnly]=useState(false),[sort,setSort]=useState(''),[maxPrice,setMaxPrice]=useState('');
   const lastSearch = useRef("");
   useEffect(() => {
     const query = q.trim();
@@ -46,10 +47,13 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
   const list = useMemo(() => {
     const kw = q.trim().toLowerCase();
     return products
+      .filter(p=>!stockOnly||p.status==='active'&&p.stock!==0)
+      .filter(p=>!Number(maxPrice)||p.price<=Number(maxPrice))
       .filter((p) => !(p.sale_start_at && new Date(p.sale_start_at).getTime() > now))
       .filter((p) => filter === "all" || sanjiKind(p.category) === filter)
-      .filter((p) => !kw || p.name.toLowerCase().includes(kw) || (p.brand || "").toLowerCase().includes(kw));
-  }, [products, q, filter, now]);
+      .filter((p) => !kw || p.name.toLowerCase().includes(kw) || (p.brand || "").toLowerCase().includes(kw))
+      .sort((a,b)=>sort==='price-asc'?a.price-b.price:sort==='price-desc'?b.price-a.price:0);
+  }, [products, q, filter, now,stockOnly,sort,maxPrice]);
   const counts = useMemo(() => ({
     all: products.length,
     produce: products.filter((p) => sanjiKind(p.category) === "produce").length,
@@ -103,13 +107,15 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
       <div className="sc-hd">
         <div className="sc-search">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={MUTED} strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="찾는 산지 상품이 있나요?" aria-label="산지픽 상품 검색" autoFocus={!initialQuery} enterKeyHint="search" />
+          <input list="sanji-search-suggestions" value={q} onChange={(e) => setQ(e.target.value)} placeholder="찾는 산지 상품이 있나요?" aria-label="산지픽 상품 검색" autoFocus={!initialQuery} enterKeyHint="search" />
           {q && (
             <button onClick={() => setQ("")} aria-label="지우기">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
           )}
         </div>
+        <datalist id="sanji-search-suggestions">{products.filter(p=>!p.sale_start_at||new Date(p.sale_start_at).getTime()<=now).slice(0,100).map(p=><option key={p.id} value={p.name}/>)}</datalist>
+        <div className="care-actions px-4 pb-3"><label><input type="checkbox" checked={stockOnly} onChange={e=>setStockOnly(e.target.checked)}/> 구매 가능 상품만</label><select aria-label="가격 정렬" value={sort} onChange={e=>setSort(e.target.value)}><option value="">최신순</option><option value="price-asc">낮은 가격순</option><option value="price-desc">높은 가격순</option></select><input aria-label="최대 가격" type="number" min="0" value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} placeholder="최대 가격" style={{maxWidth:110}}/></div>
         <div className="sc-chips">
           {([["all", "전체"], ["produce", "농산물"], ["seafood", "수산물"]] as [Filter, string][]).map(([k, label]) => (
             <a key={k} className={filter === k ? "on" : ""} aria-current={filter===k ? "page":undefined} href={linkBase+collectionPath(k==="all"?undefined:k)}>{label}<small>{counts[k]}</small></a>
