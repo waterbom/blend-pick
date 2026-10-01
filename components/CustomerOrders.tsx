@@ -1,3 +1,4 @@
+import ReorderButton from "@/components/ReorderButton";
 import {accountFilters,accountHref,ACCOUNT_STATUSES,type AccountQuery} from "@/lib/account-filters";
 import Link from "next/link";
 import CancelOrderButton from "@/components/CancelOrderButton";
@@ -25,6 +26,7 @@ export default function CustomerOrders({ orders, sanjiBase, query }: { query?:Ac
   const href=(page:number)=>accountHref(query??{},{page:String(page)});
   return (
         <section id="orders" className="mb-10">
+          <nav className="care-actions mb-5" aria-label="쇼핑 편의 메뉴"><Link href="/my-shopping">관심 상품·알림·주소록</Link><Link href="/support">문의·상담</Link></nav>
           <div className="ds-section-title mb-4"><span>주문 내역</span></div>
           {query&&<form className="ds-card p-4 mb-4 flex flex-wrap gap-3">
             <input type="hidden" name="hotel_page" value={accountFilters({page:query.hotel_page}).page}/>
@@ -81,6 +83,8 @@ export default function CustomerOrders({ orders, sanjiBase, query }: { query?:Ac
                         </div>
                       ))}
                     </div>
+
+                    {order.shipping_promise && <p className="px-5 pb-3 text-sm">출고 예정 · {order.shipping_promise.date}<br/>{order.shipping_promise.reason}</p>}
 
                     {/* 배송지 */}
                     {order.addr_address && (
@@ -150,6 +154,8 @@ export default function CustomerOrders({ orders, sanjiBase, query }: { query?:Ac
                         {Number(order.total_amount).toLocaleString()}원
                       </span>
                       <div className="flex flex-wrap items-center gap-2">
+                        <Link className="text-xs px-3.5 py-2 border" href={`/support?order=${order.id}`}>이 주문 문의</Link>
+                        <ReorderButton orderId={order.id}/>
                         {(order.status === "shipped" || order.status === "delivered") &&
                           order.tracking_company && order.tracking_number && (
                           <a

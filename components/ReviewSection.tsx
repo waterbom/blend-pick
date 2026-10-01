@@ -16,6 +16,7 @@ export interface ReviewItem {
   created_at: string;
   option_label?: string | null;
   helpful_count?: number;
+  seller_reply?: string | null;
 }
 export interface ReviewSummary {
   total: number;
@@ -26,7 +27,7 @@ export interface ReviewSummary {
 
 const INK = "#1C2418", GREEN = "#244B1F", HAIR = "#E4E1D6", SAGE = "#7A8B6F";
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
-const SORTS = ["최신순", "평점 높은순", "도움된순"] as const;
+const SORTS = ["최신순", "평점 높은순", "평점 낮은순", "도움된순"] as const;
 
 export default function ReviewSection({
   productId, loggedIn, reviews, summary,
@@ -50,6 +51,7 @@ export default function ReviewSection({
   const list = useMemo(() => {
     let l = photoOnly ? reviews.filter((r) => r.images && r.images.length > 0) : [...reviews];
     if (sort === "평점 높은순") l.sort((a, b) => b.rating - a.rating);
+    else if (sort === "평점 낮은순") l.sort((a,b)=>a.rating-b.rating);
     else if (sort === "도움된순") l.sort((a, b) => (b.helpful_count || 0) - (a.helpful_count || 0));
     return l;
   }, [reviews, sort, photoOnly]);
@@ -191,6 +193,7 @@ export default function ReviewSection({
                     {r.option_label ? <>{" · "}{r.option_label}</> : null}
                   </p>
                   <p className="text-[13.5px] whitespace-pre-wrap" style={{ color: "#2A3126", lineHeight: 1.75, maxWidth: 640 }}>{r.content}</p>
+                  {r.seller_reply&&<div className="care-reply mt-3 text-sm"><strong>판매자 답변</strong><p>{r.seller_reply}</p></div>}
                   <div className="flex items-center gap-3 mt-3">
                     <button onClick={() => markHelpful(r.id)}
                       className="text-[11.5px] px-3 py-1.5 transition-colors"

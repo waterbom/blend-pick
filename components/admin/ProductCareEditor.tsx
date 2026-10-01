@@ -1,0 +1,12 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {apiErrorMessage,readApiJson} from '@/lib/api-error-message';
+import {PRODUCT_CARE_FIELDS,type ProductCare} from '@/lib/product-care';
+export default function ProductCareEditor({productId}:{productId:string}){
+ const [form,setForm]=useState<Partial<ProductCare>>({}),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[haccp,setHaccp]=useState(false),[lookup,setLookup]=useState<unknown>(null);
+ async function load(){setError('');setLoaded(false);try{const d=await readApiJson(await fetch('/api/admin/product-care?product='+productId),'요청을 처리하지 못했습니다.');setForm(d.info);setHaccp(d.haccpConfigured);setLoaded(true);}catch(e){setError(apiErrorMessage(e));}}
+ useEffect(()=>{void load();},[productId]);
+ async function save(){setBusy(true);setError('');try{await readApiJson(await fetch('/api/admin/product-care',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,product_id:productId})}),'요청을 처리하지 못했습니다.');setNotice('상품·품질 안내를 저장했습니다.');}catch(e){setError(apiErrorMessage(e));}finally{setBusy(false);}}
+ async function lookupCertificate(){setBusy(true);setError('');try{const d=await readApiJson(await fetch('/api/admin/haccp?number='+encodeURIComponent(form.certification_number||'')),'요청을 처리하지 못했습니다.');setLookup(d.items);}catch(e){setError(apiErrorMessage(e));}finally{setBusy(false);}}
+ return <section className="customer-care"><h3>상품·품질 안내</h3><p>고객에게 확인된 정보만 입력해주세요. 비워 둔 항목은 표시하지 않습니다. 이 영역은 상품 기본 정보와 별도로 저장됩니다.</p>{error&&<p role="alert">{error} <button type="button" onClick={load}>다시 조회</button></p>}{loaded&&<><div className="care-grid">{Object.entries(PRODUCT_CARE_FIELDS).map(([key,label])=><label className="care-form" key={key}>{label}<textarea maxLength={1000} value={form[key as keyof ProductCare]||''} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}</div><div className="care-actions"><button type="button" disabled={busy} onClick={save}>상품·품질 안내 저장</button>{haccp&&<button type="button" disabled={busy||!form.certification_number} onClick={lookupCertificate}>HACCP 인증업체 조회</button>}</div>{lookup!==null&&<div><p>조회 결과의 제조업체·인증 범위를 실제 상품과 대조해주세요. 자동 인증 마크는 표시하지 않습니다.</p><pre className="whitespace-pre-wrap break-all">{JSON.stringify(lookup,null,2)}</pre></div>}{notice&&<p role="status">{notice}</p>}</>}</section>;
+}

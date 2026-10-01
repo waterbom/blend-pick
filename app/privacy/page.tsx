@@ -1,9 +1,14 @@
-export default function PrivacyPage() {
+import {currentSite} from '@/lib/site-server';
+
+export default async function PrivacyPage() {
+  const site=await currentSite();
+  const prefix=site.key==='sanjipick'?'SANJIPICK':'BLENDPICK';
+  const channelEnabled=!!process.env[`${prefix}_CHANNEL_PLUGIN_KEY`]&&!!process.env[`${prefix}_CHANNEL_MEMBER_HASH_SECRET`];
   return (
     <main className="min-h-screen bg-white">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">개인정보처리방침</h1>
-        <p className="text-xs text-gray-400 mb-10">블랜드픽은 「개인정보 보호법」 제30조에 따라 이용자의 개인정보를 보호하기 위하여 다음과 같이 개인정보처리방침을 수립·공개합니다.</p>
+        <p className="text-xs text-gray-400 mb-10">{site.name}은 「개인정보 보호법」 제30조에 따라 이용자의 개인정보를 보호하기 위하여 다음과 같이 개인정보처리방침을 수립·공개합니다.</p>
 
         <div className="space-y-8 text-sm text-gray-700 leading-relaxed">
 
@@ -12,6 +17,7 @@ export default function PrivacyPage() {
             <ul className="space-y-1 list-disc list-inside">
               <li><span className="font-medium">회원가입 및 관리:</span> 본인 식별·인증, 회원자격 유지·관리, 서비스 부정이용 방지, 고충처리</li>
               <li><span className="font-medium">재화 또는 서비스 제공:</span> 콘텐츠 제공, 구매 및 결제, 물품 배송</li>
+              <li><span className="font-medium">고객 편의 기능:</span> 관심 상품 저장, 요청한 재입고·판매 시작 알림, 배송지 관리, 상품·주문 문의와 답변 제공</li>
               <li><span className="font-medium">마케팅 및 광고:</span> 이벤트 및 광고성 정보 제공, 서비스 이용 통계</li>
             </ul>
           </section>
@@ -20,6 +26,7 @@ export default function PrivacyPage() {
             <h2 className="font-semibold text-gray-900 mb-2">2. 개인정보의 처리 및 보유 기간</h2>
             <ul className="space-y-1 list-disc list-inside">
               <li>회원가입 및 관리: 회원탈퇴 시까지</li>
+              <li>관심 상품·배송지: 직접 삭제 또는 회원탈퇴 시까지. 재입고·판매 시작 알림 신청은 90일 후 만료되며, 발송용 휴대전화는 신청 종료 후 최대 90일 내 삭제합니다.</li>
               <li>재화 또는 서비스 제공: 공급완료 및 요금 정산 시까지</li>
               <li>계약·청약철회 기록: 5년 (전자상거래법)</li>
               <li>대금 결제 및 공급 기록: 5년 (전자상거래법)</li>
@@ -44,6 +51,11 @@ export default function PrivacyPage() {
               <div>
                 <p className="font-medium mb-1">카카오 간편 로그인 시</p>
                 <p>필수: 이름 / 선택: 이메일</p>
+              </div>
+              <div>
+                <p className="font-medium mb-1">고객 편의 기능 이용 시</p>
+                <p>관심 상품·옵션, 알림 신청·해지 및 동의 기록, 선택한 알림 발송용 인증 휴대전화, 저장한 배송지, 문의 내용·답변과 연결한 상품·주문 정보. 상품 Q&amp;A는 공개에 동의한 문의를 판매자가 확인한 경우에만 게시됩니다.</p>
+                {channelEnabled&&<p>채팅 상담을 직접 연결하는 경우 상담 서비스에 사이트별 회원 식별값과 선택한 주문번호·진행 상태를 전달합니다.</p>}
               </div>
               <div>
                 <p className="font-medium mb-1">서비스 이용 과정에서 자동 수집</p>
@@ -81,6 +93,8 @@ export default function PrivacyPage() {
                     <td className="px-4 py-2">택배사</td>
                     <td className="px-4 py-2">상품 배송</td>
                   </tr>
+                  <tr><td className="px-4 py-2">솔라피</td><td className="px-4 py-2">휴대전화 인증 및 고객 안내 메시지 발송</td></tr>
+                  {channelEnabled&&<tr><td className="px-4 py-2">채널코퍼레이션</td><td className="px-4 py-2">고객 상담 (채널톡 연결 시)</td></tr>}
                 </tbody>
               </table>
             </div>

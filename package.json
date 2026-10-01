@@ -24,7 +24,8 @@
     "test:account": "node --test tests/account-flow.cjs tests/account-followup.cjs",
     "test:dangung": "node --test --test-concurrency=1 tests/dangung-logic.cjs tests/dangung-db.cjs tests/dangung-routes.cjs tests/dangung-sms.cjs tests/dangung-pricing.cjs",
     "test:tracking-import": "node --test --test-concurrency=1 tests/tracking-import.cjs tests/shipping-flow.cjs tests/shipping-simulation.cjs",
-    "test:product-sales": "node --test --test-concurrency=1 tests/product-sales.cjs tests/phone-format.cjs"
+    "test:product-sales": "node --test --test-concurrency=1 tests/product-sales.cjs tests/phone-format.cjs",
+    "test:customer-convenience": "node --test --test-concurrency=1 tests/customer-convenience.cjs tests/commerce-provider.cjs tests/customer-feedback.cjs"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.6.0",

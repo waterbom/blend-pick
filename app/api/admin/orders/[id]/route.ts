@@ -1,3 +1,4 @@
+import { sendShipmentMessage } from '@/lib/shipment-message';
 import { rollbackSafely, withApiErrors, readJsonObject, apiErrorResponse, reportApiError } from '@/lib/api-errors';
 import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/refund-fulfillment';
 import { currentAdminSite, adminOrderIdsBelong } from "@/lib/admin-site";
@@ -10,7 +11,7 @@ import { recordDeliverySettlement } from "@/lib/delivery-settlement.cjs";
 import { validateTracking } from '@/lib/tracking-validation';
 import { registerShipment } from '@/lib/shipment-transition';
 import { processQueue } from '@/lib/shipment-outbox.cjs';
-import { smsConfigured, sendSMS } from '@/lib/sms';
+import { smsConfigured } from '@/lib/sms';
 async function getAdmin() {
     const cookieStore = await cookies();
     const token = cookieStore.get("admin_token")?.value;
@@ -91,7 +92,7 @@ async function handlePATCH(request: Request, { params }: {
             client.release(); released = true;
             // Sending happens after commit; a failure leaves the durable queue available to the worker.
             if (smsConfigured()) {
-                try { await processQueue(shopPool, sendSMS, { limit: 1, site, orderNumber }); }
+                try { await processQueue(shopPool, sendShipmentMessage, { limit: 1, site, orderNumber }); }
                 catch { console.error('Shipment notification queue deferred'); }
             }
             return NextResponse.json({ ok: true, status });

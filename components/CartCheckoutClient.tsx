@@ -1,5 +1,7 @@
 "use client";
 
+import {readApiJson,apiErrorMessage} from '@/lib/api-error-message';
+import AddressBook from "@/components/AddressBook";
 import { useShippingQuote } from "@/lib/use-shipping-quote";
 import { commerceParams } from "@/lib/analytics";
 import { useMetaEvent } from "@/lib/use-meta-event";
@@ -55,6 +57,7 @@ interface Props {
 
 export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = false, initialData }: Props) {
   const router = useRouter();
+  const [easyPays,setEasyPays]=useState<string[]>([]),[payMethod,setPayMethod]=useState(''),[payOptionsError,setPayOptionsError]=useState('');
   const [checkoutData, setCheckoutData] = useState<CartCheckoutData | null>(null);
   const [loading, setLoading] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -132,6 +135,8 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
     }catch(e){setCatalogError((e as Error).message);}finally{setEditing(false);}
   }
 
+  useEffect(()=>{let live=true;fetch('/api/customer/payment-options').then(r=>readApiJson(r,'요청을 처리하지 못했습니다.')).then(d=>{if(live)setEasyPays(Array.isArray(d.methods)?d.methods.filter((m:unknown)=>typeof m==='string'&&['TOSSPAY','NAVERPAY','KAKAOPAY'].includes(m)):[]);}).catch(e=>{if(live)setPayOptionsError(apiErrorMessage(e,'추가 결제수단을 불러오지 못했습니다. 기본 결제창을 이용해주세요.'));});return()=>{live=false;};},[]);
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
@@ -205,6 +210,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
       const payment = tossPayments.payment({ customerKey: "ANONYMOUS" });
       await payment.requestPayment({
         method: "CARD",
+        ...(payMethod && easyPays.includes(payMethod) ? {card:{flowMode:"DIRECT" as const,easyPay:payMethod}} : {}),
         amount: { currency: "KRW", value: grandTotal },
         orderId,
         orderName,
@@ -340,6 +346,8 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
         </div>
       </section>
 
+      <AddressBook current={{label:"집",recipient:form.shippingName||form.customerName,phone:form.shippingPhone||form.customerPhone,zipcode:form.shippingZipcode,address:form.shippingAddress,detail:form.shippingAddress2}} onSelect={a=>{setForm(p=>({...p,sameAsBuyer:false,shippingName:a.recipient,shippingPhone:a.phone,shippingZipcode:a.zipcode,shippingAddress:a.address,shippingAddress2:a.detail}));clearError("shippingAddress");}}/>
+
       {/* 배송지 정보 */}
       <section className="checkout-panel">
         <div className="ds-section-title">
@@ -424,6 +432,7 @@ export default function CartCheckoutClient({ clientKey, phoneVerifyRequired = fa
 
       </div>
       {/* 결제 금액 요약 */}
+      <section className="customer-care" aria-label="결제수단 선택"><h3>결제수단</h3><div className="care-actions"><button type="button" aria-pressed={!payMethod} onClick={()=>setPayMethod('')}>카드·간편결제</button>{easyPays.map(m=><button type="button" key={m} aria-pressed={payMethod===m} onClick={()=>setPayMethod(m)}>{{TOSSPAY:'토스페이',NAVERPAY:'네이버페이',KAKAOPAY:'카카오페이'}[m]}</button>)}</div>{payOptionsError&&<p role="alert">{payOptionsError}</p>}</section>
       <section className="checkout-payment" aria-label="결제 금액 및 동의">
         <div className="ds-card">
           <div className="px-6 py-5 ds-serif font-semibold text-base" style={{ borderBottom: "1px solid #E4E1D6", color: "#1C2418" }}>

@@ -18,7 +18,7 @@ async function handleGET() {
   const site = (await currentAdminSite()).key;
 
   const r = await shopPool.query(
-    `SELECT rv.id, rv.product_id, rv.buyer_name, rv.rating, rv.content, rv.images, rv.is_hidden, rv.created_at,
+    `SELECT (SELECT rr.reply FROM review_replies rr WHERE rr.review_id=rv.id) AS seller_reply,rv.id, rv.product_id, rv.buyer_name, rv.rating, rv.content, rv.images, rv.is_hidden, rv.created_at,
             ps.name AS product_name, ps.product_code
        FROM reviews rv
        LEFT JOIN products_shop ps ON ps.id = rv.product_id

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./customer-care.css";
 import GlobalFloating from "@/components/GlobalFloating";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";

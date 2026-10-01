@@ -6,6 +6,7 @@ const query=async(sql,p=[])=>{const r=await db.query(sql,p);return {...r,rowCoun
 const mocks={'@/lib/db-shop':{query},'@/lib/auth':{verifyToken:async()=>({id:user})},'next/headers':{cookies:async()=>({get:()=>({value:'test'})})},'@/lib/site-server':{currentSite:async()=>({key:'blendpick'})},'@/lib/phone-verify':{verifiedPhoneOf:async()=>null,normPhone:p=>p}};
 before(async()=>{await db.exec(`
 CREATE TABLE orders(id uuid PRIMARY KEY,user_id uuid,site text,order_type text,status text,order_number text,total_amount int,paid_at timestamptz,created_at timestamptz DEFAULT NOW(),tracking_company text,tracking_number text,recipient_name text,buyer_name text,buyer_phone text,addr_address text,addr_detail text,shipped_at timestamptz,delivered_at timestamptz,influencer_id uuid,payment_key text);
+CREATE TABLE order_shipping_promises(order_id uuid PRIMARY KEY,expected_date date,reason text);
 CREATE TABLE order_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),order_id uuid,product_id uuid,product_name text,option_label text,unit_price int,quantity int);
 CREATE TABLE order_returns(id uuid,order_id uuid,kind text,status text,created_at timestamptz);
 CREATE TABLE order_return_events(return_id uuid,status text,note text,created_at timestamptz);

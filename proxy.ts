@@ -97,7 +97,7 @@ export function proxy(req: NextRequest) {
 // shop 도메인 미리보기 쿠키 — /sanji 방문 시 심고, 블랜드픽 고유 페이지로 가면 지운다
 const PREVIEW_COOKIE = "sj_preview";
 // 쿠키가 있을 때 산지픽 테마로 보여줄 공용 1차 경로
-const PREVIEW_SHARED = new Set<string>(["login", "signup", "mypage", "cart", "checkout", "orders", "pay", "products", "terms", "privacy", "guide"]);
+const PREVIEW_SHARED = new Set<string>(["login", "signup", "mypage", "cart", "checkout", "orders", "pay", "products", "terms", "privacy", "guide", "my-shopping", "support"]);
 // 여기로 오면 미리보기 해제 (블랜드픽 고유 영역)
 const PREVIEW_CLEAR = new Set<string>(["hotel", "influencer", "campaigns", "admin"]);
 

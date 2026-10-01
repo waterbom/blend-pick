@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import { SITES } from "@/lib/sites";
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import ProductEngagement from "@/components/ProductEngagement";
 import ProductDetail from "@/components/ProductDetail";
 import RefundPolicy from "@/components/RefundPolicy";
 import { expectedShipLabel } from "@/lib/checkout-draft";
@@ -129,7 +130,7 @@ async function getAddons(productId: string) {
 
 async function getReviews(productId: string) {
   const result = await shopPool.query(
-    `SELECT rv.id, rv.buyer_name, rv.rating, rv.content, rv.images, rv.created_at,
+    `SELECT (SELECT rr.reply FROM review_replies rr WHERE rr.review_id=rv.id) AS seller_reply,rv.id, rv.buyer_name, rv.rating, rv.content, rv.images, rv.created_at,
             COALESCE(rv.helpful_count, 0) AS helpful_count,
             (SELECT oi.option_label FROM order_items oi
               WHERE oi.order_id = rv.order_id AND oi.product_id = rv.product_id LIMIT 1) AS option_label
@@ -243,6 +244,7 @@ export default async function ProductDetailPage({
       />
       <ProductSearchSummary product={product} site="blendpick" options={options} />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <ProductEngagement productId={product.id} options={options} opening={saleState === "upcoming"} soldOut={product.status === "soldout" || product.stock === 0} />
         <RefundPolicy shipping={shippingLabel(product)} schedule={expectedShipLabel(product.expected_ship_date)} />
       </div>
     </main>

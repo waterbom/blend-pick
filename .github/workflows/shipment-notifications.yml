@@ -20,4 +20,7 @@ jobs:
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
             cd ${{ secrets.EC2_APP_DIR }}
-            node scripts/retry-shipment-notifications.cjs
+            result=0
+            node scripts/retry-shipment-notifications.cjs || result=1
+            node scripts/process-customer-notifications.cjs || result=1
+            exit "$result"

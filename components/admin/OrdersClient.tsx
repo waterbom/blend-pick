@@ -509,7 +509,7 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
                               className="w-4 h-4 rounded accent-[#2D5A27]" />
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                            <OrderQuickView order={o} />{queue==="check"&&<p className="text-xs text-red-600">{dispatchIssues(o).join(" · ")}</p>}
+                            <OrderQuickView order={o} />{["paid","confirmed","preparing"].includes(o.status)&&<a className="block underline mt-2" href={`/admin/customer-care?order=${o.id}&number=${encodeURIComponent(o.order_number)}`}>출고 일정 안내</a>}{queue==="check"&&<p className="text-xs text-red-600">{dispatchIssues(o).join(" · ")}</p>}
                             <SiteBadge site={o.site} className="ml-1.5 font-sans" />
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
