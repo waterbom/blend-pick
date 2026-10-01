@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {readApiJson,apiErrorMessage} from '@/lib/api-error-message';
 type Channel=(...args:unknown[])=>void;
 declare global {interface Window {ChannelIO?:Channel;}}
@@ -18,16 +18,19 @@ function loadChannel(){
  });return loading;
 }
 export default function ChannelSupportButton({orderId}:{orderId?:string}){
+ const mounted=useRef(true);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
- useEffect(()=>()=>{window.ChannelIO?.('shutdown');},[]);
+ useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;window.ChannelIO?.('shutdown');};},[]);
  async function open(){setBusy(true);setError('');try{
   const options=await readApiJson(await fetch('/api/customer/channel'+(orderId?'?order='+encodeURIComponent(orderId):'')),'상담 연결에 실패했습니다.');
+  if(!mounted.current)return;
   await loadChannel();
+  if(!mounted.current)return;
   await new Promise<void>((resolve,reject)=>{
    const timer=setTimeout(()=>reject(new Error('상담 연결 시간이 초과되었습니다.')),15000);
    window.ChannelIO?.('shutdown');
-   window.ChannelIO?.('boot',options,(e:unknown)=>{clearTimeout(timer);if(e)reject(new Error('상담 인증에 실패했습니다. 문의 작성으로 접수해주세요.'));else{window.ChannelIO?.('showMessenger');resolve();}});
+   window.ChannelIO?.('boot',options,(e:unknown)=>{clearTimeout(timer);if(!mounted.current){window.ChannelIO?.('shutdown');resolve();}else if(e)reject(new Error('상담 인증에 실패했습니다. 문의 작성으로 접수해주세요.'));else{window.ChannelIO?.('showMessenger');resolve();}});
   });
- }catch(e){setError(apiErrorMessage(e,'상담 창을 열지 못했습니다. 아래 문의 작성으로 접수해주세요.'));}finally{setBusy(false);}}
+ }catch(e){if(mounted.current)setError(apiErrorMessage(e,'상담 창을 열지 못했습니다. 아래 문의 작성으로 접수해주세요.'));}finally{if(mounted.current)setBusy(false);}}
  return <div><button type="button" disabled={busy} onClick={open}>{busy?'연결 중…':'주문 정보와 함께 채팅 상담'}</button><p className="care-muted">연결 시 상담 서비스에 회원 식별값과 선택한 주문번호·진행 상태를 전달합니다.</p>{error&&<p role="alert">{error}</p>}</div>;
 }

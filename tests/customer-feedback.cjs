@@ -6,8 +6,8 @@ const text=n=>n==null?'':typeof n==='string'||typeof n==='number'?String(n):Reac
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...React.Children.toArray(n.props?.children).flatMap(nodes)];
 const flush=async()=>{for(let i=0;i<4;i++)await new Promise(setImmediate);};
 function mount(t,file,props={}){
- const state=[],effects=[];let cursor=0;
- const react={...React,useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],v=>state[i]=typeof v==='function'?v(state[i]):v];},useEffect(fn){effects.push(fn);}};
+ const state=[],effects=[],cleanups=[];let cursor=0;
+ const react={...React,useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],v=>state[i]=typeof v==='function'?v(state[i]):v];},useRef(initial){const i=cursor++;return state[i]??={current:initial};},useEffect(fn){effects.push(fn);}};
  const before=global.fetch;t.after(()=>global.fetch=before);
  let read=()=>Response.json({items:[],info:{},questions:[],notifications:[],late:[],channels:{}}),write=()=>Response.json({ok:true});
  global.fetch=async(url,options={})=>(options.method&&options.method!=='GET'?write:read)(url,options);
@@ -15,7 +15,8 @@ function mount(t,file,props={}){
  const render=()=>{cursor=0;effects.length=0;return View(props);};
  const find=predicate=>{const node=nodes(render()).find(predicate);assert.ok(node,'expected interactive control');return node;};
  return {render,find,feedback:()=>text(render()),respond:fn=>write=fn,respondGet:fn=>read=fn,
-  async init(){render();for(const fn of [...effects])fn();await flush();},
+  async init(){render();for(const fn of [...effects]){const cleanup=fn();if(typeof cleanup==='function')cleanups.push(cleanup);}await flush();},
+  unmount(){for(const cleanup of cleanups)cleanup();},
   async click(label){await find(n=>n.type==='button'&&text(n).includes(label)).props.onClick();await flush();}
  };
 }
@@ -43,6 +44,21 @@ for(const scenario of scenarios)for(const mode of ['server','html','network'])te
  f.respond(()=>Response.json({ok:true}));await scenario.retry?.(f);await scenario.run(f);
  assert.doesNotMatch(f.feedback(),/STATE_CONFLICT|RESPONSE_INVALID|NETWORK_ERROR/);
  if(scenario.success)assert.match(f.feedback(),scenario.success);
+});
+test('leaving support before authentication returns never opens the former customer chat',async t=>{
+ const before=global.window,tasks=[];global.window={ChannelIO:(...args)=>tasks.push(args)};t.after(()=>global.window=before);
+ const f=mount(t,'components/ChannelSupportButton.tsx',{orderId:'order'});let resolve;
+ f.respondGet(()=>new Promise(done=>resolve=done));await f.init();
+ const pending=f.click('채팅 상담');await flush();f.unmount();
+ resolve(Response.json({pluginKey:'fixture',memberId:'old-user',memberHash:'fixture'}));await pending;
+ assert.ok(tasks.some(t=>t[0]==='shutdown'));assert.ok(!tasks.some(t=>t[0]==='boot'||t[0]==='showMessenger'));
+});
+test('late SDK boot callback after leaving support shuts down instead of revealing chat',async t=>{
+ const before=global.window,tasks=[];let boot;
+ global.window={ChannelIO:(...args)=>{tasks.push(args);if(args[0]==='boot')boot=args[2];}};t.after(()=>global.window=before);
+ const f=mount(t,'components/ChannelSupportButton.tsx',{orderId:'order'});f.respondGet(()=>Response.json({pluginKey:'fixture',memberId:'buyer',memberHash:'fixture'}));await f.init();
+ const pending=f.click('채팅 상담');await flush();assert.equal(typeof boot,'function');f.unmount();boot(null);await pending;
+ assert.ok(!tasks.some(t=>t[0]==='showMessenger'));assert.equal(tasks.at(-1)[0],'shutdown');
 });
 for(const file of ['components/CustomerShopping.tsx','components/admin/ProductCareEditor.tsx'])for(const mode of ['server','html','network'])test(`${file} handles ${mode} read failures without rendering a false empty state`,async t=>{
  const f=mount(t,file,{productId:'product'});f.respondGet(()=>respond(mode));await f.init();verifyFailure(f,mode);
