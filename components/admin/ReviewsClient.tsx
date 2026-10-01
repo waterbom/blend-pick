@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useState } from "react";
 
@@ -27,27 +28,36 @@ export default function ReviewsClient() {
   const [tab, setTab] = useState<string>("");
 
   async function load() {
-    const r = await fetch("/api/admin/reviews").then((x) => x.json()).catch(() => []);
-    setRows(Array.isArray(r) ? r : []);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/reviews");
+      const rows = await readApiJson(res, "리뷰를 불러오지 못했습니다.");
+      setRows(Array.isArray(rows) ? rows : []);
+    } catch (error) { alert(apiErrorMessage(error)); }
+    finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
   async function toggleHidden(rv: Review) {
-    await fetch("/api/admin/reviews", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: rv.id, is_hidden: !rv.is_hidden }),
-    });
-    setRows((prev) => prev.map((x) => (x.id === rv.id ? { ...x, is_hidden: !rv.is_hidden } : x)));
+    try {
+      const res = await fetch("/api/admin/reviews", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rv.id, is_hidden: !rv.is_hidden }),
+      });
+      await readApiJson(res, "리뷰 상태 변경에 실패했습니다.");
+      setRows((prev) => prev.map((x) => (x.id === rv.id ? { ...x, is_hidden: !rv.is_hidden } : x)));
+    } catch (error) { alert(apiErrorMessage(error)); }
   }
 
   async function remove(rv: Review) {
     if (!confirm("이 리뷰를 삭제할까요? 되돌릴 수 없어요.\n(부적절한 내용이 아니라면 삭제보다 숨김을 권장)")) return;
-    await fetch("/api/admin/reviews", {
-      method: "DELETE", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: rv.id }),
-    });
-    setRows((prev) => prev.filter((x) => x.id !== rv.id));
+    try {
+      const res = await fetch("/api/admin/reviews", {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rv.id }),
+      });
+      await readApiJson(res, "리뷰 삭제에 실패했습니다.");
+      setRows((prev) => prev.filter((x) => x.id !== rv.id));
+    } catch (error) { alert(apiErrorMessage(error)); }
   }
 
   const visible = rows.filter((r) =>

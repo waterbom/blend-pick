@@ -8,6 +8,7 @@ import Link from "next/link";
 import { getTopSellerIds } from "@/lib/best-sellers";
 import { ON_SALE_SQL, VISIBLE_SQL } from "@/lib/sale-window";
 import { SITES } from "@/lib/sites";
+import { deferDbFreeBuild } from "@/lib/ci-db-free-build";
 
 // 산지픽 카테고리 상품은 블랜드픽 메인에 섞이지 않게 제외 (산지픽 도메인 메인은 proxy가 /sanji 로 보낸다)
 const SANJI_CATS = SITES.sanjipick.categories;
@@ -103,6 +104,7 @@ async function getUpcomingHotelInfluencers(): Promise<{ id: string; name: string
 }
 
 export default async function Home() {
+  await deferDbFreeBuild('/');
   const [selling, upcoming, hotelActive, hotelUpcoming, topSellers] = await Promise.all([
     getSellingProducts(), getUpcomingProducts(), getActiveHotelInfluencers(), getUpcomingHotelInfluencers(),
     getTopSellerIds(2),

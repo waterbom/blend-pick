@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useState } from "react";
 import { BUSINESS_TYPE_LABEL, HOTEL_PAYOUT_CAMPAIGN_ID, type BusinessType, type PayoutBreakdown } from "@/lib/settlement";
@@ -44,9 +45,10 @@ export default function InfluencerSettlementsClient() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/influencer-settlements");
-    if (res.ok) setRows(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/influencer-settlements");
+      setRows(await readApiJson(res, "정산 목록을 불러오지 못했습니다."));
+    } catch (error) { alert(apiErrorMessage(error)); } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -62,15 +64,15 @@ export default function InfluencerSettlementsClient() {
     if (!r.business_type) { alert("인플루언서 사업자유형을 먼저 설정해주세요."); return; }
     if (!window.confirm(`${r.influencer_name} / ${r.product_name}\n주문 당시 요율과 환불 반영 금액으로 정산을 확정할까요?\n(확정 후 요율이 바뀌어도 이 정산은 변하지 않습니다)`)) return;
     setActing(true);
-    const res = await fetch("/api/admin/influencer-payouts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ campaign_id: r.campaign_id, influencer_id: r.influencer_id }),
-    });
-    const d = await res.json();
-    setActing(false);
-    if (res.ok) load();
-    else alert(d.error || "확정 실패");
+    try {
+      const res = await fetch("/api/admin/influencer-payouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaign_id: r.campaign_id, influencer_id: r.influencer_id }),
+      });
+      await readApiJson(res, "정산 확정에 실패했습니다.");
+      load();
+    } catch (error) { alert(apiErrorMessage(error)); } finally { setActing(false); }
   }
 
   // 호텔공구 — 해당 인플루언서 링크로 구매한 사람들 명단 엑셀 (취소 포함, 상태 표기)
@@ -78,10 +80,10 @@ export default function InfluencerSettlementsClient() {
     setActing(true);
     try {
       const res = await fetch("/api/admin/reservations");
-      if (!res.ok) { alert("명단 조회에 실패했습니다."); return; }
+
       const all: { order_number: string; buyer_name: string; buyer_phone: string; status: string;
         stay_check_in: string | null; stay_check_out: string | null; total_amount: number;
-        paid_at_kst: string | null; product_name: string | null; influencer_id: string | null }[] = await res.json();
+        paid_at_kst: string | null; product_name: string | null; influencer_id: string | null }[] = await readApiJson(res, "명단 조회에 실패했습니다.");
       const mine = all.filter((o) => o.influencer_id === r.influencer_id);
       if (mine.length === 0) { alert("이 인플루언서 링크로 들어온 예약이 없습니다."); return; }
       const header = ["예약번호", "예약자", "연락처", "패키지", "객실", "체크인", "체크아웃", "상태", "결제금액", "결제시간"];
@@ -95,21 +97,22 @@ export default function InfluencerSettlementsClient() {
         ];
       });
       await downloadXlsx(`구매자명단_${r.influencer_name}_${new Date().toISOString().slice(0, 10)}.xlsx`, header, rows, "구매자명단");
-    } finally {
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setActing(false);
     }
   }
 
   async function setStatus(payoutId: string, status: "paid" | "pending") {
     setActing(true);
-    const res = await fetch(`/api/admin/influencer-payouts/${payoutId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    setActing(false);
-    if (res.ok) load();
-    else alert("처리 실패");
+    try {
+      const res = await fetch(`/api/admin/influencer-payouts/${payoutId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      await readApiJson(res, "정산 상태 변경에 실패했습니다.");
+      load();
+    } catch (error) { alert(apiErrorMessage(error)); } finally { setActing(false); }
   }
 
   const tabs = [

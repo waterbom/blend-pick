@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -24,9 +25,9 @@ export default function TrackingForm({
   // 스위트트래커 공식 코드표 (숫자 코드) — ShipmentsClient와 동일 소스
   useEffect(() => {
     fetch("/api/admin/shipments/carriers")
-      .then((r) => r.json())
+      .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((d) => { if (Array.isArray(d.carriers) && d.carriers.length > 0) setCarriers(d.carriers); })
-      .catch(() => {});
+      .catch(error => alert(apiErrorMessage(error)));
   }, []);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -55,15 +56,11 @@ export default function TrackingForm({
           tracking_number: number.trim(),
         }),
       });
-      if (res.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2500);
-        router.refresh();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || "저장에 실패했습니다.");
-      }
-    } finally {
+      await readApiJson(res, "저장에 실패했습니다.");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      router.refresh();
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setLoading(false);
     }
   }
@@ -77,9 +74,9 @@ export default function TrackingForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (res.ok) router.refresh();
-      else alert("상태 변경에 실패했습니다.");
-    } finally {
+      await readApiJson(res, "상태 변경에 실패했습니다.");
+      router.refresh();
+    } catch (error) { alert(apiErrorMessage(error)); } finally {
       setStatusLoading(false);
     }
   }

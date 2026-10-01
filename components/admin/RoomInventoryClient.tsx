@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useMemo, useState } from "react";
 import { stayOfRoomType, type StayKey } from "@/lib/stay-admin";
@@ -38,7 +39,7 @@ export default function RoomInventoryClient({ stay = "" }: { stay?: "" | StayKey
 
   useEffect(() => {
     fetch("/api/admin/reservations/inventory")
-      .then((r) => r.json())
+      .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((d) => {
         const rows: Inv[] = Array.isArray(d) ? d : [];
         setInvAll(rows);
@@ -48,7 +49,8 @@ export default function RoomInventoryClient({ stay = "" }: { stay?: "" | StayKey
         setMonth(months.includes(today) ? today : months[0] ?? "");
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(error => alert(apiErrorMessage(error)))
+      .finally(() => setLoading(false));
   }, []);
 
   // 숙소 필터 — room_type으로 숙소를 판별해 선택 숙소의 재고만 남긴다

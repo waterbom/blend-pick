@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -51,13 +52,14 @@ function DocUpload({
 
   async function upload(file: File) {
     setBusy(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/admin/private-upload", { method: "POST", body: fd });
-    const data = await res.json();
-    setBusy(false);
-    if (res.ok) onChange(data.file);
-    else alert(data.error || "업로드 실패");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/private-upload", { method: "POST", body: fd });
+      const data = await readApiJson(res, "업로드에 실패했습니다.");
+      onChange(data.file);
+    } catch (error) { alert(apiErrorMessage(error)); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -131,7 +133,7 @@ export default function InfluencerFormClient({
   useEffect(() => {
     if (mode !== "edit" || !influencerId) return;
     fetch(`/api/admin/influencers/${influencerId}`)
-      .then((r) => r.json())
+      .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((d) => {
         setForm({
           name: d.name ?? "", platform: d.platform ?? "", profile_image: d.profile_image ?? "",
@@ -149,10 +151,11 @@ export default function InfluencerFormClient({
         setPortalPassword(d.portal_password ?? null);
         setCampaigns(d.campaigns ?? []);
       })
+      .catch(error => setError(apiErrorMessage(error)))
       .finally(() => setLoading(false));
     // 상품 공구 링크 발급용 — 요율 설정된 판매중 상품 중 이 인플루언서 소속(또는 공용)만
     fetch("/api/admin/products")
-      .then((r) => r.json())
+      .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((list: { id: string; name: string; status: string; influencer_rate: number | null; influencer_id: string | null }[]) => {
         if (!Array.isArray(list)) return;
         setShopProducts(
@@ -162,7 +165,7 @@ export default function InfluencerFormClient({
             .map((p) => ({ id: p.id, name: p.name, influencer_rate: Number(p.influencer_rate) }))
         );
       })
-      .catch(() => {});
+      .catch(error => setError(apiErrorMessage(error)));
   }, [mode, influencerId]);
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -189,54 +192,52 @@ export default function InfluencerFormClient({
       hotel_sale_deadline: localKSTToISO(form.hotel_sale_deadline),
     };
     const url = mode === "new" ? "/api/admin/influencers" : `/api/admin/influencers/${influencerId}`;
-    const res = await fetch(url, {
-      method: mode === "new" ? "POST" : "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setSaving(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(url, {
+        method: mode === "new" ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      await readApiJson(res, "저장에 실패했습니다.");
       router.push("/admin/influencers");
       router.refresh();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setError(d.error || "저장 실패");
-    }
+    } catch (error) { setError(apiErrorMessage(error)); }
+    finally { setSaving(false); }
   }
 
   async function issueAccount() {
     setAccBusy(true);
-    const res = await fetch(`/api/admin/influencers/${influencerId}/account`, { method: "POST" });
-    const d = await res.json();
-    setAccBusy(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/admin/influencers/${influencerId}/account`, { method: "POST" });
+      const d = await readApiJson(res, "계정 발급에 실패했습니다.");
       setIssued({ login_id: d.login_id, password: d.password });
       setAccountEmail(d.login_id);
       setPortalPassword(d.password);
-    } else alert(d.error || "발급 실패");
+    } catch (error) { alert(apiErrorMessage(error)); }
+    finally { setAccBusy(false); }
   }
 
   async function resetPassword() {
     if (!window.confirm("비밀번호를 새로 발급할까요? 기존 비밀번호는 사용할 수 없게 됩니다.")) return;
     setAccBusy(true);
-    const res = await fetch(`/api/admin/influencers/${influencerId}/account`, { method: "PUT" });
-    const d = await res.json();
-    setAccBusy(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/admin/influencers/${influencerId}/account`, { method: "PUT" });
+      const d = await readApiJson(res, "비밀번호 변경에 실패했습니다.");
       setIssued({ login_id: d.login_id, password: d.password });
       setPortalPassword(d.password);
-    } else alert(d.error || "변경 실패");
+    } catch (error) { alert(apiErrorMessage(error)); }
+    finally { setAccBusy(false); }
   }
 
-  // 비밀번호 없이 이 인플루언서 계정으로 바로 로그인 → 인플루언서 페이지 새 탭
-  // (브라우저의 쇼핑몰 로그인(shop_token)이 이 계정으로 바뀜 — 관리자 로그인은 유지)
+  // 관리자 로그인은 유지하고 인플루언서 페이지를 새 탭으로 연다.
   async function impersonate() {
     setAccBusy(true);
-    const res = await fetch(`/api/admin/influencers/${influencerId}/impersonate`, { method: "POST" });
-    const d = await res.json().catch(() => ({}));
-    setAccBusy(false);
-    if (res.ok) window.open(d.redirect || "/influencer", "_blank");
-    else alert(d.error || "로그인 실패");
+    try {
+      const res = await fetch(`/api/admin/influencers/${influencerId}/impersonate`, { method: "POST" });
+      const d = await readApiJson(res, "로그인에 실패했습니다.");
+      window.open(d.redirect || "/influencer", "_blank");
+    } catch (error) { alert(apiErrorMessage(error)); }
+    finally { setAccBusy(false); }
   }
 
   async function copyCredentials() {
@@ -528,10 +529,11 @@ export default function InfluencerFormClient({
             type="button"
             onClick={async () => {
               if (!window.confirm("이 인플루언서를 삭제할까요? (진행한 공구가 있으면 삭제되지 않습니다)")) return;
-              const res = await fetch(`/api/admin/influencers/${influencerId}`, { method: "DELETE" });
-              const d = await res.json().catch(() => ({}));
-              if (res.ok) { router.push("/admin/influencers"); router.refresh(); }
-              else alert(d.error || "삭제 실패");
+              try {
+                const res = await fetch(`/api/admin/influencers/${influencerId}`, { method: "DELETE" });
+                await readApiJson(res, "삭제에 실패했습니다.");
+                router.push("/admin/influencers"); router.refresh();
+              } catch (error) { alert(apiErrorMessage(error)); }
             }}
             className="ml-auto text-sm text-red-400 hover:text-red-600 font-bold px-3 py-2.5"
           >

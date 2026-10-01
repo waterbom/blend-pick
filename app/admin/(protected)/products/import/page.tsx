@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -46,18 +47,19 @@ export default function ProductImportPage() {
     setPreview(null);
     setResult(null);
 
-    const form = new FormData();
-    form.append("file", file);
-    const res = await fetch("/api/admin/products/import", { method: "POST", body: form });
-    const data = await res.json();
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/admin/products/import", { method: "POST", body: form });
+      const data = await readApiJson(res);
 
-    if (!res.ok) {
-      setError(data.error || "파싱 실패");
-    } else {
-      setPreview(data);
-      setMapping(Object.fromEntries(Object.entries(data.mapping).map(([k, v]) => [k, String(v)])));
-    }
-    setUploading(false);
+      if (!res.ok) {
+        setError(apiErrorMessage(data, "파싱 실패"));
+      } else {
+        setPreview(data);
+        setMapping(Object.fromEntries(Object.entries(data.mapping).map(([k, v]) => [k, String(v)])));
+      }
+    } catch (error) { setError(apiErrorMessage(error)); } finally { setUploading(false); }
   }
 
   async function handleConfirm() {
@@ -65,20 +67,21 @@ export default function ProductImportPage() {
     setSaving(true);
     setError("");
 
-    const res = await fetch("/api/admin/products/import", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ headers: preview.headers, rows: preview.rows, mapping }),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/admin/products/import", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headers: preview.headers, rows: preview.rows, mapping }),
+      });
+      const data = await readApiJson(res);
 
-    if (!res.ok) {
-      setError(data.error || "저장 실패");
-    } else {
-      setResult(data);
-      setPreview(null);
-    }
-    setSaving(false);
+      if (!res.ok) {
+        setError(apiErrorMessage(data, "저장 실패"));
+      } else {
+        setResult(data);
+        setPreview(null);
+      }
+    } catch (error) { setError(apiErrorMessage(error)); } finally { setSaving(false); }
   }
 
   return (

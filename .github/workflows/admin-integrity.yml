@@ -24,4 +24,8 @@ jobs:
       - run: npm run test:buyer
       - run: node tests/sanjipick-mypage.cjs
       - run: node --test tests/product-seo.cjs
+      - run: node --test tests/ci-db-free-build.cjs
       - run: npm run build -- --webpack
+        env:
+          # No DB service/secrets in this job; defer catalog queries to runtime.
+          CI_DB_FREE_BUILD: 'true'

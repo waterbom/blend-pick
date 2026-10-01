@@ -153,20 +153,20 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
   async function loadReqCounts() {
     try {
       const res = await fetch("/api/admin/orders?status=cancel_requested,exchange_requested,return_requested");
-      const data = await res.json();
+      const data = await readApiJson(res, "신청 건수를 불러오지 못했습니다.");
       if (!Array.isArray(data)) return;
       const c = { cancel_requested: 0, exchange_requested: 0, return_requested: 0 };
       for (const o of data) if (o.status in c) (c as Record<string, number>)[o.status]++;
       setReqCounts(c);
-    } catch { /* 배지 갱신 실패는 무시 — 다음 로드에서 다시 시도 */ }
+    } catch (error) { setLoadError(apiErrorMessage(error)); }
   }
 
-  async function loadBatches(){try{const r=await fetch("/api/admin/dispatches");const rows=await readApiJson(r);if(!r.ok||!Array.isArray(rows))throw Error(apiErrorMessage(rows,"발주 이력을 불러오지 못했습니다."));setBatches(rows);if(rows.some((b:{request_key:string})=>b.request_key===pendingDispatch.current?.key))pendingDispatch.current=null;}catch(e){setLoadError(e instanceof Error?e.message:"발주 이력을 불러오지 못했습니다. 새로고침해주세요.");}}
+  async function loadBatches(){try{const r=await fetch("/api/admin/dispatches");const rows=await readApiJson(r);if(!r.ok||!Array.isArray(rows))throw Error(apiErrorMessage(rows,"발주 이력을 불러오지 못했습니다."));setBatches(rows);if(rows.some((b:{request_key:string})=>b.request_key===pendingDispatch.current?.key))pendingDispatch.current=null;}catch(e){setLoadError(apiErrorMessage(e, "발주 이력을 불러오지 못했습니다. 새로고침해주세요."));}}
   async function load(_status = "") {
     if(sharedOrders){await onChanged?.();return;}
     setLoading(true);setLoadError("");
     try{const res=await fetch("/api/admin/orders");const data=await readApiJson(res);if(!res.ok||!Array.isArray(data))throw Error(apiErrorMessage(data,"주문을 불러오지 못했습니다."));setOrders(data);setSelected(new Set());loadReqCounts();}
-    catch(e){setOrders([]);setLoadError(e instanceof Error?e.message:"주문을 불러오지 못했습니다. 새로고침해주세요.");}
+    catch(e){setOrders([]);setLoadError(apiErrorMessage(e, "주문을 불러오지 못했습니다. 새로고침해주세요."));}
     finally{setLoading(false);}
   }
   useEffect(() => { if(!sharedOrders)load();loadBatches(); }, []);
@@ -265,16 +265,16 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
     setActing(true);
 
     try {
-    const res = await fetch("/api/admin/orders", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping, dispatch_stop_confirmed: action === "cancel_confirm" }),
-    });
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok || d.error) alert(apiErrorMessage(d, "처리에 실패했어요."));
+      const res = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping, dispatch_stop_confirmed: action === "cancel_confirm" }),
+      });
+      const d = await readApiJson(res);
+      if (!res.ok || d.error) alert(apiErrorMessage(d, "처리에 실패했어요."));
 
-    await load(statusFilter);
-    } catch { alert("처리 결과를 확인하지 못했습니다. 새로고침해 상태를 확인해주세요."); } finally { setActing(false); }
+      await load(statusFilter);
+    } catch (error) { alert(apiErrorMessage(error, "처리 결과를 확인하지 못했습니다. 새로고침해 상태를 확인해주세요.")); } finally { setActing(false); }
   }
 
   // 고객 신청 탭 — 취소요청은 이 화면에서 바로 승인/차감/반려, 교환·반품은 상세 패널로.
@@ -300,11 +300,11 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "cancelled", dispatch_stop_confirmed: needsStop }),
       });
-      const d = await res.json().catch(() => ({}));
+      const d = await readApiJson(res);
       if (!res.ok) { alert(apiErrorMessage(d, "취소에 실패했어요.")); return; }
       await load(statusFilter);
-    } catch {
-      alert("네트워크 문제로 취소 요청이 전달되지 않았어요. 목록을 새로고침해 상태를 확인해주세요.");
+    } catch (error) {
+      alert(apiErrorMessage(error, "네트워크 문제로 취소 요청이 전달되지 않았어요. 목록을 새로고침해 상태를 확인해주세요."));
     } finally {
       setActing(false);
     }
@@ -319,20 +319,20 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
     if (!selected.size) return;
     try {
       const r=await fetch("/api/admin/dispatches",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"download",orderIds:[...selected]})});
-      const b=await r.json();if(!r.ok)throw Error(apiErrorMessage(b, "출고 대상을 확인하지 못했습니다."));
+      const b=await readApiJson(r);if(!r.ok)throw Error(apiErrorMessage(b, "출고 대상을 확인하지 못했습니다."));
       await saveDispatchDownload(b,`발주_${new Date().toISOString().slice(0,10)}.xlsx`);
-    } catch(e) { alert(e instanceof Error?e.message:"파일을 받지 못했습니다."); }
+    } catch(e) { alert(apiErrorMessage(e, "파일을 받지 못했습니다.")); }
   }
   async function downloadBatch(id:string){
-    try{const r=await fetch(`/api/admin/dispatches?id=${id}`);const b=await r.json();if(!r.ok)throw Error(apiErrorMessage(b));await saveDispatchDownload(b,`발주확정_${id.slice(0,8)}.xlsx`);}
-    catch(e){alert(e instanceof Error?e.message:"파일을 받지 못했습니다. 발주 이력에서 다시 다운로드해주세요.");}
+    try{const r=await fetch(`/api/admin/dispatches?id=${id}`);const b=await readApiJson(r);if(!r.ok)throw Error(apiErrorMessage(b));await saveDispatchDownload(b,`발주확정_${id.slice(0,8)}.xlsx`);}
+    catch(e){alert(apiErrorMessage(e, "파일을 받지 못했습니다. 발주 이력에서 다시 다운로드해주세요."));}
   }
   async function handleDispatch(){
     const ids=[...selected].sort();if(!ids.length||!confirm(`${ids.length}건을 발주 확정할까요? 확정 후 배송준비로 이동합니다. 공급사 전송은 별도로 진행해주세요.`))return;
     if(pendingDispatch.current&&JSON.stringify(pendingDispatch.current.ids)!==JSON.stringify(ids)){alert("이전 요청 결과부터 발주 이력에서 확인해주세요. 같은 주문 선택으로 다시 시도할 수 있습니다.");return;}
     const request=pendingDispatch.current??{key:crypto.randomUUID(),ids};pendingDispatch.current=request;setActing(true);
-    try{const r=await fetch("/api/admin/dispatches",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({request_key:request.key,orderIds:request.ids})});const b=await r.json();if(!r.ok){if(r.status<500)pendingDispatch.current=null;throw Error(apiErrorMessage(b, "발주에 실패했습니다."));}pendingDispatch.current=null;await load();await loadBatches();await downloadBatch(b.id);}
-    catch(e){alert(e instanceof Error?e.message:"발주 이력에서 처리 결과를 확인해주세요.");await loadBatches();}
+    try{const r=await fetch("/api/admin/dispatches",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({request_key:request.key,orderIds:request.ids})});const b=await readApiJson(r);if(!r.ok){if(r.status<500)pendingDispatch.current=null;throw Error(apiErrorMessage(b, "발주에 실패했습니다."));}pendingDispatch.current=null;await load();await loadBatches();await downloadBatch(b.id);}
+    catch(e){alert(apiErrorMessage(e, "발주 이력에서 처리 결과를 확인해주세요."));await loadBatches();}
     finally{setActing(false);}
   }
   const actionButton = () => {

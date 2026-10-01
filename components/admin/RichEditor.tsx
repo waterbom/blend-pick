@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useEffect, useRef, useState } from 'react';
 import { shrinkImage, uploadErrorMessage } from '@/lib/client-image';
@@ -61,8 +62,8 @@ export default function RichEditor({ value, onChange, className = '', style, pla
         const file = await shrinkImage(raw, { maxWidth: 1600 });
         const fd = new FormData(); fd.append('file', file);
         const res = await fetch(uploadUrl, { method: 'POST', body: fd });
-        const result = await res.json().catch(() => null);
-        if (!res.ok || typeof result?.url !== 'string') throw Error(uploadErrorMessage(res.status, result));
+        const result = await readApiJson(res);
+        if (!res.ok || typeof result?.url !== 'string') throw Error(apiErrorMessage(result, uploadErrorMessage(res.status, result)));
         const src = imageSource(result.url);
         if (!src || /^(data:|blob:)/.test(src)) throw Error('업로드된 이미지 주소를 확인하지 못했어요. 다시 시도해주세요.');
         // Do not resurrect a placeholder the user already removed.
@@ -71,7 +72,7 @@ export default function RichEditor({ value, onChange, className = '', style, pla
         }
       } catch (e) {
         job.marker.remove();
-        if (mounted.current) { setError(e instanceof Error ? e.message : '사진 업로드에 실패했어요. 다시 시도해주세요.'); sync(); }
+        if (mounted.current) { setError(apiErrorMessage(e, '사진 업로드에 실패했어요. 다시 시도해주세요.')); sync(); }
       } finally { pending(-1); }
     }
   }

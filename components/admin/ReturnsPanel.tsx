@@ -52,10 +52,10 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
       const res = await fetch(`/api/admin/returns?kind=${kind}${requestId ? `&id=${encodeURIComponent(requestId)}` : ''}`, { signal });
       const data = await readApiJson(res);
       if (!res.ok) throw new Error(apiErrorMessage(data, "신청을 불러오지 못했습니다."));
-      if (!Array.isArray(data)) throw new Error("Invalid return lookup");
+      if (!Array.isArray(data)) throw new Error("신청 목록 응답을 확인하지 못했습니다. (오류 RESPONSE_INVALID)");
       if (!signal?.aborted) setRows(data);
     } catch (error) {
-      if (!signal?.aborted) { setRows([]); setLoadError(error instanceof Error ? error.message : "신청을 불러오지 못했습니다."); }
+      if (!signal?.aborted) { setRows([]); setLoadError(apiErrorMessage(error, "신청을 불러오지 못했습니다.")); }
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -89,12 +89,12 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
         // 토스 취소 가능 잔액 조회 — 이미 취소된 내역이 있으면 입력 전에 알 수 있게
         let balanceLine = "";
         try {
-          const b = await fetch(`/api/admin/returns/balance?id=${r.id}`).then((res) => res.json());
+          const b = await fetch(`/api/admin/returns/balance?id=${r.id}`).then((res) => readApiJson(res, "환불 잔액을 불러오지 못했습니다."));
           if (typeof b.balance === "number") {
             balanceLine = `\n토스 취소 가능 잔액 ${b.balance.toLocaleString()}원`;
             if (b.canceled > 0) balanceLine += ` (이미 취소된 금액 ${Number(b.canceled).toLocaleString()}원)`;
           }
-        } catch { /* 조회 실패 시 잔액 표시 없이 진행 — 서버가 최종 검증 */ }
+        } catch (error) { alert(apiErrorMessage(error)); /* 서버가 최종 잔액 검증 */ }
 
         const input = prompt(
           `환불 금액을 입력해주세요 (원)\n\n신청 상품 합계 ${itemsSum.toLocaleString()}원` +
@@ -122,7 +122,7 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, action, note, refund_amount: refundAmount }),
       });
-      const d = await res.json().catch(() => ({}));
+      const d = await readApiJson(res);
       if (!res.ok || d.error) { alert(apiErrorMessage(d, "처리에 실패했어요.")); return; }
       if (action === "complete" && r.kind === "return" && d.refunded > 0) {
         alert(
@@ -133,8 +133,8 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
       }
       await load();
       onChanged?.(); // 처리 후 부모 화면의 신청 건수 배지 갱신용
-    } catch {
-      alert("네트워크 문제로 요청이 전달되지 않았어요. 목록을 새로고침해 확인해주세요.");
+    } catch (error) {
+      alert(apiErrorMessage(error, "네트워크 문제로 요청이 전달되지 않았어요. 목록을 새로고침해 확인해주세요."));
     } finally {
       setActingId(null);
     }
