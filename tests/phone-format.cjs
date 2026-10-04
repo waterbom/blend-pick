@@ -15,6 +15,15 @@ const mocks={
 };
 const {toOrderRows}=load('components/admin/OrdersClient.tsx',mocks);
 const fixture=()=>({id:'order',order_number:'BP-test',created_at:'2026-09-28T00:00:00Z',buyer_name:'구매자',buyer_phone:'1012345678',recipient_name:'수령인',recipient_phone:'01098765432',addr_address:'테스트 주소',addr_zipcode:'01234',total_amount:23000,shipping_fee:3000,items:[{id:'item1',product_id:'p1',product_name:'상품',quantity:2},{id:'item2',product_id:'p1',product_name:'상품',quantity:1}]});
+test('read-only list labels every row and retains orders without items; dispatch layout stays unchanged',()=>{
+ const order={...fixture(),status:'cancelled'};
+ const list=toOrderRows([order],true),dispatch=toOrderRows([order]);
+ assert.ok(list.every(row=>row.length===22 && row[21]==='취소완료'));
+ assert.deepEqual(list.map(row=>row.slice(0,21)),dispatch);
+ const empty=toOrderRows([{...order,items:[]}],true);
+ assert.equal(empty.length,1);assert.equal(empty[0][3],order.order_number);
+ assert.equal(empty[0][11],'상품 정보 없음');assert.equal(empty[0][13],'');assert.equal(empty[0][21],'취소완료');
+});
 test('both regular and snapshot export rows format phones without mutating originals or amounts',()=>{
   const o=fixture(),before=JSON.stringify(o),rows=toOrderRows([o]);
   for(const row of rows){assert.equal(row[5],'010-1234-5678');assert.equal(row[7],'010-9876-5432');}

@@ -19,6 +19,32 @@ test('dispatch commits snapshot and does not deduct reserved stock; same request
 test('mixed invalid orders roll back whole dispatch',async()=>{await seed();await seed(11);await q('UPDATE orders SET addr_address=NULL WHERE id=$1',[id(11)]);await assert.rejects(dispatch(site,id(200),[id(10),id(11)]),/배송지/);assert.equal((await q("SELECT count(*) n FROM orders WHERE status='paid'")).rows[0].n,2);assert.equal((await q('SELECT count(*) n FROM admin_dispatch_batches')).rows[0].n,0);});
 test('in-flight refund blocks dispatch',async()=>{await seed();await q("INSERT INTO refund_operations(source_key,order_id,amount,baseline,reason,total,idempotency_key,status) VALUES('x',$1,10000,0,'test',10000,'x','prepared')",[id(10)]);await assert.rejects(dispatch(site,id(200),[id(10)]),/환불/);});
 test('site boundaries, mismatched request keys and unauthorized reads',async()=>{await seed();await assert.rejects(dispatch('sanjipick',id(200),[id(10)]),/사이트/);await dispatch(site,id(200),[id(10)]);await assert.rejects(dispatch(site,id(200),[id(11)]),/같은 요청/);auth=false;assert.equal((await api('dispatches').GET(req())).status,401);assert.equal((await api('dispatches').POST(req('POST',{}))).status,401);});
+test('order list exports all selected statuses without dispatching; supplier exports remain restricted',async()=>{
+ const statuses=['paid','confirmed','preparing','cancelled','cancel_requested','return_completed'];
+ for(const [i,status] of statuses.entries())await seed(10+i,status);
+ await q("INSERT INTO refund_operations(source_key,order_id,amount,baseline,reason,total,idempotency_key,status) VALUES('list',$1,10000,0,'test',10000,'list','prepared')",[id(10)]);
+ await q('DELETE FROM order_items WHERE order_id=$1',[id(15)]);
+ const ids=statuses.map((_,i)=>id(10+i));
+ const before=await q('SELECT * FROM orders ORDER BY id');
+ const res=await api('orders/export').POST(req('POST',{orderIds:ids}));
+ assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');
+ const {orders}=await res.json();assert.deepEqual(orders.map(o=>o.status),statuses);
+ assert.deepEqual(orders[5].items,[]);assert.equal(orders[0].items[0].supplier_name,'농가 A');
+ assert.ok(orders.every(o=>!('payment_key' in o)));
+ assert.deepEqual(await q('SELECT * FROM orders ORDER BY id'),before);
+ assert.equal((await q('SELECT count(*) n FROM admin_dispatch_batches')).rows[0].n,0);
+ assert.equal((await q('SELECT stock FROM products_shop')).rows[0].stock,8);
+ const file=await api('dispatches').POST(req('POST',{action:'download',orderIds:ids}));
+ const output=await file.json();assert.deepEqual(output.snapshot.map(o=>o.status),['preparing']);assert.equal(output.excluded.length,5);
+});
+test('order list export enforces authentication, site ownership and selection validation',async()=>{
+ await seed();const route=api('orders/export');
+ for(const orderIds of [[],[id(10),id(10)],['invalid'],Array.from({length:501},(_,i)=>id(i))])
+   assert.equal((await route.POST(req('POST',{orderIds}))).status,400);
+ assert.equal((await route.POST(req('POST',{orderIds:[id(10),id(11)]}))).status,404);
+ site='sanjipick';assert.equal((await route.POST(req('POST',{orderIds:[id(10)]}))).status,404);
+ auth=false;assert.equal((await route.POST(req('POST',{orderIds:[id(10)]}))).status,401);
+});
 test('download keeps snapshot after supplier edit and never mutates orders',async()=>{await seed();const b=await dispatch(site,id(200),[id(10)]);await q("UPDATE products_shop SET supplier_name='농가 B'");const res=await api('dispatches').GET(req('GET',null,'http://localhost/x?id='+b.id));assert.equal((await res.json()).snapshot[0].items[0].supplier_name,'농가 A');assert.equal((await q('SELECT status FROM orders')).rows[0].status,'preparing');site='sanjipick';assert.equal((await api('dispatches').GET(req('GET',null,'http://localhost/x?id='+b.id))).status,404);});
 test('safe category merge preserves product ownership, price, stock, and histories',async()=>{await seed();const r=await api('categories/[id]').PATCH(req('PATCH',{action:'merge',target_id:id(2),expected_count:1}),ctx(1));assert.equal(r.status,200);const p=(await q('SELECT * FROM products_shop')).rows[0];assert.equal(p.category,'제철과일');assert.equal(p.site,'blendpick');assert.equal(p.price,10000);assert.equal(p.stock,8);assert.equal((await q('SELECT product_name FROM order_items')).rows[0].product_name,'사과');await assert.rejects(q("INSERT INTO products_shop(name,category) VALUES('new','과일')"),/active category/);});
 test('category merge rejects stale counts and foreign site',async()=>{await seed();assert.equal((await api('categories/[id]').PATCH(req('PATCH',{action:'merge',target_id:id(2),expected_count:0}),ctx(1))).status,409);assert.equal((await api('categories/[id]').PATCH(req('PATCH',{action:'merge',target_id:id(3),expected_count:1}),ctx(1))).status,404);assert.equal((await q('SELECT category FROM products_shop')).rows[0].category,'과일');});
