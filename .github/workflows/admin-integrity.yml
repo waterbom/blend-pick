@@ -22,6 +22,7 @@ jobs:
       - run: npm run test:images
       - run: npm run test:account
       - run: npm run test:buyer
+      - run: npm run test:customer-convenience
       - run: node tests/sanjipick-mypage.cjs
       - run: node --test tests/product-seo.cjs
       - run: node --test tests/ci-db-free-build.cjs

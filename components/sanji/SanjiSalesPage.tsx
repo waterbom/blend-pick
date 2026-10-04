@@ -1,6 +1,7 @@
 "use client";
 
 import ScrollRail from "@/components/ScrollRail";
+import ProductEngagement from "@/components/ProductEngagement";
 import { SANJI_IMAGE_ASPECT_RATIO, SANJI_LARGE_IMAGE_MAX_WIDTH } from "@/lib/sanji-image-layout";
 
 import { useEffect, useRef, useState } from "react";
@@ -146,6 +147,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
 
   const [descOpen, setDescOpen] = useState(false);
   const [shownReviews, setShownReviews] = useState(5);
+  const [reviewSort,setReviewSort]=useState('latest'),[photoReviews,setPhotoReviews]=useState(false);
+  const visibleReviews=reviews.list.filter(r=>!photoReviews||!!r.images?.length).slice().sort((a,b)=>reviewSort==='low'?a.rating-b.rating:reviewSort==='high'?b.rating-a.rating:new Date(b.created_at).getTime()-new Date(a.created_at).getTime());
   const [lightbox, setLightbox] = useState<string | null>(null);
   const lightboxRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -567,7 +570,9 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
                 <div className="sub">후기 {reviews.total.toLocaleString()}개 기준</div>
               </div>
             </div>
-            {reviews.list.slice(0, shownReviews).map((r) => (
+            <div className="care-actions mb-4"><label>후기 정렬 <select value={reviewSort} onChange={e=>{setReviewSort(e.target.value);setShownReviews(5);}}><option value="latest">최신순</option><option value="low">평점 낮은순</option><option value="high">평점 높은순</option></select></label><label><input type="checkbox" checked={photoReviews} onChange={e=>{setPhotoReviews(e.target.checked);setShownReviews(5);}}/> 사진 후기만</label></div>
+            {visibleReviews.length===0&&<p>선택한 조건의 후기가 없습니다.</p>}
+            {visibleReviews.slice(0, shownReviews).map((r) => (
               <div className="sp-rv" key={r.id}>
                 <div className="who">
                   <span className="av">{(r.buyer_name || "고")[0]}</span>
@@ -579,6 +584,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
                 </div>
                 {r.option_label && <div className="opt">옵션 · {r.option_label}</div>}
                 <div className="tx">{r.content}</div>
+                {r.seller_reply&&<div className="care-reply"><strong>판매자 답변</strong><p>{r.seller_reply}</p></div>}
                 {r.images && r.images.length > 0 && (
                   <div className="ph">
                     {r.images.slice(0, 4).map((src, i) => (
@@ -588,7 +594,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
                 )}
               </div>
             ))}
-            {shownReviews < reviews.list.length && (
+            {shownReviews < visibleReviews.length && (
               <button className="sp-more" onClick={() => setShownReviews((n) => n + 5)}>후기 더보기</button>
             )}
           </>
@@ -606,6 +612,8 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           카카오톡으로 문의하기
         </a>
       </div>
+
+      {!demo && !linkCode && product.is_visible && <div className="sp-sec"><ProductEngagement productId={product.id} options={options} opening={saleState === "upcoming"} soldOut={soldout}/></div>}
 
       {/* 하단 고정 구매바 */}
       <div className="sp-bottom">

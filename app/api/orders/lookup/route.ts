@@ -26,6 +26,7 @@ async function handlePOST(req: NextRequest) {
             o.tracking_company, o.tracking_number,
             COALESCE(o.recipient_name, o.buyer_name) AS recipient_name,
             o.addr_address, o.addr_detail,
+            (SELECT json_build_object('date',to_char(sp.expected_date,'YYYY-MM-DD'),'reason',sp.reason) FROM order_shipping_promises sp WHERE sp.order_id=o.id) AS shipping_promise,
             to_char(o.shipped_at   AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS shipped_kst,
             to_char(o.delivered_at AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS delivered_kst,
             to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS paid_date,

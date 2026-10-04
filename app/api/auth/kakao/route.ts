@@ -20,6 +20,8 @@ async function handleGET(req: NextRequest) {
   url.searchParams.set("redirect_uri", process.env.KAKAO_REDIRECT_URI);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "profile_nickname profile_image talk_message");
+  const terms=process.env[`${site === "sanjipick" ? "SANJIPICK" : "BLENDPICK"}_KAKAO_SYNC_TERMS`];
+  if (terms && /^[A-Za-z0-9_-]+(?:,[A-Za-z0-9_-]+)*$/.test(terms)) url.searchParams.set("service_terms",terms);
   url.searchParams.set("state", state);
   const res = NextResponse.redirect(url);
   res.cookies.set(KAKAO_FLOW_COOKIE, state, flowCookieOptions(req));

@@ -1,4 +1,5 @@
 "use client";
+import ProductCareEditor from "@/components/admin/ProductCareEditor";
 import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { productSeo } from "@/lib/product-seo";
@@ -629,6 +630,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
       </div>
 
       <nav aria-label="상품 등록 단계" className="commerce-form-progress grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">{STEP_TITLES.map((title,i)=><button type="button" key={title} aria-current={step===i?"step":undefined} onClick={()=>setStep(i)} className={`border p-3 text-sm text-left ${step===i?"bg-[#2D5A27] text-white":"bg-white"}`}>{i+1}. {title}</button>)}</nav>
+      {mode === "edit" && productId && step === 2 && <ProductCareEditor productId={productId}/>}
       <StepContext.Provider value={step}>
       <form noValidate onSubmit={handleSubmit} className="space-y-4">
 
