@@ -8,8 +8,7 @@ const uuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}
 const exportFields = ['id', 'order_number', 'status', 'order_type', 'site', 'buyer_name', 'buyer_phone', 'recipient_name', 'recipient_phone', 'addr_zipcode', 'addr_address', 'addr_detail', 'addr_memo', 'total_amount', 'shipping_fee', 'influencer_name', 'link_code', 'sales_channel', 'created_at'];
 const exportOrder = (o: Record<string, unknown>, items: unknown[]) => Object.fromEntries([...exportFields.map(k => [k, o[k]]), ['items', items]]);
 
-// Historical batches remain immutable. Supplier downloads use a fresh eligibility check.
-export async function currentDispatchExport(site: string, ids: unknown, historical?: Record<string, unknown>[]) {
+async function selectedExportOrders(site: string, ids: unknown) {
     if (!Array.isArray(ids) || !ids.length || ids.length > 500 || ids.some(id => !uuid(id)) || new Set(ids).size !== ids.length)
         throw new DispatchError('주문 선택을 확인해주세요.', 400);
     const { rows } = await shopPool.query(`SELECT o.*,
@@ -18,6 +17,18 @@ export async function currentDispatchExport(site: string, ids: unknown, historic
           FROM order_items oi LEFT JOIN products_shop p ON p.id=oi.product_id WHERE oi.order_id=o.id),'[]'::jsonb) AS items
         FROM orders o WHERE o.site=$1 AND o.id=ANY($2::uuid[]) ORDER BY o.id`, [site, ids]);
     if (rows.length !== ids.length) throw new DispatchError('현재 사이트의 주문을 찾을 수 없습니다.', 404);
+    return rows;
+}
+
+// Read-only administrative list: status does not determine whether an order is visible.
+export async function currentOrderListExport(site: string, ids: unknown) {
+    const rows = await selectedExportOrders(site, ids);
+    return rows.map(o => exportOrder(o, o.items));
+}
+
+// Historical batches remain immutable. Supplier downloads use a fresh eligibility check.
+export async function currentDispatchExport(site: string, ids: unknown, historical?: Record<string, unknown>[]) {
+    const rows = await selectedExportOrders(site, ids);
     const snapshot: Record<string, unknown>[] = [], excluded: {order_number:string;reason:string}[] = [];
     for (const o of rows) {
         if (o.status !== 'preparing' || o.pending_refunds || !['shop','campaign'].includes(o.order_type)) {

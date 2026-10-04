@@ -94,13 +94,16 @@ const COLUMNS = [
 
 // 발주용 엑셀(.xlsx) 행 데이터 — 수량·금액은 숫자 셀
 // 총 결제 금액(배송비 포함, 주문 단위)은 주문의 첫 줄에만 기재 → 컬럼 SUM해도 중복 없음
-export function toOrderRows(orders: Order[]): (string | number)[][] {
+export function toOrderRows(orders: Order[], includeStatus = false): (string | number)[][] {
   const rows: (string | number)[][] = [];
   for (const o of orders) {
     // 추가옵션 행도 상품명은 공구명(본상품)으로 통일하고, 추가상품 이름은 선택옵션 칸에
     // ("[추가] 손잡이 — 라벤더 440ml" → 선택옵션 "텀블러 실리콘 손잡이") — 업체 발주 양식 요청
     const main = o.items.find((i) => i.product_id) ?? o.items[0];
-    o.items.forEach((item, idx) => {
+    const items = includeStatus && !o.items.length
+      ? [{ product_id: null, product_name: "상품 정보 없음", option_label: null, quantity: "", supplier_name: null, expected_ship_date: null }]
+      : o.items;
+    items.forEach((item, idx) => {
       const isAddon = !item.product_id;
       const addr = [o.addr_address, o.addr_detail].filter(Boolean).join(" ");
       const d = new Date(o.created_at);
@@ -127,10 +130,11 @@ export function toOrderRows(orders: Order[]): (string | number)[][] {
         idx === 0 ? Number(o.shipping_fee ?? 0) : "",
         idx === 0 ? Number(o.total_amount) : "",
         (o.sales_channel ?? (o.link_code?"non_display":"display")) === "non_display" ? "비전시" : "전시", o.link_code ?? "", item.supplier_name || "미지정", item.expected_ship_date?.slice(0,10) || "미지정",
+        ...(includeStatus ? [STATUS_LABEL[o.status] || o.status] : []),
       ]);
     });
   }
-  return rows.sort((a,b)=>String(a[a.length-2]).localeCompare(String(b[b.length-2]),"ko") || String(a[a.length-1]).localeCompare(String(b[b.length-1])));
+  return rows.sort((a,b)=>String(a[19]).localeCompare(String(b[19]),"ko") || String(a[20]).localeCompare(String(b[20])));
 }
 
 export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?: Order[]; onChanged?: () => Promise<void>} = {}) {
@@ -318,9 +322,10 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
   async function handleDownloadOnly() {
     if (!selected.size) return;
     try {
-      const r=await fetch("/api/admin/dispatches",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"download",orderIds:[...selected]})});
-      const b=await readApiJson(r);if(!r.ok)throw Error(apiErrorMessage(b, "출고 대상을 확인하지 못했습니다."));
-      await saveDispatchDownload(b,`발주_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const r=await fetch("/api/admin/orders/export",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderIds:[...selected]})});
+      const b=await readApiJson(r);if(!r.ok)throw Error(apiErrorMessage(b, "주문 목록을 확인하지 못했습니다."));
+      if (!Array.isArray(b.orders)) throw Error("주문 목록 응답을 확인하지 못했습니다.");
+      await downloadXlsx(`주문목록_조회용_${new Date().toISOString().slice(0,10)}.xlsx`, [...COLUMNS, "주문 상태"], toOrderRows(b.orders, true), "주문목록(출고용 아님)");
     } catch(e) { alert(apiErrorMessage(e, "파일을 받지 못했습니다.")); }
   }
   async function downloadBatch(id:string){
