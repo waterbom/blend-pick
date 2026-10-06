@@ -18,7 +18,7 @@ export default async function Footer() {
             ) : (
               <p className="m-0"><img src="/logo-wide.png" alt="BLEND PICK" className="h-10 w-auto" /></p>
             )}
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{sanji ? "산지에서 바로, 제철 그대로 · 농가 직송 공동구매 by BLEND PUNCH" : "인플루언서 공구 플랫폼"}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{sanji ? "산지에서 바로, 제철 그대로 · 농가 직송 공동구매 by BLEND PUNCH" : "이런 것까지 공구가 된다고? 일상부터 여행까지, 블랜드픽."}</p>
           </div>
 
           {/* 링크 */}

@@ -18,8 +18,8 @@ import { SITES } from "@/lib/sites";
 const BP = SITES.blendpick;
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${BP.host}`),
-  title: "BLEND PICK — 인플루언서 공구 플랫폼",
-  description: "블랜드픽에서 트렌디한 제품을 만나보세요",
+  title: "블랜드픽 — 이런 것까지 공구가 된다고?",
+  description: "일상에 필요한 물건부터 숙박·호텔까지, 새로운 공동구매의 발견 — 블랜드픽",
   verification: {
     google: BP.verification.google.length ? BP.verification.google : undefined,
     other: BP.verification.naver.length ? { "naver-site-verification": BP.verification.naver } : undefined,
@@ -34,8 +34,8 @@ export const metadata: Metadata = {
   },
   // 카톡·인스타 링크 미리보기 — 블랜드픽 전용 이미지 (public/og.png, 1200×630, BLEND PICK 워드마크). 산지픽 레이아웃은 자기 로고로 덮어씀
   openGraph: {
-    title: "BLEND PICK — 인플루언서 공구 플랫폼",
-    description: "블랜드픽에서 트렌디한 제품을 만나보세요",
+    title: "블랜드픽 — 이런 것까지 공구가 된다고?",
+    description: "일상에 필요한 물건부터 숙박·호텔까지, 새로운 공동구매의 발견 — 블랜드픽",
     url: `https://${BP.host}`,
     siteName: BP.nameEn,
     type: "website",
