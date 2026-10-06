@@ -1,0 +1,27 @@
+/* The customer frame is mobile-sized on every screen; workspaces stay full width. */
+.sanji-mobile-shell{width:100%;max-width:480px;margin-inline:auto;min-height:100svh;display:flex;flex-direction:column;background:#fff;container:sanji-mobile / inline-size;box-shadow:0 0 0 1px #ededed}
+.sanji-mobile-shell .container-blend{padding-inline:16px}
+.sanji-mobile-shell .sm\:px-14{padding-inline:2rem}
+.sanji-mobile-shell .sm\:w-8{width:1.5rem}
+.sanji-mobile-shell .commerce-heading{padding-right:0}
+.sanji-mobile-shell .commerce-progress{position:static}
+.sanji-mobile-shell .sanji-footer{padding-bottom:90px}
+.sanji-mobile-shell .sp-bottom,.sanji-mobile-shell .sp-sheet{max-width:480px}
+.sanji-mobile-shell .sp-lb{max-width:456px}
+.sanji-mobile-shell .sh-top,.sanji-mobile-shell .sh-kakao{right:max(16px,calc((100vw - 480px) / 2 + 16px))}
+/* Shared checkout/header mobile styles also apply inside the desktop phone frame. */
+@containersanji-mobile (max-width:999px){.sanji-mobile-shell .commerce-layout{grid-template-columns:minmax(0,1fr) 300px;gap:16px}.sanji-mobile-shell .checkout-panel{padding:21px}.sanji-mobile-shell .checkout-item{grid-template-columns:60px minmax(0,1fr)}.sanji-mobile-shell .checkout-item-price{grid-column:2;text-align:left;padding-top:0}.sanji-mobile-shell .checkout-item-price>p{display:inline-block;margin-right:10px}.sanji-mobile-shell .checkout-buyer-grid{grid-template-columns:1fr}.sanji-mobile-shell .checkout-payment{top:100px}}
+@containersanji-mobile (max-width:760px){.sanji-mobile-shell .product-summary h2{font-size:19px}.sanji-mobile-shell .product-facts>div{padding:14px}.sanji-mobile-shell .product-facts dd{font-size:13px}.sanji-mobile-shell .product-summary-intro{font-size:12px}.sanji-mobile-shell .product-options-summary li{font-size:12px}.sanji-mobile-shell .commerce-checkout{padding:28px 16px 44px}.sanji-mobile-shell .commerce-heading{margin-bottom:18px;padding-bottom:22px}.sanji-mobile-shell .commerce-heading h1{font-size:28px!important}.sanji-mobile-shell .commerce-heading>p{font-size:12px}.sanji-mobile-shell .commerce-progress{gap:6px}.sanji-mobile-shell .commerce-progress li{font-size:10px;padding:8px 10px}.sanji-mobile-shell .checkout-draft-note{padding:12px 14px;font-size:10px;gap:10px;flex-wrap:wrap}.sanji-mobile-shell .commerce-layout{display:flex;flex-direction:column;gap:20px}.sanji-mobile-shell .commerce-fields,.sanji-mobile-shell .checkout-payment{width:100%}.sanji-mobile-shell .checkout-panel{padding:20px 18px;border-radius:17px}.sanji-mobile-shell .commerce-checkout .ds-section-title{font-size:16px;padding-bottom:15px;flex-wrap:wrap}.sanji-mobile-shell .commerce-checkout .ds-section-title>small{font-size:9px}.sanji-mobile-shell .checkout-section-number{width:25px;height:25px}.sanji-mobile-shell .commerce-checkout .ds-section-title>label{font-size:10px}.sanji-mobile-shell .checkout-buyer-grid{grid-template-columns:1fr;gap:17px}.sanji-mobile-shell .checkout-item{grid-template-columns:60px minmax(0,1fr);gap:10px}.sanji-mobile-shell .checkout-item-image{width:60px;height:70px}.sanji-mobile-shell .checkout-item-name{font-size:13px}.sanji-mobile-shell .checkout-item-price{grid-column:2;text-align:left;padding-top:0}.sanji-mobile-shell .checkout-item-price>p{display:inline-block;margin-right:10px}.sanji-mobile-shell .checkout-item-editor{padding:11px;gap:7px}.sanji-mobile-shell .checkout-item-editor select{font-size:11px;padding:0 8px}.sanji-mobile-shell .checkout-payment{position:static}.sanji-mobile-shell .checkout-payment .checkout-grand-total{flex-direction:row;align-items:center;justify-content:space-between;min-height:90px;gap:12px;padding:20px}.sanji-mobile-shell .checkout-grand-total>span:first-child{max-width:130px;line-height:1.7}.sanji-mobile-shell .commerce-cart,.sanji-mobile-shell .commerce-lookup{padding:28px 16px 50px}.sanji-mobile-shell .commerce-cart h1,.sanji-mobile-shell .commerce-lookup h1{font-size:27px!important}.sanji-mobile-shell .commerce-empty{margin:30px 16px;padding:45px 20px}.sanji-mobile-shell .commerce-cart-item{padding:16px}.sanji-mobile-shell .commerce-lookup>.ds-card{padding:22px}}
+@containersanji-mobile (max-width:370px){.sanji-mobile-shell .product-facts{gap:8px}.sanji-mobile-shell .product-summary h2{font-size:17px}.sanji-mobile-shell .checkout-grand-total{flex-wrap:wrap}.sanji-mobile-shell .commerce-checkout .ds-section-title>small{display:none}}
+@containersanji-mobile (max-width:999px){.sanji-mobile-shell .sj-header-nav{display:none}.sanji-mobile-shell .sj-header-menu{display:flex}}
+@containersanji-mobile (max-width:760px){
+  .sanji-mobile-shell .sj-header-inner{height:58px;padding:0 10px 0 14px;gap:8px}
+  .sanji-mobile-shell .sj-header-brand img{height:40px}
+  .sanji-mobile-shell .sj-header-brand>span{display:none}
+  .sanji-mobile-shell .sj-header-search{flex:1 1 auto;height:38px;padding:0 12px}
+  .sanji-mobile-shell .sj-header-search input{font-size:13px}
+  .sanji-mobile-shell .sj-header-account{display:none}
+  .sanji-mobile-shell .sj-header-icon{width:40px;height:40px}
+  .sanji-mobile-shell .product-summary-sanji{margin:16px 16px 145px;padding:20px;border-radius:14px}
+  .sanji-mobile-shell .sanji-footer>.container-blend{padding:28px 20px}
+}

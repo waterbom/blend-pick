@@ -406,9 +406,9 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-lb__body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px}
         .sp-lb img{display:block;width:100%;height:auto;max-width:100%;margin:auto}
         @keyframes sp-up{from{transform:translate(-50%,40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
-        @media(min-width:761px){.sp-head{padding:26px 24px 8px}.sp-sec{padding:28px 24px}.sp-row{padding:0 24px 4px;margin:0 -24px}}
-        @media(max-width:760px){.sp-tabs{top:58px}}
-        @media(max-width:370px){.sp-opt{padding:12px;font-size:13px}.sp-sheet{padding:12px 14px 20px}.sp-price .rate,.sp-price .now{font-size:26px}}
+        @container sanji-mobile (min-width:761px){.sp-head{padding:26px 24px 8px}.sp-sec{padding:28px 24px}.sp-row{padding:0 24px 4px;margin:0 -24px}}
+        @container sanji-mobile (max-width:760px){.sp-tabs{top:58px}}
+        @container sanji-mobile (max-width:370px){.sp-opt{padding:12px;font-size:13px}.sp-sheet{padding:12px 14px 20px}.sp-price .rate,.sp-price .now{font-size:26px}}
         @media(prefers-reduced-motion:reduce){.sp-sheet{animation:none}.sp-desc{transition:none}}
       `}</style>
 
