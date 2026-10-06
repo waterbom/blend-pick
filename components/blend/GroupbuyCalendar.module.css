@@ -1,0 +1,44 @@
+.detailShell { width:100%;max-width:1024px;margin:0 auto;padding:40px 24px;min-width:0; }
+.topLayout { position:relative;min-width:0; }
+.topLayout>div { min-width:0; }
+.lowerContent { min-width:0; }
+.dock { position:relative;display:flex;justify-content:flex-end;margin:-32px 0 32px;color:#243e2e;font-family:inherit;letter-spacing:-.025em; }
+.dock * { box-sizing:border-box; }
+.calendar { position:relative;width:232px;max-width:calc(100vw - 36px);padding:12px;border:1px solid #dce5d6;border-radius:13px;background:#fff;box-shadow:0 9px 32px #183c3014,0 2px 8px #183c3008; }
+.heading { display:flex;align-items:center;gap:6px;margin-bottom:8px; }
+.heading h2 { margin:0;white-space:nowrap;font-size:13px;font-weight:750; }
+.status { margin-left:auto;padding:3px 6px;border-radius:999px;background:#edf4e8;color:#547647;font-size:9px;line-height:1.4;font-weight:600;white-space:nowrap; }
+.status[data-state=upcoming] { background:#fff2e8;color:#a75c2b; }
+.status[data-state=ended],.status[data-state=unscheduled],.status[data-state=invalid] { background:#f2f3ef;color:#717b69; }
+.monthLabel { padding:3px 0 8px;text-align:center;font-size:12px;line-height:1.8;font-variant-numeric:tabular-nums; }
+.monthLabel strong { font-weight:700; }
+.legend { display:flex;gap:10px;margin-bottom:6px;color:#7b8475;font-size:9px;line-height:1.5; }
+.legend span { display:flex;align-items:center;gap:4px; }
+.legend i { display:block;width:6px;height:6px;border-radius:2px; }
+.periodKey { background:#dfead5; }
+.todayKey { border:1px solid #dc4545;background:transparent; }
+.month { width:100%;border-collapse:separate;border-spacing:2px;table-layout:fixed; }
+.month th { height:18px;text-align:center;color:#8a9382;font-size:9px;font-weight:500; }
+.month td { padding:0;text-align:center; }
+.day { position:relative;display:grid;place-items:center;width:100%;height:24px;padding:0;border:1px solid transparent;border-radius:5px;background:#f9faf7;color:#6e7867;font-size:10px!important;font-weight:500!important; }
+.sunday { color:#bd7b75!important; }
+.saturday { color:#708bac!important; }
+.saleDay { background:#e5efdb;color:#55704a!important;font-weight:650!important; }
+.today { border:2px solid #dc4545; }
+.outside { color:#bdc3b7!important;background:#fff; }
+.outside.saleDay { background:#f2f6ec;color:#9eac91!important; }
+.schedule { display:grid;gap:4px;margin:8px 0 0;padding-top:8px;border-top:1px solid #edf0e8;font-size:10px;line-height:1.5; }
+.schedule>div { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+.schedule dt { color:#87927b; }
+.schedule dd { margin:0;color:#58704b;font-weight:550;font-variant-numeric:tabular-nums; }
+.note { margin:8px 0 0;color:#89977e;font-size:9px;line-height:1.5; }
+@media(min-width:1280px) {
+  .detailShell { max-width:1280px;padding-right:280px; }
+  .dock { position:absolute;left:calc(100% + 24px);top:0;width:232px;margin:0; }
+  .calendar:before { content:"";position:absolute;top:23px;left:-6px;width:10px;height:10px;background:#fff;border-left:1px solid #dce5d6;border-bottom:1px solid #dce5d6;transform:rotate(45deg); }
+}
+@media(max-width:767px) {
+  .detailShell { padding:26px 18px; }
+  .calendar { width:248px;padding:14px; }
+  .day { height:28px; }
+}

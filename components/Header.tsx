@@ -5,7 +5,7 @@ import pool from "@/lib/db";
 import HeaderClient from "@/components/HeaderClient";
 import { currentSite } from "@/lib/site-server";
 
-export default async function Header({ storefrontRoot = false }: { storefrontRoot?: boolean } = {}) {
+export default async function Header({ storefrontRoot = false, variant = "default" }: { storefrontRoot?: boolean; variant?: "default" | "discovery" } = {}) {
   let user = null;
   let isAdmin = false;
   let isInfluencer = false;
@@ -56,6 +56,7 @@ export default async function Header({ storefrontRoot = false }: { storefrontRoo
       user={user}
       isAdmin={isAdmin}
       isInfluencer={isInfluencer}
+      variant={variant}
       site={{ key: site.key, nameEn: site.nameEn, basePath: site.key === "sanjipick" ? await sanjiLinkBase() : site.basePath }}
     />
   );

@@ -4,7 +4,9 @@ import Link from "next/link";
 import SanjiHeader from "@/components/sanji/SanjiHeader";
 import { readGuestCart } from "@/lib/guest-cart";
 import { useSiteKey } from "@/components/SiteContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId, useRef } from "react";
+import discoveryStyles from "@/components/BlendHeader.module.css";
+import InstagramLink from "@/components/blend/InstagramLink";
 
 function CartCount() {
   const site=useSiteKey();
@@ -37,7 +39,7 @@ const NAV_ITEMS = [
   // 호텔·펜션을 아우르는 숙박 카테고리 — 특정 호텔명 대신 카테고리명으로 (공구마다 이름 안 바꿔도 되게)
   { label: "숙박공구 · 호텔 & 펜션", href: "/hotel", hot: true },
   { label: "PRODUCTS", href: "/products", hot: false },
-  { label: "CONTACT", href: "/blend-picked" },
+  { label: "공급사 제안", href: "/suppliers" },
 ];
 
 // 산지픽 네비 — 농산물 사이트라 숙박 메뉴 없음
@@ -60,16 +62,129 @@ export interface HeaderSite {
   basePath: string;
 }
 
+const DISCOVERY_NAV_ITEMS = [
+  { label: "공구 쇼핑", href: "/products" },
+  { label: "숙박·호텔", href: "/hotel" },
+  { label: "공급사 제안", href: "/suppliers" },
+];
+
+function DiscoveryHeader({ user, isAdmin, isInfluencer }: {
+  user: User | null;
+  isAdmin: boolean;
+  isInfluencer: boolean;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuId = useId();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const accountHref = isAdmin ? "/admin" : isInfluencer ? "/influencer" : "/mypage";
+  const accountLabel = isAdmin ? "관리자마이페이지" : isInfluencer ? "인플루언서" : "마이페이지";
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    };
+    const desktopQuery = window.matchMedia("(min-width: 1001px)");
+    const handleDesktop = () => {
+      if (desktopQuery.matches) setMenuOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    desktopQuery.addEventListener("change", handleDesktop);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      desktopQuery.removeEventListener("change", handleDesktop);
+    };
+  }, [menuOpen]);
+
+  const closeMenu = () => setMenuOpen(false);
+  const login = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    closeMenu();
+    window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+  };
+
+  return (
+    <header className={discoveryStyles.header}>
+      <div className={discoveryStyles.inner}>
+        <Link href="/" className={discoveryStyles.logo} aria-label="BLEND PICK 홈" onClick={closeMenu}>
+          <img src="/logo-wide.png" alt="BLEND PICK" width={640} height={290} />
+        </Link>
+        <nav className={discoveryStyles.navigation} aria-label="주요 메뉴">
+          {DISCOVERY_NAV_ITEMS.map((item) => (
+            <Link key={item.href} href={item.href}>{item.label}</Link>
+          ))}
+        </nav>
+        <div className={discoveryStyles.actions}>
+          <InstagramLink />
+          <Link href="/orders/lookup" className={discoveryStyles.orderLink} onClick={closeMenu}>주문 조회</Link>
+          {user ? (
+            <Link href={accountHref} className={discoveryStyles.account} aria-label={accountLabel} onClick={closeMenu}>
+              <span className={discoveryStyles.accountFull}>
+                {isAdmin ? "관리자마이페이지" : isInfluencer ? "인플루언서" : user.nickname || user.name || "마이페이지"}
+              </span>
+              <span className={discoveryStyles.accountShort}>{isAdmin ? "관리자" : isInfluencer ? "내 활동" : "마이"}</span>
+            </Link>
+          ) : (
+            <Link href="/login" className={discoveryStyles.account} onClick={login}>로그인</Link>
+          )}
+          {!isAdmin && (
+            <Link href="/cart" className={discoveryStyles.cart} aria-label="장바구니" onClick={closeMenu}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M6 7h12l1.4 13H4.6L6 7Z" strokeLinejoin="round" />
+                <path d="M9 8V6a3 3 0 0 1 6 0v2" strokeLinecap="round" />
+              </svg>
+              <CartCount />
+            </Link>
+          )}
+          <button
+            type="button"
+            ref={menuButtonRef}
+            className={discoveryStyles.menuButton}
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
+            aria-expanded={menuOpen}
+            aria-controls={menuId}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+              {menuOpen ? <path d="m6 6 12 12M6 18 18 6" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+            </svg>
+          </button>
+        </div>
+      </div>
+      {menuOpen && (
+        <nav id={menuId} className={discoveryStyles.mobileMenu} aria-label="모바일 메뉴">
+          {DISCOVERY_NAV_ITEMS.map((item) => (
+            <Link key={item.href} href={item.href} onClick={closeMenu}>{item.label}<span aria-hidden="true">↗</span></Link>
+          ))}
+          <div className={discoveryStyles.mobileAccount}>
+            <Link href="/orders/lookup" onClick={closeMenu}>주문·배송 조회</Link>
+            {user ? (
+              <Link href={accountHref} onClick={closeMenu}>{accountLabel}</Link>
+            ) : (
+              <Link href="/login" onClick={login}>로그인</Link>
+            )}
+          </div>
+        </nav>
+      )}
+    </header>
+  );
+}
+
 export default function HeaderClient({
   user,
   isAdmin = false,
   isInfluencer = false,
   site,
+  variant = "default",
 }: {
   user: User | null;
   isAdmin?: boolean;
   isInfluencer?: boolean;
   site?: HeaderSite;
+  variant?: "default" | "discovery";
 }) {
   // 모바일 햄버거 메뉴 — sm 미만에서는 네비가 숨겨지므로 여기로 카테고리 진입
   const [menuOpen, setMenuOpen] = useState(false);
@@ -78,6 +193,7 @@ export default function HeaderClient({
   const homeHref = isSanji ? site!.basePath || "/" : "/";
 
   if (isSanji) return <SanjiHeader base={site!.basePath} user={user} isAdmin={isAdmin} cartCount={<CartCount />} />;
+  if (variant === "discovery") return <DiscoveryHeader user={user} isAdmin={isAdmin} isInfluencer={isInfluencer} />;
 
   return (
     <header
@@ -105,10 +221,10 @@ export default function HeaderClient({
           )}
 
           {/* 구분선 */}
-          <div className="hidden sm:block w-px h-4 mx-5 lg:mx-6 rounded-full" style={{ background: "var(--line)" }} />
+          <div className="hidden lg:block w-px h-4 mx-5 lg:mx-6 rounded-full" style={{ background: "var(--line)" }} />
 
           {/* 네비게이션 */}
-          <nav className="hidden sm:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-6">
             {navItems.map((item) =>
               item.href === "/hotel" ? (
                 <Link
@@ -149,6 +265,7 @@ export default function HeaderClient({
 
         {/* 우측: 로그인/마이페이지 + 장바구니 */}
         <div className="flex items-center gap-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <InstagramLink />
           {user ? (
             isAdmin ? (
               /* 관리자 */
@@ -231,7 +348,7 @@ export default function HeaderClient({
           <button
             onClick={() => setMenuOpen((v) => !v)}
             aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
-            className="sm:hidden p-1.5 -mr-1.5"
+            className="lg:hidden p-1.5 -mr-1.5"
             style={{ color: "var(--text-primary)" }}
           >
             {menuOpen ? (
@@ -249,7 +366,7 @@ export default function HeaderClient({
 
       {/* 모바일 펼침 메뉴 */}
       {menuOpen && (
-        <nav className="sm:hidden border-t" style={{ borderColor: "var(--line)" }}>
+        <nav className="lg:hidden border-t" style={{ borderColor: "var(--line)" }}>
           {navItems.map((item) => (
             <Link
               key={item.label}
