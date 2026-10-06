@@ -1,6 +1,5 @@
 "use client";
 
-import ScrollRail from "@/components/ScrollRail";
 import { SANJI_IMAGE_ASPECT_RATIO, SANJI_LARGE_IMAGE_MAX_WIDTH } from "@/lib/sanji-image-layout";
 
 import { useEffect, useRef, useState } from "react";
@@ -298,7 +297,6 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
         .sp-slide>img,.sp-slide>div{position:absolute;inset:0;display:block;width:100%;height:100%;padding:8px;object-fit:contain;object-position:center}
         .sp-slide:focus-visible{outline:2px solid ${ORANGE};outline-offset:-4px}
         .sp-count{position:absolute;right:14px;top:14px;z-index:2;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;font-variant-numeric:tabular-nums;pointer-events:none}
-        .sp-photo-hint{margin:8px 16px 10px;text-align:center;font-size:12px;color:${MUTED}}
         .sp-slider-wrap{position:relative;width:calc(100% - 32px);max-width:${SANJI_LARGE_IMAGE_MAX_WIDTH};margin:0 auto}
         .sp-pill{margin:0 16px 10px;display:inline-flex;align-items:center;gap:6px;background:${INK};color:#fff;font-size:12px;font-weight:600;padding:7px 12px;border-radius:999px}
         .sp-pill::before{content:"";width:7px;height:7px;border-radius:50%;background:${YELLOW}}
@@ -414,16 +412,15 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
 
       {/* 상단 슬라이드 */}
       <div className="sp-slider-wrap">
-        <ScrollRail label="상품 사진"><div className="sp-slider" ref={sliderRef} onScroll={onSlideScroll}>
+        <div className="sp-slider" ref={sliderRef} onScroll={onSlideScroll}>
           {slides.map((src, i) => (
             <button type="button" key={`${i}-${src}`} className="sp-slide" data-active={i === slide} aria-hidden={i !== slide}
               tabIndex={i === slide ? 0 : -1} disabled={!src} onClick={() => setLightbox(src)} aria-label={`${product.name} 사진 ${i + 1} 크게 보기`}>
               <Img src={src} alt={`${product.name} ${i + 1}`} />
             </button>
           ))}
-        </div></ScrollRail>
+        </div>
         {images.length > 1 && <span className="sp-count" aria-hidden>{slide + 1} / {images.length}</span>}
-        {images.length > 0 && <p className="sp-photo-hint">사진을 누르면 크게 볼 수 있어요</p>}
         {socialPill && <span className="sp-pill">{socialPill}</span>}
         {(soldout || saleState === "ended") && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22, fontWeight: 900, letterSpacing: ".02em" }}>
@@ -533,7 +530,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
           <div className="sp-band" />
           <div className="sp-sec">
             <h3>이런 상품도 산지에서 왔어요</h3>
-            <ScrollRail label="추천 상품"><div className="sp-row">
+            <div className="sp-row">
               {others.map((p) => {
                 const d = p.original_price && p.original_price > p.price ? Math.round((1 - p.price / p.original_price) * 100) : 0;
                 const so = p.status === "soldout" || p.stock === 0;
@@ -548,7 +545,7 @@ export default function SanjiSalesPage({ product, images, options, reviews, stat
                   </a>
                 );
               })}
-            </div></ScrollRail>
+            </div>
           </div>
         </>
       )}
