@@ -1,6 +1,5 @@
 "use client";
 
-import ScrollRail from "@/components/ScrollRail";
 import { SANJI_IMAGE_ASPECT_RATIO, SANJI_LARGE_IMAGE_MAX_WIDTH } from "@/lib/sanji-image-layout";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -309,7 +308,7 @@ export default function SanjiHome({
           {/* 배너 슬라이드 */}
           {banners.length > 0 && (
             <div className="sh-ban">
-              <ScrollRail label="메인 배너"><div
+              <div
                 className="sh-ban__track"
                 ref={sliderRef}
                 onScroll={onSlide}
@@ -323,7 +322,7 @@ export default function SanjiHome({
                     <Img src={b.src} alt={b.alt} />
                   </a>
                 ))}
-              </div></ScrollRail>
+              </div>
               <span className="sh-ban__badge">새로 열린 공구</span>
               {banners.length > 1 && <span className="sh-ban__count" aria-hidden>{slide + 1} / {banners.length}</span>}
             </div>
@@ -361,9 +360,9 @@ export default function SanjiHome({
             <div className="sh-sec">
               <div className="sh-sec__h"><h2>지금 가장 많이 할인해요</h2></div>
               <p className="sh-sec__sub">수확한 만큼만, 한정 수량 공구가</p>
-              <ScrollRail label="할인 상품"><div className="sh-row">
+              <div className="sh-row">
                 {deals.slice(0, 8).map((p) => <Card key={p.id} p={p} href={href(p)} now={now} />)}
-              </div></ScrollRail>
+              </div>
             </div>
           )}
 

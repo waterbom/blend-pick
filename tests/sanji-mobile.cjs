@@ -17,3 +17,9 @@ test('Blendpick stays unframed and navigating away from admin restores customer 
  pathname='/admin/orders';assert.equal(render('sanjipick'),'<main>content</main>');
  pathname='/cart';assert.match(render('sanjipick'),/sanji-mobile-shell/);
 });
+test('mobile overrides are valid named container rules, including header and checkout',()=>{
+ const css=require('postcss').parse(require('node:fs').readFileSync('app/sanji-mobile.css','utf8'));
+ const rules=[];css.walkAtRules(rule=>{assert.equal(rule.name,'container');assert.match(rule.params,/^sanji-mobile \(/);rules.push(rule);});
+ assert.ok(rules.some(rule=>rule.toString().includes('.sj-header-nav')));
+ assert.ok(rules.some(rule=>rule.toString().includes('.commerce-layout')));
+});
