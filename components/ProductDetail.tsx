@@ -715,13 +715,13 @@ export default function ProductDetail({
       </div>
 
 
-      {/* 맨 위로 — 문의·오픈예정 플로팅 버튼 위에 표시 */}
+      {/* 맨 위로 — 도우미·문의·오픈예정 플로팅 버튼 위에 표시 */}
       {showTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label="맨 위로"
-          className="fixed right-6 z-40 w-10 h-10 text-lg font-bold transition-opacity"
-          style={{ bottom: "150px", background: "#fff", border: "1px solid #E4E1D6", color: "var(--text-primary)" }}
+          className={`fixed z-40 w-10 h-10 text-lg font-bold transition-opacity ${siteKey === "blendpick" ? "right-4 bottom-[calc(236px+env(safe-area-inset-bottom,0px))] sm:right-6 sm:bottom-[calc(244px+env(safe-area-inset-bottom,0px))]" : "right-6 bottom-[150px]"}`}
+          style={{ background: "#fff", border: "1px solid #E4E1D6", color: "var(--text-primary)" }}
         >
           ↑
         </button>
