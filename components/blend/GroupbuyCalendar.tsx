@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   calendarMonthDays, calendarMonthFor, formatKstScheduleTime, initialCalendarDay,
   isScheduledSaleDay, kstDayKey, saleCalendarRange, saleCalendarStatus, shiftCalendarMonth,
@@ -17,6 +17,49 @@ export default function GroupbuyCalendar({ saleStartMs, saleEndMs, nowMs, soldOu
   soldOut?: boolean;
 }) {
   const titleId = useId();
+  const panelId = useId();
+  const dockRef = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  const focusPopup = useRef(false);
+  const [wideScreen, setWideScreen] = useState(false);
+  const [open, setOpen] = useState<boolean | null>(null);
+  const isOpen = open ?? wideScreen;
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1280px)");
+    const update = () => { setWideScreen(query.matches); setOpen(null); };
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (restoreFocus.current) { launcherRef.current?.focus(); restoreFocus.current = false; }
+      return;
+    }
+    if (focusPopup.current) {
+      panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+      focusPopup.current = false;
+    }
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && dockRef.current?.contains(document.activeElement)) {
+        restoreFocus.current = true;
+        setOpen(false);
+      }
+    };
+    const outside = (event: PointerEvent) => {
+      if (!wideScreen && !dockRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", keydown);
+    document.addEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("keydown", keydown);
+      document.removeEventListener("pointerdown", outside);
+    };
+  }, [isOpen, wideScreen]);
   const range = saleCalendarRange(saleStartMs, saleEndMs);
   const [selected, setSelected] = useState(() => initialCalendarDay(range, nowMs));
   const [month, setMonth] = useState(() => calendarMonthFor(initialCalendarDay(range, nowMs)));
@@ -39,15 +82,22 @@ export default function GroupbuyCalendar({ saleStartMs, saleEndMs, nowMs, soldOu
     setMonth(calendarMonthFor(day));
   }
 
-  return <aside className={styles.calendar} aria-labelledby={titleId}>
+  return <aside ref={dockRef} className={styles.dock} aria-label="공구 일정" data-open={isOpen}>
+    <button ref={launcherRef} type="button" className={styles.launcher} aria-expanded={isOpen} aria-controls={panelId} onClick={() => { focusPopup.current = true; setOpen(true); }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M7 3v4m10-4v4M3 11h18" /></svg>
+      공구 일정 보기 <span aria-hidden="true">↗</span>
+    </button>
+    <div ref={panelRef} id={panelId} hidden={!isOpen} className={styles.calendar} aria-labelledby={titleId}>
     <div className={styles.heading}>
-      <h2 id={titleId}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2" /></svg>공구 일정</h2>
+      <h2 id={titleId}>공구 일정</h2>
       <span className={styles.status} data-state={status}>{status === "open" && soldOut ? "품절" : STATUS_LABELS[status]}</span>
+      <button type="button" className={styles.close} aria-label="공구 일정 닫기" onClick={() => { restoreFocus.current = true; setOpen(false); }}>×</button>
     </div>
 
     <div className={styles.monthNavigation}>
       <button type="button" aria-label="이전 달" onClick={() => setMonth(current => shiftCalendarMonth(current, -1))}>‹</button>
       <strong aria-live="polite">{month.year}년 {month.month}월</strong>
+      <button type="button" className={styles.todayButton} onClick={() => selectDay(today)}>오늘</button>
       <button type="button" aria-label="다음 달" onClick={() => setMonth(current => shiftCalendarMonth(current, 1))}>›</button>
     </div>
 
@@ -74,17 +124,12 @@ export default function GroupbuyCalendar({ saleStartMs, saleEndMs, nowMs, soldOu
       })}</tr>)}</tbody>
     </table>
 
-    <div className={styles.shortcuts}>
-      <button type="button" onClick={() => selectDay(today)}>오늘</button>
-      {range.startDay && <button type="button" onClick={() => selectDay(range.startDay!)}>시작일</button>}
-      {range.endDay && <button type="button" onClick={() => selectDay(range.endDay!)}>종료일</button>}
-    </div>
-
-    <div className={styles.selection} aria-live="polite"><strong>{selectedLabel}</strong><p>{selectedMessage}</p></div>
+    <p className={styles.srOnly} aria-live="polite">{selectedLabel} · {selectedMessage}</p>
     <dl className={styles.schedule}>
-      <div><dt>공구 시작</dt><dd>{range.valid && range.startMs !== null ? <time dateTime={new Date(range.startMs).toISOString()}>{formatKstScheduleTime(range.startMs)}</time> : "시작일 미등록"}</dd></div>
-      <div><dt>공구 종료</dt><dd>{range.valid && range.endMs !== null ? <time dateTime={new Date(range.endMs).toISOString()}>{formatKstScheduleTime(range.endMs)}</time> : "종료일 미등록"}</dd></div>
+      <div><dt>시작</dt><dd>{range.valid && range.startMs !== null ? <button type="button" aria-label="공구 시작일로 이동" onClick={() => selectDay(range.startDay!)}><time dateTime={new Date(range.startMs).toISOString()}>{formatKstScheduleTime(range.startMs)}</time></button> : "시작일 미등록"}</dd></div>
+      <div><dt>마감</dt><dd>{range.valid && range.endMs !== null ? <button type="button" aria-label="공구 종료일로 이동" onClick={() => selectDay(range.endDay!)}><time dateTime={new Date(range.endMs).toISOString()}>{formatKstScheduleTime(range.endMs)}</time></button> : "종료일 미등록"}</dd></div>
     </dl>
-    <p className={styles.note}>한국시간 기준 · 상품의 판매 일정이에요.<br />재고에 따라 기간 중에도 품절될 수 있어요.</p>
+    <p className={styles.note}>한국시간 기준 · 재고에 따라 조기 품절</p>
+    </div>
   </aside>;
 }
