@@ -1,4 +1,4 @@
-const SECTIONS: { title: string; items: string[] }[] = [
+export const REFUND_POLICY_SECTIONS: { title: string; items: string[] }[] = [
   {
     title: "배송",
     items: [
@@ -35,7 +35,7 @@ const SECTIONS: { title: string; items: string[] }[] = [
 ];
 
 export default function RefundPolicy({ shipping, schedule }: { shipping?: string; schedule?:string } = {}) {
-  const sections = SECTIONS.map(sec => sec.title === "배송" && shipping
+  const sections = REFUND_POLICY_SECTIONS.map(sec => sec.title === "배송" && shipping
     ? { ...sec, items: [`배송 방법: 택배 · 배송 지역: 전국 · ${shipping}`, schedule || sec.items[1], ...sec.items.slice(2)] }
     : sec);
   return (

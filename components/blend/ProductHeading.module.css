@@ -1,0 +1,17 @@
+.heading{color:#142b20;margin:0 0 30px;min-width:0;font-family:inherit;letter-spacing:-.035em}
+.badges{display:flex;align-items:center;flex-wrap:wrap;gap:9px 11px;margin-bottom:20px}
+.brand{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border:1px solid #deded4;border-radius:999px;font-size:13px;line-height:1.5;color:#4c5e50;font-weight:600;max-width:100%;background:#fff}
+.brand>svg{flex-shrink:0}.brand>span{overflow-wrap:anywhere}
+.status{display:inline-flex;align-items:center;gap:6px;border:1px solid #b7d6bf;border-radius:999px;padding:6px 11px;color:#287145;background:#eaf4e9;font-size:12px;line-height:1.5;font-weight:600;white-space:nowrap}
+.status>span{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.status[data-state="upcoming"]{background:#fff5e8;color:#8b5d21;border-color:#ead3ab}
+.status[data-state="ended"],.status[data-state="soldout"]{background:#f1f3ee;color:#5f6b5b;border-color:#dbe0d4}
+.deadline{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:#b94e08;color:#fff;font-size:12px;font-weight:750;line-height:1.5;letter-spacing:-.025em;white-space:nowrap;box-shadow:0 2px 5px #a1521c15;font-variant-numeric:tabular-nums}
+.heading h1{margin:0;font-family:inherit;font-weight:800;font-size:clamp(30px,3.05vw,44px);line-height:1.36;letter-spacing:-.055em;color:#14251b;word-break:keep-all;overflow-wrap:anywhere;text-wrap:pretty}
+.meta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:19px;color:#61705e;font-size:12px;line-height:1.6}
+.separator{width:1px;height:11px;background:#d4dccd}
+.reviews{display:inline-flex;align-items:center;gap:6px;color:#4e6447;text-decoration:none}
+.reviews>span:last-child{text-decoration:underline;text-underline-offset:3px}
+.reviews:hover{color:#2d5728}.reviews:focus-visible{outline:2px solid #527d58;outline-offset:5px;border-radius:2px}.star{color:#8b672d;font-size:13px}
+@media(max-width:767px){.heading{margin-bottom:23px}.badges{gap:7px 8px;margin-bottom:17px}.brand{font-size:11px;padding:6px 10px;gap:6px}.brand>svg{width:15px;height:15px}.status{font-size:10px;padding:5px 9px;gap:5px}.deadline{font-size:10px;padding:6px 10px;gap:5px}.deadline>svg{width:12px;height:14px}.heading h1{font-size:clamp(27px,6.8vw,36px);line-height:1.4;letter-spacing:-.055em}.meta{font-size:11px;margin-top:15px;gap:9px}.star{font-size:12px}}
+@media(max-width:370px){.heading h1{font-size:26px}.badges{gap:7px 6px}.brand{max-width:100%}}

@@ -41,13 +41,24 @@ test('checkout metadata separates the two brands',async()=>{
  }
 });
 
+test('product heading uses KST closing dates and real sale/review states',()=>{
+ const Heading=load('components/blend/ProductHeading.tsx',{'@/components/blend/ProductHeading.module.css':{}}).default;
+ const props={name:'테스트 상품',brand:'테스트 브랜드',category:'생활',saleState:'open',saleStartMs:null,saleEndMs:Date.parse('2026-10-09T23:59:00+09:00'),nowMs:Date.parse('2026-10-06T01:00:00+09:00'),soldOut:false,reviewSummary:{total:7,average:4.5,distribution:[],photoCount:0}};
+ const render=extra=>renderToStaticMarkup(React.createElement(Heading,{...props,...extra}));
+ const active=render();assert.match(active,/마감 D-3/);assert.match(active,/공구 진행 중/);assert.match(active,/리뷰 7개/);assert.doesNotMatch(active,/승인됨|보는 중/);
+ assert.match(render({nowMs:Date.parse('2026-10-09T00:01:00+09:00')}),/오늘 마감/);
+ for(const [state,label] of [['upcoming','오픈 예정'],['ended','공구 마감']]){const html=render({saleState:state});assert.match(html,new RegExp(label));assert.doesNotMatch(html,/마감 D-|오늘 마감/);}
+ const sold=render({soldOut:true});assert.match(sold,/품절/);assert.doesNotMatch(sold,/마감 D-/);
+ assert.doesNotMatch(render({saleEndMs:null,reviewSummary:undefined}),/마감 D-|리뷰 7개/);
+});
+
 // Run the actual component event handlers with deterministic hook state, without a browser or production API.
 function fixture() {
  const state=[], effects=[];let cursor=0;
  const pushes=[],storage=new Map();
  const hookReact={...React,useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v;}];},useEffect(fn){effects.push(fn);}};
  const DsSelect=()=>null;
- const View=load('components/ProductDetail.tsx',{'react':hookReact,'@/lib/use-meta-event':{useMetaEvent(){}},'@/components/SiteContext':{useSiteKey:()=> 'blendpick'},'@/lib/guest-cart':{addGuestItems:(site,items)=>storage.set('guest',JSON.stringify(items))},'next/navigation':{useRouter:()=>({push:p=>pushes.push(p)})},'@/components/DsSelect':DsSelect,'@/components/ReviewSection':()=>null,'@/components/RollingWon':()=>null,'@/components/blend/GroupbuyCalendar':()=>null,'@/components/blend/GroupbuyCalendar.module.css':{}});
+ const View=load('components/ProductDetail.tsx',{'react':hookReact,'@/lib/use-meta-event':{useMetaEvent(){}},'@/components/SiteContext':{useSiteKey:()=> 'blendpick'},'@/lib/guest-cart':{addGuestItems:(site,items)=>storage.set('guest',JSON.stringify(items))},'next/navigation':{useRouter:()=>({push:p=>pushes.push(p)})},'@/components/DsSelect':DsSelect,'@/components/ReviewSection':()=>null,'@/components/RollingWon':()=>null,'@/components/blend/GroupbuyCalendar':()=>null,'@/components/blend/GroupbuyCalendar.module.css':{},'@/components/blend/ProductHeading.module.css':{}});
  const props={product:{id:'p1',name:'상품',price:24900,original_price:50000,stock:10,status:'active',shipping_type:'paid',shipping_cost:3500,free_shipping_threshold:null},images:[],options:[{id:'o1',name:'구성',value:'6팩',extra_price:25900,stock:5,is_active:true}],addons:[],addonMulti:false,reviews:[]};
  const original={window:global.window,sessionStorage:global.sessionStorage,fetch:global.fetch};
  global.window={location:{pathname:'/products/p1',search:'?inf=partner'},addEventListener(){},removeEventListener(){},scrollY:0};

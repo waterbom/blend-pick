@@ -7,7 +7,8 @@ import { SITES } from "@/lib/sites";
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import ProductDetail from "@/components/ProductDetail";
-import RefundPolicy from "@/components/RefundPolicy";
+import ProductPolicy from "@/components/blend/ProductPolicy";
+import policyStyles from "@/components/blend/ProductPolicy.module.css";
 import { expectedShipLabel } from "@/lib/checkout-draft";
 import { shippingLabel } from "@/lib/shipping";
 
@@ -243,8 +244,8 @@ export default async function ProductDetailPage({
         loggedIn={loggedIn}
       />
       <ProductSearchSummary product={product} site="blendpick" options={options} />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <RefundPolicy shipping={shippingLabel(product)} schedule={expectedShipLabel(product.expected_ship_date)} />
+      <div className={policyStyles.layout}>
+        <ProductPolicy shipping={shippingLabel(product)} schedule={expectedShipLabel(product.expected_ship_date)} />
       </div>
     </main>
   );

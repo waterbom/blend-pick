@@ -17,6 +17,7 @@ import { commerceParams, trackCartAdded } from "@/lib/analytics";
 import { useMetaEvent } from "@/lib/use-meta-event";
 import GroupbuyCalendar from "@/components/blend/GroupbuyCalendar";
 import calendarStyles from "@/components/blend/GroupbuyCalendar.module.css";
+import ProductHeading from "@/components/blend/ProductHeading";
 
 function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number, influencerId?: string | null) {
   const params = new URLSearchParams({ quantity: String(quantity) });
@@ -406,6 +407,7 @@ export default function ProductDetail({
       </div>
 
       <div className={siteKey === "blendpick" ? calendarStyles.topLayout : undefined}>
+      {siteKey === "blendpick" && <ProductHeading name={product.name} brand={product.brand} category={product.category} saleState={saleState} saleStartMs={saleStartMs} saleEndMs={saleEndMs} nowMs={nowMs} soldOut={isSoldout} reviewSummary={reviewSummary} />}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
         {/* 대표 이미지 */}
         <div
@@ -432,10 +434,10 @@ export default function ProductDetail({
 
         {/* 정보 영역 */}
         <div className="flex flex-col">
-          <p className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>{product.brand}</p>
+          {siteKey !== "blendpick" && <><p className="text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>{product.brand}</p>
           <h1 className="mb-4" style={{ color: "var(--text-primary)", font: "600 26px/1.45 'Noto Serif KR', serif" }}>
             {product.name}
-          </h1>
+          </h1></>}
 
           {/* 가격 (기본가) — 할인율은 상품 목록과 같은 딥 그린 */}
           <div className="flex items-end gap-2.5 mb-4 tnum">
