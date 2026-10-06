@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import CountdownTimer from "@/components/CountdownTimer";
 import FallbackImg from "@/components/FallbackImg";
+import { useSiteKey } from "@/components/SiteContext";
+import BlendHelpChat from "@/components/blend/BlendHelpChat";
+import { isFloatingExcludedPath } from "@/lib/floating-visibility";
 
 type Tab = "submit" | "history";
 
@@ -48,14 +52,23 @@ const STATUS_COLOR: Record<string, string> = {
   replied: "bg-emerald-50 text-emerald-500",
 };
 
-export default function InquiryButton({
-  userId,
-  upcoming = [],
-}: {
+interface InquiryButtonProps {
   userId: string | null;
   upcoming?: UpcomingPage[];
-}) {
+  initialPathname?: string;
+}
+
+export default function InquiryButton(props: InquiryButtonProps) {
+  const pathname = usePathname() || props.initialPathname || "/";
+  const siteKey = useSiteKey();
+  if (siteKey !== "blendpick" || isFloatingExcludedPath(pathname)) return null;
+  // 레이아웃이 유지되는 화면 전환에서도 이전 페이지의 팝업이 다시 열리지 않게 한다.
+  return <InquiryButtonContent key={pathname} {...props} />;
+}
+
+function InquiryButtonContent({ userId, upcoming = [] }: InquiryButtonProps) {
   const [open, setOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [upcomingOpen, setUpcomingOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("submit");
   const [form, setForm] = useState({ name: "", contact: "", category: "제품문의", message: "" });
@@ -97,8 +110,8 @@ export default function InquiryButton({
       {/* 예정 공구 팝업 */}
       {upcomingOpen && upcoming.length > 0 && (
         <div
-          className="fixed right-6 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden"
-          style={{ bottom: "14rem", background: "#fff", border: "1px solid var(--warm-gray)" }}
+          className="fixed right-4 bottom-[calc(236px+env(safe-area-inset-bottom,0px))] sm:right-6 sm:bottom-[calc(244px+env(safe-area-inset-bottom,0px))] z-50 w-72 max-w-[calc(100vw-32px)] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          style={{ maxHeight: "max(160px, calc(100dvh - 268px - env(safe-area-inset-bottom, 0px)))", background: "#fff", border: "1px solid var(--warm-gray)" }}
         >
           <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--warm-gray)" }}>
             <div>
@@ -108,14 +121,16 @@ export default function InquiryButton({
               <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>예정된 공구</p>
             </div>
             <button
+              type="button"
               onClick={() => setUpcomingOpen(false)}
+              aria-label="예정된 공구 닫기"
               className="text-xl leading-none transition-colors"
               style={{ color: "var(--text-muted)" }}
             >
               ×
             </button>
           </div>
-          <div className="overflow-y-auto max-h-80">
+          <div className="overflow-y-auto min-h-0 max-h-80">
             {upcoming.map((page) => (
               <Link
                 key={page.id}
@@ -145,14 +160,16 @@ export default function InquiryButton({
       )}
 
       {/* 플로팅 버튼 영역 */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      <div className="fixed right-4 bottom-[calc(16px+env(safe-area-inset-bottom,0px))] sm:right-6 sm:bottom-[calc(24px+env(safe-area-inset-bottom,0px))] z-50 flex flex-col items-end gap-3">
         {/* 예정 공구 버튼 */}
         {upcoming.length > 0 && (
           <div className="relative">
             <button
-              onClick={() => setUpcomingOpen((v) => !v)}
+              type="button"
+              onClick={() => { setChatOpen(false); setUpcomingOpen((v) => !v); }}
               className="flex flex-col items-center justify-center text-white w-14 h-14 rounded-full shadow-lg transition-transform hover:scale-105"
               title="예정된 공구"
+              aria-expanded={upcomingOpen}
               style={{
                 background: "linear-gradient(135deg, var(--accent-light), var(--accent))",
                 animation: "upcomingPulse 2s ease-in-out infinite",
@@ -171,6 +188,24 @@ export default function InquiryButton({
           </div>
         )}
 
+        {/* 블랜드픽 안내 도우미 — 카카오 상담은 아래 별도 버튼으로 연결 */}
+        <button
+          type="button"
+          onClick={() => { setUpcomingOpen(false); setChatOpen((value) => !value); }}
+          aria-label="블랜드픽 도우미 열기"
+          aria-haspopup="dialog"
+          aria-expanded={chatOpen}
+          aria-controls="blend-help-chat"
+          className="flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-full text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#244b1f]"
+          style={{ background: "linear-gradient(145deg, #3e7832, #244b1f)", border: "1px solid #ffffff45" }}
+        >
+          <svg aria-hidden="true" width="24" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.5 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-3.7-.8L3 21l1.7-5.2A8.5 8.5 0 1 1 20.5 11.5Z" />
+            <path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01" strokeWidth="2.8" />
+          </svg>
+          <span className="text-[9px] font-semibold leading-none">도우미</span>
+        </button>
+
         {/* 카카오톡 채널 문의 버튼 */}
         <a
           href={KAKAO_CHANNEL_URL}
@@ -178,6 +213,7 @@ export default function InquiryButton({
           rel="noopener noreferrer"
           className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
           title="카카오톡 문의"
+          aria-label="카카오톡 문의 (새 창)"
           style={{ background: "#FEE500", color: "#191600" }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
@@ -185,6 +221,8 @@ export default function InquiryButton({
           </svg>
         </a>
       </div>
+
+      <BlendHelpChat open={chatOpen} onClose={() => setChatOpen(false)} kakaoUrl={KAKAO_CHANNEL_URL} />
 
       {/* 문의 모달 */}
       {open && (
