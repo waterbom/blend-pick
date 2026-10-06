@@ -100,7 +100,7 @@ test('homepage passes normalized catalog data while preserving sale and tenant v
   const product = {
     id: 'live-product', name: '테스트 상품', brand: null, category: '식품',
     price: '12900', original_price: '15000', stock: '3', status: 'active',
-    main_image: '/uploads/product.jpg', shipping_type: 'paid', shipping_cost: '3000',
+    main_image: '/uploads/product.jpg', shipping_type: 'paid', shipping_cost: '3000', sale_closed: false,
   };
   const upcoming = { id: 'scheduled-product', name: '오픈 예정 상품', brand: null, main_image: null, open_label: '10. 20' };
   const p = pages(t, false, sql => {
@@ -119,12 +119,15 @@ test('homepage passes normalized catalog data while preserving sale and tenant v
   const catalogQueries = p.queries.filter(query => query.sql.includes('FROM products_shop'));
   assert.equal(catalogQueries.length, 3);
   for (const { sql, params } of catalogQueries) {
-    assert.match(sql, /status = 'active'/);
     assert.match(sql, /is_visible = true/);
     assert.match(sql, /category <> ALL\(\$1::text\[\]\)/);
     assert.deepEqual(params, [['산지픽', '산지픽 농산물', '산지픽 해산물']]);
-    if (sql.includes('sale_start_at > NOW()')) continue;
+    if (sql.includes('sale_start_at > NOW()')) {
+      assert.match(sql, /status = 'active'/);
+      continue;
+    }
+    assert.match(sql, /status IN \('active', 'soldout', 'ended'\)/);
     assert.match(sql, /sale_start_at IS NULL OR sale_start_at <= NOW\(\)/);
-    assert.match(sql, /sale_end_at IS NULL OR sale_end_at >= NOW\(\)/);
+    assert.match(sql, /status = 'ended' OR \(sale_end_at IS NOT NULL AND sale_end_at < NOW\(\)\)/);
   }
 });

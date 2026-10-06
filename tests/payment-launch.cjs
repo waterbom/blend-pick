@@ -43,11 +43,25 @@ test('unregistered identifiers fail before any database or gateway call',async()
  assert.equal((await amounts.verifySingleAmount({...payment,productId:'demo'})).detail,'unregistered product');
  assert.equal((await amounts.verifyCartAmount({items:[{product_id:'demo-2',quantity:1}],amount:10000,totalAmount:10000,shippingCost:0})).ok,false);
 });
-for(const [label,patch,ok] of [['new active',{},true],['sold out',{stock:0},false],['draft',{status:'draft'},false],['archived',{archived_at:new Date().toISOString()},false],['ended',{sale_end_at:new Date(Date.now()-1000).toISOString()},false],['upcoming',{sale_start_at:new Date(Date.now()+3600000).toISOString()},false],['foreign site',{category:'뷰티'},false]]) test(`checkout page and approval agree: ${label}`,async()=>{
+for(const [label,patch,ok] of [['new active',{},true],['sold out',{stock:0},false],['manual sold out',{status:'soldout'},false],['draft',{status:'draft'},false],['inactive',{status:'inactive'},false],['not public',{is_visible:false},false],['archived',{archived_at:new Date().toISOString()},false],['ended',{sale_end_at:new Date(Date.now()-1000).toISOString()},false],['manual ended',{status:'ended',sale_end_at:new Date(Date.now()+3600000).toISOString()},false],['upcoming',{sale_start_at:new Date(Date.now()+3600000).toISOString()},false],['foreign site',{category:'뷰티'},false]]) test(`checkout page and approval agree: ${label}`,async()=>{
  const {amounts,page}=fixture({...active,...patch});
  assert.equal((await amounts.verifySingleAmount(payment)).ok,ok);
+ if(patch.is_visible===false){await assert.rejects(page({params:Promise.resolve({id}),searchParams:Promise.resolve({})}),/NOT_FOUND/);return;}
  const html=renderToStaticMarkup(await page({params:Promise.resolve({id}),searchParams:Promise.resolve({})}));
  assert.equal(html.includes('data-checkout="true"'),ok);
+});
+test('listed closed Blendpick products cannot enter cart or pass payment verification',async()=>{
+ for(const patch of [{status:'ended'},{status:'ended',sale_end_at:new Date(Date.now()+3600000).toISOString()},{status:'soldout'},{sale_end_at:new Date(Date.now()-1000).toISOString()}]){
+  const product={...active,category:'뷰티',...patch};
+  const db={query:async sql=>({rows:sql.includes('FROM products_shop')?[product]:[]})};
+  const mocks={'@/lib/db-shop':db};
+  const amounts=load('lib/order-amount.ts',mocks);
+  const {resolveCartItem}=load('lib/cart-catalog.ts',mocks);
+  const item={product_id:id,quantity:1};
+  assert.equal((await amounts.verifySingleAmount({...payment,site:'blendpick'})).ok,false);
+  assert.equal((await amounts.verifyCartAmount({site:'blendpick',items:[item],totalAmount:10000,shippingCost:0,amount:10000})).ok,false);
+  await assert.rejects(resolveCartItem(item,'blendpick'));
+ }
 });
 test('unlimited registered option can enter checkout',async()=>{
  const {page,amounts}=fixture(active,[{id:oid,product_id:id,name:'규격',value:'3kg',extra_price:10000,stock:-1,is_active:true}]);

@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import BlendHome from "@/components/blend/BlendHome";
 import { getTopSellerIds } from "@/lib/best-sellers";
 import type { HomeProduct, HomeUpcoming } from "@/lib/blend-home";
-import { ON_SALE_SQL, VISIBLE_SQL } from "@/lib/sale-window";
+import { BLEND_CATALOG_SQL, BLEND_CLOSED_SQL, VISIBLE_SQL } from "@/lib/sale-window";
 import { SITES } from "@/lib/sites";
 import { deferDbFreeBuild } from "@/lib/ci-db-free-build";
 
@@ -24,14 +24,15 @@ type ProductRow = Omit<HomeProduct, "brand" | "price" | "original_price" | "stoc
   shipping_cost: number | string;
 };
 
-async function getSellingProducts(): Promise<{ products: HomeProduct[]; unavailable: boolean }> {
+async function getCatalogProducts(): Promise<{ products: HomeProduct[]; unavailable: boolean }> {
   try {
     const result = await shopPool.query<ProductRow>(
-      `SELECT id, name, brand, category, price, original_price, stock, status, main_image, shipping_type, shipping_cost
+      `SELECT id, name, brand, category, price, original_price, stock, status, main_image, shipping_type, shipping_cost,
+              ${BLEND_CLOSED_SQL} AS sale_closed
        FROM products_shop
-       WHERE status = 'active' AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[])
-       ORDER BY created_at DESC
-       LIMIT 12`,
+       WHERE ${BLEND_CATALOG_SQL} AND ${VISIBLE_SQL} AND category <> ALL($1::text[])
+       ORDER BY CASE WHEN ${BLEND_CLOSED_SQL} THEN 2 WHEN status = 'soldout' OR stock = 0 THEN 1 ELSE 0 END,
+                created_at DESC`,
       [SANJI_CATS]
     );
     return {
@@ -69,12 +70,12 @@ async function getUpcomingProducts(): Promise<HomeUpcoming[]> {
   }
 }
 
-// 첫 화면의 12개에 없는 분류도 전체 상품 목록으로 연결할 수 있도록 조회한다.
+// 마감된 공구의 분류도 전체 상품 목록에서 다시 확인할 수 있도록 포함한다.
 async function getCategories(): Promise<string[]> {
   try {
     const result = await shopPool.query<{ category: string }>(
       `SELECT DISTINCT category FROM products_shop
-       WHERE status = 'active' AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[])
+       WHERE ${BLEND_CATALOG_SQL} AND ${VISIBLE_SQL} AND category <> ALL($1::text[])
        ORDER BY category`,
       [SANJI_CATS]
     );
@@ -89,7 +90,7 @@ export default async function Home() {
   // Next's DB-free build bailout must remain outside the query catches.
   await deferDbFreeBuild("/");
   const [catalog, upcoming, categories, topSellerIds] = await Promise.all([
-    getSellingProducts(),
+    getCatalogProducts(),
     getUpcomingProducts(),
     getCategories(),
     getTopSellerIds(2),

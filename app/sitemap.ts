@@ -1,4 +1,4 @@
-import { ON_SALE_SQL } from "@/lib/sale-window";
+import { BLEND_CATALOG_SQL, VISIBLE_SQL } from "@/lib/sale-window";
 import { collectionPath } from "@/lib/catalog-seo";
 import type { MetadataRoute } from "next";
 import shopPool from "@/lib/db-shop";
@@ -7,7 +7,7 @@ import { SITES } from "@/lib/sites";
 export const dynamic = "force-dynamic";
 
 // 블랜드픽 사이트맵 — 검색엔진에 "여기 이런 페이지들이 있다"고 알려주는 목록.
-// 판매중 상품은 DB에서 자동으로 포함된다 (내려간 상품·산지픽 카테고리 상품은 제외 — 산지픽은 app/sanji/sitemap.ts).
+// 공개 상품과 마감 공구를 포함한다 (비공개 상품·산지픽 카테고리 상품은 제외 — 산지픽은 app/sanji/sitemap.ts).
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = "https://shop.blendpunch.com";
   const items: MetadataRoute.Sitemap = [
@@ -19,9 +19,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
   try {
     const r = await shopPool.query(
-      `SELECT id, category, (${ON_SALE_SQL}) AS category_available, COALESCE(updated_at, created_at) AS updated
+      `SELECT id, category, (${BLEND_CATALOG_SQL}) AS category_available, COALESCE(updated_at, created_at) AS updated
          FROM products_shop
-        WHERE status = 'active' AND is_visible = true AND category <> ALL($1::text[])
+        WHERE status IN ('active', 'soldout', 'ended') AND ${VISIBLE_SQL} AND category <> ALL($1::text[])
         ORDER BY created_at DESC`,
       [SITES.sanjipick.categories]
     );

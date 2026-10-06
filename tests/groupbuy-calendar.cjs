@@ -76,3 +76,18 @@ test('invalid or reversed schedules never highlight dates or throw ISO range err
     assert.equal(initialCalendarDay(range, now), '2026-10-06');
   }
 });
+
+test('manual close overrides an ongoing calendar badge without changing registered dates or today', () => {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const Calendar = load('components/blend/GroupbuyCalendar.tsx', {'./GroupbuyCalendar.module.css':{today:'today',saleDay:'sale-day'}}).default;
+  const props = {saleStartMs:ms('2026-10-01T00:00:00+09:00'),saleEndMs:ms('2026-10-09T23:59:00+09:00'),nowMs:ms('2026-10-06T12:00:00+09:00')};
+  const open = renderToStaticMarkup(React.createElement(Calendar, props));
+  const closed = renderToStaticMarkup(React.createElement(Calendar, {...props,ended:true}));
+  assert.match(open,/data-state="open">공구 진행 중/);
+  assert.match(closed,/data-state="ended">공구 마감/);
+  assert.doesNotMatch(closed,/공구 진행 중|<button/);
+  assert.deepEqual(closed.match(/<time\b[^>]*>[\s\S]*?<\/time>/g),open.match(/<time\b[^>]*>[\s\S]*?<\/time>/g));
+  assert.equal((closed.match(/aria-current="date"/g)||[]).length,1);
+  assert.match(closed,/dateTime="2026-10-06" class="sale-day today"/);
+});

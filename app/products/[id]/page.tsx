@@ -95,7 +95,7 @@ async function getProduct(id: string) {
     `SELECT id, name, brand, category, description, price, original_price,
             stock, status, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, island_shipping_cost, installation_cost, main_image, addon_multi,
             influencer_id, sale_start_at, sale_end_at, is_visible, to_jsonb(products_shop)->>'expected_ship_date' AS expected_ship_date, to_jsonb(products_shop)->>'origin_country' AS origin_country
-     FROM products_shop WHERE id = $1`,
+     FROM products_shop WHERE id = $1 AND status IN ('active', 'soldout', 'ended')`,
     [id]
   );
   return result.rows[0] as Product | undefined;
@@ -211,7 +211,8 @@ export default async function ProductDetailPage({
   const startMs = product.sale_start_at ? new Date(product.sale_start_at).getTime() : null;
   const endMs = product.sale_end_at ? new Date(product.sale_end_at).getTime() : null;
   const saleState: "upcoming" | "open" | "ended" =
-    startMs && startMs > nowMs ? "upcoming" : endMs && endMs < nowMs ? "ended" : "open";
+    product.status === "ended" || (endMs != null && endMs < nowMs) ? "ended"
+      : startMs != null && startMs > nowMs ? "upcoming" : "open";
   const openLabel = (() => {
     if (!product.sale_start_at) return "";
     const d = new Date(new Date(product.sale_start_at).getTime() + 9 * 3600e3); // KST 표시

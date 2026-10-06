@@ -84,6 +84,25 @@ test('actual detail: restore uses current stock and removes unavailable options'
 test('actual detail: expired purchase draft does not override current selection',()=>{
  const f=fixture();try{f.storage.set('purchase-resume:p1',JSON.stringify({at:Date.now()-3600000,lines:[{optionId:'o1',qty:1}]}));f.render();f.effects[0]();assert.equal(f.button(f.render(),'바로 구매').props.disabled,true);}finally{f.close();}
 });
+for(const scenario of [
+ {name:'manual close without a schedule',product:{status:'ended'},schedule:{}},
+ {name:'manual close before a future end date',product:{status:'ended'},schedule:{saleStartMs:Date.now()-60_000,saleEndMs:Date.now()+3600_000}},
+ {name:'expired sale with active stock',product:{status:'active'},schedule:{saleEndMs:Date.now()-60_000}},
+ {name:'sold out despite positive stock',product:{status:'soldout'},schedule:{}},
+ {name:'zero stock',product:{stock:0},schedule:{}},
+])test(`actual detail: ${scenario.name} blocks cart and checkout`,async()=>{
+ const f=fixture();try{
+  f.select();Object.assign(f.props.product,scenario.product);Object.assign(f.props,scenario.schedule);
+  let requests=0;global.fetch=async()=>{requests++;throw Error('Closed product must not call the API');};
+  const tree=f.render();const closed=scenario.product.status!=='soldout'&&scenario.product.stock!==0;
+  const cart=f.button(tree,closed?'공구 마감':'품절');
+  const buy=closed?f.button(tree,'마감된 공구예요'):f.walk(tree,n=>n.type==='button'&&n.props.className?.includes('text-center')&&f.textOf(n)==='품절');
+  assert.equal(cart.props.disabled,true);assert.equal(buy.props.disabled,true);
+  await cart.props.onClick();buy.props.onClick();
+  assert.equal(requests,0);assert.equal(f.pushes.length,0);assert.equal(f.storage.size,0);
+  if(closed){assert.equal(buy.props.style.background,'#9f3038');assert.match(f.textOf(tree),/상품 정보는 확인할 수 있지만 구매는 할 수 없어요/);}
+ }finally{f.close();}
+});
 test('Sanji detail exposes each purchasable grade with its own actual price',()=>{
  const navigation={useRouter:()=>({push(){}})};
  const {SANJI_DEMO_PRODUCTS}=load('lib/sanji-demo.ts');const source=SANJI_DEMO_PRODUCTS[0];
