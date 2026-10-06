@@ -225,7 +225,7 @@ export default async function ProductDetailPage({
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
-      <Header />
+      <Header variant="discovery" />
       <ProductDetail
         product={product}
         images={allImages}
@@ -239,6 +239,7 @@ export default async function ProductDetailPage({
         openLabel={openLabel}
         saleStartMs={startMs}
         saleEndMs={endMs}
+        initialNowMs={nowMs}
         loggedIn={loggedIn}
       />
       <ProductSearchSummary product={product} site="blendpick" options={options} />

@@ -6,6 +6,7 @@ import { readGuestCart } from "@/lib/guest-cart";
 import { useSiteKey } from "@/components/SiteContext";
 import { useState, useEffect, useId, useRef } from "react";
 import discoveryStyles from "@/components/BlendHeader.module.css";
+import InstagramLink from "@/components/blend/InstagramLink";
 
 function CartCount() {
   const site=useSiteKey();
@@ -38,7 +39,7 @@ const NAV_ITEMS = [
   // 호텔·펜션을 아우르는 숙박 카테고리 — 특정 호텔명 대신 카테고리명으로 (공구마다 이름 안 바꿔도 되게)
   { label: "숙박공구 · 호텔 & 펜션", href: "/hotel", hot: true },
   { label: "PRODUCTS", href: "/products", hot: false },
-  { label: "CONTACT", href: "/blend-picked" },
+  { label: "공급사 제안", href: "/suppliers" },
 ];
 
 // 산지픽 네비 — 농산물 사이트라 숙박 메뉴 없음
@@ -64,7 +65,7 @@ export interface HeaderSite {
 const DISCOVERY_NAV_ITEMS = [
   { label: "공구 쇼핑", href: "/products" },
   { label: "숙박·호텔", href: "/hotel" },
-  { label: "제휴 문의", href: "/blend-picked" },
+  { label: "공급사 제안", href: "/suppliers" },
 ];
 
 function DiscoveryHeader({ user, isAdmin, isInfluencer }: {
@@ -117,6 +118,7 @@ function DiscoveryHeader({ user, isAdmin, isInfluencer }: {
           ))}
         </nav>
         <div className={discoveryStyles.actions}>
+          <InstagramLink />
           <Link href="/orders/lookup" className={discoveryStyles.orderLink} onClick={closeMenu}>주문 조회</Link>
           {user ? (
             <Link href={accountHref} className={discoveryStyles.account} aria-label={accountLabel} onClick={closeMenu}>
@@ -219,10 +221,10 @@ export default function HeaderClient({
           )}
 
           {/* 구분선 */}
-          <div className="hidden sm:block w-px h-4 mx-5 lg:mx-6 rounded-full" style={{ background: "var(--line)" }} />
+          <div className="hidden lg:block w-px h-4 mx-5 lg:mx-6 rounded-full" style={{ background: "var(--line)" }} />
 
           {/* 네비게이션 */}
-          <nav className="hidden sm:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-6">
             {navItems.map((item) =>
               item.href === "/hotel" ? (
                 <Link
@@ -263,6 +265,7 @@ export default function HeaderClient({
 
         {/* 우측: 로그인/마이페이지 + 장바구니 */}
         <div className="flex items-center gap-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <InstagramLink />
           {user ? (
             isAdmin ? (
               /* 관리자 */
@@ -345,7 +348,7 @@ export default function HeaderClient({
           <button
             onClick={() => setMenuOpen((v) => !v)}
             aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
-            className="sm:hidden p-1.5 -mr-1.5"
+            className="lg:hidden p-1.5 -mr-1.5"
             style={{ color: "var(--text-primary)" }}
           >
             {menuOpen ? (
@@ -363,7 +366,7 @@ export default function HeaderClient({
 
       {/* 모바일 펼침 메뉴 */}
       {menuOpen && (
-        <nav className="sm:hidden border-t" style={{ borderColor: "var(--line)" }}>
+        <nav className="lg:hidden border-t" style={{ borderColor: "var(--line)" }}>
           {navItems.map((item) => (
             <Link
               key={item.label}

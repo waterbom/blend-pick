@@ -15,6 +15,8 @@ import { useSiteKey } from "@/components/SiteContext";
 import { submitCartItems } from "@/lib/buyer-flow";
 import { commerceParams, trackCartAdded } from "@/lib/analytics";
 import { useMetaEvent } from "@/lib/use-meta-event";
+import GroupbuyCalendar from "@/components/blend/GroupbuyCalendar";
+import calendarStyles from "@/components/blend/GroupbuyCalendar.module.css";
 
 function buildCheckoutUrl(productId: string, optionId: string | null, quantity: number, influencerId?: string | null) {
   const params = new URLSearchParams({ quantity: String(quantity) });
@@ -105,6 +107,7 @@ export default function ProductDetail({
   openLabel = "",
   saleStartMs = null,
   saleEndMs = null,
+  initialNowMs,
   loggedIn = false,
   reviewSummary,
 }: {
@@ -119,6 +122,7 @@ export default function ProductDetail({
   openLabel?: string; // 오픈 예정 시각 표시용 "7/22 19:00"
   saleStartMs?: number | null; // 판매 시작 시각 (epoch ms) — 페이지 열어둔 채로 오픈되면 자동 활성화
   saleEndMs?: number | null;
+  initialNowMs?: number; // Keep the calendar's first KST date identical during SSR and hydration.
   loggedIn?: boolean; // 리뷰 작성 폼에서 비회원 인증 노출 여부
   reviewSummary?: ReviewSummary;
 }) {
@@ -162,12 +166,13 @@ export default function ProductDetail({
 
   // 판매 시간창 실시간 판정 — 페이지를 열어둔 채 오픈 시각이 되면 새로고침 없이 버튼이 활성화됨
   // (서버가 준 시각 기준, 결제 승인 단계에서 서버가 한 번 더 검증하므로 기기 시계가 빨라도 안전)
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => initialNowMs ?? Date.now());
   useEffect(() => {
-    if (saleStartMs == null && saleEndMs == null) return;
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    const hasSchedule = saleStartMs != null || saleEndMs != null;
+    if (!hasSchedule && siteKey !== "blendpick") return;
+    const id = setInterval(() => setNowMs(Date.now()), hasSchedule ? 1000 : 60_000);
     return () => clearInterval(id);
-  }, [saleStartMs, saleEndMs]);
+  }, [saleStartMs, saleEndMs, siteKey]);
   const saleState: "upcoming" | "open" | "ended" =
     saleStartMs == null && saleEndMs == null
       ? initialSaleState
@@ -390,7 +395,7 @@ export default function ProductDetail({
   const stepBtn = "w-9 h-9 flex items-center justify-center text-lg transition-colors hover:bg-gray-50";
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
+    <div className={siteKey === "blendpick" ? calendarStyles.detailShell : "max-w-5xl mx-auto px-6 py-10"}>
       {/* 브레드크럼 */}
       <div className="flex items-center gap-2 text-xs mb-6" style={{ color: "var(--text-muted)" }}>
         <Link href="/products" className="hover:underline">Products</Link>
@@ -400,6 +405,7 @@ export default function ProductDetail({
         <span style={{ color: "var(--text-primary)" }}>{product.name}</span>
       </div>
 
+      <div className={siteKey === "blendpick" ? calendarStyles.topLayout : undefined}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
         {/* 대표 이미지 */}
         <div
@@ -660,7 +666,11 @@ export default function ProductDetail({
         </div>
       </div>
 
+      {siteKey === "blendpick" && <GroupbuyCalendar key={product.id} saleStartMs={saleStartMs} saleEndMs={saleEndMs} nowMs={nowMs} soldOut={isSoldout} />}
+      </div>
+
       {/* 리뷰 섹션 — 딥 포레스트 10a/10b 디자인 */}
+      <div className={siteKey === "blendpick" ? calendarStyles.lowerContent : undefined}>
       <div className="mb-12">
         <ReviewSection
           productId={product.id}
@@ -694,6 +704,7 @@ export default function ProductDetail({
           />
         </div>
       )}
+      </div>
 
 
       {/* 맨 위로 — 문의·오픈예정 플로팅 버튼 위에 표시 */}

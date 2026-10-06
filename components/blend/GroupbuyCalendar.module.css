@@ -1,0 +1,52 @@
+.detailShell {width:100%;max-width:1360px;margin:0 auto;padding:40px 24px;min-width:0}
+.topLayout {min-width:0}
+.topLayout>div {min-width:0}
+.calendar {align-self:start;min-width:0;width:100%;padding:21px 18px 18px;margin:0 0 48px;border:1px solid #e2e8de;border-radius:22px;background:#fff;box-shadow:0 8px 28px #23432b07;color:#243e2e;letter-spacing:-.025em;font-family:inherit}
+.calendar * {box-sizing:border-box}
+.calendar button {font:inherit;cursor:pointer}
+.calendar button:focus-visible {outline:3px solid #ce7548;outline-offset:3px}
+.heading {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:20px}
+.heading h2 {display:flex;align-items:center;gap:8px;margin:0;font-size:16px;font-weight:750;white-space:nowrap}
+.heading svg {color:#54794c}
+.status {padding:5px 8px;border-radius:999px;background:#edf4e8;color:#547647;font-size:10px;font-weight:700;white-space:nowrap}
+.status[data-state=upcoming] {background:#fff2e8;color:#b76530}
+.status[data-state=ended],.status[data-state=unscheduled],.status[data-state=invalid] {background:#f2f3ef;color:#7e867a}
+.monthNavigation {display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.monthNavigation strong {font-size:17px;font-weight:750;font-variant-numeric:tabular-nums}
+.monthNavigation button {display:grid;place-items:center;width:34px;height:34px;border:1px solid #e7ebe3;border-radius:10px;background:#fff;color:#718069;font-size:24px;line-height:1}
+.monthNavigation button:hover {background:#f3f7ef;border-color:#c4d6bc;color:#315639}
+.legend {display:flex;gap:12px;margin:0 0 12px;color:#7b8475;font-size:10px}
+.legend span {display:flex;align-items:center;gap:4px}
+.legend i {display:block;width:8px;height:8px;border-radius:3px}
+.periodKey {background:#dfead5}
+.todayKey {background:#d77a46}
+.selectedKey {background:#416441}
+.month {width:100%;border-collapse:separate;border-spacing:3px;table-layout:fixed}
+.month th {height:26px;text-align:center;color:#8a9382;font-size:11px;font-weight:550}
+.month td {padding:0;text-align:center}
+.day {position:relative;display:grid;place-items:center;width:100%;height:33px;padding:0;border:1px solid transparent;border-radius:8px;background:#f9faf7;color:#6e7867;font-size:12px!important;font-weight:550!important;transition:background .15s,border-color .15s}
+.day:hover {border-color:#afc4a4;background:#eff4e8}
+.sunday {color:#c5847e!important}
+.saturday {color:#7c98b9!important}
+.saleDay {background:#e5efdb;color:#55704a!important;font-weight:700!important}
+.today {border-color:#d7895c}
+.todayDot {position:absolute;width:3px;height:3px;bottom:3px;left:calc(50% - 1.5px);border-radius:50%;background:#d5824f}
+.outside {color:#bec5b7!important;background:#fff}
+.outside.saleDay {background:#f2f6ec;color:#9eac91!important}
+.selected,.selected:hover {background:#416441;color:#fff!important;border-color:#416441;font-weight:750!important}
+.selected .todayDot {background:#ffca9b}
+.shortcuts {display:flex;justify-content:flex-end;gap:6px;margin:12px 0 17px}
+.shortcuts button {padding:5px 8px;border:0;border-radius:6px;background:#f4f6ef;color:#75836a;font-size:10px}
+.shortcuts button:hover {background:#e7efdE;color:#345739}
+.selection {padding:13px 12px;border-radius:11px;background:#f5f7ef}
+.selection strong {font-size:12px;font-weight:700}
+.selection p {margin:5px 0 0;font-size:10px;line-height:1.7;color:#839075;word-break:keep-all}
+.schedule {display:grid;gap:10px;margin:18px 0 0;padding-top:16px;border-top:1px solid #edf0e8;font-size:10px}
+.schedule>div {display:flex;justify-content:space-between;gap:8px}
+.schedule dt {color:#8b9580;white-space:nowrap}
+.schedule dd {margin:0;color:#607252;font-weight:600;font-variant-numeric:tabular-nums}
+.note {margin:16px 0 0;color:#96a08d;font-size:10px;line-height:1.8;word-break:keep-all}
+@media(min-width:1200px){.topLayout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:36px;align-items:start}.calendar{position:sticky;top:110px}.lowerContent{max-width:calc(100% - 336px)}}
+@media(min-width:768px) and (max-width:1199px){.detailShell{max-width:1024px}.calendar{max-width:400px;margin-left:auto;margin-right:auto}}
+@media(max-width:767px){.detailShell{padding:26px 18px}.calendar{padding:22px 20px;margin-bottom:36px;border-radius:20px}.day{height:39px}.legend{gap:18px;font-size:11px}.selection p,.schedule,.note{font-size:11px}.heading h2{font-size:17px}.status{font-size:11px}.shortcuts button{font-size:11px;padding:7px 10px}}
+@media(prefers-reduced-motion:reduce){.day{transition:none}}
