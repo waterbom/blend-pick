@@ -255,7 +255,7 @@ export default function SanjiHome({
         .sh-top{position:fixed;right:16px;bottom:calc(90px + env(safe-area-inset-bottom));z-index:19;width:48px;height:48px;border-radius:50%;background:#fff;border:1px solid ${LINE};color:${INK};box-shadow:0 4px 14px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center}
         .sh-kakao{position:fixed;right:16px;bottom:calc(148px + env(safe-area-inset-bottom));z-index:19;width:48px;height:48px;border-radius:50%;background:#FEE500;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center}
         .sh :focus-visible{outline:2px solid ${ORANGE};outline-offset:2px}
-        @media(min-width:761px){
+        @container sanji-mobile (min-width:761px){
           .sh-hd{top:64px}
           .sh-tabs{padding:14px 28px}
           .sh-ban{margin-top:10px}
@@ -268,8 +268,8 @@ export default function SanjiHome({
           .sh-soonbox{margin:36px 28px 0;padding:24px}
           .sh-soonlist,.sh-rvlist{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
         }
-        @media(max-width:760px){.sh-hd{top:58px}}
-        @media(min-width:1000px){.sh-nav{display:none}.sh{padding-bottom:48px}}
+        @container sanji-mobile (max-width:760px){.sh-hd{top:58px}}
+        @container sanji-mobile (min-width:1000px){.sh-nav{display:none}.sh{padding-bottom:48px}}
       `}</style>
 
       {/* 마감 카운트다운 띠 — 가장 먼저 끝나는 공구로 연결 */}

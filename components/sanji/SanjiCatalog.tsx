@@ -95,9 +95,9 @@ export default function SanjiCatalog({ products, linkBase, initialQuery = "", in
         .sc-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;z-index:40;display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border-top:1px solid ${LINE};padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
         .sc-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:48px;font-size:11px;color:${FAINT}}
         .sc-nav a.on{color:${INK};font-weight:700}
-        @media(min-width:761px){.sc-search{max-width:560px;margin:18px 28px 12px}.sc-chips{padding:0 28px 14px}.sc-sec{padding:28px 28px 8px}.sc-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:28px 16px}}
-        @media(max-width:760px){.sc-hd{top:58px}}
-        @media(min-width:1000px){.sc-nav{display:none}.sc{padding-bottom:48px}}
+        @container sanji-mobile (min-width:761px){.sc-search{max-width:560px;margin:18px 28px 12px}.sc-chips{padding:0 28px 14px}.sc-sec{padding:28px 28px 8px}.sc-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:28px 16px}}
+        @container sanji-mobile (max-width:760px){.sc-hd{top:58px}}
+        @container sanji-mobile (min-width:1000px){.sc-nav{display:none}.sc{padding-bottom:48px}}
       `}</style>
 
       <div className="sc-hd">

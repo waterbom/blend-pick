@@ -4,6 +4,8 @@ import GlobalFloating from "@/components/GlobalFloating";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import "./storefront.css";
+import "./sanji-mobile.css";
+import StorefrontFrame from "@/components/StorefrontFrame";
 import InfRefCookie from "@/components/InfRefCookie";
 import { SiteProvider } from "@/components/SiteContext";
 import MetaPixel from "@/components/MetaPixel";
@@ -73,10 +75,12 @@ export default async function RootLayout({
           <InfRefCookie />
           <MetaPixel />
           {process.env.ANALYTICS_ENABLED === "true" && <VisitAnalytics />}
+          <StorefrontFrame site={site.key}>
           {site.key === "sanjipick" && <Header storefrontRoot />}
           {children}
           <Footer />
           <GlobalFloating />
+          </StorefrontFrame>
         </SiteProvider>
       </body>
     </html>

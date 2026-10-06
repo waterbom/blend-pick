@@ -36,11 +36,11 @@ export default async function SanjiMyPage({searchParams=Promise.resolve({})}:{se
   return (
     <main className="min-h-screen" style={{ background: "var(--background)", color: "var(--text-primary)" }}>
       <Header />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">산지픽 마이페이지</h1>
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-2">산지픽 마이페이지</h1>
         <p className="text-base mb-8">{user.nickname || user.name || "고객"}님, 안녕하세요.</p>
-        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 md:gap-10 items-start">
-          <aside className="md:sticky md:top-24">
+        <div className="grid grid-cols-1 gap-6 items-start">
+          <aside>
             <nav aria-label="산지픽 마이페이지 메뉴" className="ds-card flex flex-col text-sm">
               <a href="#orders" className="px-5 py-4 font-bold" style={{ color: "var(--accent)", background: "var(--surface-soft)" }}>주문·배송 조회 <span aria-hidden="true">›</span></a>
               <a href="#help" className="px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>취소·교환·반품 안내 <span aria-hidden="true">›</span></a>
@@ -51,7 +51,7 @@ export default async function SanjiMyPage({searchParams=Promise.resolve({})}:{se
           </aside>
           <div className="min-w-0">
             <CustomerOrders orders={orders} sanjiBase={base} query={query} />
-            <section id="help" className="ds-card p-5 sm:p-6 scroll-mt-24">
+            <section id="help" className="ds-card p-5 scroll-mt-24">
               <h2 className="text-lg font-bold mb-3">취소·교환·반품 안내</h2>
               <p className="text-base leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                 취소나 교환·반품은 해당 주문의 버튼에서 신청해주세요. 배송이나 상품에 궁금한 점이 있으면 주문번호와 함께 문의해주세요.
