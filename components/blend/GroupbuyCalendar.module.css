@@ -2,55 +2,36 @@
 .topLayout { position:relative;min-width:0; }
 .topLayout>div { min-width:0; }
 .lowerContent { min-width:0; }
-.dock { position:relative;display:flex;justify-content:flex-end;margin:-32px 0 32px;min-height:36px;color:#243e2e;font-family:inherit;letter-spacing:-.025em; }
+.dock { position:relative;display:flex;justify-content:flex-end;margin:-32px 0 32px;color:#243e2e;font-family:inherit;letter-spacing:-.025em; }
 .dock * { box-sizing:border-box; }
-.dock button { font:inherit;cursor:pointer; }
-.dock button:focus-visible { outline:2px solid #ba7845;outline-offset:3px; }
-.launcher { display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #dce6d5;border-radius:9px;background:#fff;color:#557249;font-size:11px!important;box-shadow:0 3px 12px #23432b08; }
-.launcher:hover { background:#f5f8f0; }
-.dock[data-open=true] .launcher { visibility:hidden; }
-.calendar { position:absolute;right:0;top:0;z-index:30;width:232px;max-width:calc(100vw - 36px);padding:12px;border:1px solid #dce5d6;border-radius:13px;background:#fff;box-shadow:0 9px 32px #183c3014,0 2px 8px #183c3008; }
-.calendar[hidden] { display:none; }
+.calendar { position:relative;width:232px;max-width:calc(100vw - 36px);padding:12px;border:1px solid #dce5d6;border-radius:13px;background:#fff;box-shadow:0 9px 32px #183c3014,0 2px 8px #183c3008; }
 .heading { display:flex;align-items:center;gap:6px;margin-bottom:8px; }
 .heading h2 { margin:0;white-space:nowrap;font-size:13px;font-weight:750; }
 .status { margin-left:auto;padding:3px 6px;border-radius:999px;background:#edf4e8;color:#547647;font-size:9px;line-height:1.4;font-weight:600;white-space:nowrap; }
 .status[data-state=upcoming] { background:#fff2e8;color:#a75c2b; }
 .status[data-state=ended],.status[data-state=unscheduled],.status[data-state=invalid] { background:#f2f3ef;color:#717b69; }
-.close { display:grid;place-items:center;flex-shrink:0;width:24px;height:24px;padding:0;border:0;border-radius:5px;background:transparent;color:#8a9482;font-size:20px!important;line-height:1; }
-.close:hover { background:#f2f5ec;color:#345739; }
-.monthNavigation { display:flex;align-items:center;gap:5px;margin-bottom:7px; }
-.monthNavigation strong { flex:1;text-align:center;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums; }
-.monthNavigation button { display:grid;place-items:center;width:24px;height:25px;padding:0;border:0;border-radius:5px;background:#f6f8f1;color:#6f8064;font-size:18px;line-height:1; }
-.monthNavigation button:hover { background:#e9f0e1;color:#315639; }
-.monthNavigation .todayButton { width:30px;background:transparent;font-size:9px; }
+.monthLabel { padding:3px 0 8px;text-align:center;font-size:12px;line-height:1.8;font-variant-numeric:tabular-nums; }
+.monthLabel strong { font-weight:700; }
 .legend { display:flex;gap:10px;margin-bottom:6px;color:#7b8475;font-size:9px;line-height:1.5; }
 .legend span { display:flex;align-items:center;gap:4px; }
 .legend i { display:block;width:6px;height:6px;border-radius:2px; }
 .periodKey { background:#dfead5; }
-.todayKey { background:#d77a46; }
-.selectedKey { background:#416441; }
+.todayKey { border:1px solid #dc4545;background:transparent; }
 .month { width:100%;border-collapse:separate;border-spacing:2px;table-layout:fixed; }
 .month th { height:18px;text-align:center;color:#8a9382;font-size:9px;font-weight:500; }
 .month td { padding:0;text-align:center; }
-.day { position:relative;display:grid;place-items:center;width:100%;height:24px;padding:0;border:1px solid transparent;border-radius:5px;background:#f9faf7;color:#6e7867;font-size:10px!important;font-weight:500!important;transition:background .15s; }
-.day:hover { background:#edf3e6;border-color:#afc4a4; }
+.day { position:relative;display:grid;place-items:center;width:100%;height:24px;padding:0;border:1px solid transparent;border-radius:5px;background:#f9faf7;color:#6e7867;font-size:10px!important;font-weight:500!important; }
 .sunday { color:#bd7b75!important; }
 .saturday { color:#708bac!important; }
 .saleDay { background:#e5efdb;color:#55704a!important;font-weight:650!important; }
-.today { border-color:#d7895c; }
-.todayDot { position:absolute;width:2px;height:2px;bottom:2px;left:calc(50% - 1px);border-radius:50%;background:#d5824f; }
+.today { border:2px solid #dc4545; }
 .outside { color:#bdc3b7!important;background:#fff; }
 .outside.saleDay { background:#f2f6ec;color:#9eac91!important; }
-.selected,.selected:hover { background:#416441;color:#fff!important;border-color:#416441; }
-.selected .todayDot { background:#ffca9b; }
 .schedule { display:grid;gap:4px;margin:8px 0 0;padding-top:8px;border-top:1px solid #edf0e8;font-size:10px;line-height:1.5; }
 .schedule>div { display:flex;align-items:center;justify-content:space-between;gap:8px; }
 .schedule dt { color:#87927b; }
 .schedule dd { margin:0;color:#58704b;font-weight:550;font-variant-numeric:tabular-nums; }
-.schedule button { padding:0;border:0;background:transparent;color:inherit;text-decoration:underline;text-decoration-color:#c8d7bc;text-underline-offset:3px; }
-.schedule button:hover { color:#244c30; }
 .note { margin:8px 0 0;color:#89977e;font-size:9px;line-height:1.5; }
-.srOnly { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
 @media(min-width:1280px) {
   .detailShell { max-width:1280px;padding-right:280px; }
   .dock { position:absolute;left:calc(100% + 24px);top:0;width:232px;margin:0; }
@@ -60,7 +41,4 @@
   .detailShell { padding:26px 18px; }
   .calendar { width:248px;padding:14px; }
   .day { height:28px; }
-  .monthNavigation button { height:28px; }
-  .launcher { min-height:40px; }
 }
-@media(prefers-reduced-motion:reduce) { .day { transition:none; } }
