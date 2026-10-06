@@ -735,7 +735,7 @@
   flex-wrap:wrap;
   margin-bottom:11px
 }
-.greenTag,.softTag,.orangeTag {
+.greenTag,.softTag,.orangeTag,.closedTag,.soldOutTag {
   display:inline-block;
   line-height:1.4;
   border-radius:5px;
@@ -826,6 +826,37 @@
   justify-content:center;
   font-size:15px;
   font-weight:700
+}
+.closedCard,.closedCard:hover {
+  background:#fff3f2;
+  border-color:#e6bfc1
+}
+.closedCard .productImage>img,.closedStay .stayImage>img {
+  filter:grayscale(.85);
+  opacity:.75
+}
+.closedCard .price,.closedCard .cardArrow {
+  color:#796265
+}
+.closedTag {
+  background:#9f3038;
+  color:#fff
+}
+.soldOutTag {
+  background:#e7e9eb;
+  color:#50565c
+}
+.closedOverlay {
+  background:#49171f70;
+  font-size:15px;
+  letter-spacing:.02em
+}
+.closedNotice {
+  color:#9f3038;
+  font-size:11px;
+  line-height:1.5;
+  font-weight:700;
+  margin:7px 0 0
 }
 .emptyCatalog {
   min-height:153px;
@@ -946,6 +977,18 @@
   color:#668054;
   font-size:10px;
   font-weight:600
+}
+.closedStay,.closedStay:hover {
+  background:#fff3f2;
+  border-color:#e6bfc1
+}
+.closedStay .stayImage>span {
+  background:#9f3038;
+  color:#fff;
+  font-size:11px
+}
+.closedStay .stayInfo>div {
+  color:#9f3038
 }
 .brandNote {
   display:flex;

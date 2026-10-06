@@ -8,19 +8,20 @@ import {
 import styles from "./GroupbuyCalendar.module.css";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
-const STATUS_LABELS = { upcoming: "오픈 예정", open: "공구 진행 중", ended: "공구 종료", unscheduled: "기간 미등록", invalid: "일정 확인 필요" };
+const STATUS_LABELS = { upcoming: "오픈 예정", open: "공구 진행 중", ended: "공구 마감", unscheduled: "기간 미등록", invalid: "일정 확인 필요" };
 
-export default function GroupbuyCalendar({ saleStartMs, saleEndMs, nowMs, soldOut = false }: {
+export default function GroupbuyCalendar({ saleStartMs, saleEndMs, nowMs, soldOut = false, ended = false }: {
   saleStartMs: number | null;
   saleEndMs: number | null;
   nowMs: number;
   soldOut?: boolean;
+  ended?: boolean;
 }) {
   const titleId = useId();
   const range = saleCalendarRange(saleStartMs, saleEndMs);
   const today = kstDayKey(nowMs);
   const month = calendarMonthFor(initialCalendarDay(range, nowMs));
-  const status = saleCalendarStatus(range, nowMs);
+  const status = ended ? "ended" : saleCalendarStatus(range, nowMs);
   const days = calendarMonthDays(month);
   const rows = Array.from({ length: days.length / 7 }, (_, index) => days.slice(index * 7, index * 7 + 7));
 

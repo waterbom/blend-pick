@@ -6,7 +6,7 @@ import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
 import ProductCarousel from "@/components/ProductCarousel";
 import { SITES } from "@/lib/sites";
-import { ON_SALE_SQL, VISIBLE_SQL } from "@/lib/sale-window";
+import { BLEND_CATALOG_SQL, BLEND_CLOSED_SQL, VISIBLE_SQL } from "@/lib/sale-window";
 import styles from "./catalog.module.css";
 
 export async function generateMetadata({searchParams}:{searchParams:Promise<{category?:string|string[]}>}) {
@@ -14,8 +14,8 @@ export async function generateMetadata({searchParams}:{searchParams:Promise<{cat
   const category=typeof raw==="string" ? raw:"";
   const known=await getCategories();
   const valid=!!category && known.includes(category);
-  return collectionMetadata("blendpick",valid ? category+" 공동구매":"진행 중 공동구매",
-    valid ? category+" 상품의 가격, 옵션, 공동구매 기간과 배송 조건을 확인하세요.":"블랜드픽의 진행 중 공동구매 상품을 확인하세요. 상품별 옵션·가격·판매 기간·배송 조건을 비교할 수 있습니다.",
+  return collectionMetadata("blendpick",valid ? category+" 공동구매":"전체 공동구매",
+    valid ? category+" 상품의 가격, 옵션, 공동구매 기간과 마감 여부를 확인하세요.":"블랜드픽의 진행 중인 공구부터 마감된 공구까지 둘러보세요. 상품별 옵션·가격·판매 기간·배송 조건을 확인할 수 있습니다.",
     collectionPath(valid ? category:undefined),raw!==undefined && !valid);
 }
 
@@ -55,19 +55,22 @@ interface Product {
   main_image: string | null;
   shipping_type: string;
   shipping_cost: number;
+  sale_closed: boolean;
 }
 
 async function getProducts(category?: string) {
   const params: (string | string[])[] = [SANJI_CATS];
-  // 판매 시작이 미래로 예약된 상품은 '판매 중'이 아니라 '오픈 예정'에서 노출, 종료일이 지난 공구는 목록에서 제외
-  let where = `WHERE status = 'active' AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[])`;
+  // 공개된 마감 공구도 이력으로 노출한다. 미래 오픈 상품은 아래 오픈 예정 영역에서 구분한다.
+  let where = `WHERE ${BLEND_CATALOG_SQL} AND ${VISIBLE_SQL} AND category <> ALL($1::text[])`;
   if (category) {
     params.push(category);
     where += ` AND category = $2`;
   }
   const result = await shopPool.query(
-    `SELECT id, name, brand, category, price, original_price, stock, status, main_image, shipping_type, shipping_cost
-     FROM products_shop ${where} ORDER BY created_at DESC`,
+    `SELECT id, name, brand, category, price, original_price, stock, status, main_image, shipping_type, shipping_cost,
+            COALESCE((${BLEND_CLOSED_SQL}), false) AS sale_closed
+     FROM products_shop ${where}
+     ORDER BY sale_closed ASC, (status = 'soldout' OR stock = 0) ASC, created_at DESC`,
     params
   );
   return result.rows as Product[];
@@ -75,7 +78,7 @@ async function getProducts(category?: string) {
 
 async function getCategories() {
   const result = await shopPool.query(
-    `SELECT DISTINCT category FROM products_shop WHERE status = 'active' AND ${VISIBLE_SQL} AND ${ON_SALE_SQL} AND category <> ALL($1::text[]) ORDER BY category`,
+    `SELECT DISTINCT category FROM products_shop WHERE ${BLEND_CATALOG_SQL} AND ${VISIBLE_SQL} AND category <> ALL($1::text[]) ORDER BY category`,
     [SANJI_CATS]
   );
   return result.rows.map((r) => r.category as string);
@@ -90,16 +93,20 @@ interface UpcomingProduct {
 }
 
 // 곧 오픈하는 공구 — 우리 Shop에 등록된 상품 중 판매 시작(sale_start_at)이 미래로 예약된 것만
-async function getUpcoming(): Promise<UpcomingProduct[]> {
+async function getUpcoming(category?: string): Promise<UpcomingProduct[]> {
   try {
+    const params: (string | string[])[] = [SANJI_CATS];
+    const categoryFilter = category ? " AND category = $2" : "";
+    if (category) params.push(category);
     const result = await shopPool.query(`
       SELECT id, name, brand, main_image AS image,
              to_char(sale_start_at AT TIME ZONE 'Asia/Seoul', 'FMMM. FMDD') AS open_label
       FROM products_shop
-      WHERE status = 'active' AND ${VISIBLE_SQL} AND sale_start_at > NOW() AND category <> ALL($1::text[])
+      WHERE status = 'active' AND ${VISIBLE_SQL} AND sale_start_at > NOW()
+        AND (sale_end_at IS NULL OR sale_end_at >= NOW())
+        AND category <> ALL($1::text[])${categoryFilter}
       ORDER BY sale_start_at ASC
-      LIMIT 8
-    `, [SANJI_CATS]);
+    `, params);
     return result.rows as UpcomingProduct[];
   } catch (e) {
     console.error("[products] upcoming 조회 실패:", e);
@@ -133,12 +140,15 @@ export default async function ShopPage({
   const [products, categories, upcoming, topSellers] = await Promise.all([
     getProducts(category),
     getCategories(),
-    getUpcoming(),
+    getUpcoming(category),
     getTopSellerIds(2),
   ]);
 
   // 상품 4개 이상이면 컴팩트 4열, 적으면 대형 에디토리얼 2열 (핸드오프 권장)
   const compact = products.length >= 4;
+  const onSale = products.filter((product) => !product.sale_closed && product.status === "active" && product.stock !== 0);
+  const closedCount = products.filter((product) => product.sale_closed).length;
+  const soldOutCount = products.length - onSale.length - closedCount;
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)", color: C.green900 }}>
@@ -154,8 +164,8 @@ export default async function ShopPage({
         <div className={styles.card}>
           <div className={styles.copy}>
             <span className={styles.eyebrow}>BLEND PICK COLLECTION</span>
-            <h1 id="collection-title" className={styles.title}>{category && categories.includes(category) ? category+" 공동구매":"진행 중 공동구매"}</h1>
-            <p className={styles.description}>상품별 가격·옵션·공동구매 기간·배송 조건을 확인하고 선택하세요.</p>
+            <h1 id="collection-title" className={styles.title}>{category && categories.includes(category) ? category+" 공동구매":"전체 공동구매"}</h1>
+            <p className={styles.description}>진행 중인 공구부터 마감된 공구까지 한눈에 둘러보세요. 마감된 공구는 상품 정보만 확인할 수 있어요.</p>
           </div>
           <span className={styles.mark} aria-hidden="true">
             <svg width="38" height="38" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
@@ -167,12 +177,12 @@ export default async function ShopPage({
       </section>
 
       {/* ── 상품 패럴랙스 캐러셀 — 톤 밴드(B안) 위에, 좌우 여백엔 세로 캡션 ── */}
-      {products.length > 0 && (
+      {onSale.length > 0 && (
         <div className="bp-band relative pt-5 lg:pt-8 pb-5 lg:pb-6">
           <span className="bp-gutter bp-gutter-l">BLEND PICK — GROUP BUY</span>
-          <span className="bp-gutter bp-gutter-r">NOW ON SALE — {String(products.length).padStart(2, "0")}</span>
+          <span className="bp-gutter bp-gutter-r">NOW ON SALE — {String(onSale.length).padStart(2, "0")}</span>
           <ProductCarousel
-            products={products.map((p) => ({
+            products={onSale.map((p) => ({
               id: p.id,
               name: p.name,
               brand: p.brand,
@@ -194,8 +204,11 @@ export default async function ShopPage({
               <CategoryTab key={cat} href={`/products?category=${encodeURIComponent(cat)}`} label={cat} active={category === cat} />
             ))}
           </div>
-          <div className="text-[11px] lg:text-[12px]" style={{ fontFamily: MONO, fontWeight: 500, color: C.sage }}>
-            판매 중 {products.length} · 오픈 예정 {upcoming.length}
+          <div className={styles.counts}>
+            <span>판매 중 {onSale.length}</span>
+            {soldOutCount > 0 && <span className={styles.soldOutCount}>품절 {soldOutCount}</span>}
+            <span className={styles.closedCount}>공구 마감 {closedCount}</span>
+            <span>오픈 예정 {upcoming.length}</span>
           </div>
         </div>
       </div>
@@ -216,16 +229,18 @@ export default async function ShopPage({
                 ? Math.round((1 - p.price / p.original_price) * 100)
                 : null;
               const soldOut = p.stock === 0 || p.status === "soldout";
+              const closed = p.sale_closed;
               const imgH = compact ? "h-[180px] lg:h-[220px]" : "h-[240px] lg:h-[380px]";
 
               const cardInner = (
                 <>
                   {/* 이미지 */}
-                  <div className={`relative overflow-hidden ${imgH}`} style={{ background: C.surfaceSoft }}>
-                    <div style={soldOut ? { filter: "grayscale(.55)", opacity: 0.75, height: "100%" } : { height: "100%" }}>
+                  <div className={`relative overflow-hidden ${imgH}`} style={{ background: closed ? "#fff3f2" : C.surfaceSoft }}>
+                    <div className={closed ? styles.closedImage : undefined} style={soldOut && !closed ? { filter: "grayscale(.55)", opacity: 0.75, height: "100%" } : { height: "100%" }}>
                       <FallbackImg src={p.main_image} alt={p.name} className="w-full h-full object-contain" />
                     </div>
-                    {soldOut && (
+                    {closed && <span className={styles.closedBadge}>공구 마감</span>}
+                    {soldOut && !closed && (
                       <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(28,36,24,.28)" }}>
                         <span className="px-5 lg:px-[26px] py-2 lg:py-2.5 text-[12px] lg:text-[13px] font-bold"
                           style={{ background: C.green900, color: "#FDFCF9", letterSpacing: ".24em" }}>
@@ -233,13 +248,13 @@ export default async function ShopPage({
                         </span>
                       </div>
                     )}
-                    {discount != null && (
+                    {discount != null && !closed && (
                       <span className="absolute top-0 left-0 px-3 lg:px-3.5 py-1.5 lg:py-2 text-[12px] lg:text-[13px]"
                         style={{ fontFamily: MONO, fontWeight: 600, background: soldOut ? C.muted3 : C.green800, color: "#fff" }}>
                         -{discount}%
                       </span>
                     )}
-                    {topSellers.indexOf(p.id) >= 0 && !soldOut && (
+                    {topSellers.indexOf(p.id) >= 0 && !soldOut && !closed && (
                       <span className="absolute top-0 right-0 flex items-center gap-2 px-3 lg:px-3.5 py-1.5 lg:py-2 text-[11px] lg:text-[12px]"
                         style={{
                           fontFamily: MONO, fontWeight: 600, letterSpacing: ".18em",
@@ -261,26 +276,28 @@ export default async function ShopPage({
                   <div className={`flex flex-col gap-1.5 lg:gap-2 flex-1 ${compact ? "p-3.5 lg:p-4" : "p-5 lg:py-6 lg:px-7"}`}>
                     <div className="text-[10px] lg:text-[11px]" style={{ letterSpacing: ".14em", color: C.sage }}>{p.brand}</div>
                     <div className={`${compact ? "text-[13px]" : "text-[14.5px] lg:text-[16px]"} font-semibold leading-[1.5] line-clamp-2`}
-                      style={{ color: soldOut ? C.soldText : C.green900 }}>
+                      style={{ color: closed ? "#693f40" : soldOut ? C.soldText : C.green900 }}>
                       {p.name}
                     </div>
                     <div className="flex items-baseline gap-2 lg:gap-2.5 mt-0.5 tnum">
                       <span className={`${compact ? "text-[16px]" : "text-[19px] lg:text-[22px]"} font-bold`}
-                        style={{ color: soldOut ? C.muted3 : C.green900 }}>
+                        style={{ color: closed ? "#856563" : soldOut ? C.muted3 : C.green900 }}>
                         {p.price.toLocaleString()}원
                       </span>
-                      {p.original_price && p.original_price > p.price && (
+                      {p.original_price && p.original_price > p.price && !closed && (
                         <span className="text-[12px] lg:text-[13.5px] line-through" style={{ color: C.strike }}>
                           {p.original_price.toLocaleString()}원
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] lg:text-[12px]"
+                    {!closed && <div className="text-[11px] lg:text-[12px]"
                       style={p.shipping_type === "free" ? { color: C.green700, fontWeight: 600 } : { color: C.muted3 }}>
                       {p.shipping_type === "free" ? "무료배송" : `배송비 ${p.shipping_cost.toLocaleString()}원`}
-                    </div>
+                    </div>}
                     <div className={compact ? "mt-auto pt-2.5" : "mt-auto pt-3 lg:pt-4"}>
-                      {soldOut ? (
+                      {closed ? (
+                        <span className={styles.closedNotice}>공구 마감 · 구매 불가</span>
+                      ) : soldOut ? (
                         // 재입고 알림 기능 준비 전 — 비활성 표시만
                         <span className={`inline-block font-semibold ${compact ? "px-4 py-2 text-[12px]" : "px-6 lg:px-7 py-2.5 lg:py-3 text-[13px]"}`}
                           style={{ border: `1px solid ${C.hairline}`, color: C.muted3, cursor: "default" }}>
@@ -300,10 +317,10 @@ export default async function ShopPage({
               // 카드 전체가 상세 페이지 링크 (품절 상품도 상세에서 확인 가능)
               return (
                 <Link key={p.id} href={`/products/${p.id}`}
-                  className="flex flex-col bg-white transition-colors duration-150 hover:bg-[#FDFCF9]"
+                  className={`flex flex-col transition-colors duration-150 ${closed ? styles.closedProduct : "bg-white hover:bg-[#FDFCF9]"}`}
                   // 카드마다 자기 테두리를 그림 — 인접 카드끼리 겹쳐 1px 선이 되고,
                   // 마지막 줄이 덜 차도 빈 칸에 그리드 선이 안 생긴다 (필러 불필요)
-                  style={{ outline: `1px solid ${C.hairline}`, outlineOffset: "-0.5px" }}>
+                  style={{ outline: `1px solid ${closed ? "#edcac7" : C.hairline}`, outlineOffset: "-0.5px" }}>
                   {cardInner}
                 </Link>
               );

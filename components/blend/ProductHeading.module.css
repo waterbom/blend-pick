@@ -5,7 +5,8 @@
 .status{display:inline-flex;align-items:center;gap:6px;border:1px solid #b7d6bf;border-radius:999px;padding:6px 11px;color:#287145;background:#eaf4e9;font-size:12px;line-height:1.5;font-weight:600;white-space:nowrap}
 .status>span{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
 .status[data-state="upcoming"]{background:#fff5e8;color:#8b5d21;border-color:#ead3ab}
-.status[data-state="ended"],.status[data-state="soldout"]{background:#f1f3ee;color:#5f6b5b;border-color:#dbe0d4}
+.status[data-state="ended"]{background:#fff3f2;color:#9f3038;border-color:#e3b7bb;font-weight:750}
+.status[data-state="soldout"]{background:#f1f3ee;color:#5f6b5b;border-color:#dbe0d4}
 .deadline{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:#b94e08;color:#fff;font-size:12px;font-weight:750;line-height:1.5;letter-spacing:-.025em;white-space:nowrap;box-shadow:0 2px 5px #a1521c15;font-variant-numeric:tabular-nums}
 .heading h1{margin:0;font-family:inherit;font-weight:800;font-size:clamp(30px,3.05vw,44px);line-height:1.36;letter-spacing:-.055em;color:#14251b;word-break:keep-all;overflow-wrap:anywhere;text-wrap:pretty}
 .meta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:19px;color:#61705e;font-size:12px;line-height:1.6}

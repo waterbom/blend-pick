@@ -101,21 +101,22 @@ function Rail({ id, title, eyebrow, description, icon, href, count, children }: 
 
 function ProductCard({ product: p, rank }: { product: HomeProduct; rank: number }) {
   const discount = p.original_price && p.original_price > p.price ? Math.round((1 - p.price / p.original_price) * 100) : null;
+  const closed = p.sale_closed || p.status === "ended";
   const soldOut = p.stock === 0 || p.status === "soldout";
-  return <Link href={`/products/${p.id}`} className={styles.productCard}>
-    <div className={styles.productImage}><FallbackImg src={p.main_image} alt={p.name} className={styles.containImage} />{soldOut && <span className={styles.soldOut}>품절</span>}</div>
+  return <Link href={`/products/${p.id}`} className={`${styles.productCard} ${closed ? styles.closedCard : ""}`} data-sale-state={closed ? "ended" : soldOut ? "soldout" : "open"}>
+    <div className={styles.productImage}><FallbackImg src={p.main_image} alt={p.name} className={styles.containImage} />{(closed || soldOut) && <span className={`${styles.soldOut} ${closed ? styles.closedOverlay : ""}`}>{closed ? "공구 마감" : "품절"}</span>}</div>
     <div className={styles.productInfo}>
-      <div className={styles.tags}><span className={styles.greenTag}>{soldOut ? "품절" : rank >= 0 ? `BEST ${rank + 1}` : "공동구매"}</span>{p.category && <span className={styles.softTag}>{p.category}</span>}</div>
+      <div className={styles.tags}><span className={closed ? styles.closedTag : soldOut ? styles.soldOutTag : styles.greenTag}>{closed ? "공구 마감" : soldOut ? "품절" : rank >= 0 ? `BEST ${rank + 1}` : "진행 중"}</span>{p.category && <span className={styles.softTag}>{p.category}</span>}</div>
       {p.brand && <small>{p.brand}</small>}<h3>{p.name}</h3>
-      <div className={styles.price}>{discount != null && <b>{discount}%</b>}<strong>{p.price.toLocaleString("ko-KR")}<span>원</span></strong>{discount != null && <del>{p.original_price!.toLocaleString("ko-KR")}원</del>}</div>
-      <p className={styles.shipping}><Icon name="box" size={14} />{p.shipping_type === "free" ? "무료배송" : p.shipping_type === "conditional_free" ? "조건부 무료배송 · 상세 확인" : p.shipping_type === "per_unit" ? "수량별 배송비 · 상세 확인" : `배송비 ${p.shipping_cost.toLocaleString("ko-KR")}원`}</p>
+      <div className={styles.price}>{!closed && discount != null && <b>{discount}%</b>}<strong>{p.price.toLocaleString("ko-KR")}<span>원</span></strong>{!closed && discount != null && <del>{p.original_price!.toLocaleString("ko-KR")}원</del>}</div>
+      {closed ? <p className={styles.closedNotice}>판매 종료 · 구매 불가</p> : <p className={styles.shipping}><Icon name="box" size={14} />{p.shipping_type === "free" ? "무료배송" : p.shipping_type === "conditional_free" ? "조건부 무료배송 · 상세 확인" : p.shipping_type === "per_unit" ? "수량별 배송비 · 상세 확인" : `배송비 ${p.shipping_cost.toLocaleString("ko-KR")}원`}</p>}
     </div>
     <span className={styles.cardArrow}><Icon name="arrow" size={18} /></span>
   </Link>;
 }
 
 export default function BlendHome({ products, upcoming, categories, topSellerIds, catalogUnavailable }: { products: HomeProduct[]; upcoming: HomeUpcoming[]; categories: string[]; topSellerIds: string[]; catalogUnavailable: boolean }) {
-  const heroProduct = products.find(p => p.main_image && p.stock !== 0 && p.status !== "soldout");
+  const heroProduct = products.find(p => p.main_image && p.stock !== 0 && p.status === "active" && !p.sale_closed);
   return <div className={styles.home}>
     <div className={styles.announcement}><span>일상부터 여행까지,</span> 공구의 새로운 발견 <Icon name="spark" size={13} /></div>
     <div className={styles.container}>
@@ -138,13 +139,13 @@ export default function BlendHome({ products, upcoming, categories, topSellerIds
       </nav>
       {categories.length > 0 && <nav className={styles.categoryChips} aria-label="상품 세부 카테고리"><Link href="/products">전체 상품</Link>{categories.map(category => <Link key={category} href={`/products?category=${encodeURIComponent(category)}`}>{category}</Link>)}</nav>}
 
-      <Rail id="shopping-picks" eyebrow="EVERYDAY PICKS" title="일상을 바꾸는 공구" description="필요했던 물건도, 새롭게 발견한 취향도." icon="bag" href="/products" count={products.length}>
+      <Rail id="shopping-picks" eyebrow="EVERYDAY PICKS" title="일상을 바꾸는 공구" description="진행 중인 공구부터 마감된 공구까지, 한눈에 살펴보세요." icon="bag" href="/products" count={products.length}>
         {products.length ? products.map(p => <ProductCard key={p.id} product={p} rank={topSellerIds.indexOf(p.id)} />) : <div className={styles.emptyCatalog} role="status"><span className={styles.emptyIcon}><Icon name="bag" size={30} /></span><div><h3>{catalogUnavailable ? "상품을 잠시 불러오지 못했어요" : "다음 발견을 준비하고 있어요"}</h3><p>{catalogUnavailable ? "잠시 후 상품 목록에서 다시 확인해 주세요." : "새로운 공구가 열리면 이곳에서 만나보세요."}</p></div><Link href="/products">상품 목록 보기 <Icon name="arrow" size={18} /></Link></div>}
       </Rail>
 
       <Rail id="stay-picks" eyebrow="STAY & HOTEL" title="이런 하루도, 공구로" description="호텔부터 우리만의 독채까지. 여행의 시작도 블랜드픽." icon="stay" href="/hotel" count={2}>
         <Link className={styles.stayCard} href="/hotel/dangung"><div className={styles.stayImage}><FallbackImg src="/hotel/dangung/photo-01.jpg" alt="단궁의 한옥과 잔디 정원" className={styles.coverImage} /><span>독채·펜션</span></div><div className={styles.stayInfo}><small>한옥 독채 · 단궁</small><h3>우리만의 정원에서 보내는 하루</h3><p>한옥의 여유, 넓은 잔디 정원, 함께하는 시간.</p><div><span>숙소·예약 정보 확인</span><Icon name="arrow" size={20} /></div></div></Link>
-        <Link className={styles.stayCard} href="/hotel/utop"><div className={styles.stayImage}><FallbackImg src="/room/double-1.png" alt="여수 유탑 마리나 객실" className={styles.coverImage} /><span>{UTOP_CLOSED ? "공구 마감" : "호텔·리조트"}</span></div><div className={styles.stayInfo}><small>여수 · 유탑 마리나</small><h3>바다 곁에서 쉬어가는 여행</h3><p>여수에서 만나는 오션뷰 리조트의 여유.</p><div><span>{UTOP_CLOSED ? "이번 공구 마감 · 숙소 보기" : "공구 상세·진행 상태 확인"}</span><Icon name="arrow" size={20} /></div></div></Link>
+        <Link className={`${styles.stayCard} ${UTOP_CLOSED ? styles.closedStay : ""}`} href="/hotel/utop" data-sale-state={UTOP_CLOSED ? "ended" : undefined}><div className={styles.stayImage}><FallbackImg src="/room/double-1.png" alt="여수 유탑 마리나 객실" className={styles.coverImage} /><span>{UTOP_CLOSED ? "공구 마감" : "호텔·리조트"}</span></div><div className={styles.stayInfo}><small>여수 · 유탑 마리나</small><h3>바다 곁에서 쉬어가는 여행</h3><p>여수에서 만나는 오션뷰 리조트의 여유.</p><div><span>{UTOP_CLOSED ? "예약 마감 · 숙소 정보 보기" : "공구 상세·진행 상태 확인"}</span><Icon name="arrow" size={20} /></div></div></Link>
       </Rail>
 
       {upcoming.length > 0 && <Rail id="upcoming-picks" eyebrow="COMING NEXT" title="다음 공구, 미리 만나기" description="곧 열릴 새로운 발견을 먼저 확인하세요." icon="spark" href="/products" count={upcoming.length}>{upcoming.map(p => <Link className={styles.productCard} href={`/products/${p.id}`} key={p.id}><div className={styles.productImage}><FallbackImg src={p.main_image} alt={p.name} className={styles.containImage} /></div><div className={styles.productInfo}><span className={styles.orangeTag}>{p.open_label} 오픈 예정</span><small>{p.brand}</small><h3>{p.name}</h3><p className={styles.shipping}>공구 일정 확인하기 <Icon name="arrow" size={16} /></p></div></Link>)}</Rail>}

@@ -175,13 +175,13 @@ export default function ProductDetail({
     return () => clearInterval(id);
   }, [saleStartMs, saleEndMs, siteKey]);
   const saleState: "upcoming" | "open" | "ended" =
-    saleStartMs == null && saleEndMs == null
+    product.status === "ended" || (saleEndMs != null && saleEndMs < nowMs)
+      ? "ended"
+      : saleStartMs == null && saleEndMs == null
       ? initialSaleState
       : saleStartMs != null && saleStartMs > nowMs
         ? "upcoming"
-        : saleEndMs != null && saleEndMs < nowMs
-          ? "ended"
-          : "open";
+        : "open";
   // 오픈 24시간 이내면 남은 시간 카운트다운 표시
   const countdown = (() => {
     if (saleState !== "upcoming" || saleStartMs == null) return "";
@@ -247,7 +247,7 @@ export default function ProductDetail({
   });
   const saleClosed = saleState !== "open"; // 오픈 전이거나 종료됨
   const canBuy =
-    !saleClosed && !isSoldout && (hasOptions ? lines.length > 0 && !anySelectedSoldout : true);
+    product.status === "active" && !saleClosed && !isSoldout && (hasOptions ? lines.length > 0 && !anySelectedSoldout : true);
 
   // 옵션 셀렉트는 커스텀 DsSelect(버튼+상태 기반) — 기본 <select> 전용이던
   // iOS 뒤로가기 폼 복원(absorb) 대응이 원천적으로 불필요해져 함께 제거했다.
@@ -615,6 +615,12 @@ export default function ProductDetail({
             </div>
           )}
 
+          {saleState === "ended" && (
+            <p className="mb-3 rounded-lg px-4 py-3 text-sm font-semibold" style={{ color: "#9f3038", background: "#fff3f2", border: "1px solid #e3b7bb" }}>
+              마감된 공구예요. 상품 정보는 확인할 수 있지만 구매는 할 수 없어요.
+            </p>
+          )}
+
           {/* 버튼 */}
           <div className="flex gap-3 mt-auto">
             <button
@@ -623,28 +629,28 @@ export default function ProductDetail({
               className="flex-1 py-3.5 text-sm font-medium transition-all"
               style={{
                 border: "1.5px solid",
-                color: canBuy ? "var(--accent)" : "#8B927F",
-                borderColor: canBuy ? "var(--accent)" : "#E4E1D6",
-                background: "#fff",
+                color: saleState === "ended" ? "#9f3038" : canBuy ? "var(--accent)" : "#8B927F",
+                borderColor: saleState === "ended" ? "#e3b7bb" : canBuy ? "var(--accent)" : "#E4E1D6",
+                background: saleState === "ended" ? "#fff3f2" : "#fff",
                 cursor: !canBuy ? "not-allowed" : "pointer",
               }}
             >
-              {saleState === "upcoming" ? "오픈 전" : saleState === "ended" ? "공구 종료" : cartDone ? "장바구니에 담김" : cartLoading ? "처리중..." : isSoldout ? "품절" : "장바구니"}
+              {saleState === "upcoming" ? "오픈 전" : saleState === "ended" ? "공구 마감" : cartDone ? "장바구니에 담김" : cartLoading ? "처리중..." : isSoldout ? "품절" : "장바구니"}
             </button>
             <button
               onClick={handleBuyNow}
               disabled={!canBuy || buyLoading}
               className="flex-1 py-3.5 text-sm font-bold text-center transition-all"
               style={{
-                background: canBuy ? "var(--accent)" : "#DDD9CC",
-                color: canBuy ? "#fff" : "#8B927F",
+                background: saleState === "ended" ? "#9f3038" : canBuy ? "var(--accent)" : "#DDD9CC",
+                color: saleState === "ended" || canBuy ? "#fff" : "#8B927F",
                 cursor: !canBuy ? "not-allowed" : "pointer",
                 ...(saleState === "upcoming" ? { fontFamily: "'IBM Plex Mono', monospace", letterSpacing: ".16em" } : {}),
               }}
             >
               {saleState === "upcoming"
                 ? `OPEN${openLabel ? ` ${openLabel}` : ""}`
-                : saleState === "ended" ? "공구가 종료됐어요"
+                : saleState === "ended" ? "마감된 공구예요"
                 : buyLoading ? "이동중..." : isSoldout ? "품절" : "바로 구매"}
             </button>
           </div>
@@ -660,7 +666,7 @@ export default function ProductDetail({
           )}
 
           {/* 옵션 미선택 안내 */}
-          {hasOptions && lines.length === 0 && !isSoldout && (
+          {hasOptions && lines.length === 0 && !isSoldout && !saleClosed && (
             <p className="text-xs mt-2 text-center" style={{ color: "var(--text-muted)" }}>
               옵션을 선택해주세요
             </p>
@@ -668,7 +674,7 @@ export default function ProductDetail({
         </div>
       </div>
 
-      {siteKey === "blendpick" && <GroupbuyCalendar key={product.id} saleStartMs={saleStartMs} saleEndMs={saleEndMs} nowMs={nowMs} soldOut={isSoldout} />}
+      {siteKey === "blendpick" && <GroupbuyCalendar key={product.id} saleStartMs={saleStartMs} saleEndMs={saleEndMs} nowMs={nowMs} soldOut={isSoldout} ended={saleState === "ended"} />}
       </div>
 
       {/* 리뷰 섹션 — 딥 포레스트 10a/10b 디자인 */}

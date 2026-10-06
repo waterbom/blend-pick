@@ -70,6 +70,59 @@
   box-shadow: 6px 6px 0 #dce7d055;
 }
 
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 12px;
+  color: #587245;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.closedCount {
+  padding: 5px 8px;
+  border: 1px solid #edcac7;
+  border-radius: 6px;
+  background: #fff3f2;
+  color: #9f3038;
+}
+
+.soldOutCount { color: #777b71; }
+
+.closedProduct { background: #fff3f2; }
+.closedProduct:hover { background: #ffebe9; }
+.closedProduct:focus-visible { outline: 3px solid #9f3038 !important; outline-offset: -3px !important; }
+.closedImage { filter: grayscale(.75); opacity: .62; }
+
+.closedBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  border: 1px solid #fff3f266;
+  border-radius: 6px;
+  padding: 8px 11px;
+  background: #9f3038;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+
+.closedNotice {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  border: 1px solid #dbada9;
+  border-radius: 6px;
+  padding: 8px 11px;
+  background: #fff9f8;
+  color: #9f3038;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 @media (max-width: 1023px) {
   .intro { padding: 24px 20px 20px; }
   .card { padding: 26px; }
@@ -81,4 +134,5 @@
   .eyebrow { font-size: 9px; letter-spacing: .13em; }
   .description { margin-top: 11px; font-size: 12px; line-height: 1.9; }
   .mark { display: none; }
+  .counts { font-size: 11px; }
 }

@@ -11,6 +11,7 @@ export interface HomeProduct {
   main_image: string | null;
   shipping_type: string;
   shipping_cost: number;
+  sale_closed: boolean;
 }
 
 export interface HomeUpcoming {
