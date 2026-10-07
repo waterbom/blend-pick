@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { SUPPLIER_CATEGORIES, SUPPLIER_FIELD_LIMITS, validateSupplierProposal } from "@/lib/supplier-proposal";
+import { SUPPLIER_CATEGORIES, SUPPLIER_FIELD_LIMITS, SUPPLIER_CONTACT_EMAIL, validateSupplierProposal } from "@/lib/supplier-proposal";
 import styles from "./SupplierPage.module.css";
 
 type IconName = "arrow" | "bag" | "spark" | "leaf" | "stay" | "book" | "ticket" | "check";
@@ -41,6 +41,7 @@ function ProposalForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [error, setError] = useState("");
   const [uncertainSubmission, setUncertainSubmission] = useState(false);
+  const [emailPending, setEmailPending] = useState(false);
   const submitting = useRef(false);
   const resultRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -98,13 +99,13 @@ function ProposalForm() {
         body: JSON.stringify(validation.value),
         signal: controller.signal,
       });
-      const result: { ok?: boolean; error?: string } = await response.json().catch(() => ({}));
+      const result: { ok?: boolean; error?: string; emailSent?: boolean } = await response.json().catch(() => ({}));
       if (!response.ok || result?.ok !== true) {
         responseUncertain = response.status >= 500 || response.ok;
         responseError = typeof result?.error === "string" ? result.error : "제안을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.";
         throw new Error(responseError);
       }
-      if (mounted.current) setStatus("success");
+      if (mounted.current) { setEmailPending(result.emailSent === false); setStatus("success"); }
     } catch {
       if (mounted.current) {
         setError(responseUncertain ? "접수 결과를 확인하지 못했어요. 고객센터에서 접수 여부를 확인해 주세요." : responseError);
@@ -124,6 +125,7 @@ function ProposalForm() {
       <span className={styles.eyebrow}>THANK YOU FOR YOUR PICK</span>
       <h3>새로운 제안이 도착했어요.</h3>
       <p>남겨 주신 내용을 확인한 뒤,<br />기재한 연락처로 안내드릴게요.</p>
+      {emailPending && <p>제안은 접수됐지만 이메일 전달이 완료되지 않았어요.<br />빠른 확인이 필요하면 <a href={`mailto:${SUPPLIER_CONTACT_EMAIL}`}>{SUPPLIER_CONTACT_EMAIL}</a>으로 연락해 주세요.</p>}
       <div className={styles.successLinks}><Link href="/">블랜드픽 둘러보기 <Icon name="arrow" size={17} /></Link><button type="button" onClick={() => { focusFirstField.current = true; setStatus("idle"); setError(""); }}>다른 제안 보내기</button></div>
     </div>;
   }
@@ -146,7 +148,7 @@ function ProposalForm() {
       </div>
       <button type="submit" className={styles.submit} disabled={status === "submitting"}>{status === "submitting" ? "제안 보내는 중…" : "공구 제안 보내기"}<Icon name="arrow" size={19} /></button>
     </fieldset>
-    {status === "error" && <div className={styles.error} ref={resultRef} tabIndex={-1} role="alert">{error}<p>입력하신 내용은 유지되어 있어요.</p>{uncertainSubmission && <a href="mailto:blendpick@blendpunch.com?subject=%EA%B3%B5%EA%B8%89%EC%82%AC%20%EC%A0%9C%EC%95%88%20%EC%A0%91%EC%88%98%20%ED%99%95%EC%9D%B8">고객센터에 접수 여부 문의하기 <Icon name="arrow" size={15} /></a>}</div>}
+    {status === "error" && <div className={styles.error} ref={resultRef} tabIndex={-1} role="alert">{error}<p>입력하신 내용은 유지되어 있어요.</p>{uncertainSubmission && <a href={`mailto:${SUPPLIER_CONTACT_EMAIL}?subject=%EA%B3%B5%EA%B8%89%EC%82%AC%20%EC%A0%9C%EC%95%88%20%EC%A0%91%EC%88%98%20%ED%99%95%EC%9D%B8`}>고객센터에 접수 여부 문의하기 <Icon name="arrow" size={15} /></a>}</div>}
     <p className={styles.formNote}>접수 후 제안 내용을 검토해요. 진행 여부와 세부 조건은 협의 후 결정됩니다.</p>
   </form>;
 }
@@ -180,7 +182,7 @@ export default function SupplierPage() {
       </section>
 
       <section className={styles.proposalSection} id="proposal" aria-labelledby="supplier-proposal-title">
-        <div className={styles.proposalIntro}><span className={styles.eyebrow}>YOUR NEXT PICK STARTS HERE</span><h2 id="supplier-proposal-title">다음 공구는,<br /><em>당신의 제안에서.</em></h2><p>먼저, 어떤 제안인지 들려주세요.<br />아래 내용을 남겨 주시면 검토 후<br className={styles.desktopBreak} /> 연락드릴게요.</p><div className={styles.introNote}><Icon name="check" size={19} /><span>회원가입 없이 제안할 수 있어요.</span></div><div className={styles.introNote}><Icon name="check" size={19} /><span>확정되지 않은 구성은 함께 논의해요.</span></div><span className={styles.introMark} aria-hidden="true"><Icon name="spark" size={112} /></span></div>
+        <div className={styles.proposalIntro}><span className={styles.eyebrow}>YOUR NEXT PICK STARTS HERE</span><h2 id="supplier-proposal-title">다음 공구는,<br /><em>당신의 제안에서.</em></h2><p>먼저, 어떤 제안인지 들려주세요.<br />아래 내용을 남겨 주시면 검토 후<br className={styles.desktopBreak} /> 연락드릴게요.</p><div className={styles.introNote}><Icon name="check" size={19} /><span>회원가입 없이 제안할 수 있어요.</span></div><div className={styles.introNote}><Icon name="check" size={19} /><span>확정되지 않은 구성은 함께 논의해요.</span></div><p>이메일로도 제안할 수 있어요.<br /><a href={`mailto:${SUPPLIER_CONTACT_EMAIL}`} style={{ overflowWrap: "anywhere", textDecoration: "underline" }}>{SUPPLIER_CONTACT_EMAIL}</a></p><span className={styles.introMark} aria-hidden="true"><Icon name="spark" size={112} /></span></div>
         <ProposalForm />
       </section>
     </div>

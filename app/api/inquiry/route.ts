@@ -2,10 +2,12 @@ import { ApiError, withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import { supplierProposalMessage, validateSupplierProposal } from '@/lib/supplier-proposal';
+import { supplierProposalMessage, validateSupplierProposal, type SupplierProposal } from '@/lib/supplier-proposal';
+import { sendSupplierProposalEmail } from '@/lib/supplier-mail';
 
 async function handlePOST(req: NextRequest) {
   const body = await readJsonObject(req);
+  let proposal: SupplierProposal | null = null;
   let inquiry = {
     name: body.name,
     contact: body.contact,
@@ -15,6 +17,7 @@ async function handlePOST(req: NextRequest) {
   if (body.kind === 'supplier-proposal') {
     const result = validateSupplierProposal(body);
     if (!result.ok) throw new ApiError('INVALID_INPUT', result.error);
+    proposal = result.value;
     inquiry = {
       name: result.value.name,
       contact: result.value.contact,
@@ -59,6 +62,10 @@ async function handlePOST(req: NextRequest) {
     throw new ApiError('UPSTREAM_UNAVAILABLE');
   }
 
+  if (proposal) {
+    const emailSent = await sendSupplierProposalEmail(proposal);
+    return NextResponse.json({ ok: true, emailSent });
+  }
   return NextResponse.json({ ok: true });
 }
 

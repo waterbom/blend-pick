@@ -1,3 +1,5 @@
+export const SUPPLIER_CONTACT_EMAIL = 'blendpunch9799@blendpunch.com';
+
 export const SUPPLIER_CATEGORIES = [
   '생활·리빙',
   '뷰티·패션',

@@ -52,6 +52,7 @@ jobs:
             sudo systemctl restart blend-pick
             sudo systemctl is-active --quiet blend-pick
             echo "Deployment service is active."
+            node scripts/check-supplier-mail.cjs
             node scripts/check-upload-serving.cjs
             sudo "$(command -v node)" scripts/install-traffic-monitor.cjs
             # Authorized launch runs once; subsequent deploys preserve admin sale state.
