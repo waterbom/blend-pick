@@ -23,3 +23,40 @@ test('mobile overrides are valid named container rules, including header and che
  assert.ok(rules.some(rule=>rule.toString().includes('.sj-header-nav')));
  assert.ok(rules.some(rule=>rule.toString().includes('.commerce-layout')));
 });
+
+test('market home shows latest five image banners, retains closed products, and separates categories',()=>{
+ const state=[];let cursor=0;
+ const hooks={...React,useRef:()=>({current:null}),useEffect(){},useMemo:fn=>fn(),useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return[state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v;}];}};
+ const Home=load('components/sanji/SanjiHome.tsx',{'react':hooks,'next/navigation':{useRouter:()=>({refresh(){}})}}).default;
+ const product=(id,extra={})=>({id,name:'상품 '+id,brand:'산지',category:'산지픽 농산물',price:10000,original_price:null,main_image:'/test.jpg',stock:5,status:'active',sale_start_at:null,sale_end_at:null,created_at:`2026-10-0${id}T00:00:00Z`,sold:0,...extra});
+ const products=[1,2,3,4,5,6].map(id=>product(String(id)));
+ products.push(product('closed',{sale_end_at:'2020-01-01'}),product('sea',{category:'산지픽 수산물',created_at:'2026-10-07'}),product('no-image',{main_image:null,created_at:'2026-10-08'}),product('future',{sale_start_at:'2099-01-01'}));
+ const render=()=>{cursor=0;return Home({products,reviews:[],linkBase:'/sanji',kakaoUrl:'#'});};
+ const walk=(n,p)=>{if(!n||typeof n!=='object')return null;if(p(n))return n;for(const child of React.Children.toArray(n.props?.children)){const found=walk(child,p);if(found)return found;}return null;};
+ const html=renderToStaticMarkup(render());
+ assert.equal((html.match(/data-banner-product=/g)||[]).length,5);
+ for(const id of ['closed','future','no-image','1','2'])assert.ok(!html.includes(`data-banner-product="${id}"`));
+ assert.match(html,/마감된 공구/);assert.match(html,/공구가 종료되었어요/);assert.match(html,/href="\/sanji\/p\/closed"/);assert.match(html,/다음 공구 미리보기/);
+ const tab=walk(render(),n=>n.props?.role==='tab'&&n.props.children==='수산물');tab.props.onClick();
+ const sea=renderToStaticMarkup(render());assert.match(sea,/상품 sea/);assert.doesNotMatch(sea,/상품 1|상품 closed|상품 future/);
+});
+
+test('market catalog search retains matching closed items with a clear closed badge',()=>{
+ const Catalog=load('components/sanji/SanjiCatalog.tsx',{'@/lib/analytics':{fbqTrack:()=>false}}).default;
+ const p={id:'closed',name:'옥수수',brand:'농장',category:'산지픽',price:10000,original_price:null,main_image:null,stock:5,status:'active',sale_start_at:null,sale_end_at:'2020-01-01',created_at:'2020-01-01',sold:0};
+ const html=renderToStaticMarkup(React.createElement(Catalog,{products:[p],linkBase:'',initialQuery:'옥수수'}));
+ assert.match(html,/공구 마감/);assert.match(html,/공구가 종료되었어요/);assert.match(html,/href="\/p\/closed"/);
+ const empty=renderToStaticMarkup(React.createElement(Catalog,{products:[p],linkBase:'',initialQuery:'사과'}));assert.match(empty,/검색 결과가 없어요/);assert.doesNotMatch(empty,/href="\/p\/closed"/);
+});
+
+test('compact header and bottom navigation preserve search, account, cart and order destinations',()=>{
+ const Header=load('components/sanji/SanjiHeader.tsx',{'next/navigation':{usePathname:()=>'/sanji'},'next/link':props=>React.createElement('a',props)}).default;
+ const Nav=load('components/sanji/SanjiBottomNav.tsx').default;
+ for(const base of ['', '/sanji']){
+  const header=renderToStaticMarkup(React.createElement(Header,{base,user:null,isAdmin:false,cartCount:null}));
+  assert.ok(header.includes(`action="${base}/products"`));assert.match(header,/name="q"/);assert.match(header,/aria-label="메뉴 열기"/);
+  const nav=renderToStaticMarkup(React.createElement(Nav,{base,active:'catalog'}));
+  for(const href of [base||'/',base+'/products','/orders/lookup',base+'/mypage','/cart'])assert.ok(nav.includes(`href="${href}"`));
+  assert.equal((nav.match(/aria-current="page"/g)||[]).length,1);
+ }
+});
