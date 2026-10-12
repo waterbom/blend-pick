@@ -1,4 +1,5 @@
 /* The customer frame is mobile-sized on every screen; workspaces stay full width. */
+body:has(.sanji-mobile-shell){background:#f0f0f3;background-image:none}
 .sanji-mobile-shell{width:100%;max-width:480px;margin-inline:auto;min-height:100svh;display:flex;flex-direction:column;background:#fff;container:sanji-mobile / inline-size;box-shadow:0 0 0 1px #ededed}
 .sanji-mobile-shell .container-blend{padding-inline:16px}
 .sanji-mobile-shell .sm\:px-14{padding-inline:2rem}
