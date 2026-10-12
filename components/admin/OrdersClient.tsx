@@ -496,7 +496,7 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
                       <tr>
                         <th className="w-8 px-4 py-2" />
                         <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">주문번호</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">주문일시</th>
+                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">주문일시<span className="block text-[10px] font-normal">한국시간</span></th>
                         <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">구매자</th>
                         <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">수령인</th>
                         <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">옵션</th>
@@ -518,7 +518,10 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
                             <SiteBadge site={o.site} className="ml-1.5 font-sans" />
                           </td>
                           <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-                            {new Date(o.created_at).toLocaleDateString("ko-KR")}
+                            <time dateTime={o.created_at} className="tnum">
+                              <span className="block">{new Date(o.created_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</span>
+                              <span className="block mt-0.5 text-gray-600">{new Date(o.created_at).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+                            </time>
                           </td>
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-800 text-xs">{o.buyer_name}</div>
