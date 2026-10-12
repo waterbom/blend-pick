@@ -3,8 +3,11 @@ import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import OrdersClient, { type Order } from './OrdersClient';
 import ShipmentsClient from './ShipmentsClient';
+import ShipmentTrackingPanel from './ShipmentTrackingPanel';
+import type { WorkGroup } from '@/lib/operations';
 import { orderQueue } from '@/lib/admin-workflow';
 import { shippingExceptions } from '@/lib/shipping-flow';
 import { useSiteKey } from '@/components/SiteContext';
@@ -31,8 +34,9 @@ function SectionTitle({ n, title, sub }: { n?: string; title: string; sub?: stri
   );
 }
 
-export default function ShippingFlowClient({initialTab, initialRequestId}: {initialTab?: 'preparing' | 'exchange_requested' | 'return_requested'; initialRequestId?: string}) {
+export default function ShippingFlowClient({initialTab, initialRequestId, automationWork=[]}: {initialTab?: 'preparing' | 'exchange_requested' | 'return_requested'; initialRequestId?: string; automationWork?: WorkGroup[]}) {
   const site = useSiteKey();
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -58,7 +62,8 @@ export default function ShippingFlowClient({initialTab, initialRequestId}: {init
   const afterChange = useCallback(async () => {
     if (active.current) await active.current;
     await refresh();
-  }, [refresh]);
+    router.refresh();
+  }, [refresh,router]);
   useEffect(() => {
     mounted.current = true;
     void refresh();
@@ -81,7 +86,7 @@ export default function ShippingFlowClient({initialTab, initialRequestId}: {init
         <div>
           <h1 className="text-xl font-bold" style={{ color: "#1A1D18" }}>{SITES[site].name} {site === "sanjipick" ? "농가 출고·배송" : "배송 관리"}</h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            화면을 보는 동안 1분마다 현황 갱신 · 마지막 조회 <span className="ds-mono">{updated || '대기 중'}</span> (한국시간) · 배송 추적은 매일 07:30 · 19:30 자동 실행
+            화면을 보는 동안 1분마다 현황 갱신 · 마지막 조회 <span className="ds-mono">{updated || '대기 중'}</span> (한국시간)
           </p>
         </div>
         <button className={btnGhost} onClick={() => void refresh()}>현황 새로고침</button>
@@ -104,6 +109,22 @@ export default function ShippingFlowClient({initialTab, initialRequestId}: {init
         {error} {loaded && '마지막으로 조회된 현황입니다.'}
       </p>
     )}
+
+    <ShipmentTrackingPanel key={site} onChanged={afterChange}/>
+
+    {automationWork.length>0 && <section aria-label="배송 자동 처리 확인" className="border border-gray-200 bg-white px-5 py-2">
+      {automationWork.map(group=><details key={group.key} className="border-b border-gray-100 py-3 last:border-0">
+        <summary className="cursor-pointer text-xs font-bold text-gray-700">{group.title}<span className={`ml-2 px-2 py-1 ${group.total?'bg-amber-50 text-amber-800':'bg-gray-100 text-gray-500'}`}>{group.total}건</span></summary>
+        <p className="mt-3 text-xs leading-5 text-gray-500">{group.explanation}</p>
+        <div className="mt-2 max-h-64 space-y-2 overflow-y-auto">
+          {group.items.map(item=><div key={item.id} className="border border-gray-100 bg-gray-50 px-3 py-2 text-xs leading-5">
+            <Link className="font-mono font-semibold text-[#2D5A27] underline" href={group.key==='sms'?item.href:`/admin/orders/${item.id}`}>{item.label}</Link>
+            <p className="text-gray-600">{item.detail}</p><p className="text-[11px] text-gray-400">{item.elapsed}</p>
+          </div>)}
+          {!group.total && <p className="text-xs text-gray-500">현재 확인할 항목이 없습니다.</p>}
+        </div>
+      </details>)}
+    </section>}
 
     {loaded && <>
       {/* 자동 점검 — 재고 경고 박스와 같은 좌측 컬러 바 스타일 */}

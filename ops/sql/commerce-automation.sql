@@ -22,6 +22,25 @@ CREATE TABLE IF NOT EXISTS shipment_tracking_checks (
  next_attempt_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Keep automatic and manual lookup outcomes visible after a page refresh.
+CREATE TABLE IF NOT EXISTS shipment_tracking_runs (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ site text NOT NULL CHECK(site IN ('blendpick','sanjipick')),
+ source text NOT NULL CHECK(source IN ('automatic','manual')),
+ status text NOT NULL DEFAULT 'running' CHECK(status IN ('running','success','partial','failed','empty')),
+ started_at timestamptz NOT NULL DEFAULT now(),
+ finished_at timestamptz,
+ checked integer NOT NULL DEFAULT 0,
+ delivered integer NOT NULL DEFAULT 0,
+ in_transit integer NOT NULL DEFAULT 0,
+ failed integer NOT NULL DEFAULT 0,
+ skipped integer NOT NULL DEFAULT 0,
+ message text,
+ results jsonb NOT NULL DEFAULT '[]'::jsonb
+);
+CREATE INDEX IF NOT EXISTS shipment_tracking_runs_recent ON shipment_tracking_runs(site,started_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS shipment_tracking_runs_active ON shipment_tracking_runs(site) WHERE status='running';
+
 -- Response-loss retries reuse this outcome without updating orders or sending SMS again.
 CREATE TABLE IF NOT EXISTS admin_shipment_import_batches (
  site text NOT NULL,

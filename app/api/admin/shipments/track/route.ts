@@ -1,136 +1,106 @@
-import { recordTracking } from "@/lib/shipment-outbox.cjs";
+import { recordTracking } from '@/lib/shipment-outbox.cjs';
+import { beginTrackingRun, finishTrackingRun, fetchTrackingStatus, applyDeliveryResults } from '@/lib/shipment-tracking-log.cjs';
 import { isRefundFulfillmentConflict, REFUND_FULFILLMENT_MESSAGE } from '@/lib/refund-fulfillment';
-import { currentAdminSite } from "@/lib/admin-site";
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyAdminToken } from "@/lib/auth";
-import shopPool from "@/lib/db-shop";
-import { toCarrierCode } from "@/lib/carriers";
-import { recordDeliverySettlement } from "@/lib/delivery-settlement.cjs";
+import { currentAdminSite } from '@/lib/admin-site';
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { verifyAdminToken } from '@/lib/auth';
+import shopPool from '@/lib/db-shop';
+import { toCarrierCode } from '@/lib/carriers';
+import { recordDeliverySettlement } from '@/lib/delivery-settlement.cjs';
+
 async function getAdmin() {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("admin_token")?.value;
-    if (!token)
-        return null;
-    return verifyAdminToken(token);
+ const token = (await cookies()).get('admin_token')?.value;
+ return token ? verifyAdminToken(token) : null;
 }
-// 스위트트래커 배송 상태 조회
-async function fetchTrackingStatus(apiKey: string, trackingNumber: string, carrierCode: string): Promise<{
-    delivered: boolean;
-    statusText: string;
-} | {
-    error: string;
-}> {
-    try {
-        const url = new URL("https://info.sweettracker.co.kr/api/v1/trackingInfo");
-        url.searchParams.set("t_key", apiKey);
-        url.searchParams.set("t_code", carrierCode);
-        url.searchParams.set("t_invoice", trackingNumber);
-        const res = await fetch(url.toString(), { next: { revalidate: 0 }, signal: AbortSignal.timeout(15000) });
-        if (!res.ok)
-            return { error: `HTTP ${res.status}` };
-        const data = await res.json();
-        // 스마트택배는 실패도 200으로 주고 msg에 사유를 담는다 (사용량 초과, 잘못된 운송장 등)
-        if (!data || data.status === false)
-            return { error: data?.msg || "조회 실패" };
-        // 배송완료 여부: level 6 = 배송완료
-        const lastLevel = data.lastStateDetail?.level ?? 0;
-        return {
-            delivered: Number(lastLevel) >= 6,
-            statusText: data.lastStateDetail?.text ?? "",
-        };
-    }
-    catch {
-        return { error: "네트워크 오류" };
-    }
+
+export async function GET(request: Request) {
+ if (!await getAdmin()) return NextResponse.json({error:'Unauthorized'}, {status:401});
+ const site = (await currentAdminSite()).key;
+ const id = new URL(request.url).searchParams.get('run');
+ if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+  return NextResponse.json({error:'조회 이력 번호가 올바르지 않습니다.'}, {status:400});
+ }
+ try {
+  const {rows} = await shopPool.query(`SELECT id,site,source,
+   CASE WHEN status='running' AND started_at<NOW()-INTERVAL '30 minutes' THEN 'failed' ELSE status END AS status,
+   started_at,finished_at,checked,delivered,in_transit,failed,skipped,
+   CASE WHEN status='running' AND started_at<NOW()-INTERVAL '30 minutes'
+    THEN '실행이 중단되었거나 제한 시간을 넘었습니다. 조회를 다시 실행해주세요.' ELSE message END AS message
+   ${id ? ',results' : ''}
+   FROM shipment_tracking_runs WHERE site=$1 ${id ? 'AND id=$2::uuid' : ''}
+   ORDER BY started_at DESC LIMIT 10`, id ? [site,id] : [site]);
+  if (id && !rows.length) return NextResponse.json({error:'조회 이력을 찾을 수 없습니다.'}, {status:404});
+  return NextResponse.json(id ? {run:rows[0]} : {runs:rows,keyConfigured:!!process.env.SWEETTRACKER_API_KEY}, {headers:{'Cache-Control':'no-store'}});
+ } catch {
+  return NextResponse.json({error:'배송조회 이력을 불러오지 못했습니다. 잠시 후 다시 확인해주세요.'}, {status:503});
+ }
 }
-// POST /api/admin/shipments/track
-// 배송중(shipped) 주문 전체를 스위트트래커로 조회 → 배송완료된 건 자동 처리
+
+type TrackingRow = {order_id:string; order_number:string; outcome:string; message:string; code?:string};
+
+// Lookup only the current site's shipped orders. Existing delivery/settlement guards still apply.
 export async function POST() {
-    const admin = await getAdmin();
-    if (!admin)
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const site = (await currentAdminSite()).key;
-    const apiKey = process.env.SWEETTRACKER_API_KEY;
-    if (!apiKey) {
-        return NextResponse.json({ error: "SWEETTRACKER_API_KEY가 서버에 설정되지 않았습니다. 스마트택배 API 키를 발급받아 .env.local에 등록하세요." }, { status: 400 });
-    }
-    // shipped 상태인 주문 중 운송장번호 있는 것만 조회
-    const { rows: shippedOrders } = await shopPool.query(`
-    SELECT id, order_number, tracking_company, tracking_number, total_amount, payment_method, payment_key
-    FROM orders
-    WHERE site = $1 AND status = 'shipped' AND tracking_number IS NOT NULL
-    ORDER BY tracking_checked_at ASC NULLS FIRST, created_at ASC
-    LIMIT 100
-  `, [site]);
-    if (shippedOrders.length === 0) {
-        return NextResponse.json({ ok: true, checked: 0, delivered: 0 });
-    }
-    let committed = 0, writeFailed = false;
-    const deliveredIds: string[] = [];
-    const results: {
-        order_number: string;
-        status: string;
-    }[] = [];
-    let attempted = 0, failed = 0;
-    let firstError: string | null = null;
-    for (const order of shippedOrders) {
-        await shopPool.query("UPDATE orders SET tracking_checked_at=NOW() WHERE id=$1 AND site=$2", [order.id, site]);
-        const code = toCarrierCode(order.tracking_company);
-        if (!code) {
-            await recordTracking(shopPool,order,"택배사 미인식");
-            failed++;
-            results.push({ order_number: order.order_number, status: `택배사 미인식 (${order.tracking_company ?? "없음"}) — 운송장 다시 등록 필요` });
-            continue;
-        }
-        attempted++;
-        const info = await fetchTrackingStatus(apiKey, order.tracking_number, code);
-        if ("error" in info) {
-            await recordTracking(shopPool,order,"배송 조회 실패");
-            failed++;
-            if (!firstError)
-                firstError = info.error;
-            results.push({ order_number: order.order_number, status: `조회 실패 — ${info.error}` });
-            continue;
-        }
-        await recordTracking(shopPool,order,null);
-        results.push({ order_number: order.order_number, status: info.statusText || (info.delivered ? "배송완료" : "배송중") });
-        if (info.delivered)
-            deliveredIds.push(order.id);
-    }
-    // 배송완료된 주문 일괄 처리
-    if (deliveredIds.length > 0) {
-        const client = await shopPool.connect();
-        try {
-            await client.query("BEGIN");
-            const { rows: updated } = await client.query(`UPDATE orders SET status = 'delivered', delivered_at = COALESCE(delivered_at, NOW())
-         WHERE id = ANY($1::uuid[]) AND site = $2 AND status = 'shipped'
-         RETURNING id, order_number, total_amount, payment_method, payment_key`, [deliveredIds, site]);
-            for (const order of updated) {
-                await recordDeliverySettlement(client, order);
-            }
-            await client.query("COMMIT");
-            committed = updated.length;
-        }
-        catch (e) {
-            await client.query("ROLLBACK");
-            writeFailed = true;
-            failed += deliveredIds.length;
-            results.push({ order_number: "", status: isRefundFulfillmentConflict(e) ? REFUND_FULFILLMENT_MESSAGE : "배송 완료 저장 실패 — 재시도 필요" });
-            console.error("자동 배송완료 처리 실패:", e);
-        }
-        finally {
-            client.release();
-        }
-    }
-    return NextResponse.json({
-        ok: failed === 0 && !writeFailed,
-        checked: shippedOrders.length,
-        delivered: committed,
-        writeFailed,
-        failed,
-        // 시도한 조회가 전부 같은 이유로 실패하면 API 자체 문제 (사용량 초과 등) — 화면에서 알림
-        apiError: attempted > 0 && failed === attempted ? firstError : null,
-        results,
-    }, { status: writeFailed ? 503 : 200 });
+ if (!await getAdmin()) return NextResponse.json({error:'Unauthorized'}, {status:401});
+ const site = (await currentAdminSite()).key;
+ let run: {id:string} | null = null;
+ const results: TrackingRow[] = [];
+ let writeFailed = false;
+ try {
+  run = await beginTrackingRun(shopPool, site, 'manual');
+  if (!run) return NextResponse.json({error:'이미 배송조회가 진행 중입니다. 아래 조회 이력에서 결과를 확인해주세요.'}, {status:409});
+  const apiKey = process.env.SWEETTRACKER_API_KEY;
+  if (!apiKey) {
+   await finishTrackingRun(shopPool, run.id, results, '배송조회 API 키가 등록되지 않았습니다. 연동 설정을 확인해주세요.');
+   return NextResponse.json({error:'배송조회 API 키가 등록되지 않았습니다. 연동 설정을 확인해주세요.'}, {status:400});
+  }
+  const {rows:orders} = await shopPool.query(`SELECT id,order_number,tracking_company,tracking_number,total_amount,payment_method,payment_key
+   FROM orders WHERE site=$1 AND status='shipped' AND tracking_number IS NOT NULL
+   ORDER BY tracking_checked_at ASC NULLS FIRST,created_at ASC LIMIT 100`, [site]);
+  const deliveredIds: string[] = [];
+  let firstError: string | null = null;
+  for (const order of orders) {
+   await shopPool.query('UPDATE orders SET tracking_checked_at=NOW() WHERE id=$1 AND site=$2', [order.id,site]);
+   const code = toCarrierCode(order.tracking_company);
+   const info = code ? await fetchTrackingStatus(apiKey, order.tracking_number, code)
+    : {error:'택배사를 확인할 수 없습니다. 주문의 택배사와 송장을 확인해주세요.', code:'CARRIER_UNKNOWN'};
+   if ('error' in info) {
+    const message = info.error || '배송정보를 조회하지 못했습니다.';
+    await recordTracking(shopPool, order, message);
+    firstError ??= message;
+    results.push({order_id:order.id,order_number:order.order_number,outcome:'failed',message,code:info.code});
+   } else {
+    await recordTracking(shopPool, order, null);
+    results.push({order_id:order.id,order_number:order.order_number,outcome:info.delivered?'pending_delivery':'in_transit',message:info.statusText || '배송중'});
+    if (info.delivered) deliveredIds.push(order.id);
+   }
+  }
+  if (deliveredIds.length) {
+   const client = await shopPool.connect();
+   try {
+    await client.query('BEGIN');
+    const {rows:updated} = await client.query(`UPDATE orders SET status = 'delivered', delivered_at = COALESCE(delivered_at, NOW())
+     WHERE id = ANY($1::uuid[]) AND site = $2 AND status = 'shipped'
+     RETURNING id, order_number, total_amount, payment_method, payment_key`, [deliveredIds,site]);
+    for (const order of updated) await recordDeliverySettlement(client, order);
+    await client.query('COMMIT');
+    applyDeliveryResults(results, updated.map(order=>order.id));
+   } catch (error) {
+    await client.query('ROLLBACK');
+    writeFailed = true;
+    applyDeliveryResults(results, [], isRefundFulfillmentConflict(error) ? REFUND_FULFILLMENT_MESSAGE : '배송완료 저장에 실패했습니다. 주문 상태를 확인하고 다시 조회해주세요.');
+   } finally { client.release(); }
+  }
+  const finished = await finishTrackingRun(shopPool, run.id, results);
+  return NextResponse.json({ok:finished.failed===0,checked:finished.checked,delivered:finished.delivered,
+   in_transit:finished.in_transit,failed:finished.failed,skipped:finished.skipped,writeFailed,
+   apiError:finished.checked>0 && finished.failed===finished.checked ? firstError : null,
+   run:finished,results:results.map(row=>({...row,status:row.message}))}, {status:writeFailed?503:200});
+ } catch {
+  const error = '배송조회 처리 중 오류가 발생했습니다. 아래 이력을 확인하고 다시 조회해주세요.';
+  if (run) {
+   try { await finishTrackingRun(shopPool, run.id, results, error); } catch { /* An interrupted run remains visible and expires after 30 minutes. */ }
+  }
+  return NextResponse.json({error,writeFailed:true}, {status:503});
+ }
 }

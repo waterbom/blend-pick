@@ -94,7 +94,6 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   const [carriers, setCarriers] = useState(CORE_CARRIERS);
 
   const resolveCarrier = (raw?: string) => resolveImportCarrier(raw ?? "", carriers);
-  const [trackerKeyMissing, setTrackerKeyMissing] = useState(false);
   // 상품 그룹 단위 선택/해제 (배송준비·배송중 테이블의 그룹 헤더 체크박스)
   function toggleGroup(ids: string[], select: boolean) {
     setSelected((prev) => {
@@ -115,8 +114,6 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [delivering, setDelivering] = useState(false);
-  const [tracking, setTracking] = useState(false);
-  const [trackResult, setTrackResult] = useState<{ checked: number; delivered: number; failed: number } | null>(null);
   const [acting, setActing] = useState(false);
 
   // 선택 주문 운송장 입력 모달
@@ -146,7 +143,6 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
       .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((d) => {
         if (Array.isArray(d.carriers) && d.carriers.length > 0) setCarriers(d.carriers);
-        setTrackerKeyMissing(!!d.keyMissing);
       })
       .catch(error => setLoadError(apiErrorMessage(error)));
   }, []);
@@ -228,29 +224,6 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
     if (!rows.length) { setLoadError("운송장번호를 하나 이상 입력해주세요."); return; }
     ++fileVersion.current; setCsvRows(rows); setFileName("선택 주문 직접 입력"); setShowTrackModal(false);
     await previewTracking(rows);
-  }
-
-  async function handleTrack() {
-    setTracking(true);
-    setTrackResult(null);
-    try {
-      const res = await fetch("/api/admin/shipments/track", { method: "POST" });
-      const data = await readApiJson(res);
-      if (!res.ok) {
-        alert(apiErrorMessage(data, "배송추적에 실패했습니다."));
-        return;
-      }
-      setTrackResult({ checked: data.checked, delivered: data.delivered, failed: Number(data.failed) || 0 });
-      // 시도한 조회가 전부 실패 = 키·사용량 문제 — 조용히 넘어가지 않고 사유를 띄운다
-      if (data.apiError) {
-        alert(`배송추적 조회가 모두 실패했어요.\n\n사유: ${data.apiError}\n\nAPI 사용량(무료 한도) 초과가 흔한 원인이에요 — 스마트택배 플랜/키를 확인해주세요.`);
-      }
-      await load("shipped");
-    } catch (error) {
-      alert(apiErrorMessage(error, "네트워크 문제로 배송추적 요청이 전달되지 않았어요. 다시 시도해주세요."));
-    } finally {
-      setTracking(false);
-    }
   }
 
   async function handleBulkDeliver() {
@@ -434,29 +407,6 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
       {tab === "shipped" && (
         <>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
-            <button onClick={handleTrack} disabled={tracking}
-              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {tracking ? "조회 중..." : "배송추적 실행"}
-            </button>
-            {trackerKeyMissing && (
-              <span className="text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-none px-3 py-1.5">
-                ⚠ 스마트택배 API 키 미설정 — 배송추적이 동작하지 않아요 (.env.local의 SWEETTRACKER_API_KEY)
-              </span>
-            )}
-            {trackResult && (
-              <span className="text-xs text-gray-500">
-                {trackResult.checked}건 조회 →{" "}
-                <span className={trackResult.delivered > 0 ? "text-green-600 font-bold" : "text-gray-400"}>
-                  {trackResult.delivered}건 배송완료 처리됨
-                </span>
-                {trackResult.failed > 0 && (
-                  <span className="text-red-400 font-semibold"> · 조회 실패 {trackResult.failed}건</span>
-                )}
-              </span>
-            )}
             {selected.size > 0 && (
               <button onClick={handleBulkDeliver} disabled={delivering}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors">

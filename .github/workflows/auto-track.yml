@@ -12,13 +12,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run auto tracking on EC2
+        id: tracking
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          capture_stdout: true
+          command_timeout: 25m
           script: |
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
             cd ${{ secrets.EC2_APP_DIR }}
-            node scripts/auto-track-shipments.cjs
+            TRACKING_EXIT_CODE=0
+            node scripts/auto-track-shipments.cjs || TRACKING_EXIT_CODE=$?
+            echo "TRACKING_EXIT_CODE:$TRACKING_EXIT_CODE"
+
+      - name: 배송조회 결과 요약
+        if: always()
+        env:
+          TRACKING_OUTPUT: ${{ steps.tracking.outputs.stdout }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          rows = []
+          failed = False
+          for line in os.environ.get('TRACKING_OUTPUT', '').splitlines():
+              if line.startswith('TRACKING_EXIT_CODE:'):
+                  failed = line != 'TRACKING_EXIT_CODE:0'
+              if line.startswith('TRACKING_SUMMARY_JSON:'):
+                  try:
+                      rows.append(json.loads(line.split(':', 1)[1]))
+                  except (ValueError, TypeError):
+                      pass
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as report:
+              report.write('## 자동 배송조회 결과\n\n')
+              if not rows:
+                  report.write('조회 결과 요약을 받지 못했습니다. 실행 로그 또는 관리자 배송관리의 조회 이력을 확인해주세요.\n')
+              else:
+                  report.write('| 사이트 | 시작 시각 (한국시간) | 소요 시간 | 조회 | 완료 반영 | 배송중 | 실패 | 건너뜀 |\n|---|---|---:|---:|---:|---:|---:|---:|\n')
+                  for row in rows:
+                      start = datetime.fromisoformat(row['started_at'].replace('Z', '+00:00'))
+                      end = datetime.fromisoformat(row['finished_at'].replace('Z', '+00:00'))
+                      site = row['site'] if row.get('site') in ('블랜드픽', '산지픽') else '사이트'
+                      counts = ' | '.join(str(int(row.get(key, 0))) for key in ('checked', 'delivered', 'in_transit', 'failed', 'skipped'))
+                      report.write(f"| {site} | {start.astimezone(ZoneInfo('Asia/Seoul')):%Y-%m-%d %H:%M:%S} | {(end-start).total_seconds():.1f}초 | {counts} |\n")
+                  report.write('\n주문별 결과와 실패 사유는 각 사이트 관리자 → 배송관리 → 최근 조회 이력에서 확인할 수 있습니다.\n')
+          if failed:
+              raise SystemExit('배송조회 중 확인이 필요한 항목이 있습니다. 결과 요약과 주문별 이력을 확인해주세요.')
+          PY
