@@ -152,7 +152,7 @@ export default function BlendHome({ products, upcoming, categories, topSellerIds
           <a className={styles.sanjiButton} href={`https://${SITES.sanjipick.host}/`}>산지픽 구경하기 <Icon name="arrow" size={19} /></a>
         </div>
         <div className={styles.sanjiPhoto}>
-          <FallbackImg src="/sanji/products/사과/사과1.webp" alt="과수원에서 고른 사과를 담은 상자" className={styles.coverImage} />
+          <FallbackImg src={`https://${SITES.sanjipick.host}/sanji/products/사과/사과1.webp`} alt="과수원에서 고른 사과를 담은 상자" className={styles.coverImage} />
           <span className={styles.sanjiPhotoLabel}><Icon name="leaf" size={16} /><span>제철의 맛을 고르는 곳<strong>SANJI PICK</strong></span></span>
         </div>
       </section>
