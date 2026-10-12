@@ -20,7 +20,14 @@ for (const d of SANJI_DEMO_PRODUCTS) test(`placeholder ${d.product.id} cannot op
 test('catalog displays six closed placeholders',()=>{
  const Catalog=load('components/sanji/SanjiCatalog.tsx').default;
  const html=renderToStaticMarkup(React.createElement(Catalog,{products:SANJI_DEMO_CARDS,linkBase:''}));
- assert.equal((html.match(/class="so">재고 마감/g)||[]).length,6);
+ const cards=[...html.matchAll(/<a\b[^>]*class="sj-product-card is-closed"[^>]*>[\s\S]*?<\/a>/g)].map(m=>m[0]);
+ assert.equal(cards.length,6);
+ for(const product of SANJI_DEMO_CARDS){
+  const card=cards.find(markup=>markup.includes(`href="/p/${product.id}"`));
+  assert.ok(card,`${product.id} remains visible in the closed catalog`);
+  assert.match(card,/>공구 마감<\/span>/);
+  assert.doesNotMatch(card,/공동구매 진행 중|오픈 예정/);
+ }
 });
 test('new registered active product offers purchase, closed product does not',()=>{
  const p=props(SANJI_DEMO_PRODUCTS[0]);p.product={...p.product,id:'00000000-0000-4000-8000-000000000001',status:'active',stock:10};p.options=[];
