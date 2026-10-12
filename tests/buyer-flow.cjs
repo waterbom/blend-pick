@@ -110,6 +110,37 @@ test('Sanji detail exposes each purchasable grade with its own actual price',()=
  const html=renderToStaticMarkup(React.createElement(View,{product:{...source.product,id:'live',status:'active',stock:10},images:[],options:[{id:'a',name:'실속형',value:'70% 내외',extra_price:38900,stock:10,is_active:true},{id:'b',name:'고급형',value:'80% 내외',extra_price:47900,stock:10,is_active:true},{id:'c',name:'숨긴 등급',value:'판매중지',extra_price:1,stock:10,is_active:false}],reviews:{list:[],total:0,average:0},stats:{sold:0,buyers:0,rebuyers:0},others:[],influencerId:null,linkCode:null,kakaoUrl:'#',linkBase:''}));
  assert.match(html,/옵션별 구성·등급과 가격/);assert.match(html,/실속형: 70% 내외/);assert.match(html,/38,900원/);assert.match(html,/고급형: 80% 내외/);assert.match(html,/47,900원/);
 });
+test('Sanji badges follow server leaders in the guide and purchase sheet without selecting or reordering options',()=>{
+ const state=[];let cursor=0;
+ const hookReact={...React,useRef:()=>({current:null}),useEffect(){},useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return[state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v;}];}};
+ const View=load('components/sanji/SanjiSalesPage.tsx',{'react':hookReact,'@/lib/use-meta-event':{useMetaEvent(){}},'next/navigation':{useRouter:()=>({push(){}})}}).default;
+ const {SANJI_DEMO_PRODUCTS}=load('lib/sanji-demo.ts');
+ const options=[{id:'a',name:'규격',value:'3kg',extra_price:20000,stock:10,is_active:true},{id:'b',name:'규격',value:'5kg',extra_price:30000,stock:10,is_active:true},{id:'c',name:'규격',value:'10kg',extra_price:50000,stock:0,is_active:true}];
+ const props={product:{...SANJI_DEMO_PRODUCTS[0].product,id:'live',status:'active',stock:10},images:[],options,bestSellingOptionIds:['b','c','removed'],reviews:{list:[],total:0,average:0},stats:{sold:0,buyers:0,rebuyers:0},others:[],influencerId:null,linkCode:null,kakaoUrl:'#',linkBase:''};
+ const render=()=>{cursor=0;return View(props);};
+ const walk=(node,predicate)=>{if(!node||typeof node!=='object')return null;if(predicate(node))return node;for(const child of React.Children.toArray(node.props?.children)){const match=walk(child,predicate);if(match)return match;}return null;};
+ const html=()=>renderToStaticMarkup(render());
+ const badges=s=>(s.match(/class="sp-best-option"/g)||[]).length;
+ assert.equal(badges(html()),1);
+ const tree=render();walk(tree,n=>n.type==='button'&&n.props.className==='sp-buy').props.onClick();
+ let open=html();assert.equal(badges(open),2);assert.match(open,/가장 많이 팔리는 구성/);assert.doesNotMatch(open,/class="sp-opt on"/);
+ assert.ok(open.indexOf('>3kg</span>')<open.indexOf('>5kg</span>'));
+ const purchase=walk(render(),n=>n.type==='button'&&n.props.children==='바로 구매하기');assert.equal(purchase.props.disabled,true);
+ props.bestSellingOptionIds=[];assert.equal(badges(html()),0);
+ props.bestSellingOptionIds=['a','b'];assert.equal(badges(html()),4);
+ props.demo=true;assert.equal(badges(html()),0);
+});
+test('Sanji page only sends badges for visible purchasable options and preserves secret-link gating',async()=>{
+ const {SANJI_DEMO_PRODUCTS}=load('lib/sanji-demo.ts');
+ const product={...SANJI_DEMO_PRODUCTS[0].product,id:'00000000-0000-4000-8000-000000000001',status:'active',stock:10,is_visible:true,link_code:null};
+ const options=[{id:'a',name:'규격',value:'3kg',extra_price:20000,stock:10,is_active:true},{id:'b',name:'규격',value:'5kg',extra_price:30000,stock:0,is_active:true},{id:'c',name:'규격',value:'10kg',extra_price:50000,stock:10,is_active:false}];
+ const calls=[];
+ const db={query:async(sql)=>({rows:sql.includes('FROM products_shop WHERE id')?[product]:sql.includes('FROM product_options')?options:sql.includes('SELECT COUNT(*)')?[{total:0,average:0}]:sql.includes('WITH bought')?[{buyers:0,sold:0,rebuyers:0}]:[]})};
+ const data=load('lib/sanji-data.ts',{'@/lib/db-shop':db,'@/lib/db':db,'@/lib/product-sales':{getBestSellingOptionIds:async(...args)=>{calls.push(args);return ['a','b','c','removed'];}}});
+ const page=await data.loadSanjiSalesPage(product.id);
+ assert.deepEqual(page.bestSellingOptionIds,['a']);assert.deepEqual(calls,[['sanjipick',product.id]]);
+ assert.equal(await data.loadSanjiSalesPage(product.id,undefined,'wrongcode'),null);assert.equal(calls.length,1);
+});
 test('Sanji new arrivals links to the full catalog on both supported path bases',()=>{
  const {SANJI_DEMO_CARDS}=load('lib/sanji-demo.ts');
  const View=load('components/sanji/SanjiHome.tsx',{'next/navigation':{useRouter:()=>({refresh(){}})}}).default;

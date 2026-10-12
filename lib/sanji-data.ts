@@ -3,6 +3,7 @@ import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
 import { SITES } from "@/lib/sites";
 import { cleanLinkCode, linkApplies, secretUnitPrice } from "@/lib/secret-link";
+import { getBestSellingOptionIds } from "@/lib/product-sales";
 
 // 산지픽 판매 페이지 데이터 — 상품 관리에서 카테고리를 '산지픽'으로 지정한 상품만 다룬다.
 // 루트(/)는 가장 최근 등록된 산지픽 상품을 곧바로 판매 페이지로 보여주고, 나머지는 "함께 본 상품"으로 깔린다.
@@ -220,13 +221,14 @@ export async function loadSanjiSalesPage(productId: string, inf?: string, k?: st
   const code = cleanLinkCode(k);
   const linked = linkApplies(row, code);
   if ((k !== undefined && !linked) || (k === undefined && row.is_visible === false)) return null;
-  const [images, options, reviews, stats, all, influencerId] = await Promise.all([
+  const [images, options, reviews, stats, all, influencerId, bestSellingOptionIds] = await Promise.all([
     getSanjiImages(productId),
     getSanjiOptions(productId),
     getSanjiReviews(productId),
     getSanjiStats(productId),
     getSanjiProducts(),
     getInfluencerId(inf),
+    getBestSellingOptionIds("sanjipick", productId),
   ]);
   const { link_code, ...product } = row; // 코드는 화면에 내려보내지 않는다
   const attributed = influencerId && (!product.influencer_id || product.influencer_id === influencerId) ? influencerId : null;
@@ -236,6 +238,7 @@ export async function loadSanjiSalesPage(productId: string, inf?: string, k?: st
     product: linked ? {...product, price: resolvedOptions.length ? Math.min(...resolvedOptions.map(o=>o.extra_price)) : secretUnitPrice(row,null,true)!} : {...product, link_price: null, link_start_at: null, link_end_at: null},
     images: [...(product.main_image ? [product.main_image] : []), ...images],
     options: resolvedOptions.map(({link_price: _privatePrice, ...o})=>o),
+    bestSellingOptionIds: bestSellingOptionIds.filter(id => resolvedOptions.some(option => option.id === id && option.is_active && option.stock !== 0)),
     reviews,
     stats,
     others: all.filter((p) => p.id !== product.id && storefrontSale(p) === "open"),
