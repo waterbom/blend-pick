@@ -74,18 +74,13 @@ export function summarizeProductSales(orders: ProductSaleOrder[]): Map<string, P
   }]));
 }
 
-export async function getProductSales(site: SiteKey, from?: string, to?: string, db: Pick<typeof shopPool, "query"> = shopPool, productId?: string) {
+export async function getProductSales(site: SiteKey, from?: string, to?: string, db: Pick<typeof shopPool, "query"> = shopPool) {
   if (!validDateRange(from || null, to || null)) throw new Error("판매 집계 기간을 확인해주세요.");
   const args: unknown[] = [site];
   const where = ["o.site=$1", "o.order_type IN ('shop','campaign')", "o.paid_at IS NOT NULL",
     "NULLIF(o.payment_key,'') IS NOT NULL", "o.payment_key NOT LIKE 'SIM_%'", "o.status <> 'pending'"];
   if (from) { args.push(from); where.push(`o.paid_at >= ($${args.length}::date::timestamp AT TIME ZONE 'Asia/Seoul')`); }
   if (to) { args.push(to); where.push(`o.paid_at < (($${args.length}::date + 1)::timestamp AT TIME ZONE 'Asia/Seoul')`); }
-  if (productId) {
-    args.push(productId);
-    where.push(`EXISTS (SELECT 1 FROM order_items scoped_item WHERE scoped_item.order_id=o.id
-      AND COALESCE(scoped_item.product_ref,scoped_item.product_id)=$${args.length}::uuid)`);
-  }
   // No buyer information is read. One row per order prevents item/return join multiplication.
   const { rows } = await db.query<ProductSaleOrder>(`SELECT o.id, o.status, o.refund_amount_unresolved,
     EXISTS(SELECT 1 FROM refund_operations ro WHERE ro.order_id=o.id AND ro.status NOT IN ('completed','rejected')) AS pending_refunds,
@@ -100,19 +95,4 @@ export async function getProductSales(site: SiteKey, from?: string, to?: string,
       FROM order_returns rr WHERE rr.order_id=o.id AND rr.kind='return' AND rr.status IN ('done','requested','collecting')) r ON true
     WHERE ${where.join(" AND ")} ORDER BY o.paid_at,o.id`, args);
   return summarizeProductSales(rows);
-}
-
-/** Only proven net unit leaders receive a storefront badge; never guess from prices or labels. */
-export async function getBestSellingOptionIds(site: SiteKey, productId: string, db: Pick<typeof shopPool, "query"> = shopPool): Promise<string[]> {
-  try {
-    const sales = (await getProductSales(site, undefined, undefined, db, productId)).get(productId);
-    if (!sales || sales.review > 0 || sales.pending > 0) return [];
-    const highest = Math.max(0, ...sales.options.map(option => option.sold));
-    if (highest === 0) return [];
-    // Keep ties. Historical/deleted leaders must not promote a lower-selling current option.
-    return sales.options.filter(option => option.sold === highest && !option.key.startsWith("label:")).map(option => option.key);
-  } catch (error) {
-    console.error("[best-selling-options] 판매 구성 집계 실패:", error);
-    return [];
-  }
 }

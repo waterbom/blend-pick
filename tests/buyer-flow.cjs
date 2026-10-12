@@ -110,36 +110,49 @@ test('Sanji detail exposes each purchasable grade with its own actual price',()=
  const html=renderToStaticMarkup(React.createElement(View,{product:{...source.product,id:'live',status:'active',stock:10},images:[],options:[{id:'a',name:'실속형',value:'70% 내외',extra_price:38900,stock:10,is_active:true},{id:'b',name:'고급형',value:'80% 내외',extra_price:47900,stock:10,is_active:true},{id:'c',name:'숨긴 등급',value:'판매중지',extra_price:1,stock:10,is_active:false}],reviews:{list:[],total:0,average:0},stats:{sold:0,buyers:0,rebuyers:0},others:[],influencerId:null,linkCode:null,kakaoUrl:'#',linkBase:''}));
  assert.match(html,/옵션별 구성·등급과 가격/);assert.match(html,/실속형: 70% 내외/);assert.match(html,/38,900원/);assert.match(html,/고급형: 80% 내외/);assert.match(html,/47,900원/);
 });
-test('Sanji badges follow server leaders in the guide and purchase sheet without selecting or reordering options',()=>{
+test('Sanji shows one recommendation in the guide and purchase sheet without selecting or reordering options',()=>{
  const state=[];let cursor=0;
  const hookReact={...React,useRef:()=>({current:null}),useEffect(){},useState(initial){const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return[state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v;}];}};
  const View=load('components/sanji/SanjiSalesPage.tsx',{'react':hookReact,'@/lib/use-meta-event':{useMetaEvent(){}},'next/navigation':{useRouter:()=>({push(){}})}}).default;
  const {SANJI_DEMO_PRODUCTS}=load('lib/sanji-demo.ts');
- const options=[{id:'a',name:'규격',value:'3kg',extra_price:20000,stock:10,is_active:true},{id:'b',name:'규격',value:'5kg',extra_price:30000,stock:10,is_active:true},{id:'c',name:'규격',value:'10kg',extra_price:50000,stock:0,is_active:true}];
- const props={product:{...SANJI_DEMO_PRODUCTS[0].product,id:'live',status:'active',stock:10},images:[],options,bestSellingOptionIds:['b','c','removed'],reviews:{list:[],total:0,average:0},stats:{sold:0,buyers:0,rebuyers:0},others:[],influencerId:null,linkCode:null,kakaoUrl:'#',linkBase:''};
+ const options=[{id:'a',name:'규격',value:'3kg',extra_price:20000,stock:10,is_active:true},{id:'b',name:'규격',value:'5kg',extra_price:30000,stock:10,is_active:true},{id:'c',name:'규격',value:'10kg',extra_price:50000,stock:10,is_active:true},{id:'d',name:'규격',value:'20kg',extra_price:90000,stock:0,is_active:true}];
+ const props={product:{...SANJI_DEMO_PRODUCTS[0].product,id:'live',status:'active',stock:10},images:[],options,recommendedOptionId:'b',reviews:{list:[],total:0,average:0},stats:{sold:0,buyers:0,rebuyers:0},others:[],influencerId:null,linkCode:null,kakaoUrl:'#',linkBase:''};
  const render=()=>{cursor=0;return View(props);};
  const walk=(node,predicate)=>{if(!node||typeof node!=='object')return null;if(predicate(node))return node;for(const child of React.Children.toArray(node.props?.children)){const match=walk(child,predicate);if(match)return match;}return null;};
  const html=()=>renderToStaticMarkup(render());
- const badges=s=>(s.match(/class="sp-best-option"/g)||[]).length;
+ const badges=s=>(s.match(/class="sp-recommended-option"/g)||[]).length;
  assert.equal(badges(html()),1);
  const tree=render();walk(tree,n=>n.type==='button'&&n.props.className==='sp-buy').props.onClick();
- let open=html();assert.equal(badges(open),2);assert.match(open,/가장 많이 팔리는 구성/);assert.doesNotMatch(open,/class="sp-opt on"/);
+ let open=html();assert.equal(badges(open),2);assert.match(open,/추천 구성/);assert.doesNotMatch(open,/가장 많이 팔리는 구성|누적 판매 수량 기준|class="sp-opt on"/);
+ assert.match(open,/>5kg<\/span><span class="sp-recommended-option">추천 구성/);
  assert.ok(open.indexOf('>3kg</span>')<open.indexOf('>5kg</span>'));
  const purchase=walk(render(),n=>n.type==='button'&&n.props.children==='바로 구매하기');assert.equal(purchase.props.disabled,true);
- props.bestSellingOptionIds=[];assert.equal(badges(html()),0);
- props.bestSellingOptionIds=['a','b'];assert.equal(badges(html()),4);
+ for(const id of [null,'d','removed']){props.recommendedOptionId=id;assert.equal(badges(html()),0);}
+ props.recommendedOptionId='b';assert.equal(badges(html()),2);
+ walk(render(),n=>n.type==='button'&&n.props.className==='sp-gift').props.onClick();assert.equal(badges(html()),2);
  props.demo=true;assert.equal(badges(html()),0);
 });
-test('Sanji page only sends badges for visible purchasable options and preserves secret-link gating',async()=>{
+test('Sanji recommends the second most expensive available option at the current channel price',async()=>{
  const {SANJI_DEMO_PRODUCTS}=load('lib/sanji-demo.ts');
  const product={...SANJI_DEMO_PRODUCTS[0].product,id:'00000000-0000-4000-8000-000000000001',status:'active',stock:10,is_visible:true,link_code:null};
- const options=[{id:'a',name:'규격',value:'3kg',extra_price:20000,stock:10,is_active:true},{id:'b',name:'규격',value:'5kg',extra_price:30000,stock:0,is_active:true},{id:'c',name:'규격',value:'10kg',extra_price:50000,stock:10,is_active:false}];
+ const option=(id,price,extra={})=>({id,name:'규격',value:id,extra_price:price,stock:10,is_active:true,...extra});
+ let options=[option('a',20000,{link_price:19000}),option('b',30000,{link_price:8000}),option('c',50000,{link_price:10000}),option('d',90000,{stock:0}),option('e',100000,{is_active:false})];
  const calls=[];
- const db={query:async(sql)=>({rows:sql.includes('FROM products_shop WHERE id')?[product]:sql.includes('FROM product_options')?options:sql.includes('SELECT COUNT(*)')?[{total:0,average:0}]:sql.includes('WITH bought')?[{buyers:0,sold:0,rebuyers:0}]:[]})};
- const data=load('lib/sanji-data.ts',{'@/lib/db-shop':db,'@/lib/db':db,'@/lib/product-sales':{getBestSellingOptionIds:async(...args)=>{calls.push(args);return ['a','b','c','removed'];}}});
+ const db={query:async(sql)=>{calls.push(sql);return{rows:sql.includes('FROM products_shop WHERE id')?[product]:sql.includes('FROM product_options')?options:sql.includes('SELECT COUNT(*)')?[{total:0,average:0}]:sql.includes('WITH bought')?[{buyers:0,sold:0,rebuyers:0}]:[]};}};
+ const data=load('lib/sanji-data.ts',{'@/lib/db-shop':db,'@/lib/db':db});
  const page=await data.loadSanjiSalesPage(product.id);
- assert.deepEqual(page.bestSellingOptionIds,['a']);assert.deepEqual(calls,[['sanjipick',product.id]]);
- assert.equal(await data.loadSanjiSalesPage(product.id,undefined,'wrongcode'),null);assert.equal(calls.length,1);
+ assert.equal(page.recommendedOptionId,'b');assert.deepEqual(page.options.map(o=>o.id),['a','b','c','d','e']);
+ const count=calls.length;assert.equal(await data.loadSanjiSalesPage(product.id,undefined,'wrongcode'),null);assert.equal(calls.length,count+1);
+ Object.assign(product,{link_code:'a'.repeat(32),link_start_at:new Date(Date.now()-60000).toISOString(),link_end_at:new Date(Date.now()+3600000).toISOString()});
+ const linked=await data.loadSanjiSalesPage(product.id,undefined,product.link_code);
+ assert.equal(linked.recommendedOptionId,'c');assert.deepEqual(linked.options.map(o=>o.id),['a','b','c']);
+ options=[option('a',20000),option('b',50000),option('c',50000)];
+ assert.equal((await data.loadSanjiSalesPage(product.id)).recommendedOptionId,'c');
+ options=[option('a',20000),option('b',30000,{stock:-1})];
+ assert.equal((await data.loadSanjiSalesPage(product.id)).recommendedOptionId,'a');
+ for(const remaining of [[],[option('a',20000)],[option('a',20000),option('b',30000,{stock:0})]]){
+  options=remaining;assert.equal((await data.loadSanjiSalesPage(product.id)).recommendedOptionId,null);
+ }
 });
 test('Sanji new arrivals links to the full catalog on both supported path bases',()=>{
  const {SANJI_DEMO_CARDS}=load('lib/sanji-demo.ts');

@@ -33,7 +33,7 @@ export interface SanjiSalesProps {
   product: SanjiProduct;
   images: string[];
   options: SanjiOption[];
-  bestSellingOptionIds?: string[];
+  recommendedOptionId?: string | null;
   reviews: { list: SanjiReview[]; total: number; average: number };
   stats: SanjiStats;
   others: SanjiCard[];
@@ -70,11 +70,11 @@ function Img({ src, alt, style, className }: { src: string | null; alt: string; 
   return <img src={src!} alt={alt} className={className} style={style} loading="lazy" onError={() => setBad(true)} />;
 }
 
-function BestSellingBadge() {
-  return <span className="sp-best-option" title="취소·반품을 제외한 누적 판매 수량 기준">가장 많이 팔리는 구성</span>;
+function RecommendedBadge() {
+  return <span className="sp-recommended-option">추천 구성</span>;
 }
 
-export default function SanjiSalesPage({ product, images, options, bestSellingOptionIds = [], reviews, stats, others, influencerId, linkCode, demo = false, kakaoUrl, linkBase }: SanjiSalesProps) {
+export default function SanjiSalesPage({ product, images, options, recommendedOptionId = null, reviews, stats, others, influencerId, linkCode, demo = false, kakaoUrl, linkBase }: SanjiSalesProps) {
   const router = useRouter();
   useMetaEvent("ViewContent", product.id, commerceParams([{ id: product.id, quantity: 1, price: product.price }]), !demo);
   // 판매가 — 서버에서 검증한 채널별 상품·옵션 가격을 표시
@@ -194,7 +194,7 @@ export default function SanjiSalesPage({ product, images, options, bestSellingOp
   const hasOptions = options.length > 0;
   const optById = (id: string) => options.find((o) => o.id === id);
   const optDead = (o: SanjiOption) => !o.is_active || o.stock === 0;
-  const bestSellingOptions = new Set(demo ? [] : bestSellingOptionIds);
+  const recommendedOption = demo ? null : recommendedOptionId;
   const itemsTotal = hasOptions
     ? lines.reduce((s, l) => s + unitOf(optById(l.optionId)?.extra_price) * l.qty, 0)
     : price * qty;
@@ -330,7 +330,7 @@ export default function SanjiSalesPage({ product, images, options, bestSellingOp
         .sp-option-guide>div>span{min-width:0;overflow-wrap:anywhere}
         .sp-option-guide>div>strong{font-size:14px;color:${INK}}
         .sp-option-name{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0;overflow-wrap:anywhere}
-        .sp-best-option{display:inline-flex;max-width:100%;padding:3px 7px;border-radius:5px;background:${SOFT};color:${ORANGE};font-size:11px;line-height:1.4;font-weight:700;letter-spacing:-.02em}
+        .sp-recommended-option{display:inline-flex;max-width:100%;padding:3px 7px;border-radius:5px;background:${SOFT};color:${ORANGE};font-size:11px;line-height:1.4;font-weight:700;letter-spacing:-.02em}
         .sp-linkpill{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:5px 10px;border-radius:999px;background:${TINT};color:${ORANGE};font-size:12px;font-weight:700}
         .sp-infobox{display:grid;grid-template-columns:64px minmax(0,1fr);row-gap:10px;margin:16px 0 8px;padding:14px 16px;border-radius:12px;background:#F7F7F7;font-size:14px;line-height:1.5}
         .sp-infobox .k{color:${MUTED}}
@@ -474,7 +474,7 @@ export default function SanjiSalesPage({ product, images, options, bestSellingOp
           <strong>옵션별 구성·등급과 가격을 확인해주세요</strong>
           <p style={{ margin: "4px 0 8px" }}>상품명과 이미지에는 여러 옵션이 함께 소개될 수 있습니다. 실제 구성·등급은 선택한 옵션을 기준으로 확인해주세요.</p>
           {options.filter(o => o.is_active && o.stock !== 0).map(o => <div key={o.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
-            <span className="sp-option-name"><span>{optionText(o.name, o.value)}</span>{bestSellingOptions.has(o.id) && <BestSellingBadge />}</span><strong style={{ whiteSpace: "nowrap" }}>{won(unitOf(o.extra_price))}</strong>
+            <span className="sp-option-name"><span>{optionText(o.name, o.value)}</span>{recommendedOption === o.id && <RecommendedBadge />}</span><strong style={{ whiteSpace: "nowrap" }}>{won(unitOf(o.extra_price))}</strong>
           </div>)}
         </div>}
         {linkCode && (
@@ -643,7 +643,7 @@ export default function SanjiSalesPage({ product, images, options, bestSellingOp
                   const dead = optDead(o);
                   return (
                     <button key={o.id} className={`sp-opt${on ? " on" : ""}${dead ? " dead" : ""}`} disabled={dead} onClick={() => toggleLine(o.id)}>
-                      <span className="sp-option-name"><span>{o.value}{dead ? (o.is_active ? " · 품절" : " · 판매중지") : ""}</span>{!dead && bestSellingOptions.has(o.id) && <BestSellingBadge />}</span>
+                      <span className="sp-option-name"><span>{o.value}{dead ? (o.is_active ? " · 품절" : " · 판매중지") : ""}</span>{!dead && recommendedOption === o.id && <RecommendedBadge />}</span>
                       <span className="p">{won(unitOf(o.extra_price))}</span>
                     </button>
                   );
