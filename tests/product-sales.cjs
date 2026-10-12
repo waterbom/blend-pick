@@ -96,6 +96,42 @@ test('malformed historical return records do not break the page or become defini
   for(const items of [null,{},[],[{item_id:'missing',quantity:1}],[{quantity:-3}]]) {const o=await order({status:'return_completed'});await returned(o,items);}
   const p=(await get()).get(id(1));assert.equal(p.sold,5);assert.equal(p.review,5);
 });
+test('option leaders use paid net units for the requested product and site only',async()=>{
+  const paid=await order({site:'sanjipick',items:[{product:1,option:11,qty:8},{product:1,option:12,qty:5}]});
+  await returned(paid,[{item_id:paid.lines[0],quantity:5}]);
+  await order({site:'sanjipick',status:'cancelled',items:[{product:1,option:11,qty:200}]});
+  for(const spec of [{key:'SIM_test'},{key:null},{key:''},{paid:null},{type:'hotel'},{status:'pending'}]) {
+    await order({site:'sanjipick',...spec,items:[{product:1,option:11,qty:500}]});
+  }
+  await order({site:'blendpick',items:[{product:1,option:11,qty:900}]});
+  await order({site:'sanjipick',unresolved:true,items:[{product:2,option:13,qty:900}]});
+  assert.deepEqual(await salesLib.getBestSellingOptionIds('sanjipick',id(1),db),[id(12)]);
+  const scoped=await salesLib.getProductSales('sanjipick',undefined,undefined,db,id(1));
+  assert.deepEqual([...scoped.keys()],[id(1)]);
+});
+test('option leaders preserve positive ties and hide absent or fully returned sales',async()=>{
+  assert.deepEqual(await salesLib.getBestSellingOptionIds('sanjipick',id(1),db),[]);
+  const paid=await order({site:'sanjipick',items:[{product:1,option:11,qty:2},{product:1,option:12,qty:2}]});
+  assert.deepEqual((await salesLib.getBestSellingOptionIds('sanjipick',id(1),db)).sort(),[id(11),id(12)]);
+  await returned(paid,paid.lines.map(item_id=>({item_id,quantity:2})));
+  assert.deepEqual(await salesLib.getBestSellingOptionIds('sanjipick',id(1),db),[]);
+});
+test('unresolved refunds and pending cancellation or return suppress definitive option badges',async()=>{
+  await order({site:'sanjipick',unresolved:true,items:[{product:1,option:11,qty:5}]});
+  await order({site:'sanjipick',status:'cancel_requested',items:[{product:2,option:12,qty:5}]});
+  const pending=await order({site:'sanjipick',items:[{product:3,option:13,qty:5}]});
+  await returned(pending,[{item_id:pending.lines[0],quantity:1}],{status:'requested'});
+  for(const product of [1,2,3]) assert.deepEqual(await salesLib.getBestSellingOptionIds('sanjipick',id(product),db),[]);
+});
+test('historical labels never guess a current option identity or promote the runner-up',async()=>{
+  await order({site:'sanjipick',items:[{product:1,label:'기존 구성',qty:10},{product:1,option:12,qty:2}]});
+  assert.deepEqual(await salesLib.getBestSellingOptionIds('sanjipick',id(1),db),[]);
+});
+test('option sales failure hides badges without failing the storefront',async t=>{
+  t.mock.method(console,'error',()=>{});
+  const failed={query:async()=>{throw Error('isolated query failure');}};
+  assert.deepEqual(await salesLib.getBestSellingOptionIds('sanjipick',id(1),failed),[]);
+});
 const Cell=load('components/admin/ProductSalesCell.tsx').default;
 test('sales cell distinguishes zero, unavailable, provisional and option details',()=>{
   const render=sales=>renderToStaticMarkup(React.createElement(Cell,{sales}));
