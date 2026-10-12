@@ -6,6 +6,7 @@ import FallbackImg from "@/components/FallbackImg";
 import type { HomeProduct, HomeUpcoming } from "@/lib/blend-home";
 import styles from "./BlendHome.module.css";
 import { UTOP_CLOSED } from "@/lib/hotel";
+import { SITES } from "@/lib/sites";
 
 type IconName = "arrow" | "bag" | "stay" | "spark" | "box" | "check" | "leaf" | "chevron" | "pause" | "play";
 
@@ -142,6 +143,19 @@ export default function BlendHome({ products, upcoming, categories, topSellerIds
       <Rail id="shopping-picks" eyebrow="EVERYDAY PICKS" title="일상을 바꾸는 공구" description="진행 중인 공구부터 마감된 공구까지, 한눈에 살펴보세요." icon="bag" href="/products" count={products.length}>
         {products.length ? products.map(p => <ProductCard key={p.id} product={p} rank={topSellerIds.indexOf(p.id)} />) : <div className={styles.emptyCatalog} role="status"><span className={styles.emptyIcon}><Icon name="bag" size={30} /></span><div><h3>{catalogUnavailable ? "상품을 잠시 불러오지 못했어요" : "다음 발견을 준비하고 있어요"}</h3><p>{catalogUnavailable ? "잠시 후 상품 목록에서 다시 확인해 주세요." : "새로운 공구가 열리면 이곳에서 만나보세요."}</p></div><Link href="/products">상품 목록 보기 <Icon name="arrow" size={18} /></Link></div>}
       </Rail>
+
+      <section className={styles.sanjiFeature} aria-labelledby="sanji-feature-title">
+        <div className={styles.sanjiCopy}>
+          <span className={styles.sanjiKicker}><Icon name="leaf" size={17} />산지에서 바로, 제철 그대로</span>
+          <h2 id="sanji-feature-title">식탁 위의 발견은,<br /><span>산지픽에서.</span></h2>
+          <p>제철 농산물부터 해산물까지.<br />우리 집 식탁을 채울 먹거리 공구를 만나보세요.</p>
+          <a className={styles.sanjiButton} href={`https://${SITES.sanjipick.host}/`}>산지픽 구경하기 <Icon name="arrow" size={19} /></a>
+        </div>
+        <div className={styles.sanjiPhoto}>
+          <FallbackImg src="/sanji/products/사과/사과1.webp" alt="과수원에서 고른 사과를 담은 상자" className={styles.coverImage} />
+          <span className={styles.sanjiPhotoLabel}><Icon name="leaf" size={16} /><span>제철의 맛을 고르는 곳<strong>SANJI PICK</strong></span></span>
+        </div>
+      </section>
 
       <Rail id="stay-picks" eyebrow="STAY & HOTEL" title="이런 하루도, 공구로" description="호텔부터 우리만의 독채까지. 여행의 시작도 블랜드픽." icon="stay" href="/hotel" count={2}>
         <Link className={styles.stayCard} href="/hotel/dangung"><div className={styles.stayImage}><FallbackImg src="/hotel/dangung/photo-01.jpg" alt="단궁의 한옥과 잔디 정원" className={styles.coverImage} /><span>독채·펜션</span></div><div className={styles.stayInfo}><small>한옥 독채 · 단궁</small><h3>우리만의 정원에서 보내는 하루</h3><p>한옥의 여유, 넓은 잔디 정원, 함께하는 시간.</p><div><span>숙소·예약 정보 확인</span><Icon name="arrow" size={20} /></div></div></Link>

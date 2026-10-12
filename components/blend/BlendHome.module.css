@@ -990,6 +990,96 @@
 .closedStay .stayInfo>div {
   color:#9f3038
 }
+.sanjiFeature {
+  display:grid;
+  grid-template-columns:1fr .85fr;
+  margin-top:42px;
+  background:#faf6ee;
+  border:1px solid #e9e1d2;
+  border-radius:17px;
+  overflow:hidden
+}
+.sanjiCopy {
+  padding:36px 40px;
+  align-self:center;
+  min-width:0
+}
+.sanjiKicker {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#5c7450;
+  font-size:11px;
+  font-weight:650
+}
+.sanjiCopy h2 {
+  margin:15px 0 12px;
+  color:#3e2a1e;
+  font-size:32px;
+  font-weight:800;
+  line-height:1.35;
+  letter-spacing:-.055em;
+  word-break:keep-all
+}
+.sanjiCopy h2 span {
+  color:#3f6b3a
+}
+.sanjiCopy p {
+  margin:0;
+  font-size:13px;
+  color:#7a6a5b;
+  line-height:1.8;
+  word-break:keep-all
+}
+.sanjiButton {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:22px;
+  min-height:48px;
+  margin-top:23px;
+  padding:12px 21px;
+  border-radius:10px;
+  background:#3f6b3a;
+  color:#fff;
+  font-size:13px;
+  font-weight:750;
+  transition:background .2s
+}
+.sanjiButton:hover {
+  background:#31582d
+}
+.sanjiPhoto {
+  position:relative;
+  min-height:300px;
+  background:#e5e9d9;
+  overflow:hidden
+}
+.sanjiPhoto>.coverImage {
+  position:absolute;
+  inset:0;
+  object-position:center 55%
+}
+.sanjiPhotoLabel {
+  position:absolute;
+  right:20px;
+  bottom:20px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 15px;
+  border-radius:9px;
+  background:#fffdf8;
+  color:#3f6b3a;
+  font-size:9px;
+  line-height:1.5
+}
+.sanjiPhotoLabel strong {
+  display:block;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.08em
+}
 .brandNote {
   display:flex;
   align-items:center;
@@ -1286,6 +1376,34 @@
   }
 }
 @media(max-width:760px) {
+  .sanjiFeature {
+    grid-template-columns:1fr;
+    margin-top:29px;
+    border-radius:13px
+  }
+  .sanjiCopy {
+    padding:26px 23px
+  }
+  .sanjiCopy h2 {
+    font-size:27px;
+    margin-top:13px
+  }
+  .sanjiCopy p {
+    font-size:12px
+  }
+  .sanjiButton {
+    width:100%;
+    margin-top:20px
+  }
+  .sanjiPhoto {
+    min-height:0;
+    aspect-ratio:1.8
+  }
+  .sanjiPhotoLabel {
+    right:13px;
+    bottom:13px;
+    padding:9px 12px
+  }
   .container {
     width:calc(100% - 40px)
   }
