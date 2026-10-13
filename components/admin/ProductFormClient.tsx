@@ -64,6 +64,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
   const [linkCode, setLinkCode] = useState<string | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [savedLinkPeriod, setSavedLinkPeriod] = useState({ start: "", end: "" });
 
   const [form, setForm] = useState({
     name: "", brand: "", category: "",
@@ -147,6 +148,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           const p = parseFloat(price);
           if (orig > 0 && p < orig) discountRate = String(Math.round((1 - p / orig) * 100));
         }
+        setSavedLinkPeriod({ start: utcToKSTLocal(data.link_start_at), end: utcToKSTLocal(data.link_end_at) });
         const rawAttr = data.shipping_attr || "standard";
         const isCustomAttr = rawAttr !== "standard";
         setManualStatus(opts?.stripTagPrefix ? "draft" : (["inactive","ended"].includes(data.status)?"soldout":data.status ?? "draft"));
@@ -220,7 +222,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
         // 비전시 링크 코드는 복제 등록 시 새 상품으로 따라가지 않는다 (상품마다 별도 발급) — 사용 여부·링크가격은 따라간다
         const code = opts?.stripTagPrefix ? null : (data.link_code ?? null);
         setLinkCode(code);
-        setUseLink(!!code || data.link_price != null);
+        setUseLink(!!code || data.link_price != null || (data.options ?? []).some((o: { link_price?: number | null }) => o.link_price != null));
     }
   }
 
@@ -294,6 +296,17 @@ export default function ProductFormClient({ mode, productId }: Props) {
   })();
 
   const optionStockTotal = options.reduce((sum, o) => sum + (parseInt(o.stock) || 0), 0);
+  // Match server-side issuance rules before the product is saved. An option's
+  // link price is an absolute selling price, not an add-on to the public price.
+  const activeLinkOptions = options.filter(o => o.name.trim() && o.active !== false);
+  const validLinkInput = (value: string | undefined) =>
+    value !== undefined && value !== "" && Number.isSafeInteger(Number(value))
+    && Number(value) >= 0 && Number(value) <= 2147483647;
+  const linkPriceWarning = activeLinkOptions.length > 0
+    ? activeLinkOptions.some(o => validLinkInput(o.linkPrice)) ? ""
+      : "옵션 상품의 비전시 가격이 비어 있어요. 해결방법: 아래 '옵션별 판매가격'에서 판매할 옵션 하나 이상에 링크 전용 가격을 입력해주세요. 상단 링크가격은 옵션 상품에 적용되지 않습니다."
+    : validLinkInput(form.link_price) ? ""
+      : "비전시 가격이 비어 있어요. 해결방법: '링크가격 (링크 전용가)'에 판매할 가격을 입력해주세요.";
 
   function confirmOptionStock() {
     setForm(f => ({ ...f, stock: String(optionStockTotal) }));
@@ -471,7 +484,14 @@ export default function ProductFormClient({ mode, productId }: Props) {
     }
     const invalid=productInputError(buildPayload(),currentSiteKey);
     if(invalid){setStep(2);setError(invalid);setSaving(false);return;}
-    if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setStep(3); setError("비전시 링크 시작·종료 일시를 확인해주세요."); setSaving(false); return; }
+    if (useLink && (!form.link_start_at || !form.link_end_at || form.link_start_at >= form.link_end_at)) { setStep(3); setError("비전시 링크 시작·종료 일시를 확인해주세요. 해결방법: 링크 시작과 종료 시간을 올바르게 입력해주세요."); alert("비전시 링크 저장 전 확인: 시작·종료 시간을 설정해주세요."); setSaving(false); return; }
+    if (useLink && isSanjiCat && linkPriceWarning) {
+      setStep(3);
+      setError(linkPriceWarning);
+      alert(`비전시 링크 저장 전 확인\n\n${linkPriceWarning}\n\n가격을 입력한 뒤 다시 저장해주세요.`);
+      setSaving(false);
+      return;
+    }
 
     const created: string[] = [];
     try {
@@ -526,7 +546,11 @@ export default function ProductFormClient({ mode, productId }: Props) {
       const d = await readApiJson(res);
       if (res.ok && d.ok !== false && !d.error) {
         // 비전시 링크를 켰는데 아직 코드가 없으면 저장과 함께 자동 발급 (등록 직후 / 수정에서 처음 켠 경우)
-        if (useLink && isSanjiCat && Date.parse(kstISO(form.link_end_at)!) > Date.now()) {
+        const periodChanged = mode === "edit"
+          && (form.link_start_at !== savedLinkPeriod.start || form.link_end_at !== savedLinkPeriod.end);
+        // Price-only edits preserve the existing link code: no issuance or timestamp bump.
+        if (useLink && isSanjiCat && (mode === "new" || !linkCode || periodChanged)
+          && Date.parse(kstISO(form.link_end_at)!) > Date.now()) {
           const saved = d;
           const savedId = mode === "new" ? saved.id : productId;
           if (savedId) {
@@ -561,6 +585,19 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   async function issueLink() {
     if (!productId) return;
+    if (linkPriceWarning) {
+      setStep(3);
+      setError(linkPriceWarning);
+      alert(`비전시 링크 발급 전 확인\n\n${linkPriceWarning}\n\n가격을 입력한 뒤 상품을 먼저 저장해주세요.`);
+      return;
+    }
+    if (form.link_start_at !== savedLinkPeriod.start || form.link_end_at !== savedLinkPeriod.end) {
+      const guidance = "비전시 링크의 시작·종료 시간이 수정됐어요. 먼저 상품 저장을 누른 뒤 새 기간의 링크를 확인해주세요.";
+      setStep(3);
+      setError(guidance);
+      alert(guidance);
+      return;
+    }
     setLinkBusy(true);
     setError("");
     try {
@@ -911,9 +948,14 @@ export default function ProductFormClient({ mode, productId }: Props) {
                           : "→ 전시가와 같음"}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">옵션 상품은 아래에서 비전시 가격을 각각 입력합니다. 빈 옵션은 비전시 판매에서 제외됩니다.</p>
+                  <p className="text-xs text-gray-400 mt-1">옵션 상품은 상단 링크가격 대신 아래 '옵션별 판매가격'을 사용합니다. 가격을 비운 옵션은 비전시 판매에서 제외됩니다.</p>
                 </div>
               </Grid2>
+              {linkPriceWarning && (
+                <p role="alert" className="text-xs font-medium text-amber-900 bg-amber-50 border border-amber-200 px-3 py-2">
+                  저장 전 확인: {linkPriceWarning}
+                </p>
+              )}
               {options.length > 0 && <div className="space-y-2">
                 <p className="text-sm font-semibold">옵션별 판매가격</p>
                 {options.filter(o=>o.name).map((o)=> <div key={o.name} className="grid grid-cols-3 items-center gap-3 text-sm">
@@ -949,7 +991,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                       className="border border-[#C7D6C0] text-[#2D5A27] hover:bg-[#EAF0E6] text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
                       {linkBusy ? "발급 중..." : "🔗 지금 발급"}
                     </button>
-                    <p className="text-xs text-gray-400">저장할 때 자동으로 발급되기도 해요.</p>
+                    <p className="text-xs text-gray-400">가격·기간을 먼저 상품 저장하면 자동 발급됩니다.</p>
                   </div>
                 )}
               </div>

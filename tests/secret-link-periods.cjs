@@ -49,6 +49,16 @@ test('start inclusive / end exclusive, missing dates and malformed code fail clo
  assert.equal(rules.linkApplies({...p,link_end_at:null},code),false);
  for(const c of ['',code+' ',code.toUpperCase(),[],null])assert.equal(rules.linkApplies(p,c),false);
 });
+test('admin preflight prevents unusable link prices before a partial product save',()=>{
+ const enabled={revoke_link:false,link_start_at:start,link_end_at:end};
+ const optionOnly={...enabled,link_price:8000,options:[{name:'5kg',active:true,link_price:null}]};
+ assert.match(settings.linkSettingsError(optionOnly),/옵션별 판매가격/);
+ assert.equal(settings.linkSettingsError({...optionOnly,options:[{name:'5kg',active:true,link_price:0}]}),null);
+ const noOptions={...enabled,link_price:null,options:[]};
+ assert.match(settings.linkSettingsError(noOptions),/링크가격/);
+ assert.equal(settings.linkSettingsError({...noOptions,link_price:0}),null);
+ assert.equal(settings.linkSettingsError({...optionOnly,revoke_link:true}),null);
+});
 test('option prices are explicit, including zero; unconfigured options excluded',()=>{
  assert.equal(rules.secretUnitPrice({price:10000,link_price:8000},{extra_price:15000,link_price:12300},true),12300);
  assert.equal(rules.secretUnitPrice({price:10000,link_price:8000},{extra_price:15000,link_price:null},true),null);

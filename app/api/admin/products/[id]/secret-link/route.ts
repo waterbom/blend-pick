@@ -27,7 +27,11 @@ async function handle(revoke: boolean, id: string, req: Request) {
     }
     if (!validLinkPeriod(p.link_start_at,p.link_end_at) || new Date(p.link_end_at).getTime() <= Date.now()) throw new ApiError('STATE_CONFLICT', "저장된 링크 시작·종료 일시를 확인해주세요. 종료된 기간은 재발급할 수 없습니다.");
     const opts=await client.query("SELECT link_price, is_active FROM product_options WHERE product_id=$1 AND is_active=true AND removed_at IS NULL",[id]);
-    if (opts.rows.length ? !opts.rows.some(o=>o.is_active && validLinkPrice(o.link_price)) : !validLinkPrice(p.link_price)) throw new ApiError('STATE_CONFLICT', "판매할 상품 또는 옵션의 비전시 가격을 먼저 저장해주세요.");
+    if (opts.rows.length ? !opts.rows.some(o=>o.is_active && validLinkPrice(o.link_price)) : !validLinkPrice(p.link_price)) {
+      throw new ApiError('STATE_CONFLICT', opts.rows.length
+        ? "판매 중인 옵션의 비전시 가격이 없습니다. 해결방법: 상품 수정 > 비전시 링크 > 옵션별 판매가격에서 판매할 옵션 하나 이상에 가격을 입력한 뒤 상품 저장을 눌러주세요."
+        : "비전시 가격이 없습니다. 해결방법: 상품 수정 > 비전시 링크 > 링크가격을 입력한 뒤 상품 저장을 눌러주세요.");
+    }
     const previous=await client.query("SELECT code,revoked_at FROM product_secret_links WHERE product_id=$1 AND starts_at=$2 AND ends_at=$3",[id,p.link_start_at,p.link_end_at]);
     let code=previous.rows[0]?.code;
     if (previous.rows[0]?.revoked_at) throw new ApiError('STATE_CONFLICT', "해제한 기간에는 다시 발급할 수 없습니다. 새 판매 기간을 설정해주세요.");
