@@ -71,7 +71,7 @@ function Img({ src, alt, style, className }: { src: string | null; alt: string; 
 }
 
 function RecommendedBadge() {
-  return <span className="sp-recommended-option">추천 구성</span>;
+  return <span className="sp-recommended-option">실속 구성</span>;
 }
 
 export default function SanjiSalesPage({ product, images, options, recommendedOptionId = null, reviews, stats, others, influencerId, linkCode, demo = false, kakaoUrl, linkBase }: SanjiSalesProps) {

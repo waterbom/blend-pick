@@ -123,8 +123,8 @@ test('Sanji shows one recommendation in the guide and purchase sheet without sel
  const badges=s=>(s.match(/class="sp-recommended-option"/g)||[]).length;
  assert.equal(badges(html()),1);
  const tree=render();walk(tree,n=>n.type==='button'&&n.props.className==='sp-buy').props.onClick();
- let open=html();assert.equal(badges(open),2);assert.match(open,/추천 구성/);assert.doesNotMatch(open,/가장 많이 팔리는 구성|누적 판매 수량 기준|class="sp-opt on"/);
- assert.match(open,/>5kg<\/span><span class="sp-recommended-option">추천 구성/);
+ let open=html();assert.equal(badges(open),2);assert.match(open,/실속 구성/);assert.doesNotMatch(open,/추천 구성|가장 많이 팔리는 구성|누적 판매 수량 기준|class="sp-opt on"/);
+ assert.match(open,/>5kg<\/span><span class="sp-recommended-option">실속 구성/);
  assert.ok(open.indexOf('>3kg</span>')<open.indexOf('>5kg</span>'));
  const purchase=walk(render(),n=>n.type==='button'&&n.props.children==='바로 구매하기');assert.equal(purchase.props.disabled,true);
  for(const id of [null,'d','removed']){props.recommendedOptionId=id;assert.equal(badges(html()),0);}
