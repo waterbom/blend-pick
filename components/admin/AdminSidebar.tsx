@@ -28,6 +28,11 @@ export default function AdminSidebar({siteKey='blendpick'}:{siteKey?:SiteKey}) {
  {full&&ready&&saved.length>0&&<div className="commerce-favorites"><b>즐겨찾기</b>{saved.map(i=><Link key={i.href} href={i.href} onClick={()=>setMobile(false)}>{i.label}</Link>)}</div>}
  {groups.map((g,index)=>full?<details key={g.label+current.group} open={g.label===current.group} className="commerce-nav-group"><summary><AdminIcon name={icons[index]}/><span>{g.label}</span></summary><div>{g.items.map(i=><div className={'commerce-nav-row '+(current.href===i.href?'is-active':'')} key={i.href}><Link href={i.href} aria-current={current.href===i.href?'page':undefined} onClick={()=>setMobile(false)}>{i.label}</Link><button type="button" aria-label={`${i.label} 즐겨찾기 ${favorites.includes(i.href)?'해제':'추가'}`} aria-pressed={favorites.includes(i.href)} onClick={()=>toggle(i.href)}>{favorites.includes(i.href)?'★':'☆'}</button></div>)}</div></details>:<Link key={g.label} href={g.items[0].href} className={`commerce-rail-link ${current.group===g.label?'is-active':''}`} aria-label={g.label} title={g.label} aria-current={current.group===g.label?'true':undefined}><AdminIcon name={icons[index]}/><span>{shortLabels[index]}</span></Link>)}
  </nav>
- <div className="commerce-sidebar-bottom"><Link href="/" className="commerce-store-link" title="스토어 보기" onClick={()=>setMobile(false)}><AdminIcon name="box"/><span>{full?'스토어 보기':'스토어'}</span></Link><form action="/api/admin/logout" method="POST" className="commerce-logout"><button aria-label="로그아웃"><AdminIcon name="logout"/>{full&&<span>로그아웃</span>}</button></form></div>
+ <div className="commerce-sidebar-bottom">
+ {/* Reload the document in this window: the shared root layout may have omitted the storefront header for the initial admin request. */}
+ {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+ <a href="/" className="commerce-store-link" title="스토어 보기"><AdminIcon name="box"/><span>{full?'스토어 보기':'스토어'}</span></a>
+ <form action="/api/admin/logout" method="POST" className="commerce-logout"><button aria-label="로그아웃"><AdminIcon name="logout"/>{full&&<span>로그아웃</span>}</button></form>
+ </div>
  </aside></>;
 }

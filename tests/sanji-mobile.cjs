@@ -17,6 +17,43 @@ test('Blendpick stays unframed and navigating away from admin restores customer 
  pathname='/admin/orders';assert.equal(render('sanjipick'),'<main>content</main>');
  pathname='/cart';assert.match(render('sanjipick'),/sanji-mobile-shell/);
 });
+test('store exit reloads the document in the same window so an admin-first visit gets its customer header back',async()=>{
+ // A soft Link navigation reuses the root layout, including an initially null server header.
+ // The admin exit must use normal document navigation to reevaluate that request context.
+ const walk=(node,predicate)=>{if(!node||typeof node!=='object')return null;if(predicate(node))return node;for(const child of React.Children.toArray(node.props?.children)){const found=walk(child,predicate);if(found)return found;}return null;};
+ for(const siteKey of ['blendpick','sanjipick'])for(const mode of ['collapsed','expanded','mobile']){
+  let state=0;
+  const Sidebar=load('components/admin/AdminSidebar.tsx',{
+   react:{...React,useEffect(){},useRef:()=>({current:null}),useState(initial){const index=state++;return[index===0?mode==='mobile':index===1?mode==='expanded':initial,()=>{}];}},
+   'next/navigation':{usePathname:()=>'/admin/orders'},
+   './AdminIcon':()=>null,
+  }).default;
+  const exit=walk(Sidebar({siteKey}),node=>node.props?.className==='commerce-store-link');
+  assert.ok(exit);
+  assert.equal(exit.type,'a','normal document navigation must refresh the shared root layout');
+  assert.equal(exit.props.href,'/');
+  assert.ok(!exit.props.target||exit.props.target==='_self');
+  assert.equal(exit.props.onClick,undefined,'no click interception or scroll restoration from the client router');
+ }
+ let requestPath='/admin/orders';
+ const SanjiHeader=load('components/sanji/SanjiHeader.tsx',{'next/navigation':{usePathname:()=>requestPath}}).default;
+ const Header=load('components/Header.tsx',{
+  '@/lib/site-server':{currentSite:async()=>({key:'sanjipick',nameEn:'SANJI PICK',basePath:'/sanji'})},
+  '@/lib/sanji-link':{sanjiLinkBase:async()=>''},
+  'next/headers':{headers:async()=>new Headers({'x-pathname':requestPath}),cookies:async()=>({get:key=>key==='admin_token'?{value:'test-session'}:undefined})},
+  '@/lib/auth':{verifyAdminToken:async()=>({name:'관리자'})},
+  '@/lib/db':{query:async()=>{throw Error('Unexpected database access');}},
+  '@/components/HeaderClient':props=>React.createElement(SanjiHeader,{base:props.site.basePath,user:props.user,isAdmin:props.isAdmin,cartCount:null}),
+ }).default;
+ assert.equal(await Header({storefrontRoot:true}),null);
+ requestPath='/';
+ const fresh=await Header({storefrontRoot:true});
+ assert.equal(fresh.props.isAdmin,true,'same-window navigation keeps the existing admin session');
+ const html=renderToStaticMarkup(fresh);
+ assert.match(html,/class="sj-wordmark"/);
+ assert.match(html,/role="search"/);
+ assert.match(html,/aria-label="메뉴 열기"/);
+});
 test('mobile overrides are valid named container rules, including header and checkout',()=>{
  const css=require('postcss').parse(require('node:fs').readFileSync('app/sanji-mobile.css','utf8'));
  const rules=[];css.walkAtRules(rule=>{assert.equal(rule.name,'container');assert.match(rule.params,/^sanji-mobile \(/);rules.push(rule);});
