@@ -202,6 +202,8 @@
 body:has(.dg-stay-page dialog[open]) { overflow: hidden; }
 .dg-stay-page dialog { margin: auto; }
 .dg-stay-page dialog.dgs-calendar-dialog { width: min(610px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 44px 22px 22px; border: 0; border-radius: 6px; background: #fff; color: var(--ink); }
+.dg-stay-page .dgs-calendar-dialog button { margin: 0; float: none; }
+.dg-stay-page .dgs-calendar-dialog .dg-month-nav button { padding: 0; }
 .dg-stay-page .dgs-calendar-dialog .dg-calendar { padding: 10px 0 0; border: 0; border-radius: 0; box-shadow: none; background: #fff; }
 .dg-stay-page .dgs-calendar-dialog .dg-calendar-top { padding-right: 5px; }
 .dg-stay-page .dgs-calendar-dialog .calendar-days > button { min-height: 72px; border-radius: 5px; }
