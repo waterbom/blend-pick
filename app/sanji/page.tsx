@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // 산지픽 메인 (sanjipick.blendpunch.com/) — 배너·대표 상품·한정특가·신상품·오픈 예정·후기.
 // 카테고리 '산지픽' 상품으로 채워지고, 각 카드는 /p/<id> 판매 페이지로 간다. 상품이 없으면 판매 준비 안내.
 export default async function SanjiRoot() {
-  const [products, reviews, linkBase] = await Promise.all([getSanjiProducts(), getSanjiHomeReviews(), sanjiLinkBase()]);
+  const [products, reviews, linkBase] = await Promise.all([getSanjiProducts({ includeImages: true }), getSanjiHomeReviews(), sanjiLinkBase()]);
 
   return (
     <main className="sanji-storefront">

@@ -9,6 +9,7 @@ import SanjiIcon, { type SanjiIconName } from "@/components/sanji/SanjiIcon";
 import SanjiBottomNav from "@/components/sanji/SanjiBottomNav";
 import SanjiProductCard from "@/components/sanji/SanjiProductCard";
 import SanjiProductStyles from "@/components/sanji/SanjiProductStyles";
+import SanjiProductImage from "@/components/sanji/SanjiProductImage";
 
 const tabs = ["홈", "농산물", "수산물", "새 공구", "마감 임박"];
 const maskName = (name: string) => (name || "고객").slice(0, 1) + "**";
@@ -70,7 +71,7 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
     { label: "새 공구", icon: "spark", href: "#sanji-new", tone: "new" },
     { label: "산지 이야기", icon: "pin", href: `${linkBase}/about`, tone: "story" },
   ];
-  const grid = (items: SanjiCard[]) => <div className="sj-product-grid">{items.map(p => <SanjiProductCard key={p.id} product={p} href={href(p)} now={now} />)}</div>;
+  const grid = (items: SanjiCard[]) => <div className="sj-product-grid">{items.map(p => <SanjiProductCard key={p.id} product={p} href={href(p)} now={now} autoPlay />)}</div>;
 
   return <div className="sh">
     <SanjiProductStyles />
@@ -96,7 +97,7 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
       .sh-sec{padding:27px 20px 7px;scroll-margin-top:114px}
       .sh-sec__h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}.sh-sec__h h2{margin:0;font-size:20px;line-height:1.4;font-weight:700;letter-spacing:-.04em}.sh-sec__h>a{font-size:12px;color:#777;white-space:nowrap}
       .sh-sec__sub{font-size:12px;line-height:1.6;color:#777;margin:0 0 17px}
-      .sh-close-list{display:grid;gap:17px}.sh-close{display:grid;grid-template-columns:104px minmax(0,1fr);gap:13px;align-items:start}.sh-close-image{aspect-ratio:1;overflow:hidden;border-radius:6px;background:#f5f5f2}.sh-close-image img{width:100%;height:100%;object-fit:contain}.sh-close-time{display:flex;align-items:center;gap:4px;font-size:11px;color:#b44119;font-weight:600;margin:2px 0 6px}.sh-close-name{font-size:14px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.sh-close-price{display:block;margin-top:7px;font-size:18px;font-weight:700}
+      .sh-close-list{display:grid;gap:17px}.sh-close{display:grid;grid-template-columns:104px minmax(0,1fr);gap:13px;align-items:start}.sh-close-image{position:relative;aspect-ratio:1;overflow:hidden;border-radius:6px;background:#f5f5f2}.sh-close-image img{width:100%;height:100%;object-fit:contain}.sh-close-time{display:flex;align-items:center;gap:4px;font-size:11px;color:#b44119;font-weight:600;margin:2px 0 6px}.sh-close-name{font-size:14px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.sh-close-price{display:block;margin-top:7px;font-size:18px;font-weight:700}
       .sh-story{display:flex;align-items:center;gap:14px;margin:29px 20px 1px;padding:19px 0;border-top:1px solid #eee5da;border-bottom:1px solid #eee5da}.sh-story-icon{flex-shrink:0;color:#8a6b46}.sh-story strong{font-size:15px;font-weight:700}.sh-story p{font-size:12px;line-height:1.6;color:#777;margin:4px 0 0}.sh-story>svg:last-child{margin-left:auto;color:#8c8173;flex-shrink:0}
       .sh-more{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:22px;min-height:46px;border:1px solid #ddd;border-radius:5px;font-size:13px;font-weight:600}
       .sh-empty{padding:35px 8px;font-size:14px;line-height:1.7;color:#777;text-align:center}
@@ -113,12 +114,12 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
       {banners.length > 0 && <section className="sh-feature" aria-label="대표 산지 공구">
         <div className="sh-feature-head"><div><span className="sh-eyebrow">오늘도 맛있는 산지픽</span><h1>산지의 좋은 것만,<br />오늘의 식탁에.</h1></div><a href={`${linkBase}/products`}>모두 보기 <SanjiIcon name="chevron" size={12} /></a></div>
         <div className="sh-ban__track" ref={track} onTouchStart={() => { paused.current = true; }} onTouchEnd={() => { paused.current = false; }} onMouseEnter={() => { paused.current = true; }} onMouseLeave={() => { paused.current = false; }}>
-          {banners.map(p => <SanjiProductCard key={p.id} product={p} href={href(p)} now={now} banner />)}
+          {banners.map(p => <SanjiProductCard key={p.id} product={p} href={href(p)} now={now} banner autoPlay />)}
         </div>
       </section>}
       <nav className="sh-shortcuts" aria-label="상품 바로가기">{shortcuts.map(item => <a key={item.label} href={item.href}><span className={item.tone}><SanjiIcon name={item.icon} size={26} /></span>{item.label}</a>)}</nav>
 
-      {closing.length > 0 && <section className="sh-sec" id="sanji-closing"><div className="sh-sec__h"><h2>곧 마감하는 공구</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">공구가 끝나기 전에 살펴보세요</p><div className="sh-close-list">{closing.slice(0, 2).map(p => <a key={p.id} href={href(p)} className="sh-close"><div className="sh-close-image">{p.main_image && <img src={p.main_image} alt={p.name} loading="lazy" />}</div><div><span className="sh-close-time"><SanjiIcon name="clock" size={13} />{closingLabel(p.sale_end_at!, now)}</span><span className="sh-close-name">{p.name}</span><strong className="sh-close-price">{p.price.toLocaleString("ko-KR")}원</strong></div></a>)}</div></section>}
+      {closing.length > 0 && <section className="sh-sec" id="sanji-closing"><div className="sh-sec__h"><h2>곧 마감하는 공구</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">공구가 끝나기 전에 살펴보세요</p><div className="sh-close-list">{closing.slice(0, 2).map(p => <a key={p.id} href={href(p)} className="sh-close"><div className="sh-close-image"><SanjiProductImage mainImage={p.main_image} images={p.images} name={p.name} autoPlay /></div><div><span className="sh-close-time"><SanjiIcon name="clock" size={13} />{closingLabel(p.sale_end_at!, now)}</span><span className="sh-close-name">{p.name}</span><strong className="sh-close-price">{p.price.toLocaleString("ko-KR")}원</strong></div></a>)}</div></section>}
 
       <section className="sh-sec" id="sanji-new"><div className="sh-sec__h"><h2>지금 열린 산지 공구</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">새로 들어온 먹거리부터 차근차근 둘러보세요</p>{newest.length ? grid(newest.slice(0, 8)) : <div className="sh-empty">새로운 산지 공구를 준비하고 있어요.</div>}<a className="sh-more" href={`${linkBase}/products`}>공구 상품 더 보기 <SanjiIcon name="chevron" size={13} /></a></section>
 

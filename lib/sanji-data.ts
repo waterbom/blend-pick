@@ -63,6 +63,7 @@ export interface SanjiCard {
   price: number;
   original_price: number | null;
   main_image: string | null;
+  images?: string[];
   stock: number;
   status: string;
   sale_start_at: string | null;
@@ -92,11 +93,12 @@ export interface SanjiStats {
 
 const CATS = SITES.sanjipick.categories;
 
-export async function getSanjiProducts(): Promise<SanjiCard[]> {
+export async function getSanjiProducts({ includeImages = false }: { includeImages?: boolean } = {}): Promise<SanjiCard[]> {
   try {
     const r = await shopPool.query(
       `SELECT p.id, p.name, p.brand, p.category, p.price, p.original_price, p.main_image, p.stock, p.status,
               p.sale_start_at, p.sale_end_at, p.created_at,
+              ${includeImages ? `ARRAY(SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.url ASC) AS images,` : ""}
               COALESCE((SELECT SUM(oi.quantity)::int FROM order_items oi JOIN orders o ON o.id = oi.order_id
                          WHERE oi.product_id = p.id AND o.status <> 'cancelled' AND o.status <> 'pending'), 0) AS sold
          FROM products_shop p
