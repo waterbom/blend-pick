@@ -6,6 +6,7 @@ import BookingCalendar from './Calendar';
 import PaymentSummary from './PaymentSummary';
 import { startingPrice, useDangungAvailability } from './Availability';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
+import RoomSlideshow from '@/components/dangung/RoomSlideshow';
 export const money=(n:number)=>`${n.toLocaleString('ko-KR')}원`;
 export async function bookingApi(input:object){const r=await fetch('/api/dangung',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});const data=await r.json();if(!r.ok)throw Error(data.error||'예약 처리에 실패했습니다.');return data;}
 const dayKey=(d:Date)=>d.toISOString().slice(0,10);
@@ -36,7 +37,7 @@ export default function DangungBooking({clientKey}:{clientKey:string}){
  return <section id="booking" className="booking-section dg-booking-live" aria-labelledby="booking-heading">
   <div className="dgs-booking-panel">
    <div className="dgs-booking-heading"><span className="dgs-kicker">YOUR STAY AT DANGUNG</span><h2 id="booking-heading" tabIndex={-1}>객실 선택</h2></div>
-   <div className="dgs-booking-room"><img src="/hotel/dangung/photo-07.jpg" alt="단궁 독채 침실" width={90} height={68}/><div><h3>단궁 독채</h3><p>기준 6인 / 최대 16인</p><span>한옥 독채 · 1개 타입</span></div></div>
+   <div className="dgs-booking-room"><RoomSlideshow compact/><div><h3>단궁 독채</h3><p>기준 6인 / 최대 16인</p><span>한옥 독채 · 1개 타입</span></div></div>
    <div className="dgs-booking-rate" aria-live="polite">{price!==null?<><strong>{money(price)}</strong><span>부터 / 1박</span></>:<p>{loadError?'예약 정보를 다시 불러와 주세요.':!calendar?'예약 정보를 확인하고 있습니다.':selling?'현재 예약 가능한 날짜가 없습니다.':'예약 오픈 준비 중입니다.'}</p>}<small>추가 인원·옵션·시설 보증금 별도</small></div>
    {(error||loadError)&&<p className="booking-error" role="alert">{error||loadError} <button type="button" disabled={busy} onClick={()=>{setError('');refresh().catch(e=>setError(e.message));}}>다시 불러오기 ↻</button></p>}
    <form className="booking-form dgs-booking-form" onSubmit={reviewBooking}>

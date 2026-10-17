@@ -1,5 +1,6 @@
 import DangungGallery from '@/components/dangung/Gallery';
 import DangungNotice from '@/components/dangung/Notice';
+import RoomSlideshow from '@/components/dangung/RoomSlideshow';
 import { getPhoto, photoPath } from '@/components/dangung/Photos';
 import { dangungBlogPosts, dangungBlogSearch } from '@/lib/dangung-blog-posts';
 
@@ -56,7 +57,7 @@ export function DangungStory() {
 
     <section className="dgs-section" id="rooms" aria-labelledby="rooms-heading">
       <div className="dgs-section-heading"><div><span className="dgs-kicker">SELECT ROOM</span><h2 id="rooms-heading">객실 선택</h2></div><span className="dgs-small">한옥 독채 1개 타입</span></div>
-      <article className="dgs-room-detail"><Photo id={7}/><div className="dgs-room-description"><span className="dgs-kicker">PRIVATE HOUSE</span><h3>단궁 독채</h3><p>한옥과 정원, 함께 쉬는 하루.</p><dl><div><dt>이용 인원</dt><dd>기준 6인 / 최대 16인</dd></div><div><dt>체크인 / 체크아웃</dt><dd>15:00 / 11:00</dd></div><div><dt>공간</dt><dd>침실 · 거실 · 주방 · 다이닝 · 욕실</dd></div></dl><a href="#booking" className="dgs-room-select">날짜 선택하고 예약하기 <span aria-hidden="true">→</span></a></div></article>
+      <article className="dgs-room-detail"><RoomSlideshow/><div className="dgs-room-description"><span className="dgs-kicker">PRIVATE HOUSE</span><h3>단궁 독채</h3><p>한옥과 정원, 함께 쉬는 하루.</p><dl><div><dt>이용 인원</dt><dd>기준 6인 / 최대 16인</dd></div><div><dt>체크인 / 체크아웃</dt><dd>15:00 / 11:00</dd></div><div><dt>공간</dt><dd>침실 · 거실 · 주방 · 다이닝 · 욕실</dd></div></dl><a href="#booking" className="dgs-room-select">날짜 선택하고 예약하기 <span aria-hidden="true">→</span></a></div></article>
       <div className="dgs-mini-heading dgs-room-gallery-heading"><h3>객실 자세히 보기</h3><div className="dgs-gallery-arrows"><button id="rooms-prev" type="button" aria-label="이전 객실 사진" aria-controls="room-gallery">←</button><button id="rooms-next" type="button" aria-label="다음 객실 사진" aria-controls="room-gallery">→</button></div></div>
       <div className="dgs-room-gallery" id="room-gallery" role="region" aria-label="단궁 객실 사진" tabIndex={0}>{[8, 9, 11, 12, 10, 13, 14].map(id => <Photo id={id} label={getPhoto(id).label} key={id}/>)}</div>
       <p className="dgs-small dgs-room-help">인원에 맞는 침실·침구 구성이 궁금하다면 <a href={chat} target="_blank" rel="noopener noreferrer">객실 구성 상담 ↗</a></p>

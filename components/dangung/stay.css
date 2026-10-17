@@ -83,7 +83,17 @@
 .dg-stay-page .dgs-amenities span { display: block; margin-bottom: 5px; color: #939c8b; font-size: 10px; }
 
 .dg-stay-page .dgs-room-detail { border: 1px solid var(--line); }
-.dg-stay-page .dgs-room-detail > .dgs-photo img { aspect-ratio: 16 / 9; }
+.dg-stay-page .dgs-room-slideshow { position: relative; background: #f4f4ef; }
+.dg-stay-page .dgs-room-slideshow-open { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; padding: 0; border: 0; background: transparent; color: #fff; }
+.dg-stay-page .dgs-room-slideshow-track { position: absolute; inset: 0; display: flex; transition: transform 450ms ease; }
+.dg-stay-page .dgs-room-slideshow .dgs-room-slideshow-track > img { display: block; flex: 0 0 100%; width: 100%; min-width: 100%; height: 100%; object-fit: cover; }
+.dg-stay-page .dgs-room-slideshow-caption { position: absolute; inset: auto 0 0; display: flex; justify-content: space-between; align-items: center; padding: 28px 58px 15px 18px; font-size: 12px; background: linear-gradient(transparent, #0008); }
+.dg-stay-page .dgs-room-slideshow-caption > span { font-size: 11px; font-variant-numeric: tabular-nums; }
+.dg-stay-page .dgs-room-slideshow-pause { position: absolute; right: 12px; bottom: 10px; display: grid; place-items: center; width: 30px; height: 30px; min-height: 0; border: 1px solid #ffffff55; border-radius: 50%; padding: 0; color: #fff; background: #0005; }
+.dg-stay-page .dgs-room-slideshow-pause:hover { background: #0009; }
+.dg-stay-page .dgs-room-slideshow-compact { width: 86px; height: 66px; flex: 0 0 86px; }
+.dg-stay-page .dgs-room-slideshow-compact .dgs-room-slideshow-open { height: 100%; aspect-ratio: auto; }
+.dg-stay-page .dgs-room-slideshow-compact .dgs-room-slideshow-pause { right: 3px; bottom: 3px; width: 24px; height: 24px; }
 .dg-stay-page .dgs-room-description { padding: 24px 26px; }
 .dg-stay-page .dgs-room-description h3 { font: 500 25px/1.6 var(--serif); letter-spacing: -.04em; margin: 5px 0; }
 .dg-stay-page .dgs-room-description > p { font-size: 12px; color: var(--muted); margin: 0 0 20px; }
@@ -151,7 +161,6 @@
 .dg-stay-page .dgs-booking-panel { border: 1px solid #dce0d6; border-radius: 4px; background: #fff; padding: 24px; max-height: calc(100dvh - var(--blend-header-height) - var(--dgs-nav-height) - 48px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d4d9cc transparent; }
 .dg-stay-page .dgs-booking-heading h2 { font-size: 18px; font-weight: 500; line-height: 1.5; margin: 6px 0 20px; }
 .dg-stay-page .dgs-booking-room { display: flex; align-items: center; gap: 13px; }
-.dg-stay-page .dgs-booking-room img { display: block; width: 86px; height: 66px; object-fit: cover; flex-shrink: 0; }
 .dg-stay-page .dgs-booking-room h3 { font-size: 15px; font-weight: 500; line-height: 1.5; margin: 0 0 4px; }
 .dg-stay-page .dgs-booking-room p { font-size: 11px; color: var(--muted); margin: 0; }
 .dg-stay-page .dgs-booking-room span { font-size: 10px; color: var(--muted); }
