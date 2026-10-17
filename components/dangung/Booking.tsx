@@ -2,10 +2,8 @@
 import { useRef,useState } from 'react';
 import { commerceParams } from '@/lib/analytics';
 import { useMetaEvent } from '@/lib/use-meta-event';
-import DangungPolicies from './Policies';
 import BookingCalendar from './Calendar';
 import PaymentSummary from './PaymentSummary';
-import DangungPricing from './Pricing';
 import { startingPrice, useDangungAvailability } from './Availability';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
 export const money=(n:number)=>`${n.toLocaleString('ko-KR')}원`;
@@ -16,7 +14,7 @@ type Quote={version:number;checkIn:string;checkOut:string;guests:number;infants:
 export default function DangungBooking({clientKey}:{clientKey:string}){
  const {calendar,loadError,refresh}=useDangungAvailability();
  const [error,setError]=useState(''),[month,setMonth]=useState(0),[checkIn,setIn]=useState(''),[checkOut,setOut]=useState(''),[guests,setGuests]=useState(6),[bbq,setBbq]=useState(false),[monitor,setMonitor]=useState(false),[infants,setInfants]=useState(0),[buyerName,setName]=useState(''),[buyerPhone,setPhone]=useState(''),[memo,setMemo]=useState(''),[quote,setQuote]=useState<Quote|null>(null),[busy,setBusy]=useState(false),[agree,setAgree]=useState(false),[code,setCode]=useState(''),[verified,setVerified]=useState(false),[notice,setNotice]=useState(''),[reviewStep,setReviewStep]=useState<'terms'|'confirm'>('terms');
- const review=useRef<HTMLDialogElement>(null),requestId=useRef(''),pending=useRef(false);
+ const datePicker=useRef<HTMLDialogElement>(null),review=useRef<HTMLDialogElement>(null),requestId=useRef(''),pending=useRef(false);
  const selling=!!(calendar?.config.enabled&&calendar.paymentReady);
  useMetaEvent('ViewContent','hotel-dangung',{content_type:'product',content_ids:['hotel-dangung']});
  useMetaEvent('InitiateCheckout','hotel-dangung',commerceParams([{id:'hotel-dangung',quantity:1,price:quote?.total??0}]),!!quote);
@@ -24,7 +22,7 @@ export default function DangungBooking({clientKey}:{clientKey:string}){
  function canOut(day:string){if(!checkIn||day<=checkIn||!calendar)return false;const count=(Date.parse(day)-Date.parse(checkIn))/86400000;return count<=calendar.config.maxNights&&Array.from({length:count},(_,i)=>addDay(checkIn,i)).every(available);}
  function choose(day:string){setQuote(null);setError('');requestId.current='';if(checkIn&&!checkOut&&day>checkIn){if(canOut(day))setOut(day);else setError('기간 중 마감된 날짜가 있습니다. 다른 입실일을 선택해 주세요.');}else{setIn(day);setOut('');}}
  async function phone(action:'send'|'confirm'){setBusy(true);setError('');try{const r=await fetch(action==='send'?'/api/verify/phone':'/api/verify/phone/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:buyerPhone,code})});const d=await r.json();if(!r.ok)throw Error(d.error);if(action==='confirm')setVerified(true);setNotice(action==='send'?'인증번호를 보냈습니다.':'휴대폰 인증이 완료되었습니다.');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
- async function reviewBooking(e:React.FormEvent){e.preventDefault();if(pending.current)return;setError('');if(!checkIn||!checkOut){setError('입실일과 퇴실일을 선택해 주세요.');return;}setBusy(true);try{const q=await bookingApi({action:'quote',checkIn,checkOut,guests,infants,bbq,monitor});setQuote(q);setAgree(false);}catch(e){setError((e as Error).message);await refresh().catch(()=>{});}finally{setBusy(false);}}
+ async function reviewBooking(e:React.FormEvent){e.preventDefault();if(pending.current)return;setError('');if(!checkIn||!checkOut){setError('입실일과 퇴실일을 선택해 주세요.');datePicker.current?.showModal();return;}setBusy(true);try{const q=await bookingApi({action:'quote',checkIn,checkOut,guests,infants,bbq,monitor});setQuote(q);setAgree(false);}catch(e){setError((e as Error).message);await refresh().catch(()=>{});}finally{setBusy(false);}}
  async function pay(){if(pending.current||!quote||!agree)return;if(calendar?.phoneVerify&&!verified){setError('휴대폰 인증을 완료해 주세요.');return;}pending.current=true;setBusy(true);setError('');let reservation:any;
  try{requestId.current||=crypto.randomUUID();reservation=await bookingApi({action:'reserve',requestId:requestId.current,checkIn,checkOut,guests,infants,bbq,monitor,buyerName,buyerPhone,memo,version:quote.version,amount:quote.total,agreed:true});
  if(reservation.status!=='pending'){location.assign(`/hotel/dangung/result?orderId=${reservation.id}`);return;}
@@ -34,11 +32,39 @@ export default function DangungBooking({clientKey}:{clientKey:string}){
  const current=calendar?new Date(`${calendar.today.slice(0,7)}-01T00:00:00Z`):new Date('2026-01-01T00:00:00Z');current.setUTCMonth(current.getUTCMonth()+month);
 
  const price=startingPrice(calendar);
- return <section id="booking" className="booking-section dg-booking-live"><div className="heading"><div><div className="eyebrow">STAY WITH US</div><h2 id="booking-heading" className="serif" tabIndex={-1}>함께할 날짜와 총요금을 확인하세요.</h2></div><p>{price!==null?<>1박 <strong>{money(price)}부터</strong><br/>기준 6인 · 추가 비용 별도</>:loadError?'예약 정보를 다시 불러와 주세요.':!calendar?'예약 정보를 확인하고 있습니다.':selling?'현재 예약 가능한 날짜가 없습니다.':'예약 오픈 준비 중입니다.'}</p></div>
- {(error||loadError)&&<p className="booking-error" role="alert">{error||loadError} <button type="button" onClick={()=>{setError('');refresh().catch(e=>setError(e.message));}}>다시 불러오기 ↻</button></p>}
- {notice&&<p role="status">{notice}</p>}
- <DangungPricing plan={calendar?.config.pricingPlan}/><ol className="dg-steps" aria-label="예약 순서"><li>1. 날짜·옵션</li><li>2. 최종 가격</li><li>3. 규정 확인</li><li>4. 결제</li></ol><div className="booking-layout"><BookingCalendar current={current} today={calendar?.today} dates={calendar?.dates||[]} month={month} busy={busy} selling={selling} checkIn={checkIn} checkOut={checkOut} available={available} canOut={canOut} onChoose={choose} onMonth={delta=>setMonth(m=>m+delta)} onReset={()=>{setIn('');setOut('');setQuote(null);requestId.current='';}}/>
- <form className="booking-form dg-checkout-card" onSubmit={reviewBooking}><div className="dg-room-card"><img src="/hotel/dangung/photo-01.jpg" alt="단궁 한옥과 정원" width={80} height={80}/><div><span>PRIVATE HANOK STAY</span><h3>단궁 독채 숙박</h3><p>한옥과 정원, 오직 우리만의 하루</p></div></div><fieldset disabled={busy||!selling}><legend>인원과 옵션 선택</legend><p className="booking-small">기준 6인 · 최대 16인 · 반려동물 동반 불가</p><div className="dg-guest-grid"><label>이용 인원 (36개월 이상)<select value={guests} onChange={e=>{setGuests(Number(e.target.value));setQuote(null);requestId.current='';}}>{Array.from({length:16},(_,i)=><option key={i} value={i+1}>{i+1}인</option>)}</select></label><label>36개월 미만 유아 (무료)<input type="number" min={0} max={99} step={1} value={infants} onChange={e=>{setInfants(Number(e.target.value));setQuote(null);requestId.current='';}}/></label></div><p className="booking-small">36개월 미만 유아는 기준·최대 인원에 포함되지 않습니다.</p>{selling&&<p className="booking-small">6인 초과 시 1인 {money(calendar!.config.extraGuestFee)} / {calendar!.config.extraGuestUnit==='perNight'?'1박당':'예약당'} · 침구 포함</p>}<div className="dg-options-heading"><h3 className="dg-options-title">머무는 즐거움을 더해보세요</h3><span>선택 사항</span></div><label className={`dg-check dg-option-card ${bbq?'is-chosen':''}`}><input type="checkbox" checked={bbq} onChange={e=>{setBbq(e.target.checked);setQuote(null);requestId.current='';}}/><span className="dg-option-icon" aria-hidden="true">♨</span><span className="dg-option-copy"><b>바비큐 세팅</b><small>함께 굽고 나누는 저녁 · 예약당 1회</small></span><strong>{money(calendar?.config.bbqFee??50000)}</strong></label><label className={`dg-check dg-option-card ${monitor?'is-chosen':''}`}><input type="checkbox" checked={monitor} onChange={e=>{setMonitor(e.target.checked);setQuote(null);requestId.current='';}}/><span className="dg-option-icon dg-screen-icon" aria-hidden="true">▱</span><span className="dg-option-copy"><b>64인치 모니터 추가</b><small>큰 화면으로 즐기는 시간 · 예약당 1회</small></span><strong>{money(calendar?.config.monitorFee??50000)}</strong></label><button className="booking-primary" type="submit">{busy?'계산 중…':'최종 가격 확인 →'}</button><p className="dg-before-pay">가격과 환불 규정을 확인한 뒤 결제를 진행합니다.</p></fieldset>{quote&&<div className="dg-total-review" aria-live="polite"><h3 className="dg-review-label">최종 가격 확인</h3><PaymentSummary quote={quote}/><button className="booking-primary" type="button" onClick={()=>{setAgree(false);setError('');setReviewStep('terms');review.current?.showModal();}}>환불규정·보증금 확인 →</button></div>}{!selling&&<p className="dg-closed">현재 예약 결제는 오픈 준비 중입니다.<br/>촬영대관·숙박 일정은 <a href="http://pf.kakao.com/_VyING/chat" target="_blank" rel="noopener noreferrer">카카오 상담 ↗</a>으로 문의해 주세요.</p>}<a className="text-button" href="/hotel/dangung/result">내 예약 확인 →</a></form></div>
+ const nights=checkIn&&checkOut?(Date.parse(checkOut)-Date.parse(checkIn))/86400000:0;
+ return <section id="booking" className="booking-section dg-booking-live" aria-labelledby="booking-heading">
+  <div className="dgs-booking-panel">
+   <div className="dgs-booking-heading"><span className="dgs-kicker">YOUR STAY AT DANGUNG</span><h2 id="booking-heading" tabIndex={-1}>객실 선택</h2></div>
+   <div className="dgs-booking-room"><img src="/hotel/dangung/photo-07.jpg" alt="단궁 독채 침실" width={90} height={68}/><div><h3>단궁 독채</h3><p>기준 6인 / 최대 16인</p><span>한옥 독채 · 1개 타입</span></div></div>
+   <div className="dgs-booking-rate" aria-live="polite">{price!==null?<><strong>{money(price)}</strong><span>부터 / 1박</span></>:<p>{loadError?'예약 정보를 다시 불러와 주세요.':!calendar?'예약 정보를 확인하고 있습니다.':selling?'현재 예약 가능한 날짜가 없습니다.':'예약 오픈 준비 중입니다.'}</p>}<small>추가 인원·옵션·시설 보증금 별도</small></div>
+   {(error||loadError)&&<p className="booking-error" role="alert">{error||loadError} <button type="button" disabled={busy} onClick={()=>{setError('');refresh().catch(e=>setError(e.message));}}>다시 불러오기 ↻</button></p>}
+   <form className="booking-form dgs-booking-form" onSubmit={reviewBooking}>
+    <fieldset disabled={busy||!selling}>
+     <legend className="dgs-sr-only">예약 날짜, 인원과 옵션 선택</legend>
+     <button type="button" className="dgs-date-trigger" aria-haspopup="dialog" aria-controls="dangung-date-picker" onClick={()=>datePicker.current?.showModal()}>
+      <span><small>체크인</small><strong>{checkIn?checkIn.replaceAll('-', '.'):'날짜 선택'}</strong></span><i aria-hidden="true">→</i><span><small>체크아웃</small><strong>{checkOut?checkOut.replaceAll('-', '.'):'날짜 선택'}</strong></span>
+     </button>
+     <p className="dgs-date-caption">{nights?`${nights}박 ${nights+1}일 · `:''}입실 15:00 · 퇴실 11:00</p>
+     <div className="dg-guest-grid"><label>이용 인원 <small>36개월 이상</small><select value={guests} onChange={e=>{setGuests(Number(e.target.value));setQuote(null);requestId.current='';}}>{Array.from({length:16},(_,i)=><option key={i} value={i+1}>{i+1}인</option>)}</select></label><label>유아 <small>36개월 미만 · 무료</small><input aria-label="36개월 미만 유아 인원" type="number" min={0} max={99} step={1} value={infants} onChange={e=>{setInfants(Number(e.target.value));setQuote(null);requestId.current='';}}/></label></div>
+     <p className="booking-small dgs-guest-note">36개월 미만 유아는 기준·최대 인원에서 제외됩니다.{selling&&<><br/>6인 초과 1인 {money(calendar!.config.extraGuestFee)} / {calendar!.config.extraGuestUnit==='perNight'?'1박':'예약'} · 침구 포함</>}</p>
+     <details className="dgs-booking-extras"><summary>선택 옵션 <span>{[bbq&&'바비큐',monitor&&'모니터'].filter(Boolean).join(' · ')||'선택 안 함'}</span></summary>
+      <label className="dg-check dgs-booking-option"><input type="checkbox" checked={bbq} onChange={e=>{setBbq(e.target.checked);setQuote(null);requestId.current='';}}/><span><b>바비큐 세팅</b><small>예약당 1회</small></span><strong>{calendar?money(calendar.config.bbqFee):'요금 확인 중'}</strong></label>
+      <label className="dg-check dgs-booking-option"><input type="checkbox" checked={monitor} onChange={e=>{setMonitor(e.target.checked);setQuote(null);requestId.current='';}}/><span><b>64인치 모니터</b><small>예약당 1회</small></span><strong>{calendar?money(calendar.config.monitorFee):'요금 확인 중'}</strong></label>
+     </details>
+     <button className="booking-primary" type="submit">{busy?'요금 확인 중…':quote?'선택한 일정 요금 다시 확인':'최종 가격 확인'}</button>
+    </fieldset>
+    {quote?<div className="dg-total-review" aria-live="polite"><h3 className="dg-review-label">선택한 일정의 결제금액</h3><PaymentSummary quote={quote}/><button className="booking-primary" type="button" disabled={busy} onClick={()=>{setAgree(false);setError('');setReviewStep('terms');review.current?.showModal();}}>환불규정 확인하고 예약하기</button></div>:<p className="dg-before-pay">날짜·인원 선택 후 최종 요금을 확인해 주세요.<br/>환불규정 확인 후 결제를 진행합니다.</p>}
+   </form>
+   {!selling&&calendar&&<p className="dg-closed">현재 예약 결제는 오픈 준비 중입니다.<br/>숙박·촬영대관은 <a href="http://pf.kakao.com/_VyING/chat" target="_blank" rel="noopener noreferrer">카카오 상담 ↗</a>으로 문의해 주세요.</p>}
+   <div className="dgs-booking-links"><a href="/hotel/dangung/result">내 예약 확인</a><a href="http://pf.kakao.com/_VyING/chat" target="_blank" rel="noopener noreferrer">예약 문의 ↗</a></div>
+  </div>
+  <dialog ref={datePicker} id="dangung-date-picker" className="booking-dialog dgs-calendar-dialog" aria-label="단궁 예약 날짜 선택" onCancel={e=>{if(busy)e.preventDefault();}} onClick={e=>{if(e.target===e.currentTarget&&!busy)e.currentTarget.close();}}>
+   <button type="button" disabled={busy} className="dialog-close" aria-label="날짜 선택 닫기" onClick={()=>datePicker.current?.close()}>×</button>
+   <BookingCalendar current={current} today={calendar?.today} dates={calendar?.dates||[]} month={month} busy={busy} selling={selling} checkIn={checkIn} checkOut={checkOut} available={available} canOut={canOut} onChoose={choose} onMonth={delta=>setMonth(m=>m+delta)} onReset={()=>{setIn('');setOut('');setQuote(null);requestId.current='';}}/>
+   {error&&<p className="booking-error" role="alert">{error}</p>}
+   <button type="button" className="booking-primary" disabled={!checkIn||!checkOut||busy} onClick={()=>datePicker.current?.close()}>{nights?`${nights}박 일정 적용`:'입실일·퇴실일을 선택해 주세요'}</button>
+  </dialog>
  <dialog ref={review} className="booking-dialog dg-checkout-dialog" aria-labelledby="dg-review-title" onCancel={e=>{if(busy)e.preventDefault();}}>
  <button type="button" disabled={busy} className="dialog-close" aria-label="예약 확인 닫기" onClick={()=>review.current?.close()}>×</button>
  <div className="dg-review-header"><span className="dg-calendar-eyebrow">A DAY TO REMEMBER</span><h2 id="dg-review-title">{reviewStep==='terms'?'환불규정·보증금 확인':'결제 최종 내역 확인'}</h2><div className="dg-review-progress"><span className={reviewStep==='terms'?'is-current':'is-done'}>01 규정 확인</span><i aria-hidden="true">→</i><span className={reviewStep==='confirm'?'is-current':''}>02 내역 확인 · 결제</span></div></div>
@@ -60,6 +86,6 @@ export default function DangungBooking({clientKey}:{clientKey:string}){
  <p className="booking-small">결제 승인 완료 후 예약이 확정됩니다. 결제 진행 중에는 최대 15분간 날짜를 확보합니다.</p></div>
  </fieldset></form>}
  </dialog>
- <DangungPolicies refundTerms={calendar?.config.refundTerms||undefined} depositTerms={calendar?.config.depositTerms||undefined} depositPaymentNote={calendar?.config.depositPaymentNote||undefined} extraGuestFee={calendar?.config.extraGuestFee} extraGuestUnit={calendar?.config.extraGuestUnit}/>
+
  </section>;
 }

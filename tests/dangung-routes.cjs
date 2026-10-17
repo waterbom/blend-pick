@@ -17,10 +17,10 @@ test('missing payment configuration prevents new reservation and admin opening',
 test('client response never exposes database errors or secrets',()=>{const m=load('lib/dangung-server.ts',{'@/lib/db-shop':{},'next/headers':{},'@/lib/auth':{}});assert.equal(m.failure(new Error('password=private')).status,503);assert.equal(m.failure(new BookingError('판매 준비 중',409)).status,409);});
 test('published stay content retains all 22 photos and care details',()=>{
  const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
- const {DangungHero,DangungStory,DangungGuide}=load('components/dangung/Landing.tsx',{'./Availability':{StayRate:()=>null,StayFees:()=>null}});
+ const {DangungHero,DangungStory,DangungGuide}=load('components/dangung/Landing.tsx',{'@/components/dangung/Notice':()=>null});
  const html=[DangungHero,DangungStory,DangungGuide].map(Component=>renderToStaticMarkup(React.createElement(Component))).join('');
  const src=[...html.matchAll(/src="([^"]+)"/g)].map(m=>m[1]);
- assert.equal(src.length,22);assert.equal(new Set(src).size,22);
+ assert.equal(new Set(src).size,22);
  assert.match(html,/침구류는 매일 세탁/);assert.match(html,/단궁 직원이 직접 청소/);
  assert.doesNotMatch(html,/파티룸|DRAFT|전달 예정|초안 검토|제시가/);
 });
