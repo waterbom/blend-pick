@@ -1,26 +1,80 @@
 'use client';
-import { useEffect,useRef } from 'react';
-import { StayRate } from './Availability';
-export default function DangungInteractions(){
- const viewer=useRef<HTMLDialogElement>(null),dock=useRef<HTMLDivElement>(null);
- useEffect(()=>{
- const root=document.querySelector('.dangung')!,stage=root.querySelector<HTMLElement>('#season-stage')!,frames=Array.from(stage.querySelectorAll<HTMLElement>('.season-frame')),picks=Array.from(root.querySelectorAll<HTMLElement>('[data-pick]')),play=root.querySelector<HTMLButtonElement>('#season-play')!,status=root.querySelector<HTMLElement>('#season-status')!;
- const abort=new AbortController(),reduce=matchMedia('(prefers-reduced-motion: reduce)');let timer:ReturnType<typeof setTimeout>|undefined,index=0,paused=false,overview=reduce.matches;
- function render(){clearTimeout(timer);stage.classList.toggle('cinema',!overview);stage.dataset.current=String(index);stage.classList.remove('running');frames.forEach((f,i)=>{f.classList.toggle('active',!overview&&i===index);f.inert=!overview&&i!==index;f.setAttribute('aria-hidden',String(!overview&&i!==index));});picks.forEach((p,i)=>p.setAttribute('aria-pressed',String(!overview&&i===index)));
- const running=!paused&&!overview&&!reduce.matches&&!document.hidden&&!root.querySelector('dialog[open]');play.textContent=reduce.matches?'모션 줄이기 적용':paused||overview?'▶ 자동 재생':'Ⅱ 일시정지';play.disabled=reduce.matches;status.setAttribute('aria-live',running?'off':'polite');status.textContent=overview?'네 계절 함께 보기':`${['봄','여름','가을','겨울'][index]} · ${index+1} / 4${running?' · 자동 반복':' · 일시정지'}`;
- if(running){stage.classList.add('running');timer=setTimeout(()=>{index=(index+1)%4;render();},4000);}}
- function go(){root.querySelector<HTMLElement>('#booking')?.scrollIntoView({behavior:reduce.matches?'instant':'smooth',block:'start'});root.querySelector<HTMLElement>('#booking-heading')?.focus({preventScroll:true});}
- root.addEventListener('click',(event)=>{const el=event.target as HTMLElement,photo=el.closest<HTMLElement>('[data-photo]');
- if(photo){const src=photo.querySelector<HTMLImageElement>('img')||root.querySelector<HTMLImageElement>('.hero>img');if(src&&viewer.current){const image=viewer.current.querySelector('img')!;image.src=src.currentSrc||src.src;image.alt=src.alt;viewer.current.querySelector('figcaption')!.textContent=src.alt;viewer.current.showModal();render();}return;}
- const pick=el.closest<HTMLElement>('[data-pick]');if(pick){index=Number(pick.dataset.pick);overview=false;paused=true;render();}
- if(el.closest('#season-play')){paused=overview?false:!paused;overview=false;render();}
- if(el.closest('#season-all')){overview=true;render();}
- if(el.closest('#rooms-prev,#rooms-next'))root.querySelector('#room-gallery')?.scrollBy({left:el.closest('#rooms-prev')?-280:280,behavior:reduce.matches?'instant':'smooth'});
- if(el.closest('[data-open-booking],a[href="#booking"]')){event.preventDefault();go();}
- },{signal:abort.signal});
- const visible=new Set<Element>();const observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting)visible.add(entry.target);else visible.delete(entry.target);});if(dock.current)dock.current.hidden=visible.size>0;});
- root.querySelectorAll('#stay-rate,#booking').forEach(el=>observer.observe(el));
- document.addEventListener('visibilitychange',render,{signal:abort.signal});reduce.addEventListener('change',()=>{overview=reduce.matches;render();},{signal:abort.signal});root.querySelectorAll('dialog').forEach(d=>d.addEventListener('close',render,{signal:abort.signal}));render();return()=>{abort.abort();observer.disconnect();clearTimeout(timer);};
- },[]);
- return <><dialog ref={viewer} className="dg-viewer" aria-label="사진 전체 보기" onClick={e=>{if(e.target===e.currentTarget)e.currentTarget.close();}}><button className="dialog-close" aria-label="사진 닫기" onClick={()=>viewer.current?.close()}>×</button><figure><img alt=""/><figcaption/></figure></dialog><div ref={dock} className="booking-dock" hidden><StayRate compact/><button className="booking-primary" data-open-booking>날짜·요금 확인 ↓</button></div></>;
+
+import { useEffect, useRef, useState } from 'react';
+import { StayRate } from '@/components/dangung/Availability';
+import { dangungPhotos, photoPath } from '@/components/dangung/Photos';
+
+export default function DangungInteractions() {
+  const viewer = useRef<HTMLDialogElement>(null);
+  const dock = useRef<HTMLDivElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+  const photo = photoIndex === null ? null : dangungPhotos[photoIndex];
+  const move = (delta: number) => setPhotoIndex(index => index === null ? null : (index + delta + dangungPhotos.length) % dangungPhotos.length);
+
+  useEffect(() => {
+    if (photoIndex !== null && viewer.current && !viewer.current.open) viewer.current.showModal();
+  }, [photoIndex]);
+
+  useEffect(() => {
+    const root = document.querySelector('.dg-stay-page');
+    if (!root) return;
+    const abort = new AbortController();
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+    root.addEventListener('click', event => {
+      const target = event.target as Element;
+      const selected = target.closest<HTMLElement>('[data-photo]');
+      if (selected) {
+        const index = dangungPhotos.findIndex(item => item.id === Number(selected.dataset.photo));
+        if (index !== -1) { opener.current = selected; setPhotoIndex(index); }
+        return;
+      }
+      if (target.closest('#rooms-prev,#rooms-next')) {
+        const gallery = root.querySelector('#room-gallery');
+        gallery?.scrollBy({ left: (target.closest('#rooms-prev') ? -1 : 1) * (gallery.clientWidth * .75), behavior: reduce.matches ? 'instant' : 'smooth' });
+      }
+      if (target.closest('[data-open-booking],a[href="#booking"]')) {
+        event.preventDefault();
+        root.querySelector('#booking')?.scrollIntoView({ behavior: reduce.matches ? 'instant' : 'smooth', block: 'start' });
+        root.querySelector<HTMLElement>('#booking-heading')?.focus({ preventScroll: true });
+      }
+    }, { signal: abort.signal });
+
+    const booking = root.querySelector('#booking');
+    const observer = new IntersectionObserver(entries => {
+      if (dock.current) dock.current.hidden = entries.some(entry => entry.isIntersecting);
+    }, { threshold: .15 });
+    if (booking) observer.observe(booking);
+
+    const links = Array.from(root.querySelectorAll<HTMLAnchorElement>('.dgs-nav a'));
+    const sections = links.map(link => root.querySelector(link.hash));
+    let frame = 0;
+    const updateNavigation = () => {
+      frame = 0;
+      const nav = root.querySelector('.dgs-nav');
+      const threshold = (nav?.getBoundingClientRect().bottom ?? 150) + 60;
+      let active = 0;
+      sections.forEach((section, index) => { if (section && section.getBoundingClientRect().top <= threshold) active = index; });
+      links.forEach((link, index) => { if (index === active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current'); });
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(updateNavigation); };
+    window.addEventListener('scroll', schedule, { passive: true, signal: abort.signal });
+    window.addEventListener('resize', schedule, { signal: abort.signal });
+    updateNavigation();
+    return () => { abort.abort(); observer.disconnect(); cancelAnimationFrame(frame); };
+  }, []);
+
+  return <>
+    <dialog ref={viewer} className="dgs-gallery-dialog" aria-label="단궁 사진 전체 보기"
+      onClose={() => { setPhotoIndex(null); opener.current?.focus({ preventScroll: true }); }}
+      onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close(); }}
+      onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); move(event.key === 'ArrowLeft' ? -1 : 1); } }}>
+      <div className="dgs-viewer-heading"><span>단궁 <small>DANGUNG</small></span><button type="button" autoFocus aria-label="사진 전체 보기 닫기" onClick={() => viewer.current?.close()}>×</button></div>
+      {photo && <>
+        <figure><img src={photoPath(photo.id)} alt={photo.alt} width={photo.width} height={photo.height}/><figcaption aria-live="polite">{photo.label} <span>{String((photoIndex ?? 0) + 1).padStart(2, '0')} / {dangungPhotos.length}</span></figcaption></figure>
+        <div className="dgs-viewer-navigation"><button type="button" onClick={() => move(-1)} aria-label="이전 사진">←</button><div className="dgs-viewer-thumbnails" aria-label="사진 선택">{dangungPhotos.map((item, index) => <button key={item.id} type="button" aria-label={`${item.label} 사진 보기`} aria-pressed={photoIndex === index} onClick={() => setPhotoIndex(index)}><img src={photoPath(item.id)} alt="" width={72} height={52} loading="lazy"/></button>)}</div><button type="button" onClick={() => move(1)} aria-label="다음 사진">→</button></div>
+      </>}
+    </dialog>
+    <div ref={dock} className="booking-dock" hidden><StayRate compact/><button type="button" className="booking-primary" data-open-booking>객실 선택</button></div>
+  </>;
 }
