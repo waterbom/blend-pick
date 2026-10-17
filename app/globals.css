@@ -19,6 +19,9 @@
 }
 
 :root {
+  /* Shared Blendpick header height, including its bottom border. */
+  --blend-header-height: 93px;
+
   /* 배경 계열 — 클린 뉴트럴 */
   --background: #FDFCF9;      /* 페이지 바탕: 아이보리 화이트 */
   --surface: #FFFFFF;        /* 카드/헤더 표면 */
@@ -56,6 +59,14 @@
   --radius-sm: 10px;
   --radius: 16px;
   --radius-lg: 20px;
+}
+
+@media (max-width: 1000px) {
+  :root { --blend-header-height: 81px; }
+}
+
+@media (max-width: 600px) {
+  :root { --blend-header-height: 73px; }
 }
 
 /* ── 산지픽 팔레트 (B안 · 공구 오렌지) — 루트 레이아웃이 html[data-site]를 붙인다.

@@ -98,7 +98,7 @@ export default async function Home() {
 
   return (
     <main>
-      <Header variant="discovery" />
+      <Header />
       <BlendHome
         products={catalog.products}
         upcoming={upcoming}

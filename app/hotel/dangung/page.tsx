@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Header from '@/components/Header';
 import { currentSite } from '@/lib/site-server';
 import { DangungHero, DangungStory, DangungGuide } from '@/components/dangung/Landing';
 import { DangungAvailabilityProvider } from '@/components/dangung/Availability';
@@ -14,10 +15,10 @@ export const metadata={
 };
 export default async function DangungPage(){
  if((await currentSite()).key!=='blendpick')notFound();
- return <div className="dangung dg-stay-page" data-dangung-version="2026-09-stay-2"><DangungAvailabilityProvider>
+ return <><Header/><div className="dangung dg-stay-page" data-dangung-version="2026-09-stay-2"><DangungAvailabilityProvider>
   <DangungHero/>
   <nav className="dgs-nav" aria-label="단궁 페이지 바로가기"><a href="#four-seasons">둘러보기</a><a href="#rooms">객실</a><a href="#food">식사·옵션</a><a href="#booking">날짜·요금</a><a href="#stay">이용 안내</a></nav>
   <main><DangungStory/><DangungBooking clientKey={process.env.TOSS_CLIENT_KEY||''}/><DangungGuide/></main>
   <DangungInteractions/>
- </DangungAvailabilityProvider></div>;
+ </DangungAvailabilityProvider></div></>;
 }

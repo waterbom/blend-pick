@@ -29,7 +29,6 @@ function Photo({ photo, alt, label, className = '' }: { photo: number; alt: stri
 
 export function DangungHero() {
   return <>
-    <header className="dgs-header"><a className="brand" href="/">BLEND PICK</a><span>단궁 · 한옥 독채</span><a href="/hotel/dangung/result">내 예약 확인 ↗</a></header>
     <section className="hero dgs-hero" aria-labelledby="dangung-title">
       <img src={photoPath(1)} alt="잔디 정원에서 바라본 단궁 한옥 전경" width={1536} height={1024} fetchPriority="high" decoding="async"/>
       <div className="dgs-hero-inner"><div className="dgs-hero-copy">
@@ -42,7 +41,7 @@ export function DangungHero() {
     <div className="dgs-rate-bar" id="stay-rate">
       <StayRate/>
       <StayFees compact/>
-      <div className="dgs-rate-action"><a className="booking-primary" href="#booking">날짜·총요금 확인 ↓</a><span>날짜·인원 선택 후 결제금액 확인</span></div>
+      <div className="dgs-rate-action"><a className="booking-primary" href="#booking">날짜·총요금 확인 ↓</a><span>날짜·인원 선택 후 결제금액 확인</span><a className="dgs-reservation-link" href="/hotel/dangung/result">내 예약 확인 ↗</a></div>
     </div>
   </>;
 }

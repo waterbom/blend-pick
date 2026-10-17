@@ -227,7 +227,7 @@ export default async function ProductDetailPage({
 
   return (
     <main className="min-h-screen" style={{ background: "var(--background)" }}>
-      <Header variant="discovery" />
+      <Header />
       <ProductDetail
         product={product}
         images={allImages}

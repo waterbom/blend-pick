@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function SuppliersPage() {
   return (
     <>
-      <Header variant="discovery" />
+      <Header />
       <SupplierPage />
     </>
   );

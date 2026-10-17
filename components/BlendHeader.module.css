@@ -12,7 +12,7 @@
 
 .inner {
   width: min(100% - 80px, 1280px);
-  min-height: 92px;
+  min-height: calc(var(--blend-header-height) - 1px);
   display: flex;
   align-items: center;
   gap: 72px;
@@ -138,7 +138,6 @@
 @media (max-width: 1000px) {
   .inner {
     gap: 30px;
-    min-height: 80px;
   }
 
   .navigation {
@@ -183,7 +182,6 @@
 @media (max-width: 600px) {
   .inner {
     width: calc(100% - 40px);
-    min-height: 72px;
     gap: 16px;
   }
 
