@@ -1,13 +1,15 @@
 name: Visit Analytics Health
 on:
   workflow_dispatch:
-  push:
-    branches: [codex/restore-visit-analytics-20261020]
-    paths: [.github/workflows/visit-analytics-health.yml]
+  workflow_run:
+    workflows: [Deploy to EC2]
+    types: [completed]
+    branches: [main]
 permissions:
   contents: read
 jobs:
   inspect:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -27,11 +29,14 @@ jobs:
             const {Pool}=require('pg');
             const env=loadEnvConfig(process.cwd(),false);
             console.log('Analytics settings: '+JSON.stringify({enabled:process.env.ANALYTICS_ENABLED==='true',flagPresent:!!process.env.ANALYTICS_ENABLED,database:!!process.env.ANALYTICS_DATABASE_URL,hashKey:(process.env.ANALYTICS_HASH_SECRET?.length||0)>=32,envFiles:env.loadedEnvFiles.map(f=>f.path)}));
+            if(process.env.ANALYTICS_ENABLED!=='true'||!process.env.ANALYTICS_DATABASE_URL||(process.env.ANALYTICS_HASH_SECRET?.length||0)<32){console.error('Analytics collection configuration missing.');process.exit(1);}
             const pool=new Pool({connectionString:process.env.SHOP_DATABASE_URL,ssl:{rejectUnauthorized:false},max:1,connectionTimeoutMillis:5000,statement_timeout:5000});
             (async()=>{
               const r=await pool.query("SELECT rolcreatedb,rolcreaterole,rolsuper FROM pg_roles WHERE rolname=current_user");
               const db=await pool.query("SELECT 1 FROM pg_database WHERE datname='blendpick_analytics'");
               const role=await pool.query("SELECT 1 FROM pg_roles WHERE rolname='blendpick_analytics_app'");
               console.log('Analytics storage capabilities: '+JSON.stringify({...r.rows[0],dedicatedDatabaseExists:!!db.rows.length,dedicatedRoleExists:!!role.rows.length}));
+              const analytics=new Pool({connectionString:process.env.ANALYTICS_DATABASE_URL,max:1,connectionTimeoutMillis:5000,statement_timeout:5000});
+              try{const summary=await analytics.query('SELECT site,MAX(occurred_at) AS last_event_at FROM analytics_pageviews GROUP BY site ORDER BY site');console.log('Analytics recorded activity: '+JSON.stringify(summary.rows));}finally{await analytics.end();}
             })().catch(e=>{console.error('Analytics inspection failed: '+(e.code||'CONNECTION_ERROR'));process.exitCode=1;}).finally(()=>pool.end());
             NODE

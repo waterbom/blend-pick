@@ -4,7 +4,7 @@ import type { ServerTraffic } from '@/lib/server-traffic';
 import { PAGE_LABELS, type VisitSummary } from '@/lib/visit-analytics/rules';
 const format=(v:number)=>v.toLocaleString('ko-KR');
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-const stateText={disabled:'수집 대기',unconfigured:'연결 준비 필요',empty:'기간 내 기록 없음',active:'수집 기록 있음',error:'조회 실패'};
+const stateText={disabled:'방문 수집 꺼짐',unconfigured:'통계 연결 미설정',empty:'기간 내 기록 없음',active:'수집 기록 있음',error:'조회 실패'};
 export default function MonitoringOverview({siteName,summary,traffic,example=false,visitsOnly=false}:{siteName:string;summary:VisitSummary;traffic?:ServerTraffic;example?:boolean;visitsOnly?:boolean}) {
   const valid=summary.state==='active'||summary.state==='empty';
   return <main className="mx-auto w-full max-w-6xl space-y-7 p-5 md:p-9 text-stone-800">
