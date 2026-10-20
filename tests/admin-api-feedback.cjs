@@ -268,6 +268,23 @@ test('switching member histories ignores a slower response for the previous memb
   resolvers.member(Response.json({orders:[{order_number:'WRONG-FIRST', total_amount:9999, item_count:1}],reviewCount:9})); await first;
   assert.match(text(f.render()), /ONLY-SECOND/); assert.doesNotMatch(text(f.render()), /WRONG-FIRST/);
 });
+test('member approval refresh uses the current filter when the filter changes during the write', async t => {
+  const f = mount(t, 'components/admin/MembersClient.tsx'); await f.init();
+  let resolve;
+  f.respond(() => new Promise(r => { resolve = r; }));
+  f.respondGet(url => Response.json({ members: [new URL(url, 'https://test.invalid').searchParams.get('role') === 'vendor'
+    ? { ...member, id: 'vendor', role: 'vendor', name: '현재 조건 회원' } : member] }));
+  const writing = f.button('신청 승인').props.onClick();
+  f.find(n => n.props?.['aria-label'] === '회원 역할 필터').props.onChange({ target: { value: 'vendor' } });
+  f.render(); for (const effect of [...f.effects]) effect(); await flush();
+  assert.match(text(f.render()), /현재 조건 회원/);
+  resolve(Response.json({ ok: true, updated: 1 })); await writing;
+  const lastRead = f.requests.filter(r => !r.method).at(-1);
+  assert.equal(new URL(lastRead.url, 'https://test.invalid').searchParams.get('role'), 'vendor');
+  assert.equal(f.find(n => n.props?.['aria-label'] === '회원 역할 필터').props.value, 'vendor');
+  assert.match(text(f.render()), /현재 조건 회원/);
+  assert.equal(f.requests.filter(r => r.method === 'PATCH').length, 1);
+});
 test('review search intersects visibility, rating and photo filters without losing hidden text contrast', async t => {
   const f = mount(t, 'components/admin/ReviewsClient.tsx');
   const base=fixtures['/api/admin/reviews'][0];
@@ -322,3 +339,27 @@ test('a late availability response cannot overwrite the newly selected reservati
   resolvers[0](Response.json({ok:true,available:true,minRemaining:77}));await first;
   assert.match(text(f.render()),/최소 2실/);assert.doesNotMatch(text(f.render()),/최소 77실/);
 });
+
+const dateQuote = { ok: true, diff: 0, oldTotal: 100000, newTotal: 100000, nights: 1, pkgLabel: '2인', room: '패밀리 트윈', available: true, minRemaining: 1 };
+for (const step of ['preview', 'confirm']) {
+  test(`reservation date ${step}: rapid repeated clicks issue one request and release the guard after failure`, async t => {
+    const f = mount(t, 'components/admin/ReservationsClient.tsx'); await f.init(); await f.click('예약변경');
+    if (step === 'confirm') { f.respond(() => Response.json(dateQuote)); await f.click('차액 확인'); }
+    f.requests.length = 0;
+    const resolves = []; f.respond(() => new Promise(resolve => resolves.push(resolve)));
+    const label = step === 'preview' ? '차액 확인' : '변경 확정';
+    const button = f.button(label);
+    const writes = [button.props.onClick(), button.props.onClick()];
+    const count = f.requests.filter(r => r.method === 'POST').length;
+    for (const resolve of resolves) resolve(Response.json(failure, { status: 409 }));
+    await Promise.all(writes);
+    assert.equal(count, 1);
+    assert.match(f.feedback(), /STATE_CONFLICT/);
+    assert.equal(f.button(label).props.disabled, false);
+    f.respond(() => Response.json(step === 'preview' ? dateQuote : { ok: true, diff: 0, refunded: 0, needRepay: false }));
+    await f.click(label);
+    assert.equal(f.requests.filter(r => r.method === 'POST').length, 2);
+    if (step === 'preview') assert.ok(f.button('변경 확정'));
+    else assert.ok(f.requests.some(r => !r.method && r.url === '/api/admin/reservations'));
+  });
+}

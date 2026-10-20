@@ -1,4 +1,4 @@
-import { withApiErrors, readJsonObject } from '@/lib/api-errors';
+import { ApiError, withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -41,6 +41,7 @@ async function handlePATCH(req: Request) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
   const r = await shopPool.query(`UPDATE reviews SET is_hidden = $1 WHERE id = $2 AND order_id IN (SELECT id FROM orders WHERE site = $3)`, [is_hidden, id, site]);
+  if (!r.rowCount) throw new ApiError('NOT_FOUND', '현재 스토어에서 해당 리뷰를 찾을 수 없습니다.');
   return NextResponse.json({ ok: true, updated: r.rowCount });
 }
 
@@ -53,6 +54,7 @@ async function handleDELETE(req: Request) {
   const { id } = await readJsonObject(req);
   if (!id) return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   const r = await shopPool.query(`DELETE FROM reviews WHERE id = $1 AND order_id IN (SELECT id FROM orders WHERE site = $2)`, [id, site]);
+  if (!r.rowCount) throw new ApiError('NOT_FOUND', '현재 스토어에서 해당 리뷰를 찾을 수 없습니다.');
   return NextResponse.json({ ok: true, deleted: r.rowCount });
 }
 

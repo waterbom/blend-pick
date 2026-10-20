@@ -191,6 +191,7 @@ export default function ReservationsClient() {
   const [newIn, setNewIn] = useState("");
   const [newOut, setNewOut] = useState("");
   const [changing, setChanging] = useState(false);
+  const dateChanging = useRef(false);
   const [newPkg, setNewPkg] = useState<PkgKey>("p2");
   const [newRoom, setNewRoom] = useState<RoomType>("패밀리 트윈");
   const [datePreview, setDatePreview] = useState<{ diff: number; priceDiff?: number; penalty?: number; penaltyRate?: number; policyDays?: number; oldTotal: number; newTotal: number; nights: number; pkgLabel: string; room: string; available: boolean; minRemaining: number; soldOutDates: string[]; payLink: string | null } | null>(null);
@@ -244,9 +245,9 @@ export default function ReservationsClient() {
 
   // 1단계: 차액 미리보기 (DB 변경 없음)
   async function previewDateChange() {
-    if (!dateEdit) return;
+    if (!dateEdit || dateChanging.current) return;
     if (!newIn || !newOut || newOut <= newIn) { alert("체크아웃은 체크인 이후 날짜여야 해요."); return; }
-    setChanging(true);
+    dateChanging.current = true; setChanging(true);
     try {
       const res = await fetch("/api/admin/reservations/change-date", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -257,14 +258,14 @@ export default function ReservationsClient() {
       setLinkCopied(false);
       setDatePreview({ diff: d.diff, priceDiff: d.priceDiff, penalty: d.penalty, penaltyRate: d.penaltyRate, policyDays: d.policyDays, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, pkgLabel: d.pkgLabel, room: d.room, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [], payLink: d.payLink ?? null });
     } catch (error) { alert(apiErrorMessage(error)); } finally {
-      setChanging(false);
+      dateChanging.current = false; setChanging(false);
     }
   }
 
   // 2단계: 확인 후 실제 변경 실행 (재고 스왑 + 환불/링크)
   async function confirmDateChange() {
-    if (!dateEdit) return;
-    setChanging(true);
+    if (!dateEdit || !datePreview?.available || dateChanging.current) return;
+    dateChanging.current = true; setChanging(true);
     try {
       const res = await fetch("/api/admin/reservations/change-date", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -278,7 +279,7 @@ export default function ReservationsClient() {
       setDateResult({ diff: d.diff, refunded: d.refunded, needRepay: d.needRepay, payLink: d.payLink ?? null });
       await load();
     } catch (error) { alert(apiErrorMessage(error)); } finally {
-      setChanging(false);
+      dateChanging.current = false; setChanging(false);
     }
   }
 

@@ -80,6 +80,9 @@ export default function MembersClient() {
     } finally { if (request === loadRequest.current) setLoading(false); }
   }, [q, role, status, pendingOnly]);
 
+  // A completed write must refresh the filters currently shown, even if they changed while saving.
+  const latestLoad = useRef(load);
+  useEffect(() => { latestLoad.current = load; }, [load]);
   useEffect(() => { load(); }, [role, status, pendingOnly]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { ++loadRequest.current; ++detailRequest.current; }, []);
 
@@ -104,7 +107,7 @@ export default function MembersClient() {
         body: JSON.stringify({ id: m.id, action, ...extra }),
       });
       await readApiJson(res, "처리에 실패했어요.");
-      await load();
+      await latestLoad.current();
     } catch (error) { alert(apiErrorMessage(error)); }
     finally { acting.current = false; setActingId(null); }
   }

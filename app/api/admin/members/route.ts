@@ -1,4 +1,4 @@
-import { withApiErrors, readJsonObject } from '@/lib/api-errors';
+import { ApiError, withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -125,12 +125,14 @@ async function handlePATCH(req: Request) {
   if (action === "activate" || action === "deactivate") {
     const r = await pool.query(`UPDATE shop_users SET is_active = $1, updated_at = NOW() WHERE id = $2`,
       [action === "activate", id]);
+    if (!r.rowCount) throw new ApiError('NOT_FOUND', '해당 회원을 찾을 수 없습니다.');
     return NextResponse.json({ ok: true, updated: r.rowCount });
   }
   if (action === "approve" || action === "reject") {
     const r = await pool.query(
       `UPDATE shop_users SET role_status = $1, updated_at = NOW() WHERE id = $2 AND role_status = 'pending'`,
       [action === "approve" ? "approved" : "rejected", id]);
+    if (!r.rowCount) throw new ApiError('STATE_CONFLICT', '신청이 이미 처리되었거나 해당 회원을 찾을 수 없습니다.');
     return NextResponse.json({ ok: true, updated: r.rowCount });
   }
   if (action === "set_role" && ["customer", "influencer", "vendor"].includes(role)) {
@@ -138,6 +140,7 @@ async function handlePATCH(req: Request) {
       `UPDATE shop_users SET role = $1, role_status = CASE WHEN $1 = 'customer' THEN NULL ELSE 'approved' END,
               updated_at = NOW() WHERE id = $2`,
       [role, id]);
+    if (!r.rowCount) throw new ApiError('NOT_FOUND', '해당 회원을 찾을 수 없습니다.');
     return NextResponse.json({ ok: true, updated: r.rowCount });
   }
   return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
