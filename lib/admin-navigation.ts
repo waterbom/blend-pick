@@ -4,11 +4,11 @@ export type AdminGroup = { label: string; items: AdminLink[] };
 export const ADMIN_GROUPS: AdminGroup[] = [
  {label:'운영 홈',items:[{label:'운영 요약',href:'/admin'},{label:'오늘 처리할 일',href:'/admin/operations'}]},
  {label:'상품 관리',items:[{label:'상품 조회·수정',href:'/admin/products'},{label:'상품 등록',href:'/admin/products/new'},{label:'엑셀 등록',href:'/admin/products/import'},{label:'카테고리',href:'/admin/categories'}]},
- {label:'주문·배송',items:[{label:'전체 주문',href:'/admin/orders'},{label:'출고·배송 흐름',href:'/admin/shipments'}]},
+ {label:'주문·배송',items:[{label:'전체 주문',href:'/admin/orders'},{label:'출고·배송 흐름',href:'/admin/shipments'},{label:'배송 알림 이력',href:'/admin/shipment-notifications'}]},
  {label:'매출·정산',items:[{label:'결제 정산',href:'/admin/settlements'},{label:'인플루언서 정산',href:'/admin/influencer-settlements'},{label:'수익 분석',href:'/admin/profit'},{label:'전시·비전시 실적',href:'/admin/link-sales'},{label:'방문 통계',href:'/admin/visits'}]},
  {label:'고객 관리',items:[{label:'회원 관리',href:'/admin/members'},{label:'리뷰 관리',href:'/admin/reviews'},{label:'카카오 상담·알림',href:'/admin/notifications'}]},
  {label:'공구 운영',items:[{label:'인플루언서',href:'/admin/influencers'},{label:'숙박 예약',href:'/admin/reservations',blendOnly:true},{label:'단궁 예약·요금',href:'/admin/dangung',blendOnly:true}]},
- {label:'설정·시스템',items:[{label:'결제 확인·복구',href:'/admin/payment-recovery'},{label:'서버 트래픽',href:'/admin/traffic'},{label:'자동 점검',href:'/admin/monitoring'}]},
+ {label:'설정·시스템',items:[{label:'결제 확인·복구',href:'/admin/payment-recovery'},{label:'트래픽·자동 점검',href:'/admin/traffic'},{label:'자동 점검',href:'/admin/monitoring'}]},
 ];
 const SANJI_LABELS: Record<string,string> = {
  '/admin/shipments':'농가 출고·배송', '/admin/reviews':'구매 후기',
@@ -25,4 +25,17 @@ export function adminLocation(path: string, site: SiteKey) {
  const groups=adminGroups(site);
  const matches=groups.flatMap(g=>g.items.map(i=>({...i,group:g.label}))).filter(i=>path===i.href || i.href!=='/admin'&&path.startsWith(i.href+'/')).sort((a,b)=>b.href.length-a.href.length);
  return matches[0] ?? {label:'관리자',href:'/admin',group:'운영 홈'};
+}
+
+// Specialist tools stay searchable; everyday destinations need no submenu.
+export function adminPrimaryLinks(site: SiteKey) {
+ const paths=['/admin','/admin/orders','/admin/shipments','/admin/products','/admin/settlements','/admin/members','/admin/reviews',...(site==='blendpick'?['/admin/reservations']:[])];
+ const labels:Record<string,string>={'/admin':'운영 홈','/admin/orders':'주문 관리','/admin/shipments':'배송·반품','/admin/products':'상품 관리','/admin/settlements':'매출·정산','/admin/members':'회원 관리','/admin/reviews':site==='sanjipick'?'구매 후기':'리뷰 관리'};
+ const items=adminGroups(site).flatMap(g=>g.items);
+ return paths.map(href=>({...items.find(i=>i.href===href)!,label:labels[href]||items.find(i=>i.href===href)!.label}));
+}
+export function adminSupportingGroups(site: SiteKey) {
+ const primary=new Set(adminPrimaryLinks(site).map(i=>i.href));
+ const integrated=new Set(['/admin/operations','/admin/visits','/admin/monitoring','/admin/products/new']);
+ return adminGroups(site).map(g=>({...g,items:g.items.filter(i=>!primary.has(i.href)&&!integrated.has(i.href))})).filter(g=>g.items.length);
 }

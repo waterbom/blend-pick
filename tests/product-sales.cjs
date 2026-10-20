@@ -107,6 +107,8 @@ test('sales cell distinguishes zero, unavailable, provisional and option details
 async function page({filters={},fail=false}={}) {
   const calls=[];
   const Page=load('app/admin/(protected)/products/page.tsx',{
+    'next/headers':{cookies:async()=>({get:()=>({value:'test-admin'})})},
+    '@/lib/auth':{verifyAdminToken:async()=>({})},
     '@/lib/db-shop':{query:async()=>({rows:[{id:id(1),name:'상품',status:'active',stock:5,price:1000,created_at:'2026-09-28'}]})},
     '@/lib/admin-site':{currentAdminSite:async()=>({key:'sanjipick'}),adminProductScopeSql:()=>({sql:'true',param:[]})},
     '@/lib/product-sales':{...salesLib,getProductSales:async(...args)=>{calls.push(args);if(fail)throw Error('isolated test failure');return new Map();}},

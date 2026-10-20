@@ -78,5 +78,5 @@ test('S9 shipment table renders exact invoice and carrier label',()=>{
  const {OrderTable}=load(target,{'@/components/SiteContext':{useSiteKey:()=> 'sanjipick'}},new Map(),file=>fs.readFileSync(file,'utf8')+(file===target?'\nexport { OrderTable };':''));
  const invoice='00123456789012345678';
  const html=renderToStaticMarkup(React.createElement(OrderTable,{orders:[{id:'preview',site:'sanjipick',order_number:'TEST10',created_at:'2026-09-09',items:[],total_amount:10000,tracking_company:'04',tracking_number:invoice}],loading:false,selected:new Set(),onToggle:()=>{},onToggleAll:()=>{},showTracking:true,emptyText:'없음'}));
- assert(html.includes('>'+invoice+'</div>'));assert(html.includes('CJ대한통운'));
+ assert(html.includes(invoice+'</span>'));assert(html.includes('CJ대한통운'));
 });

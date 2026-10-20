@@ -3,6 +3,7 @@ import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { useCallback, useEffect, useState } from "react";
 import { RETURN_STATUS_LABEL } from "@/lib/returns";
+import Link from "next/link";
 import { formatPhone } from "@/lib/phone-format";
 
 interface ReturnEvent {
@@ -38,8 +39,9 @@ interface ReturnRow {
 
 // 교환·반품 신청 처리 패널 — 신청 상세(사유·사진·수거지)를 보고
 // 수거 접수 → 완료(반품은 토스 환불) / 거절을 건별로 처리한다
-export default function ReturnsPanel({ kind, onChanged, initialRequestId, compact = false, refreshKey }: { refreshKey?: object; compact?: boolean; kind: "exchange" | "return"; onChanged?: () => void; initialRequestId?: string }) {
+export default function ReturnsPanel({ kind, onChanged, initialRequestId, compact = false, refreshKey }: { refreshKey?: object; compact?: boolean; kind: "exchange" | "return" | "all"; onChanged?: () => void; initialRequestId?: string }) {
   const [requestId, setRequestId] = useState(initialRequestId);
+  const [kindFilter, setKindFilter] = useState("all");
   const [rows, setRows] = useState<ReturnRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -49,11 +51,17 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
     setLoading(true);
     setLoadError("");
     try {
-      const res = await fetch(`/api/admin/returns?kind=${kind}${requestId ? `&id=${encodeURIComponent(requestId)}` : ''}`, { signal });
-      const data = await readApiJson(res);
-      if (!res.ok) throw new Error(apiErrorMessage(data, "신청을 불러오지 못했습니다."));
-      if (!Array.isArray(data)) throw new Error("신청 목록 응답을 확인하지 못했습니다. (오류 RESPONSE_INVALID)");
-      if (!signal?.aborted) setRows(data);
+      const kinds = kind === 'all' ? ['exchange', 'return'] : [kind];
+      const results = await Promise.allSettled(kinds.map(async value => {
+        const res = await fetch(`/api/admin/returns?kind=${value}${requestId ? `&id=${encodeURIComponent(requestId)}` : ''}`, { signal });
+        const data = await readApiJson(res);
+        if (!res.ok || !Array.isArray(data)) throw new Error(apiErrorMessage(data, '신청 목록을 불러오지 못했습니다.'));
+        return data as ReturnRow[];
+      }));
+      if (!signal?.aborted) {
+        setRows(results.flatMap(result => result.status === 'fulfilled' ? result.value : []));
+        setLoadError(results.flatMap((result,index) => result.status === 'rejected' ? [`${kinds[index] === 'exchange' ? '교환' : '반품'}: ${apiErrorMessage(result.reason)}`] : []).join(' · '));
+      }
     } catch (error) {
       if (!signal?.aborted) { setRows([]); setLoadError(apiErrorMessage(error, "신청을 불러오지 못했습니다.")); }
     } finally {
@@ -140,22 +148,26 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
     }
   }
 
-  const kindLabel = kind === "exchange" ? "교환" : "반품";
+  const kindLabel = kind === "all" ? "교환·반품" : kind === "exchange" ? "교환" : "반품";
+  const visibleRows = rows.filter(r => kindFilter === "all" || r.kind === kindFilter);
 
   if (loading) return <div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>불러오는 중...</div>;
-  if (loadError) return <div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600" role="alert">{loadError}<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div>;
+  if (loadError && !rows.length) return <div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600" role="alert">{loadError}<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div>;
   if (rows.length === 0) return <div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>{requestId ? "이 신청은 처리되었거나 현재 사이트에서 확인할 수 없습니다." : `진행 중인 ${kindLabel} 신청이 없습니다`}{requestId && <button className="block mx-auto mt-3 underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button>}</div>;
 
   return (
     <div className="space-y-3">
       {requestId && <div className="flex items-center justify-between gap-3 p-3 bg-green-50 text-xs text-green-800"><span>오늘 처리할 일에서 선택한 신청입니다.</span><button className="underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button></div>}
-      {rows.map((r) => {
+      {loadError && <p className="ops-error" role="alert">{loadError} · 조회된 신청은 아래에 표시됩니다. <button className="ops-text-button" onClick={()=>load()}>다시 조회</button></p>}
+      {kind==='all'&&<div className="ops-toolbar"><label className="ops-inline-field">신청 구분 <select aria-label="교환·반품 구분" value={kindFilter} onChange={e=>setKindFilter(e.target.value)}><option value="all">교환·반품 전체</option><option value="exchange">교환</option><option value="return">반품</option></select></label><span className="ops-meta">{visibleRows.length}건 표시 · 사유와 수거지를 확인한 뒤 처리하세요.</span></div>}
+      {!visibleRows.length&&<p className="ops-empty">선택한 구분의 신청이 없습니다.</p>}
+      {visibleRows.map((r) => {
         const acting = actingId === r.id;
         return (
           <div key={r.id} className="bg-white rounded-none border border-gray-100">
             {/* 헤더 — 주문번호·신청일·상태 */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 border-b border-gray-100 bg-gray-50">
-              <span className="font-mono text-xs font-semibold text-gray-700">{r.order_number}</span>
+              <span className={`ops-status ${r.kind==='return'?'ops-status-return_requested':'ops-status-exchange_requested'}`}>{r.kind==='return'?'반품':'교환'}</span><Link className="font-mono text-xs font-semibold text-gray-700 underline" href={`/admin/orders/${r.order_id}`}>{r.order_number}</Link>
               <span className="text-xs text-gray-400">신청 {r.created_kst}</span>
               <span className={`text-[10px] font-bold px-2 py-0.5 ${
                 r.status === "requested" ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700"
@@ -229,9 +241,9 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
               )}
               <button onClick={() => act(r, "complete")} disabled={acting}
                 className={`disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-none transition-colors ${
-                  kind === "return" ? "bg-[#2D5A27] hover:bg-[#244B1F]" : "bg-violet-600 hover:bg-violet-700"
+                  r.kind === "return" ? "bg-[#2D5A27] hover:bg-[#244B1F]" : "bg-violet-600 hover:bg-violet-700"
                 }`}>
-                {acting ? "처리 중..." : kind === "return" ? "반품 완료 · 환불" : "교환 완료"}
+                {acting ? "처리 중..." : r.kind === "return" ? "반품 완료 · 환불" : "교환 완료"}
               </button>
               <button onClick={() => act(r, "reject")} disabled={acting}
                 className="disabled:opacity-50 text-xs font-bold px-4 py-2 rounded-none border border-red-200 text-red-500 hover:bg-red-50 transition-colors">

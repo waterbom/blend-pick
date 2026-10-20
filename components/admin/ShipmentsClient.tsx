@@ -9,9 +9,10 @@ import type { ShipmentImportResult } from "@/lib/admin-shipment-import";
 import { CORE_CARRIERS, carrierName as libCarrierName } from "@/lib/carriers";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import ReturnsPanel from "@/components/admin/ReturnsPanel";
+import Link from "next/link";
 import SiteBadge from "@/components/admin/SiteBadge";
+import { matchesOrderSearch, selectionAction, shipmentStatusMatches } from "@/lib/admin-list-workspace";
 import { useSiteKey } from "@/components/SiteContext";
-import { SITES } from "@/lib/sites";
 import { formatPhone } from "@/lib/phone-format";
 
 interface OrderItem {
@@ -19,6 +20,7 @@ interface OrderItem {
   product_name: string;
   option_label: string | null;
   quantity: number;
+  supplier_name?: string | null; expected_ship_date?: string | null;
 }
 
 export interface ShipmentOrder {
@@ -43,7 +45,9 @@ export interface ShipmentOrder {
 // 택배사 목록은 서버(/api/admin/shipments/carriers)에서 스위트트래커 공식 코드표를
 // 받아온다 (키 미설정 시 주요 6사 폴백). 코드표 하드코딩으로 인한 오배송 조회 방지.
 
-type Tab =
+export type ShipmentTab =
+  | "active"
+  | "history"
   | "preparing"
   | "shipped"
   | "delivered"
@@ -54,7 +58,9 @@ type Tab =
   | "cancel_requested"
   | "cancelled";
 
-const TABS: { key: Tab; label: string }[] = [
+const TABS: { key: ShipmentTab; label: string }[] = [
+  { key: "active", label: "진행 중 전체" },
+  { key: "history", label: "처리 완료 전체" },
   { key: "preparing",          label: "배송준비" },
   { key: "shipped",            label: "배송중" },
   { key: "delivered",          label: "배송완료" },
@@ -66,29 +72,19 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "cancelled",          label: "취소완료" },
 ];
 
-// 각 탭의 일괄처리 액션 정의 — 교환·반품신청 탭은 건별 상세 패널(ReturnsPanel)로 처리
-const TAB_ACTION: Partial<Record<Tab, { action: string; label: string; color: string }>> = {
-  cancel_requested:   { action: "cancel_confirm",    label: "취소 확인",     color: "bg-red-500 hover:bg-red-600" },
-};
-
-export default function ShipmentsClient({ initialTab = "preparing", initialRequestId, sharedOrders, onChanged }: { initialTab?: Tab; initialRequestId?: string; sharedOrders?: ShipmentOrder[]; onChanged?: () => Promise<void> }) {
-  const [tab, setTab] = useState<Tab>(initialTab);
+export default function ShipmentsClient({ initialTab = "active", initialRequestId, sharedOrders, onChanged }: { initialTab?: ShipmentTab; initialRequestId?: string; sharedOrders?: ShipmentOrder[]; onChanged?: () => Promise<void> }) {
+  const [tab, setTab] = useState<ShipmentTab>(initialTab);
+  const [query, setQuery] = useState("");
   const [allOrders, setAllOrders] = useState<ShipmentOrder[]>([]);
   // 사이트 필터 (블랜드픽/산지픽) — 산지픽은 농가 발송이라 배송 담당이 달라 따로 볼 수 있게
   const siteFilter = useSiteKey();
   const [loadError, setLoadError] = useState("");
   const sourceOrders = sharedOrders ?? allOrders;
-  const orders = useMemo(
-    () => (siteFilter ? sourceOrders.filter((o) => (o.site || "blendpick") === siteFilter) : sourceOrders).filter(o => sharedOrders ? o.status === tab : true),
-    [sourceOrders, siteFilter, sharedOrders, tab]
-  );
-  const siteCounts = useMemo(() => {
-    const c: Record<string, number> = { "": allOrders.length, blendpick: 0, sanjipick: 0 };
-    for (const o of allOrders) { const k = o.site || "blendpick"; c[k] = (c[k] ?? 0) + 1; }
-    return c;
-  }, [allOrders]);
-  const [loading, setLoading] = useState(true);
+  const orders = useMemo(() => sourceOrders.filter(o => (o.site || 'blendpick') === siteFilter && shipmentStatusMatches(o.status, tab) && matchesOrderSearch(o, query)), [sourceOrders, siteFilter, tab, query]);
+  const [loading, setLoading] = useState(!sharedOrders);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const selectedAction = selectionAction(orders, selected);
+  const shippingList = ["active", "preparing", "shipped"].includes(tab);
 
   const [carrierCode, setCarrierCode] = useState("04");
   const [carriers, setCarriers] = useState(CORE_CARRIERS);
@@ -120,12 +116,12 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   const [showTrackModal, setShowTrackModal] = useState(false);
   const [modalTracking, setModalTracking] = useState<Record<string, string>>({});
 
-  async function load(status: Tab) {
+  async function load(status: ShipmentTab) {
     setSelected(new Set());
     if (sharedOrders) { await onChanged?.(); return; }
     setLoading(true); setLoadError("");
     try {
-      const q = status === "preparing" ? "confirmed,preparing" : status;
+      const q = status === "active" ? "preparing,shipped" : status === "history" ? "delivered,cancelled,exchange_completed,return_completed" : status;
       const res = await fetch(`/api/admin/orders?status=${q}`);
       const data = await readApiJson(res);
       if (!res.ok || !Array.isArray(data)) throw Error(apiErrorMessage(data,"배송 목록을 불러오지 못했습니다."));
@@ -134,18 +130,19 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
     finally { setLoading(false); }
   }
   useEffect(() => { if (!sharedOrders) void load(tab); else setLoading(false); }, [tab]);
+  useEffect(() => { setSelected(new Set()); }, [query, tab]);
   useEffect(() => { setSelected(prev => new Set([...prev].filter(id => orders.some(o => o.id === id)))); }, [orders]);
 
   // 택배사 코드표 로드 (스위트트래커 공식 목록, 키 없으면 주요 6사)
   useEffect(() => {
-    if (!["preparing", "shipped"].includes(tab)) return;
+    if (!["active", "preparing", "shipped"].includes(tab)) return;
     fetch("/api/admin/shipments/carriers")
       .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
       .then((d) => {
         if (Array.isArray(d.carriers) && d.carriers.length > 0) setCarriers(d.carriers);
       })
       .catch(error => setLoadError(apiErrorMessage(error)));
-  }, []);
+  }, [tab]);
 
   function toggleAll() {
     if (selected.size === orders.length) setSelected(new Set());
@@ -220,6 +217,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
     finally { importBusy.current = false; setImporting(false); }
   }
   async function handleModalSubmit() {
+    if (selectedAction !== "tracking") { setLoadError("배송준비 주문만 선택해주세요."); return; }
     const rows = orders.filter(o => selected.has(o.id)).map((o, i) => ({ order_number: o.order_number, carrier_raw: carrierCode, tracking_number: (modalTracking[o.id] || "").trim(), source_row: i + 1 })).filter(r => r.tracking_number);
     if (!rows.length) { setLoadError("운송장번호를 하나 이상 입력해주세요."); return; }
     ++fileVersion.current; setCsvRows(rows); setFileName("선택 주문 직접 입력"); setShowTrackModal(false);
@@ -227,7 +225,7 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   }
 
   async function handleBulkDeliver() {
-    if (selected.size === 0) return;
+    if (selectedAction !== "deliver") return;
     if (!confirm(`선택한 ${selected.size}건을 배송완료 처리할까요?\n정산이 자동 생성됩니다.`)) return;
     setDelivering(true); setLoadError("");
     try {
@@ -237,13 +235,13 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
       const data = await readApiJson(res);
       if (!res.ok || data.error) throw Error(apiErrorMessage(data, "배송완료 처리 실패"));
       if(data.updated !== selected.size) setLoadError(`배송완료 ${data.updated ?? 0}건 반영. 나머지는 현재 주문 상태를 확인해주세요.`);
-      await load("shipped");
+      await load(tab);
     } catch(e) { setLoadError(apiErrorMessage(e, "처리 결과를 확인해주세요.")); }
     finally { setDelivering(false); }
   }
 
   async function handleTabAction(action: string, label: string, deductShipping = false) {
-    if (selected.size === 0) return;
+    if (selectedAction !== "cancel") return;
     const extra = action === "cancel_confirm"
       ? deductShipping
         ? "\n각 주문의 배송비를 뺀 금액이 토스로 환불됩니다."
@@ -268,66 +266,26 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
   }
 
   const carrierName = carriers.find((c) => c.code === carrierCode)?.name ?? "";
-  const tabAction = TAB_ACTION[tab];
+  const locked = importing || readingFile || delivering || acting;
 
   return (
-    <div>
-      {loadError && (
-        <p role="alert" className="mb-3 px-4 py-3 text-xs font-semibold flex items-center gap-3 flex-wrap" style={{ background: "#FDF2F2", border: "1px solid #F0C9C9", color: "#B91C1C" }}>
-          {loadError}
-          <button className="border border-red-200 bg-white text-red-600 font-bold px-3 py-1 rounded-none hover:bg-red-50" onClick={() => load(tab)}>목록 다시 확인</button>
-        </p>
-      )}
-      {/* 탭 + 사이트 필터 */}
-      {!sharedOrders && (
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex flex-wrap">
-          {TABS.map((t, ti) => (
-            <button key={t.key} onClick={() => { setTab(t.key); setSelected(new Set()); }}
-              className="px-4 py-2 text-xs font-semibold transition-colors"
-              style={{
-                border: "1px solid",
-                marginLeft: ti > 0 ? "-1px" : 0,
-                background: tab === t.key ? "#1A1D18" : "#fff",
-                color: tab === t.key ? "#fff" : "#5C6156",
-                borderColor: tab === t.key ? "#1A1D18" : "#D6D6CF",
-              }}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <span className="text-sm font-semibold text-[#2F5D34]">{SITES[siteFilter].name} 주문 {siteCounts[siteFilter] ?? 0}건</span>
+    <div className="ops-shipment-list">
+      {loadError && <p role="alert" className="ops-error">{loadError} <button className="ops-text-button" onClick={()=>load(tab)}>목록 다시 확인</button></p>}
+      <div className="ops-toolbar">
+        <input className="ops-search" aria-label="배송 주문 검색" value={query} disabled={locked} onChange={e=>setQuery(e.target.value)} placeholder="주문번호 · 수령인 · 상품 · 송장 검색"/>
+        {!['cancel_requested','exchange_requested','return_requested'].includes(tab) && <select aria-label="배송 상태" value={tab} disabled={locked} onChange={e=>{setTab(e.target.value as ShipmentTab);setSelected(new Set());}}>
+          {TABS.filter(t=>!['cancel_requested','exchange_requested','return_requested'].includes(t.key)).map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>}
+        <span className="ops-meta">{loading ? '조회 중' : `${orders.length}건 표시`}</span>
       </div>
-
-      )}
-      {/* ── 배송준비 탭 ── */}
-      {tab === "preparing" && (
-        <>
-          <div className="bg-white rounded-none border border-gray-100 p-6 mb-4">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <p className="text-sm font-bold text-gray-800">운송장번호 일괄 입력</p>
-                <p className="text-xs text-gray-400 mt-0.5">엑셀/CSV: 주문번호, 운송장번호, 택배사(선택) — 택배사 칸이 비면 아래 선택값 적용</p>
-              </div>
-              <button onClick={downloadTemplate}
-                className="text-xs text-blue-500 hover:text-blue-600 font-medium border border-blue-200 px-3 py-1.5 rounded-none">
-                주문별 회신 양식 다운로드
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 선택</label>
-              <select value={carrierCode} disabled={importing || readingFile} onChange={(e) => { setCarrierCode(e.target.value); setPreview(null); setImportResult(null); }}
-                className="w-full border border-gray-200 rounded-none px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#C7D6C0] bg-white">
-                {carriers.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-              </select>
-            </div>
-
+      {['active','preparing'].includes(tab) && <div className="ops-import-bar">
+        <div className="ops-import-heading"><div><h3>송장 등록</h3><p>회신 파일을 올리거나 목록에서 배송준비 주문을 선택해 입력하세요.</p></div><button onClick={downloadTemplate} className="ops-button">회신 양식 받기</button></div>
+        <label className="ops-inline-field">파일에 택배사가 없을 때 <select aria-label="기본 택배사" value={carrierCode} disabled={importing||readingFile} onChange={e=>{setCarrierCode(e.target.value);setPreview(null);setImportResult(null);}}>{carriers.map(c=><option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
             {fileName && <p className="text-xs text-gray-600 mb-2" aria-live="polite">선택 파일: {fileName}{readingFile ? " · 읽는 중…" : ""}</p>}
             {csvRows.length === 0 ? (
               <button disabled={importing} onClick={() => fileRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 rounded-none py-8 text-sm text-gray-400 hover:border-[#2D5A27] hover:text-[#7A8B6F] transition-colors">
-                엑셀/CSV 파일 선택 또는 클릭
+                className="ops-button ops-button-primary">
+                엑셀/CSV 파일 선택
               </button>
             ) : (
               <div>
@@ -386,96 +344,26 @@ export default function ShipmentsClient({ initialTab = "preparing", initialReque
                 <ImportReviewTable review={importResult} completed />
               </div>
             )}
-          </div>
-
-          {selected.size > 0 && (
-            <div className="mb-3">
-              <button disabled={importing || readingFile} onClick={() => { setModalTracking({}); setShowTrackModal(true); }}
-                className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors">
-                선택 {selected.size}건 운송장 입력 → 배송중
-              </button>
-            </div>
-          )}
-
-          <OrderTable orders={orders} loading={loading} selected={selected} onToggleGroup={toggleGroup}
-            onToggleAll={toggleAll} onToggle={toggleOrder}
-            emptyText="배송준비 중인 주문이 없습니다" />
-        </>
-      )}
-
-      {/* ── 배송중 탭 ── */}
-      {tab === "shipped" && (
-        <>
-          <div className="flex items-center gap-3 mb-3 flex-wrap">
-            {selected.size > 0 && (
-              <button onClick={handleBulkDeliver} disabled={delivering}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                {delivering ? "처리 중..." : `배송완료 처리 (${selected.size}건)`}
-              </button>
-            )}
-          </div>
-          <OrderTable orders={orders} loading={loading} selected={selected} onToggleGroup={toggleGroup}
-            onToggleAll={toggleAll} onToggle={toggleOrder} showTracking
-            emptyText="배송 중인 주문이 없습니다" />
-        </>
-      )}
-
-      {/* ── 교환·반품 신청 탭 — 신청 상세(사유·사진·수거지) 보고 건별 처리 ── */}
-      {(tab === "exchange_requested" || tab === "return_requested") && (
-        <ReturnsPanel key={tab} kind={tab === "exchange_requested" ? "exchange" : "return"} compact={!!sharedOrders} refreshKey={sharedOrders} initialRequestId={tab === initialTab ? initialRequestId : undefined} onChanged={() => { void load(tab); }} />
-      )}
-
-      {/* ── 액션 탭 (취소요청) ── */}
-      {tabAction && (
-        <>
-          {selected.size > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {tab === "cancel_requested" ? (
-                <>
-                  {/* 취소 승인 = 토스 환불 실행 — 사유에 따라 전액 / 배송비 차감(단순 변심) 선택 */}
-                  <button onClick={() => handleTabAction("cancel_confirm", "취소 승인 · 전액 환불")} disabled={acting}
-                    className="text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 bg-red-500 hover:bg-red-600">
-                    {acting ? "처리 중..." : `취소 승인 · 전액 환불 (${selected.size}건)`}
-                  </button>
-                  <button onClick={() => handleTabAction("cancel_confirm", "취소 승인 · 배송비 차감(단순 변심)", true)} disabled={acting}
-                    className="text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 bg-orange-500 hover:bg-orange-600">
-                    {acting ? "처리 중..." : `취소 승인 · 배송비 차감 (${selected.size}건)`}
-                  </button>
-                  {/* 반려 = 환불 없이 원래 상태로 복귀 (이미 출고된 발송 후 취소요청 등) */}
-                  <button onClick={() => handleTabAction("cancel_reject", "취소요청 반려 (주문 유지, 환불 없음)")} disabled={acting}
-                    className="text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 border border-gray-300 text-gray-600 hover:bg-gray-50 bg-white">
-                    {acting ? "처리 중..." : `요청 반려 (${selected.size}건)`}
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => handleTabAction(tabAction.action, tabAction.label)} disabled={acting}
-                  className={`text-white text-sm font-bold px-5 py-2.5 rounded-none transition-colors disabled:opacity-50 ${tabAction.color}`}>
-                  {acting ? "처리 중..." : `${tabAction.label} (${selected.size}건)`}
-                </button>
-              )}
-            </div>
-          )}
-          <OrderTable orders={orders} loading={loading} selected={selected} onToggleGroup={toggleGroup}
-            onToggleAll={toggleAll} onToggle={toggleOrder}
-            emptyText={`${TABS.find(t => t.key === tab)?.label} 주문이 없습니다`} />
-        </>
-      )}
-
-      {/* ── 조회 전용 탭 (배송완료/교환완료/반품완료/취소완료) ── */}
-      {!tabAction && !["preparing", "shipped", "exchange_requested", "return_requested"].includes(tab) && (
-        <OrderTable orders={orders} loading={loading} selected={new Set()}
-          onToggleAll={() => {}} onToggle={() => {}} showTracking={tab === "delivered"}
-          emptyText={`${TABS.find(t => t.key === tab)?.label} 주문이 없습니다`} />
-      )}
+      </div>}
+      {selected.size>0 && <div className="ops-selection-bar" aria-live="polite">
+        <strong>{selected.size}건 선택</strong>
+        {selectedAction==='tracking' && <button disabled={locked} onClick={()=>{setModalTracking({});setShowTrackModal(true);}} className="ops-button ops-button-primary">선택 주문 송장 입력</button>}
+        {selectedAction==='deliver' && <button onClick={handleBulkDeliver} disabled={locked} className="ops-button ops-button-primary">{delivering?'처리 중…':'선택 주문 배송완료 처리'}</button>}
+        {selectedAction==='cancel' && <>
+          <button onClick={()=>handleTabAction('cancel_confirm','취소 승인 · 전액 환불')} disabled={locked} className="ops-button ops-button-danger">승인 · 전액 환불</button>
+          <button onClick={()=>handleTabAction('cancel_confirm','취소 승인 · 배송비 차감',true)} disabled={locked} className="ops-button">승인 · 배송비 차감</button>
+          <button onClick={()=>handleTabAction('cancel_reject','취소요청 반려 (주문 유지, 환불 없음)')} disabled={locked} className="ops-button">반려</button>
+        </>}
+        {selectedAction==='mixed'&&<span className="ops-warning">같은 처리 단계의 주문만 선택해주세요.</span>}
+      </div>}
+      {(tab==='exchange_requested'||tab==='return_requested') ? <ReturnsPanel kind={tab==='exchange_requested'?'exchange':'return'} compact refreshKey={sharedOrders} initialRequestId={initialRequestId} onChanged={()=>{void load(tab);}} /> :
+        <OrderTable orders={orders} loading={loading} selected={selected} onToggleAll={toggleAll} onToggle={toggleOrder} onToggleGroup={shippingList||tab==='cancel_requested'?toggleGroup:undefined} showTracking emptyText="조건에 맞는 주문이 없습니다." />}
 
       {/* ── 운송장 입력 모달 (선택 주문 → 배송중) ── */}
       {showTrackModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => !importing && setShowTrackModal(false)}>
-          <div className="bg-white rounded-none w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+          <div role="dialog" aria-modal="true" aria-label="선택 주문 운송장 입력" className="bg-white rounded-none w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100">
               <p className="text-sm font-bold text-gray-800">선택 주문 운송장 입력</p>
@@ -561,101 +449,15 @@ function OrderTable({
   if (loading) return <div className="bg-white rounded-none border border-gray-100 p-6 text-center text-sm text-gray-400">불러오는 중...</div>;
   if (orders.length === 0) return <div className="bg-white rounded-none border border-gray-100 p-6 text-center text-sm text-gray-400">{emptyText}</div>;
 
-  return (
-    <div className="bg-white rounded-none border border-gray-100 overflow-x-auto">
-      <table className="w-full min-w-[720px] text-sm">
-        <thead className="border-b border-gray-100 bg-gray-50">
-          <tr>
-            <th className="w-10 px-4 py-3">
-              {onToggleGroup && <input type="checkbox"
-                checked={selected.size === orders.length && orders.length > 0}
-                onChange={onToggleAll}
-                className="w-4 h-4 rounded accent-[#2D5A27]"
-              />}
-            </th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-gray-400">주문번호</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-gray-400">주문일</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-gray-400">수령인</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-gray-400">상품</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-gray-400">금액</th>
-            {showTracking && <th className="text-left px-4 py-3 text-xs font-medium text-gray-400">운송장</th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {/* 상품별 그룹 — 같은 상품 주문을 묶어서 보고, 그룹 체크박스로 한 번에 선택 */}
-          {Array.from(
-            orders.reduce((m, o) => {
-              // 그룹 이름은 본상품 기준 — 추가옵션 행이 첫 줄이어도 그룹이 쪼개지지 않게
-              const key = (o.items.find((i) => i.product_id) ?? o.items[0])?.product_name ?? "기타";
-              if (!m.has(key)) m.set(key, [] as ShipmentOrder[]);
-              m.get(key)!.push(o);
-              return m;
-            }, new Map<string, ShipmentOrder[]>())
-          ).flatMap(([productName, group]) => [
-            (() => {
-              const ids = group.map((g) => g.id);
-              const allSel = ids.every((id) => selected.has(id));
-              return (
-                <tr key={`g-${productName}`} style={{ background: "#F4F4F1" }}>
-                  <td className="px-4 py-2">
-                    {onToggleGroup && (
-                      <input type="checkbox" checked={allSel}
-                        onChange={() => onToggleGroup(ids, !allSel)}
-                        className="w-4 h-4 rounded accent-[#2D5A27]" title="이 상품 주문 전체 선택" />
-                    )}
-                  </td>
-                  <td colSpan={showTracking ? 6 : 5} className="px-4 py-2 text-xs font-bold" style={{ color: "#3E423A" }}>
-                    {productName} <span className="ds-mono font-semibold" style={{ color: "#8F948A" }}>{group.length}건</span>
-                  </td>
-                </tr>
-              );
-            })(),
-            ...group.map((o) => (
-            <tr key={o.id} className={`hover:bg-gray-50 transition-colors ${selected.has(o.id) ? "bg-[#EAF0E6]/40" : ""}`}>
-              <td className="px-4 py-3">
-                {onToggleGroup && <input type="checkbox" checked={selected.has(o.id)} onChange={() => onToggle(o.id)}
-                  className="w-4 h-4 rounded accent-[#2D5A27]" />}
-              </td>
-              <td className="px-4 py-3 font-mono text-xs text-gray-500">{o.order_number} <SiteBadge site={o.site} className="ml-1 font-sans" /></td>
-              <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-                {new Date(o.created_at).toLocaleDateString("ko-KR")}
-              </td>
-              <td className="px-4 py-3">
-                <div className="text-xs font-medium text-gray-800">{o.recipient_name ?? o.buyer_name}</div>
-                <div className="text-xs text-gray-400">{formatPhone(o.recipient_phone || o.buyer_phone)}</div>
-                {o.addr_memo && (
-                  <div className="text-[11px] mt-0.5 text-orange-600">📦 {o.addr_memo}</div>
-                )}
-              </td>
-              <td className="px-4 py-3">
-                {o.items.map((item, i) => (
-                  <div key={i} className="text-xs text-gray-700 truncate max-w-[200px]">
-                    {item.product_name}
-                    {item.option_label && <span className="text-gray-400"> / {item.option_label}</span>}
-                    {" "}x{item.quantity}
-                  </div>
-                ))}
-              </td>
-              <td className="px-4 py-3 text-right text-xs font-semibold text-gray-800">
-                {Number(o.total_amount).toLocaleString()}원
-              </td>
-              {showTracking && (
-                <td className="px-4 py-3">
-                  {o.tracking_number ? (
-                    <div>
-                      <div className="text-xs text-gray-500">{carrierName(o.tracking_company)}</div>
-                      <div className="font-mono text-xs text-gray-800">{o.tracking_number}</div>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-300">미입력</span>
-                  )}
-                </td>
-              )}
-            </tr>
-            )),
-          ])}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <div className="ops-table-scroll"><table className="ops-table ops-shipments-table">
+    <thead><tr><th>{onToggleGroup&&<input type="checkbox" aria-label="표시된 배송 주문 전체 선택" checked={selected.size===orders.length&&orders.length>0} onChange={onToggleAll}/>}</th><th>주문 · 주문일시 <small>한국시간</small></th><th>수령인</th><th>상품 · 출고 정보</th><th>상태 · 운송장</th><th>결제 금액</th></tr></thead>
+    <tbody>{orders.map(o=><tr key={o.id} data-selected={selected.has(o.id)}>
+      <td>{onToggleGroup&&<input type="checkbox" aria-label={`${o.order_number} 선택`} checked={selected.has(o.id)} onChange={()=>onToggle(o.id)}/>}</td>
+      <td><Link className="ops-text-button" href={`/admin/orders/${o.id}`}>{o.order_number}</Link><time className="ops-meta" dateTime={o.created_at}>{new Date(o.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})}</time></td>
+      <td><strong>{o.recipient_name||o.buyer_name}</strong><span className="ops-meta">{formatPhone(o.recipient_phone||o.buyer_phone)}</span>{o.addr_memo&&<span className="ops-warning">{o.addr_memo}</span>}</td>
+      <td>{o.items.map((it,i)=><div key={i} className="ops-order-item"><strong>{it.product_name}</strong><span className="ops-meta">{it.option_label||'기본 구성'} · {it.quantity}개</span>{it.product_id&&<span className="ops-meta">{it.supplier_name||'공급사 미지정'} · {it.expected_ship_date?.slice(0,10)||'출고일 미지정'}</span>}</div>)}</td>
+      <td><span className={`ops-status ops-status-${o.status}`}>{TABS.find(t=>t.key===o.status)?.label||o.status}</span>{o.tracking_number?<span className="ops-meta">{carrierName(o.tracking_company)}<br/>{o.tracking_number}</span>:o.status==='shipped'?<span className="ops-warning">송장 정보 누락</span>:null}</td>
+      <td className="ops-nowrap"><strong>{Number(o.total_amount).toLocaleString()}원</strong></td>
+    </tr>)}</tbody>
+  </table></div>;
 }

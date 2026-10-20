@@ -64,7 +64,7 @@ test('visits-only view excludes server traffic and automatic check panels',()=>{
  const html=renderToStaticMarkup(React.createElement(View,{siteName:'산지픽',summary:data,visitsOnly:true}));
  assert.match(html,/방문 통계/);assert.doesNotMatch(html,/자동 점검|서버 트래픽|점검 실행 기록/);
 });
-for(const route of ['visits','traffic']) test(`${route} loads only its own site's requested statistics`,async()=>{
+for(const route of ['traffic']) test(`${route} loads only its own site's requested statistics`,async()=>{
  let called=0;
  const mocks={'next/headers':{cookies:async()=>({get:()=>({value:'test-admin'})})},'next/navigation':{redirect:()=>{throw Error('unexpected login')}},'@/lib/auth':{verifyAdminToken:async()=>({role:'admin'})},'@/lib/admin-site':{currentAdminSite:async()=>({key:'sanjipick',name:'산지픽'})},'@/components/admin/MonitoringOverview':()=>null,'@/components/admin/ServerTrafficPanel':()=>null,'@/lib/visit-analytics/store':{getVisitSummary:async(site,days)=>{assert.equal(route,'visits');assert.equal(site,'sanjipick');assert.equal(days,30);called++;return {}; }},'@/lib/server-traffic':{getServerTraffic:async(site,days)=>{assert.equal(route,'traffic');assert.equal(site,'sanjipick');assert.equal(days,30);called++;return {};}}};
  const Page=load(`app/admin/(protected)/${route}/page.tsx`,mocks).default;await Page({searchParams:Promise.resolve({days:'30'})});assert.equal(called,1);

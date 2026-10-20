@@ -97,37 +97,19 @@ export default function ShipmentTrackingPanel({onChanged}: {onChanged?:()=>Promi
  }
 
  const latest=runs[0];
- return <section aria-label="배송 자동조회" className="border border-gray-200 bg-white">
-  <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 border-b border-gray-100">
-   <div>
-    <div className="flex flex-wrap items-center gap-2">
-     <h2 className="text-sm font-bold text-gray-900">배송 자동조회</h2>
-     <span className={`px-2 py-1 text-[11px] font-semibold ${keyConfigured===false?'bg-red-50 text-red-700':'bg-gray-100 text-gray-600'}`}>{keyConfigured===null?'연동 상태 확인 중':keyConfigured?'API 키 등록됨':'연동 설정 필요'}</span>
-    </div>
-    <p className="mt-2 text-xs leading-5 text-gray-500">매일 07:30 · 19:30 자동 조회 예정 (한국시간)</p>
-    <p className="text-xs leading-5 text-gray-500">현재 사이트의 배송중 주문을 조회하고, 확인된 배송완료 결과를 반영합니다.</p>
-   </div>
-   <button type="button" onClick={()=>void lookup()} disabled={busy||running||keyConfigured===false} aria-busy={busy||running}
-    className="flex min-h-11 items-center justify-center gap-2 bg-[#2D5A27] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#244B1F] disabled:cursor-not-allowed disabled:opacity-50">
-    <svg aria-hidden="true" className={`h-4 w-4 ${busy||running?'animate-spin':''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-    {busy||running?'배송조회 중…':'지금 배송조회'}
-   </button>
+ return <section aria-label="배송 자동조회" className="ops-tracking-panel">
+  <div className="ops-tracking-summary">
+   <div><div className="ops-tracking-title"><h2>배송 자동조회</h2><span className={keyConfigured===false?'ops-warning':'ops-meta'}>{keyConfigured===null?'연동 상태 확인 중':keyConfigured?'API 키 등록됨':'연동 설정 필요'}</span></div><p>매일 07:30 · 19:30 자동 조회 예정 (한국시간)</p></div>
+   <div className="ops-tracking-latest">{latest?<><span className={`ops-status ${statusColors[latest.status]}`}>{statusLabels[latest.status]}</span><span>최근 조회 {time(latest.started_at)}</span><strong>{latest.status==='running'?'조회 중':`조회 ${latest.checked} · 완료 ${latest.delivered} · 배송중 ${latest.in_transit} · 실패 ${latest.failed}`}</strong></>:<span>{loading?'이력 확인 중':historyError?'이력 확인 실패':'저장된 조회 이력 없음'}</span>}</div>
+   <button type="button" onClick={()=>void lookup()} disabled={busy||running||keyConfigured!==true} aria-busy={busy||running} className="ops-button ops-button-primary">{busy||running?'배송조회 중…':'지금 배송조회'}</button>
   </div>
-  <div className="px-5 py-4">
-   <p className="text-[11px] leading-5 text-gray-400">자동 조회는 회당 최대 80건, 직접 조회는 최대 100건을 오래된 조회 순서로 처리합니다. 배송완료 주문은 다시 조회하지 않습니다.</p>
+  <div className="ops-tracking-feedback">
    {actionMessage && <p role={actionError?'alert':'status'} className={`mt-3 px-3 py-2 text-xs leading-5 ${actionError?'bg-amber-50 text-amber-900':'bg-green-50 text-green-800'}`}>{actionMessage}</p>}
    {historyError && <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 text-xs text-red-700"><span>{historyError}</span><button type="button" onClick={()=>void refresh()} className="underline">이력 다시 불러오기</button></div>}
-   {latest && <>
-    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-     <span className={`px-2 py-1 font-semibold ${statusColors[latest.status]}`}>{statusLabels[latest.status]}</span>
-     <span>최근 {latest.source==='automatic'?'자동':'직접'} 조회 · <time dateTime={latest.started_at}>{time(latest.started_at)}</time></span>
-     <span>소요 {duration(latest)}</span>
-    </div>
-    <dl className="mt-3 grid grid-cols-2 gap-px border border-gray-100 bg-gray-100 sm:grid-cols-4">
-     {([{label:'조회',value:latest.checked,color:'text-gray-900'},{label:'배송완료 반영',value:latest.delivered,color:'text-green-800'},{label:'배송중',value:latest.in_transit,color:'text-blue-700'},{label:'실패',value:latest.failed,color:latest.failed?'text-red-700':'text-gray-500'}]).map(item=><div key={item.label} className="bg-gray-50 px-4 py-3"><dt className="text-xs text-gray-500">{item.label}</dt><dd className={`mt-1 text-xl font-bold tnum ${item.color}`}>{latest.status==='running'?'—':item.value}<span className="ml-1 text-xs font-normal">건</span></dd></div>)}
-    </dl>
-    {latest.message && <p className={`mt-2 text-xs leading-5 ${latest.status==='failed'?'text-red-700':'text-gray-500'}`}>{latest.message}</p>}
-   </>}
+   {latest?.message&&<p className={`text-xs leading-5 ${latest.status==='failed'?'text-red-700':'text-gray-500'}`}>{latest.message}</p>}
+   <details className="ops-details ops-tracking-history">
+    <summary>조회 이력·주문별 결과 {runs.length>0?`(${runs.length}회)`:''}</summary>
+    <p className="ops-meta">현재 사이트의 배송중 주문을 오래된 조회 순으로 확인합니다. 자동 회당 최대 80건 · 직접 최대 100건. 배송완료 주문은 제외합니다.</p>
    <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
     <h3 className="text-xs font-bold text-gray-700">최근 조회 이력 <span className="font-normal text-gray-400">· 최근 10회</span></h3>
     <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600"><input type="checkbox" checked={failedOnly} onChange={event=>setFailedOnly(event.target.checked)} className="accent-[#2D5A27]"/>실패한 주문만 보기</label>
@@ -160,6 +142,7 @@ export default function ShipmentTrackingPanel({onChanged}: {onChanged?:()=>Promi
      </div>
     </details>)}
    </div>
+   </details>
   </div>
  </section>;
 }
