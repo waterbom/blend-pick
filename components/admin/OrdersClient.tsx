@@ -6,8 +6,7 @@ import { orderQueue, dispatchIssues } from "@/lib/admin-workflow";
 import Link from "next/link";
 import OrderQuickView from "@/components/admin/OrderQuickView";
 import { downloadXlsx } from "@/lib/xlsx-download";
-import ReturnsPanel from "@/components/admin/ReturnsPanel";
-import SiteBadge from "@/components/admin/SiteBadge";
+import { matchesOrderSearch, selectionAction } from "@/lib/admin-list-workspace";
 import { useSiteKey } from "@/components/SiteContext";
 import { SITES } from "@/lib/sites";
 import { formatPhone } from "@/lib/phone-format";
@@ -76,11 +75,6 @@ const STATUS_STYLE: Record<string, string> = {
   return_completed:   "bg-[#EAF0E6] text-[#7A8B6F]",
 };
 
-const ORDER_TYPE_BADGE: Record<string, { label: string; cls: string }> = {
-  campaign: { label: "공동구매", cls: "bg-emerald-50 text-emerald-600" },
-  shop:     { label: "상품",     cls: "bg-slate-100 text-slate-600" },
-};
-
 // 공동구매 판별 — 지금 공구는 상품 상세(?inf= 링크·쿠키 귀속)로 팔려 order_type이 'shop'으로
 // 저장되므로, 인플루언서가 귀속된 주문은 전부 공동구매로 분류한다 (옛 캠페인 링크 주문 포함)
 const isCampaign = (o: { order_type: string; influencer_name: string | null }) =>
@@ -138,38 +132,25 @@ export function toOrderRows(orders: Order[], includeStatus = false): (string | n
 }
 
 export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?: Order[]; onChanged?: () => Promise<void>} = {}) {
-  const [queue, setQueue] = useState("ready");
+  const [queue, setQueue] = useState("work");
   const [loadError, setLoadError] = useState("");
   const [batches, setBatches] = useState<{id:string;request_key:string;created_at:string;order_count:number}[]>([]);
   const pendingDispatch = useRef<{key:string;ids:string[]} | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>(sharedOrders??[]);
+  const [loading, setLoading] = useState(!sharedOrders);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [channelFilter, setChannelFilter] = useState("");
   const siteFilter = useSiteKey(); // '' | 'blendpick' | 'sanjipick'
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [acting, setActing] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-
-  // 고객 신청(취소·교환·반품) 대기 건수 — 어떤 탭을 보고 있든 항상 최신으로 유지해 배너·배지에 표시
-  const [reqCounts, setReqCounts] = useState({ cancel_requested: 0, exchange_requested: 0, return_requested: 0 });
-  async function loadReqCounts() {
-    try {
-      const res = await fetch("/api/admin/orders?status=cancel_requested,exchange_requested,return_requested");
-      const data = await readApiJson(res, "신청 건수를 불러오지 못했습니다.");
-      if (!Array.isArray(data)) return;
-      const c = { cancel_requested: 0, exchange_requested: 0, return_requested: 0 };
-      for (const o of data) if (o.status in c) (c as Record<string, number>)[o.status]++;
-      setReqCounts(c);
-    } catch (error) { setLoadError(apiErrorMessage(error)); }
-  }
+  const [productFilter, setProductFilter] = useState("");
 
   async function loadBatches(){try{const r=await fetch("/api/admin/dispatches");const rows=await readApiJson(r);if(!r.ok||!Array.isArray(rows))throw Error(apiErrorMessage(rows,"발주 이력을 불러오지 못했습니다."));setBatches(rows);if(rows.some((b:{request_key:string})=>b.request_key===pendingDispatch.current?.key))pendingDispatch.current=null;}catch(e){setLoadError(apiErrorMessage(e, "발주 이력을 불러오지 못했습니다. 새로고침해주세요."));}}
   async function load(_status = "") {
     if(sharedOrders){await onChanged?.();return;}
     setLoading(true);setLoadError("");
-    try{const res=await fetch("/api/admin/orders");const data=await readApiJson(res);if(!res.ok||!Array.isArray(data))throw Error(apiErrorMessage(data,"주문을 불러오지 못했습니다."));setOrders(data);setSelected(new Set());loadReqCounts();}
+    try{const res=await fetch("/api/admin/orders");const data=await readApiJson(res);if(!res.ok||!Array.isArray(data))throw Error(apiErrorMessage(data,"주문을 불러오지 못했습니다."));setOrders(data);setSelected(new Set());}
     catch(e){setOrders([]);setLoadError(apiErrorMessage(e, "주문을 불러오지 못했습니다. 새로고침해주세요."));}
     finally{setLoading(false);}
   }
@@ -177,65 +158,27 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
   useEffect(() => {if(sharedOrders){setOrders(sharedOrders);setLoading(false);setSelected(prev=>new Set([...prev].filter(id=>sharedOrders.some(o=>o.id===id && orderQueue(o)==="ready"))));}},[sharedOrders]);
   // 검색 — 주문번호·구매자·수령인·연락처·상품명·옵션·인플루언서 통합
   const [query, setQuery] = useState("");
-  useEffect(()=>{setSelected(new Set());},[queue,statusFilter,typeFilter,channelFilter,query]);
+  useEffect(()=>{setSelected(new Set());},[queue,statusFilter,typeFilter,channelFilter,query,productFilter]);
   const siteOf = (o: Order) => o.site || "blendpick";
   const visibleOrders = useMemo(() => {
     let list =
       typeFilter === "campaign" ? orders.filter(isCampaign)
       : typeFilter === "shop" ? orders.filter((o) => !isCampaign(o))
       : orders;
-    if(queue!=="history")list=list.filter(o=>orderQueue(o)===queue);
+    if(queue!=="history")list=list.filter(o=>queue === "work" ? orderQueue(o)!=="history" : orderQueue(o)===queue);
     if(statusFilter)list=list.filter(o=>o.status===statusFilter);
     if (siteFilter) list = list.filter((o) => siteOf(o) === siteFilter);
     if (channelFilter) list = list.filter(o=>(o.sales_channel ?? (o.link_code ? "non_display" : "display")) === channelFilter);
-    const q = query.trim().toLowerCase();
-    if (q) {
-      const qDigits = q.replace(/[^0-9]/g, "");
-      list = list.filter((o) =>
-        (o.order_number ?? "").toLowerCase().includes(q) ||
-        (o.buyer_name ?? "").toLowerCase().includes(q) ||
-        (o.recipient_name ?? "").toLowerCase().includes(q) ||
-        (o.influencer_name ?? "").toLowerCase().includes(q) ||
-        o.items.some((it) =>
-          (it.product_name ?? "").toLowerCase().includes(q) ||
-          (it.option_label ?? "").toLowerCase().includes(q)
-        ) ||
-        (qDigits.length >= 3 && (
-          (o.buyer_phone ?? "").replace(/[^0-9]/g, "").includes(qDigits) ||
-          (o.recipient_phone ?? "").replace(/[^0-9]/g, "").includes(qDigits)
-        ))
-      );
-    }
-    return list;
-  }, [orders, typeFilter, siteFilter, query, channelFilter, queue, statusFilter]);
-
-  const groups = useMemo(() => {
-    const map = new Map<string, Order[]>();
-    for (const o of visibleOrders) {
-      // 그룹 이름은 본상품 기준 — 추가옵션 행(product_id 없음)이 첫 줄이어도 그룹이 쪼개지지 않게
-      const main = o.items.find((i) => i.product_id) ?? o.items[0];
-      const key = main?.product_name ?? "기타";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(o);
-    }
-    return map;
-  }, [visibleOrders]);
+    if (productFilter) list = list.filter(o => o.items.some(i => i.product_name === productFilter));
+    return list.filter(o => matchesOrderSearch(o, query));
+  }, [orders, typeFilter, siteFilter, query, channelFilter, queue, statusFilter, productFilter]);
+  const scopedOrders = orders.filter(o => siteOf(o) === siteFilter);
+  const selectedAction = selectionAction(visibleOrders, selected);
 
   function toggleOrder(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  function toggleGroup(groupOrders: Order[]) {
-    const ids = groupOrders.map((o) => o.id);
-    const allSelected = ids.every((id) => selected.has(id));
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allSelected) ids.forEach((id) => next.delete(id));
-      else ids.forEach((id) => next.add(id));
       return next;
     });
   }
@@ -250,16 +193,8 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
     });
   }
 
-  function toggleGroupExpand(key: string) {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  }
-
   async function handleBatchAction(action: string, label: string, withCSV = false, deductShipping = false) {
-    if (selected.size === 0) return;
+    if (selectedAction !== "cancel") return;
     const extra = action === "cancel_confirm"
       ? deductShipping
         ? "\n각 주문의 배송비를 뺀 금액이 토스로 환불됩니다."
@@ -280,15 +215,6 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
       await load(statusFilter);
     } catch (error) { alert(apiErrorMessage(error, "처리 결과를 확인하지 못했습니다. 새로고침해 상태를 확인해주세요.")); } finally { setActing(false); }
   }
-
-  // 고객 신청 탭 — 취소요청은 이 화면에서 바로 승인/차감/반려, 교환·반품은 상세 패널로.
-  // 건수는 항상 전체 기준(reqCounts) — 다른 탭을 보고 있어도 대기 건이 보이게
-  const requestTabs = [
-    { key: "cancel_requested",   label: "취소요청", count: reqCounts.cancel_requested },
-    { key: "exchange_requested", label: "교환신청", count: reqCounts.exchange_requested },
-    { key: "return_requested",   label: "반품신청", count: reqCounts.return_requested },
-  ];
-  const isReturnsTab = statusFilter === "exchange_requested" || statusFilter === "return_requested";
 
   // 개별 주문 취소 — 토스 전액 환불 + 상태 취소 + 재고 복원까지 서버가 한 번에 처리
   const CANCELLABLE = ["paid", "confirmed", "preparing", "cancel_requested"];
@@ -333,6 +259,7 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
     catch(e){alert(apiErrorMessage(e, "파일을 받지 못했습니다. 발주 이력에서 다시 다운로드해주세요."));}
   }
   async function handleDispatch(){
+    if (selectedAction !== "dispatch") { alert("발주 가능한 주문만 선택해주세요."); return; }
     const ids=[...selected].sort();if(!ids.length||!confirm(`${ids.length}건을 발주 확정할까요? 확정 후 배송준비로 이동합니다. 공급사 전송은 별도로 진행해주세요.`))return;
     if(pendingDispatch.current&&JSON.stringify(pendingDispatch.current.ids)!==JSON.stringify(ids)){alert("이전 요청 결과부터 발주 이력에서 확인해주세요. 같은 주문 선택으로 다시 시도할 수 있습니다.");return;}
     const request=pendingDispatch.current??{key:crypto.randomUUID(),ids};pendingDispatch.current=request;setActing(true);
@@ -342,9 +269,9 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
   }
   const actionButton = () => {
     if (selected.size === 0) return null;
-    if(queue==="ready")return <button disabled={acting} onClick={handleDispatch} className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">{acting?"확정 중…":`발주 확정 · 엑셀 (${selected.size}건)`}</button>;
+    if(selectedAction==="dispatch")return <button disabled={acting} onClick={handleDispatch} className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">{acting?"확정 중…":`발주 확정 · 엑셀 (${selected.size}건)`}</button>;
     // 취소요청 탭 — 배송관리와 같은 3버튼 (전액 환불 / 배송비 차감 / 반려)
-    if (statusFilter === "cancel_requested") return (
+    if (selectedAction === "cancel") return (
       <div className="flex items-center gap-2 flex-wrap">
         <button onClick={() => handleBatchAction("cancel_confirm", "취소 승인 · 전액 환불", false, false)} disabled={acting}
           className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-50">
@@ -364,224 +291,56 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
   };
 
   return (
-    <div>
-      {/* 상단 — 처리 큐 · 검색 · 필터 (어드민 공통 규격: 각진 카드 · 회색 경계선 · 딥그린 강조) */}
-      {!sharedOrders && <div className="bg-white rounded-none border border-gray-100 p-6 mb-4 space-y-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <p className="ds-mono text-[10px] font-semibold text-gray-400" style={{ letterSpacing: "0.2em" }}>ORDERS</p>
-            <h2 className="text-sm font-bold text-gray-800 mt-1">전체 주문 · {SITES[siteFilter].name}</h2>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link href="/admin/shipments" className="border border-gray-200 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-none hover:bg-gray-50 transition-colors bg-white">배송 관리</Link>
-            <Link href="/admin/link-sales" className="border border-gray-200 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-none hover:bg-gray-50 transition-colors bg-white">전시 · 비전시 집계</Link>
-            <button onClick={()=>{load();loadBatches();}} className="border border-gray-200 text-gray-600 text-xs font-bold px-3 py-1.5 rounded-none hover:bg-gray-50 transition-colors bg-white">새로고침</button>
-          </div>
-        </div>
-        {/* 처리 큐 — 대시보드 KPI 타일과 같은 격자 */}
-        <div className="commerce-order-queues">
-          {[{key:"check",label:"신규 확인",sub:"결제·배송 정보 점검"},{key:"ready",label:"발주 대기",sub:"검증 완료 · 발주 확정"},{key:"requests",label:"고객 요청",sub:"취소 · 교환 · 반품"}].map(t=>{
-            const on = queue===t.key; const n = orders.filter(o=>orderQueue(o)===t.key).length;
-            return (
-              <button key={t.key} onClick={()=>{setQueue(t.key);setStatusFilter("");}}
-                className="text-left p-4 transition-colors" style={{ background: on ? "#EAF0E6" : "#fff" }}>
-                <p className="ds-mono text-[10px] mb-2" style={{ letterSpacing: "0.2em", color: on ? "#2D5A27" : "#8F948A" }}>{t.label}</p>
-                <p className="text-2xl font-extrabold tnum" style={{ color: on ? "#2D5A27" : "#1A1D18" }}>{n}<span className="text-sm font-medium ml-0.5" style={{ color: on ? "#2D5A27" : "#8F948A" }}>건</span></p>
-                <p className="text-xs mt-1" style={{ color: "#8F948A" }}>{t.sub}</p>
-              </button>
-            );
+    <div className="ops-workspace">
+      {!sharedOrders && <header className="ops-page-heading">
+        <div><h1>주문 관리</h1><p>{SITES[siteFilter].name} · 주문 확인부터 발주까지 한 목록에서 처리합니다.</p></div>
+        <div className="ops-heading-actions"><Link href="/admin/shipments" className="ops-button">배송·반품 관리 →</Link><button onClick={()=>{void load();void loadBatches();}} className="ops-button" disabled={loading}>새로고침</button></div>
+      </header>}
+      <section className="ops-list-panel" aria-label="주문 목록">
+        <div className="ops-filter-strip" aria-label="주문 범위">
+          {[{key:"work",label:"처리할 주문"},{key:"ready",label:"발주 가능"},{key:"check",label:"확인 필요"},{key:"requests",label:"고객 요청"},{key:"history",label:"전체 주문"}].map(t=>{
+            const count = scopedOrders.filter(o=>t.key==="history" || (t.key==="work" ? orderQueue(o)!=="history" : orderQueue(o)===t.key)).length;
+            return <button key={t.key} aria-pressed={queue===t.key} onClick={()=>{setQueue(t.key);setStatusFilter("");}} className="ops-filter-chip">{t.label}<b>{loading || loadError && !orders.length ? '—' : count}</b></button>;
           })}
         </div>
-        <p className="text-xs text-gray-500">{queue==="ready"?"결제·배송지·상품 수량을 확인한 주문입니다. 발주 확정 시 서버에서 다시 검사합니다. 공급사가 미지정이면 상품 정보에서 보완해주세요.":queue==="check"?"결제 또는 배송 정보 확인이 필요한 주문입니다. 사유를 확인하고 주문 상세에서 보완해주세요.":queue==="requests"?"취소·교환·반품 요청을 확인하고 처리해주세요.":"배송 진행·완료를 포함한 전체 주문 이력입니다."}</p>
-        <div className="flex items-center gap-2 flex-wrap">
-          <input aria-label="주문 검색" value={query} onChange={e=>setQuery(e.target.value)} placeholder="주문번호 · 이름 · 상품명 검색"
-            className="w-72 border border-gray-200 rounded-none px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C7D6C0]" />
-          <button onClick={()=>{setQueue("history");setStatusFilter("");}}
-            className={`px-4 py-2 text-xs font-semibold rounded-none border transition-colors ${queue==="history" ? "bg-[#1A1D18] text-white border-[#1A1D18]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>전체 이력</button>
-          <details className="text-xs ml-auto">
-            <summary className="cursor-pointer select-none font-bold text-gray-500 hover:text-gray-800 py-2">상세 필터 · 판매 방식 / 구매 구분{queue==="history" ? " / 처리 상태" : ""}</summary>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <select className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)} aria-label="판매 방식"><option value="">판매방식 전체</option><option value="shop">일반 상품</option><option value="campaign">공동구매</option></select>
-              <select className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700" value={channelFilter} onChange={e=>setChannelFilter(e.target.value)} aria-label="구매 구분"><option value="">구매구분 전체</option><option value="display">전시</option><option value="non_display">비전시</option></select>
-              {queue==="history"&&<select className="border border-gray-200 rounded-none px-3 py-2 text-sm bg-white text-gray-700" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} aria-label="처리 상태"><option value="">처리상태 전체</option>{Object.entries(STATUS_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>}
-            </div>
-          </details>
+        <div className="ops-toolbar">
+          <input aria-label="주문 검색" value={query} onChange={e=>setQuery(e.target.value)} placeholder="주문번호 · 이름 · 연락처 · 상품 검색" className="ops-search" />
+          <select aria-label="상품별 주문" value={productFilter} onChange={e=>setProductFilter(e.target.value)}><option value="">상품 전체</option>{[...new Set(scopedOrders.flatMap(o=>o.items.map(i=>i.product_name)))].map(name=><option key={name}>{name}</option>)}</select>
+          <select aria-label="처리 상태" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setQueue("history");}}><option value="">처리상태 전체</option>{Object.entries(STATUS_LABEL).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select>
+          <select aria-label="판매 방식" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="">판매방식 전체</option><option value="shop">일반 상품</option><option value="campaign">공동구매</option></select>
+          <select aria-label="구매 구분" value={channelFilter} onChange={e=>setChannelFilter(e.target.value)}><option value="">구매구분 전체</option><option value="display">전시</option><option value="non_display">비전시</option></select>
+          {(query||productFilter||typeFilter||channelFilter||statusFilter) && <button className="ops-text-button" onClick={()=>{setQuery("");setProductFilter("");setTypeFilter("");setChannelFilter("");setStatusFilter("");}}>검색 초기화</button>}
         </div>
-        {queue==="requests"&&<div className="flex flex-wrap">
-          {[{key:"",label:"전체 요청",count:null as number|null},...requestTabs].map((t,i)=>{
-            const on = statusFilter===t.key;
-            return (
-              <button key={t.key} onClick={()=>setStatusFilter(t.key)} className="px-4 py-2 text-xs font-semibold transition-colors"
-                style={{ border: "1px solid", marginLeft: i > 0 ? "-1px" : 0, background: on ? "#1A1D18" : "#fff", color: on ? "#fff" : "#5C6156", borderColor: on ? "#1A1D18" : "#D6D6CF" }}>
-                {t.label}{t.count != null ? ` ${t.count}` : ""}
-              </button>
-            );
-          })}
+        {loadError && <p role="alert" className="ops-error">{loadError}</p>}
+        {<div className="ops-selection-bar" aria-live="polite">
+          <span>{visibleOrders.length}건 표시{selected.size ? ` · ${selected.size}건 선택` : ' · 주문번호를 누르면 요약을 볼 수 있습니다'}</span>
+          {actionButton()}
+          {selected.size>0 && <button onClick={handleDownloadOnly} disabled={acting} className="ops-button">선택 주문 목록 다운로드</button>}
+          {selectedAction==='mixed' && <span className="ops-warning">일괄 처리는 같은 처리 단계의 주문만 선택해주세요.</span>}
         </div>}
-      </div>
-      }
-      {loadError&&<p role="alert" className="mb-3 px-4 py-3 text-xs font-semibold" style={{ background: "#FDF2F2", border: "1px solid #F0C9C9", color: "#B91C1C" }}>{loadError}</p>}
-      <details className="bg-white rounded-none border border-gray-100 px-5 py-3 mb-4 text-xs">
-        <summary className="cursor-pointer select-none font-bold text-gray-600 hover:text-gray-900">최근 발주 확정 이력 · 재다운로드</summary>
-        <p className="text-gray-400 mt-2 mb-1">확정 당시 데이터로 다시 받습니다. 재다운로드는 상태·재고를 변경하지 않습니다.</p>
-        {batches.length===0
-          ? <p className="text-gray-400 py-2">표시할 발주 이력이 없습니다.</p>
-          : batches.map(b=>(
-            <div key={b.id} className="flex items-center justify-between border-t border-gray-100 py-2">
-              <span className="ds-mono text-gray-600">{new Date(b.created_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} · {b.order_count}건</span>
-              <button onClick={()=>downloadBatch(b.id)} className="font-bold text-[#2D5A27] hover:text-[#244B1F]">다시 받기 ↓</button>
-            </div>
-          ))}
-      </details>
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        {actionButton()}
-        {selected.size>0&&<button onClick={handleDownloadOnly} className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-bold px-4 py-2 rounded-none transition-colors">주문 목록 다운로드 ({selected.size}건)</button>}
-      </div>
-      {/* 주문 테이블 — 교환·반품 신청 탭은 사유·사진·수거지를 보고 건별 처리하는 상세 패널로 */}
-      {isReturnsTab ? (
-        <ReturnsPanel kind={statusFilter === "exchange_requested" ? "exchange" : "return"} onChanged={()=>{load();}} />
-      ) : loading ? (
-        <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">불러오는 중...</div>
-      ) : visibleOrders.length === 0 ? (
-        <div className="bg-white rounded-none border border-gray-100 p-16 text-center text-sm text-gray-400">주문이 없습니다</div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 px-4 py-2 text-xs text-gray-400">
-            <input type="checkbox"
-              checked={visibleOrders.length > 0 && visibleOrders.every((o) => selected.has(o.id))}
-              onChange={toggleAll}
-              className="w-4 h-4 rounded accent-[#2D5A27]"
-            />
-            <span>전체 선택 ({visibleOrders.length}건)</span>
-          </div>
-
-          {[...groups.entries()].map(([productName, groupOrders]) => {
-            // 검색 중엔 결과가 접힌 그룹에 숨지 않게 전부 펼침
-            const isExpanded = !!sharedOrders || queue === "check" || query.trim() !== "" || expandedGroups.has(productName);
-            const groupSelected = groupOrders.every((o) => selected.has(o.id));
-            const groupPartial = groupOrders.some((o) => selected.has(o.id)) && !groupSelected;
-            const productCode = groupOrders[0]?.items.find((i) => i.product_id)?.product_code;
-            const typeBadge = groupOrders[0] && isCampaign(groupOrders[0]) ? ORDER_TYPE_BADGE.campaign : ORDER_TYPE_BADGE.shop;
-
-            return (
-              <div key={productName} className="bg-white rounded-none border border-gray-100 overflow-hidden">
-                <div
-                  className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
-                  onClick={() => toggleGroupExpand(productName)}
-                >
-                  <input type="checkbox" checked={groupSelected}
-                    ref={(el) => { if (el) el.indeterminate = groupPartial; }}
-                    onChange={(e) => { e.stopPropagation(); toggleGroup(groupOrders); }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-4 h-4 rounded accent-[#2D5A27]"
-                  />
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded shrink-0 ${typeBadge.cls}`}>{typeBadge.label}</span>
-                    {productCode && (
-                      <span className="text-xs font-mono bg-[#EAF0E6] text-[#2D5A27] px-1.5 py-0.5 rounded shrink-0">{productCode}</span>
-                    )}
-                    <span className="text-sm font-bold text-gray-800 truncate">{productName}</span>
-                    <span className="text-xs text-gray-400 shrink-0">{groupOrders.length}건</span>
-                  </div>
-                  <svg className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${isExpanded ? "rotate-180" : ""}`}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-
-                {isExpanded && (
-                  <div className="overflow-x-auto">
-                  <table className="w-full min-w-[860px] text-sm">
-                    <thead className="border-b border-gray-50">
-                      <tr>
-                        <th className="w-8 px-4 py-2" />
-                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">주문번호</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">주문일시<span className="block text-[10px] font-normal">한국시간</span></th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">구매자</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">수령인</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">옵션</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">인플루언서</th>
-                        <th className="text-right px-4 py-2 text-xs font-medium text-gray-400">금액</th>
-                        <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">상태</th>
-                        <th className="px-4 py-2" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {groupOrders.map((o) => (
-                        <tr key={o.id} className={`hover:bg-gray-50 transition-colors ${selected.has(o.id) ? "bg-[#EAF0E6]/40" : ""}`}>
-                          <td className="px-4 py-3">
-                            <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleOrder(o.id)}
-                              className="w-4 h-4 rounded accent-[#2D5A27]" />
-                          </td>
-                          <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                            <OrderQuickView order={o} />{queue==="check"&&<p className="text-xs text-red-600">{dispatchIssues(o).join(" · ")}</p>}
-                            <SiteBadge site={o.site} className="ml-1.5 font-sans" />
-                          </td>
-                          <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-                            <time dateTime={o.created_at} className="tnum">
-                              <span className="block">{new Date(o.created_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</span>
-                              <span className="block mt-0.5 text-gray-600">{new Date(o.created_at).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
-                            </time>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-gray-800 text-xs">{o.buyer_name}</div>
-                            <div className="text-xs text-gray-400">{formatPhone(o.buyer_phone)}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="text-xs text-gray-700">{o.recipient_name ?? o.buyer_name}</div>
-                            <div className="text-xs text-gray-400">{formatPhone(o.recipient_phone || o.buyer_phone)}</div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-gray-500">
-                            {/* 주문의 모든 옵션명 표시 (옵션 없는 상품은 상품명, 2개 이상은 × N) */}
-                            {o.items.length === 0
-                              ? <span className="text-gray-300">—</span>
-                              : o.items.map((it, ii) => (
-                                  <div key={ii}>
-                                    {it.option_label ?? it.product_name}
-                                    {it.quantity > 1 ? ` × ${it.quantity}` : ""}
-                                  </div>
-                                ))}
-                          </td>
-                          <td className="px-4 py-3 text-xs">
-                            {o.influencer_name
-                              ? <span className="font-medium text-[#2D5A27]">@{o.influencer_name}</span>
-                              : o.link_code
-                                ? <span className="font-medium text-amber-700" title={`비밀링크 코드 ${o.link_code}`}>비전시</span>
-                                : <span className="text-gray-300">—</span>}
-                            {o.influencer_name && o.link_code && (
-                              <span className="ml-1 text-amber-700" title={`비밀링크 코드 ${o.link_code}`}>🔗</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right text-xs font-semibold text-gray-800">
-                            {Number(o.total_amount).toLocaleString()}원
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLE[o.status] ?? "bg-gray-100 text-gray-500"}`}>
-                              {STATUS_LABEL[o.status] ?? o.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
-                            {CANCELLABLE.includes(o.status) && (
-                              <button onClick={() => handleCancelOne(o)} disabled={acting}
-                                className="text-xs text-red-400 hover:text-red-600 font-bold mr-3 disabled:opacity-50">
-                                취소
-                              </button>
-                            )}
-                            <Link href={`/admin/orders/${o.id}`} className="text-xs text-[#2D5A27] hover:text-[#244B1F] font-bold">
-                              상세
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+        {loading ? <p className="ops-empty" role="status">주문을 불러오는 중입니다.</p>
+         : !visibleOrders.length ? <p className="ops-empty">{loadError ? '주문을 확인하지 못했습니다. 새로고침해주세요.' : '조건에 맞는 주문이 없습니다.'}</p>
+         : <div className="ops-table-scroll"><table className="ops-table ops-orders-table">
+          <thead><tr><th><input type="checkbox" aria-label="표시된 주문 전체 선택" checked={visibleOrders.every(o=>selected.has(o.id))} onChange={toggleAll}/></th><th>주문 · 주문일시 <small>한국시간</small></th><th>상품 · 옵션</th><th>구매자 · 수령인</th><th>결제 금액 · 경로</th><th>상태 · 확인 사항</th><th>처리</th></tr></thead>
+          <tbody>{visibleOrders.map(o=>{
+            const needsCheck=orderQueue(o)==='check';
+            return <tr key={o.id} data-selected={selected.has(o.id)}>
+              <td><input type="checkbox" aria-label={`${o.order_number} 선택`} checked={selected.has(o.id)} onChange={()=>toggleOrder(o.id)}/></td>
+              <td><OrderQuickView order={o}/><time dateTime={o.created_at} className="ops-meta">{new Date(o.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hourCycle:'h23',hour:'2-digit',minute:'2-digit',second:'2-digit'})}</time></td>
+              <td>{o.items.length ? o.items.map((it,i)=><div key={it.id||i} className="ops-order-item"><strong>{it.product_name}</strong><span className="ops-meta">{it.option_label||'기본 구성'} · {it.quantity}개{it.supplier_name ? ` · ${it.supplier_name}` : ''}</span></div>):<span className="ops-warning">상품 정보 없음</span>}</td>
+              <td><strong>{o.buyer_name}</strong><span className="ops-meta">{formatPhone(o.buyer_phone)}</span>{((o.recipient_name && o.recipient_name!==o.buyer_name)||(o.recipient_phone && o.recipient_phone!==o.buyer_phone))&&<span className="ops-meta">수령 {o.recipient_name||o.buyer_name} · {formatPhone(o.recipient_phone||o.buyer_phone)}</span>}</td>
+              <td className="ops-nowrap"><strong>{Number(o.total_amount).toLocaleString()}원</strong><span className="ops-meta">{isCampaign(o)?'공동구매':'일반 상품'} · {(o.sales_channel??(o.link_code?'non_display':'display'))==='non_display'?'비전시':'전시'}</span>{o.influencer_name&&<span className="ops-meta">@{o.influencer_name}</span>}</td>
+              <td><span className={`ops-status ${STATUS_STYLE[o.status]||'bg-gray-100 text-gray-500'}`}>{STATUS_LABEL[o.status]||o.status}</span>{needsCheck&&<p className="ops-warning">{dispatchIssues(o).join(' · ')}</p>}{orderQueue(o)==='ready'&&<span className="ops-meta">발주 가능</span>}</td>
+              <td><div className="ops-row-actions"><Link href={`/admin/orders/${o.id}`}>상세</Link>{["exchange_requested","return_requested"].includes(o.status)&&<Link href={`/admin/shipments?tab=${o.status}`}>요청 처리 →</Link>}{CANCELLABLE.includes(o.status)&&<button onClick={()=>handleCancelOne(o)} disabled={acting} className="ops-danger">취소</button>}</div></td>
+            </tr>;
+          })}</tbody>
+         </table></div>}
+      </section>
+      <section className="ops-dispatch-history" aria-label="최근 발주 확정 이력">
+        <div className="ops-section-heading"><h2>최근 발주 확정</h2><span>확정 이력에서 현재 출고 가능 여부를 다시 확인한 뒤 엑셀을 받습니다.</span></div>
+        {!batches.length ? <p className="ops-meta">표시할 발주 이력이 없습니다.</p> : <div className="ops-history-recent">{batches.slice(0,3).map(b=><div key={b.id}><span>{new Date(b.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} · <b>{b.order_count}건</b></span><button className="ops-text-button" onClick={()=>downloadBatch(b.id)}>엑셀 다시 받기 ↓</button></div>)}</div>}
+        {batches.length>3&&<details className="ops-details"><summary>이전 발주 이력 {batches.length-3}건 더 보기</summary>{batches.slice(3).map(b=><div key={b.id} className="ops-history-row"><span>{new Date(b.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} · {b.order_count}건</span><button className="ops-text-button" onClick={()=>downloadBatch(b.id)}>다시 받기 ↓</button></div>)}</details>}
+      </section>
     </div>
   );
 }
