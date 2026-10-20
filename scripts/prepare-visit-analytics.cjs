@@ -11,7 +11,15 @@ async function prepare(env = process.env, createPool = options => new Pool(optio
   if (!env.ANALYTICS_DATABASE_URL || (env.ANALYTICS_HASH_SECRET?.length || 0) < 32) throw Error('configuration');
   const pool = createPool({ connectionString: env.ANALYTICS_DATABASE_URL, max: 1, connectionTimeoutMillis: 5000, statement_timeout: 15000 });
   try {
-    await pool.query(fs.readFileSync(path.join(__dirname, '../ops/sql/visit-analytics.sql'), 'utf8'));
+    const verify=async()=>{
+      await pool.query('SELECT site,event_id,visitor_hash,session_id,page,occurred_at FROM analytics_pageviews LIMIT 0');
+      await pool.query('SELECT site,id,visitor_hash,started_at,last_seen_at FROM analytics_sessions LIMIT 0');
+    };
+    try{await verify();}catch(e){
+      if(e.code!=='42P01')throw e;
+      await pool.query(fs.readFileSync(path.join(__dirname, '../ops/sql/visit-analytics.sql'), 'utf8'));
+      await verify();
+    }
     console.log('Visit analytics: ENABLED; dedicated storage schema verified.');
     return 'enabled';
   } finally { await pool.end(); }

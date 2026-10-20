@@ -13,6 +13,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run test:visits
       - run: npm run test:admin-integrity
       - run: npm run test:admin-charts
       - run: npm run test:product-sales
