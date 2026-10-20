@@ -1,7 +1,7 @@
 "use client";
 import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BOOKABLE_FROM, BOOKABLE_TO, refundRateFor, PACKAGES, ROOM_META, type PkgKey, type RoomType } from "@/lib/hotel";
 import { downloadXlsx } from "@/lib/xlsx-download";
 import RoomInventoryClient from "./RoomInventoryClient";
@@ -72,6 +72,7 @@ const TABS = [
   { key: "paid", label: "예약확정" },
   { key: "checked_in", label: "체크인완료" },
   { key: "cancelled", label: "취소" },
+  { key: "no_show", label: "노쇼" },
   { key: "changed", label: "변경" }, // 날짜 변경 이력 or 취소 후 재결제 건만 모아보기
 ];
 
@@ -97,7 +98,7 @@ function hotelRoom(name: string | null) {
   const parts = name.split(" · ");
   return parts.length >= 3 ? `${parts[0]} · ${parts[parts.length - 1]}` : name;
 }
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 
 function nightsOf(ci: string | null, co: string | null) {
   if (!ci || !co) return "";
@@ -139,37 +140,49 @@ export default function ReservationsClient() {
   const [tab, setTab] = useState("");
   const [pending, setPending] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
-  const [section, setSection] = useState<"list" | "inventory">("list"); // 상단 섹션 탭 — 예약 목록 / 객실 재고
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [notifyError, setNotifyError] = useState("");
+  const [actingId, setActingId] = useState<string | null>(null);
+  const acting = useRef(false), loadRequest = useRef(0); // 상단 섹션 탭 — 예약 목록 / 객실 재고
   const [stay, setStay] = useState<"" | StayKey>(""); // 숙소 필터 — 전체 / UTOP / 단궁 (목록·재고 공통)
 
-  useEffect(() => {
-    fetch("/api/admin/reservations")
-      .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
-      .then((d) => setRows(Array.isArray(d) ? d : []))
-      .catch(error => alert(apiErrorMessage(error)))
-      .finally(() => setLoading(false));
-    fetch("/api/admin/reservations/notify")
-      .then((r) => readApiJson(r, "정보를 불러오지 못했습니다."))
-      .then((d) => setPending(typeof d.pending === "number" ? d.pending : null))
-      .catch(error => alert(apiErrorMessage(error)));
+  const load = useCallback(async () => {
+    const request = ++loadRequest.current;
+    setLoading(true); setError("");
+    try {
+      const data = await readApiJson(await fetch("/api/admin/reservations"), "예약을 불러오지 못했습니다.");
+      if (request === loadRequest.current) setRows(Array.isArray(data) ? data : []);
+    } catch (error) {
+      if (request === loadRequest.current) { setRows([]); setError(apiErrorMessage(error)); }
+    } finally { if (request === loadRequest.current) setLoading(false); }
   }, []);
+  const loadPending = useCallback(async () => {
+    setNotifyError("");
+    try {
+      const d = await readApiJson(await fetch("/api/admin/reservations/notify"), "문자 발송 대기 건수를 불러오지 못했습니다.");
+      setPending(typeof d.pending === "number" ? d.pending : null);
+    } catch (error) { setPending(null); setNotifyError(apiErrorMessage(error)); }
+  }, []);
+  useEffect(() => { load(); loadPending(); return () => { ++loadRequest.current; }; }, [load, loadPending]);
 
   async function sendAlimtalk() {
+    if (acting.current || pending == null || pending === 0) return;
     if (!confirm(`미발송 예약 ${pending ?? 0}건에 예약확인 문자를 일괄 발송할까요?`)) return;
-    setSending(true);
+    acting.current = true; setSending(true);
     try {
       const res = await fetch("/api/admin/reservations/notify", { method: "POST" });
       const d = await readApiJson(res);
       if (!res.ok || d.ok === false) {
         alert(apiErrorMessage(d, "발송에 실패했습니다."));
       } else {
-        setPending(0);
+        await loadPending();
         let msg = `발송 완료 — 성공 ${d.sent}건 / 실패 ${d.failed}건 (대상 ${d.total}건)`;
         if (d.errors?.length) msg += `\n\n실패 예시:\n${d.errors.join("\n")}`;
         alert(msg);
       }
     } catch (error) { alert(apiErrorMessage(error)); } finally {
-      setSending(false);
+      acting.current = false; setSending(false);
     }
   }
 
@@ -188,6 +201,7 @@ export default function ReservationsClient() {
 
   useEffect(() => {
     if (!dateEdit || !newIn || !newOut || newOut <= newIn) { setAvail(null); return; }
+    let cancelled = false;
     setAvail({ checking: true });
     const t = setTimeout(async () => {
       try {
@@ -196,11 +210,12 @@ export default function ReservationsClient() {
           body: JSON.stringify({ id: dateEdit.id, checkIn: newIn, checkOut: newOut, pkg: newPkg, room: newRoom, preview: true }),
         });
         const d = await readApiJson(res);
+        if (cancelled) return;
         if (res.ok && d.ok) setAvail({ checking: false, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates });
         else setAvail({ checking: false, error: apiErrorMessage(d, "객실 재고를 확인하지 못했습니다.") });
-      } catch (error) { setAvail({ checking: false, error: apiErrorMessage(error) }); }
+      } catch (error) { if (!cancelled) setAvail({ checking: false, error: apiErrorMessage(error) }); }
     }, 400);
-    return () => clearTimeout(t);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [dateEdit, newIn, newOut, newPkg, newRoom]);
 
   function openDateModal(r: Reservation) {
@@ -240,7 +255,7 @@ export default function ReservationsClient() {
       const d = await readApiJson(res);
       if (!res.ok || !d.ok) { alert(apiErrorMessage(d, "요금 계산에 실패했습니다.")); return; }
       setLinkCopied(false);
-      setDatePreview({ diff: d.diff, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, pkgLabel: d.pkgLabel, room: d.room, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [], payLink: d.payLink ?? null });
+      setDatePreview({ diff: d.diff, priceDiff: d.priceDiff, penalty: d.penalty, penaltyRate: d.penaltyRate, policyDays: d.policyDays, oldTotal: d.oldTotal, newTotal: d.newTotal, nights: d.nights, pkgLabel: d.pkgLabel, room: d.room, available: d.available, minRemaining: d.minRemaining, soldOutDates: d.soldOutDates ?? [], payLink: d.payLink ?? null });
     } catch (error) { alert(apiErrorMessage(error)); } finally {
       setChanging(false);
     }
@@ -261,8 +276,7 @@ export default function ReservationsClient() {
       setDatePreview(null);
       setLinkCopied(false);
       setDateResult({ diff: d.diff, refunded: d.refunded, needRepay: d.needRepay, payLink: d.payLink ?? null });
-      const rr = await fetch("/api/admin/reservations").then((r) => readApiJson(r, "정보를 불러오지 못했습니다."));
-      setRows(Array.isArray(rr) ? rr : []);
+      await load();
     } catch (error) { alert(apiErrorMessage(error)); } finally {
       setChanging(false);
     }
@@ -304,7 +318,7 @@ export default function ReservationsClient() {
 
   const [query, setQuery] = useState("");
   const [infSel, setInfSel] = useState(""); // "" 전체 / 인플루언서 이름
-  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryState | "">(""); // 전달 카운터 클릭 필터
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryState | "" | "pending">(""); // 전달 카운터 클릭 필터
 
   // 필터 옵션 — 예약 데이터에 등장하는 인플루언서 목록
   const influencerOptions = useMemo(() => {
@@ -321,13 +335,16 @@ export default function ReservationsClient() {
           ? stayRows.filter((r) => r.status === tab)
           : stayRows;
     if (infSel) list = list.filter((r) => r.influencer_name === infSel);
-    if (deliveryFilter) list = list.filter((r) => deliveryState(r) === deliveryFilter);
+    if (deliveryFilter) list = list.filter(r => deliveryFilter === "pending"
+      ? ["new_pending", "change_pending", "cancel_pending"].includes(deliveryState(r) ?? "")
+      : deliveryState(r) === deliveryFilter);
     const q = query.trim().toLowerCase();
     if (q) {
       const qDigits = q.replace(/[^0-9]/g, "");
       list = list.filter((r) =>
         (r.order_number ?? "").toLowerCase().includes(q) ||
         (r.buyer_name ?? "").toLowerCase().includes(q) ||
+        (r.product_name ?? "").toLowerCase().includes(q) ||
         (qDigits.length >= 3 && (r.buyer_phone ?? "").replace(/[^0-9]/g, "").includes(qDigits))
       );
     }
@@ -351,6 +368,7 @@ export default function ReservationsClient() {
   }, [safePage, totalPages]);
 
   async function updateStatus(id: string, status: string) {
+    if (acting.current) return;
     let fullRefund = false;
     if (status === "cancelled") {
       // 환불 규정 미리보기 (최종 계산은 서버가 다시 함)
@@ -373,8 +391,8 @@ export default function ReservationsClient() {
         return; // 중단
       }
     }
+    acting.current = true; setActingId(id);
     const prev = rows;
-    setRows((p) => p.map((r) => (r.id === id ? { ...r, status } : r)));
     try {
       const res = await fetch("/api/admin/reservations", {
         method: "PATCH",
@@ -382,6 +400,8 @@ export default function ReservationsClient() {
         body: JSON.stringify({ id, status, fullRefund }),
       });
       const d = await readApiJson(res, "처리에 실패했습니다.");
+      await load();
+      await loadPending();
       if (status === "cancelled") {
         const refundMsg = d.refundAmount != null
           ? `${Number(d.refundAmount).toLocaleString()}원 환불 (${d.refundNote ?? "규정 적용"})`
@@ -391,22 +411,23 @@ export default function ReservationsClient() {
         alert(`승인 완료 — 예약확정${d.smsSent ? " + 확정 문자 발송" : " (문자는 발송되지 않았어요 — 문자 설정 확인)"}`);
       }
     } catch (error) {
-      setRows(prev);
       alert(apiErrorMessage(error));
-    }
+    } finally { acting.current = false; setActingId(null); }
   }
 
   // 호텔 전달/확인 도장 — 도장 후 목록 새로고침
   async function markDelivery(id: string, action: "sent" | "confirmed") {
+    if (acting.current) return;
+    acting.current = true; setActingId(id);
     try {
       const res = await fetch("/api/admin/reservations/delivery", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: [id], action }),
       });
       await readApiJson(res, "처리에 실패했어요.");
-      const rr = await fetch("/api/admin/reservations").then((r) => readApiJson(r, "정보를 불러오지 못했습니다."));
-      setRows(Array.isArray(rr) ? rr : []);
+      await load();
     } catch (error) { alert(apiErrorMessage(error)); }
+    finally { acting.current = false; setActingId(null); }
   }
 
   // 전달 배지 + 도장 버튼 — 데스크톱 행/모바일 카드 공용
@@ -421,13 +442,13 @@ export default function ReservationsClient() {
           {b.label}
         </span>
         {(ds === "new_pending" || ds === "change_pending" || ds === "cancel_pending") && (
-          <button onClick={() => markDelivery(r.id, "sent")}
+          <button disabled={!!actingId || sending} onClick={() => markDelivery(r.id, "sent")}
             className="text-[10.5px] text-blue-500 hover:underline" title="호텔에 전달했음을 기록 (전달 일시 도장)">
             📨 전달 완료
           </button>
         )}
         {ds === "await_confirm" && (
-          <button onClick={() => markDelivery(r.id, "confirmed")}
+          <button disabled={!!actingId || sending} onClick={() => markDelivery(r.id, "confirmed")}
             className="text-[10.5px] text-green-600 hover:underline" title="호텔이 확인했음을 기록">
             ✔ 호텔 확인
           </button>
@@ -450,6 +471,8 @@ export default function ReservationsClient() {
     return (
       <select
         value={r.status}
+        disabled={!!actingId || sending}
+        aria-label={`${r.order_number} 상태 변경`}
         onChange={(e) => updateStatus(r.id, e.target.value)}
         className={`${center ? "justify-self-center " : ""}text-xs font-semibold rounded-full px-2 py-1 cursor-pointer border-0 focus:outline-none ${st.cls}`}
         style={{ appearance: "auto" }}
@@ -464,327 +487,60 @@ export default function ReservationsClient() {
     );
   }
 
-  const cards = [
-    { label: "예약 확정 (입실 전)", value: `${stats.confirmed}건` },
-    { label: "체크인 완료", value: `${stats.checkedIn}건` },
-    { label: "확정 매출", value: `${stats.revenue.toLocaleString()}원` },
-    { label: "취소", value: `${stats.cancelled}건` },
-  ];
+  function focusDelivery(value: "pending" | "await_confirm") {
+    setDeliveryFilter(deliveryFilter === value ? "" : value); setTab(""); setQuery(""); setInfSel("");
+  }
+  const clearFilters = () => { setTab(""); setDeliveryFilter(""); setQuery(""); setInfSel(""); };
 
   return (
-    <div>
-      {/* 제목 + 섹션 탭 — 예약 목록 / 객실 재고를 분리해서 각각 집중해서 보게 */}
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-800">숙박 예약 관리</h1>
-        <div className="flex gap-1 bg-white rounded-none border border-gray-100 p-1">
-          {([["list", "📋 예약 목록"], ["inventory", "🛏 객실 재고"]] as const).map(([k, label]) => (
-            <button key={k} onClick={() => setSection(k)}
-              className={`px-4 py-2 rounded-none text-sm font-semibold transition-colors ${
-                section === k ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
-              {label}
-            </button>
-          ))}
+    <div className="ops-workspace">
+      <header className="ops-page-heading"><div><h1>숙박 예약 관리</h1><p>예약·호텔 전달·투숙일을 한 목록에서 확인하세요.</p></div><div className="ops-heading-actions">
+        <button className="ops-button" aria-expanded={inventoryOpen} aria-controls="room-inventory" onClick={() => setInventoryOpen(!inventoryOpen)}>{inventoryOpen ? "재고 닫기" : "객실 재고"}</button>
+        <button className="ops-button" disabled={loading || !!actingId || sending} onClick={() => { load(); loadPending(); }}>새로고침</button>
+      </div></header>
+      <section className="ops-reservation-scope"><label htmlFor="reservation-stay">숙소</label><select id="reservation-stay" value={stay} onChange={e => { setStay(e.target.value as "" | StayKey); setInfSel(""); }}>
+        {STAY_FILTERS.map(s => <option key={s.key} value={s.key}>{s.label}{!loading && !error ? ` (${stayCounts[s.key] ?? 0}건)` : ""}</option>)}
+      </select><span>아래 요약·예약 목록·객실 재고에 함께 적용</span></section>
+      {!loading && !error && <div className="ops-summary-grid">
+        <button aria-pressed={deliveryFilter === "pending"} onClick={() => focusDelivery("pending")}><span>호텔 미전달</span><strong>{stats.dNew + stats.dChange + stats.dCancel}<small>건</small></strong><small>신규 {stats.dNew} · 변경 {stats.dChange} · 취소 {stats.dCancel}</small></button>
+        <button aria-pressed={deliveryFilter === "await_confirm"} onClick={() => focusDelivery("await_confirm")}><span>호텔 확인 대기</span><strong>{stats.dAwait}<small>건</small></strong><small>전달 후 확인이 필요한 예약 →</small></button>
+        <button aria-pressed={tab === "paid"} onClick={() => { clearFilters(); setTab(tab === "paid" ? "" : "paid"); }}><span>예약 확정</span><strong>{stats.confirmed}<small>건</small></strong><small>체크인 완료 {stats.checkedIn} · 취소 {stats.cancelled}</small></button>
+        <div><span>확정 예약 금액</span><strong>{stats.revenue.toLocaleString()}<small>원</small></strong><small>선택 숙소 전체 · 추가 결제 포함 · 대기·취소 제외</small></div>
+      </div>}
+      {inventoryOpen && <section id="room-inventory" className="ops-inventory-panel"><div className="ops-section-heading"><h2>객실 재고</h2><span>예약 목록을 유지한 채 선택 숙소의 재고를 확인합니다.</span></div><RoomInventoryClient stay={stay} /></section>}
+      <section className="ops-list-panel" aria-label="숙박 예약 목록">
+        <div className="ops-toolbar">
+          <input className="ops-search" aria-label="예약 검색" value={query} onChange={e => setQuery(e.target.value)} placeholder="예약번호·예약자·연락처·객실 검색" />
+          <select aria-label="예약 상태 필터" value={tab} onChange={e => setTab(e.target.value)}>{TABS.map(t => <option key={t.key} value={t.key}>{t.key ? t.label : "예약 상태 전체"}</option>)}</select>
+          <select aria-label="호텔 전달 필터" value={deliveryFilter ?? ""} onChange={e => setDeliveryFilter(e.target.value as DeliveryState | "" | "pending")}><option value="">전달 상태 전체</option><option value="pending">미전달 전체</option>{Object.entries(DELIVERY_BADGE).map(([key, b]) => <option key={key} value={key}>{b.label}</option>)}</select>
+          <select aria-label="예약 유입 필터" value={infSel} onChange={e => setInfSel(e.target.value)}><option value="">유입 전체</option>{influencerOptions.map(n => <option key={n} value={n}>@{n}</option>)}</select>
+          {(query || tab || deliveryFilter || infSel) && <button className="ops-text-button" onClick={clearFilters}>필터 초기화</button>}
         </div>
-      </div>
-
-      {/* 숙소 탭 — 목록·재고 공통 필터 (숙소별로 완전히 분리해서 보기) */}
-      <div className="flex flex-wrap gap-1 mb-6 bg-white rounded-none border border-gray-100 p-1 w-fit max-w-full">
-        {STAY_FILTERS.map((s) => (
-          <button key={s.key} onClick={() => setStay(s.key)}
-            className={`px-4 py-2 rounded-none text-sm font-semibold transition-colors ${
-              stay === s.key ? "bg-emerald-700 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
-            {s.label}
-            <span className={`ml-1.5 text-[11px] ${stay === s.key ? "text-emerald-100" : "text-gray-400"}`}>
-              {stayCounts[s.key] ?? 0}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {section === "inventory" ? (
-        <RoomInventoryClient stay={stay} />
-      ) : (
-        <>
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-        {cards.map((c) => (
-          <div key={c.label} className="bg-white rounded-none border border-gray-100 p-6">
-            <p className="text-sm text-gray-400">{c.label}</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-800 mt-2 tnum">{c.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* 호텔 전달 현황 카운터 — 누르면 해당 건만 필터 */}
-      <div className="flex flex-wrap items-center gap-2 mb-4 bg-white rounded-none border border-gray-100 px-4 py-3">
-        <span className="text-xs font-bold text-gray-700 mr-1">📨 호텔 전달</span>
-        {([
-          ["new_pending", `신규 미전달 ${stats.dNew}건`],
-          ["change_pending", `변경 미전달 ${stats.dChange}건`],
-          ["cancel_pending", `취소 미전달 ${stats.dCancel}건`],
-          ["await_confirm", `호텔 확인 대기 ${stats.dAwait}건`],
-        ] as [Exclude<DeliveryState, null>, string][]).map(([key, label]) => (
-          <button key={key}
-            onClick={() => setDeliveryFilter(deliveryFilter === key ? "" : key)}
-            className={`text-xs font-semibold rounded-full px-3 py-1.5 border transition-colors ${
-              deliveryFilter === key ? "bg-gray-900 text-white border-gray-900" : `${DELIVERY_BADGE[key].cls} border-transparent hover:border-gray-300`}`}>
-            {label}{deliveryFilter === key && " ✕"}
-          </button>
-        ))}
-        {deliveryFilter && (
-          <button onClick={() => setDeliveryFilter("")}
-            className="text-xs font-semibold rounded-full px-3 py-1.5 border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors">
-            필터 해제 · 전체 보기
-          </button>
-        )}
-        <span className="text-[11px] text-gray-400 ml-1">
-          {deliveryFilter
-            ? "해당 건만 보는 중 — 한 번 더 누르거나 필터 해제를 누르면 전체로 돌아가요"
-            : "작업지시서를 발행하면 담긴 예약에 전달 도장이 자동으로 찍혀요"}
-        </span>
-      </div>
-
-      {/* 필터 탭 + 명단 내보내기 */}
-      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* 좁은 화면에서 줄바꿈되도록 flex-wrap + 음수 마진으로 경계선 겹침 유지 */}
-          <div className="flex flex-wrap w-fit pl-px pt-px">
-            {TABS.map((t) => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className="px-3.5 sm:px-4 py-2 text-xs font-semibold transition-colors"
-                style={{
-                  border: "1px solid",
-                  marginLeft: "-1px",
-                  marginTop: "-1px",
-                  background: tab === t.key ? "#1A1D18" : "#fff",
-                  color: tab === t.key ? "#fff" : "#5C6156",
-                  borderColor: tab === t.key ? "#1A1D18" : "#D6D6CF",
-                }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {/* 인플루언서(유입 경로) 필터 — 선택 후 명단 다운로드하면 해당 인플루언서 구매자 명단이 됨 */}
-          <select value={infSel} onChange={(e) => setInfSel(e.target.value)}
-            className="border border-gray-200 rounded-full px-3 py-2 text-sm focus:outline-none focus:border-gray-400 bg-white text-gray-600">
-            <option value="">유입 전체</option>
-            {influencerOptions.map((n) => (
-              <option key={n} value={n}>@{n}</option>
-            ))}
-          </select>
-          {/* 예약 검색 */}
-          <div className="relative">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="예약번호 · 예약자 · 연락처 검색"
-              className="w-56 sm:w-64 border border-gray-200 rounded-full pl-9 pr-8 py-2 text-sm focus:outline-none focus:border-gray-400 bg-white"
-            />
-            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
-            </svg>
-            {query && (
-              <button onClick={() => setQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-sm leading-none">
-                ✕
-              </button>
-            )}
-          </div>
-          {query && (
-            <span className="text-xs text-gray-400">{visible.length}건 검색됨</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={sendAlimtalk}
-            disabled={sending || pending === 0}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-40"
-            title="공구 마감 후 예약확인 문자 일괄발송"
-          >
-            📩 {sending ? "발송 중…" : `예약확인 문자 일괄발송${pending != null ? ` (${pending})` : ""}`}
-          </button>
-          <button
-            onClick={() => downloadXlsx(`호텔예약명단_${todayISO().replace(/-/g, "")}.xlsx`, ROSTER_HEADER, toRosterRows(visible), "예약명단")}
-            disabled={visible.length === 0}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-none transition-colors disabled:opacity-40"
-            title="호텔에 전달할 예약자 명단 다운로드"
-          >
-            📋 예약자 명단 다운로드 ({visible.length})
-          </button>
-        </div>
-      </div>
-
-      {/* 예약 테이블 — 데스크톱은 그리드, 모바일은 카드 */}
-      <div className="bg-white rounded-none border border-gray-100">
-        {loading ? (
-          <div className="p-16 text-center text-sm text-gray-400">불러오는 중...</div>
-        ) : visible.length === 0 ? (
-          <div className="p-16 text-center text-sm text-gray-400">예약이 없습니다</div>
-        ) : (
-          <>
-            {/* 데스크톱 테이블 (md 이상) */}
-            <div className="hidden md:block overflow-x-auto">
-              <div className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-400 min-w-[760px]">
-                <span>예약번호</span><span>예약자</span><span>호텔 · 객실</span><span>투숙기간</span><span className="text-right">금액</span><span className="text-center">상태</span>
-              </div>
-              {paged.map((r) => (
-                <div key={r.id} className="grid grid-cols-[1.4fr_1.4fr_1.6fr_1fr_0.8fr_0.7fr] gap-3 px-6 py-4 border-b border-gray-50 last:border-0 items-center hover:bg-gray-50/60 transition-colors min-w-[760px]">
-                  <div className="min-w-0">
-                    <span className="font-mono text-xs font-semibold" style={{ color: "var(--accent)" }}>{r.order_number}</span>
-                    {renderDelivery(r)}
-                  </div>
-                  <div className="text-sm text-gray-700">
-                    <div className="font-medium text-gray-800">{r.buyer_name}</div>
-                    <div className="text-xs text-gray-400">{r.buyer_phone}</div>
-                    {r.influencer_name ? (
-                      <span className="inline-block mt-1 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-purple-50 text-purple-600" title="이 인플루언서 전용 링크로 들어온 예약">
-                        @{r.influencer_name}
-                      </span>
-                    ) : (
-                      <span className="inline-block mt-1 text-[11px] text-gray-300">직접 유입</span>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-700 min-w-0">
-                    <div>{hotelRoom(r.product_name)}</div>
-                    {requestMemo(r.addr_memo) && (
-                      <div className="text-xs mt-0.5 truncate" style={{ color: "#c2410c" }} title={requestMemo(r.addr_memo)}>
-                        📝 요청: {requestMemo(r.addr_memo)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500 tnum">
-                    <div>{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</div>
-                    {changeMark(r) && (
-                      <span className="inline-block mt-0.5 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-600"
-                        title={`${r.stay_changed ? "투숙일 변경 이력 있음. " : ""}${r.repaid_after_cancel ? "같은 연락처로 먼저 취소된 예약이 있는 재결제 건." : ""}`}>
-                        🔁 {changeMark(r)}
-                      </span>
-                    )}
-                    {r.last_change && (
-                      <div className="text-[10.5px] mt-0.5 text-amber-700" title={`변경 이력: ${r.last_change}`}>
-                        🔀 {r.last_change}
-                      </div>
-                    )}
-                    {r.status === "paid" && (
-                      <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 hover:underline mt-0.5">📅 예약변경</button>
-                    )}
-                  </div>
-                  <div className="text-right tnum">
-                    <div className="text-sm font-semibold text-gray-800">
-                      {(Number(r.total_amount) + Number(r.extra_paid || 0)).toLocaleString()}원
-                    </div>
-                    {Number(r.extra_paid) > 0 && (
-                      <div className="text-[11px] text-[#2D5A27] mt-0.5">차액 +{Number(r.extra_paid).toLocaleString()} 포함</div>
-                    )}
-                    {r.paid_at_kst && <div className="text-[11px] text-gray-400 mt-0.5">💳 {r.paid_at_kst}</div>}
-                    {r.status === "cancelled" && r.cancelled_at_kst && (
-                      <div className="text-[11px] text-red-400 mt-0.5">🚫 취소 {r.cancelled_at_kst}</div>
-                    )}
-                  </div>
-                  {renderStatus(r)}
-                </div>
-              ))}
-            </div>
-
-            {/* 모바일 카드 (md 미만) — 가로 스크롤 없이 모든 정보를 세로로 */}
-            <div className="md:hidden">
-              {paged.map((r) => (
-                <div key={r.id} className="p-4 border-b border-gray-100 last:border-0 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="font-mono text-xs font-semibold" style={{ color: "var(--accent)" }}>{r.order_number}</span>
-                      {renderDelivery(r)}
-                    </div>
-                    <div className="shrink-0">{renderStatus(r, false)}</div>
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-800">{r.buyer_name}</span>
-                    <span className="text-xs text-gray-400 ml-2">{r.buyer_phone}</span>
-                    {r.influencer_name ? (
-                      <span className="ml-2 inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 bg-purple-50 text-purple-600" title="이 인플루언서 전용 링크로 들어온 예약">
-                        @{r.influencer_name}
-                      </span>
-                    ) : (
-                      <span className="ml-2 text-[11px] text-gray-300">직접 유입</span>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-700">
-                    {hotelRoom(r.product_name)}
-                    {requestMemo(r.addr_memo) && (
-                      <div className="text-xs mt-0.5" style={{ color: "#c2410c" }}>
-                        📝 요청: {requestMemo(r.addr_memo)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-end justify-between gap-2">
-                    <div className="text-xs text-gray-500 tnum">
-                      <div>
-                        {md(r.stay_check_in)} ~ {md(r.stay_check_out)}
-                        {changeMark(r) && (
-                          <span className="ml-1.5 inline-block text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-600"
-                            title={`${r.stay_changed ? "투숙일 변경 이력 있음. " : ""}${r.repaid_after_cancel ? "같은 연락처로 먼저 취소된 예약이 있는 재결제 건." : ""}`}>
-                            🔁 {changeMark(r)}
-                          </span>
-                        )}
-                      </div>
-                      {r.last_change && (
-                        <div className="text-[10.5px] mt-0.5 text-amber-700">🔀 {r.last_change}</div>
-                      )}
-                      {r.status === "paid" && (
-                        <button onClick={() => openDateModal(r)} className="text-[11px] text-blue-500 underline mt-0.5">📅 예약변경</button>
-                      )}
-                    </div>
-                    <div className="text-right tnum shrink-0">
-                      <div className="text-sm font-semibold text-gray-800">
-                        {(Number(r.total_amount) + Number(r.extra_paid || 0)).toLocaleString()}원
-                      </div>
-                      {Number(r.extra_paid) > 0 && (
-                        <div className="text-[11px] text-[#2D5A27] mt-0.5">차액 +{Number(r.extra_paid).toLocaleString()} 포함</div>
-                      )}
-                      {r.paid_at_kst && <div className="text-[11px] text-gray-400 mt-0.5">💳 {r.paid_at_kst}</div>}
-                      {r.status === "cancelled" && r.cancelled_at_kst && (
-                        <div className="text-[11px] text-red-400 mt-0.5">🚫 취소 {r.cancelled_at_kst}</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* 페이지네이션 */}
-      {visible.length > PAGE_SIZE && (
-        <div className="flex items-center justify-center gap-1.5 mt-4">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}
-            className="w-9 h-9 rounded-none border border-gray-200 bg-white text-gray-500 text-sm disabled:opacity-30 hover:bg-gray-50">
-            ‹
-          </button>
-          {pageNums.map((n) => (
-            <button key={n} onClick={() => setPage(n)}
-              className={`w-9 h-9 rounded-none text-sm font-semibold transition-colors ${
-                n === safePage ? "bg-gray-900 text-white" : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
-              {n}
-            </button>
-          ))}
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-            className="w-9 h-9 rounded-none border border-gray-200 bg-white text-gray-500 text-sm disabled:opacity-30 hover:bg-gray-50">
-            ›
-          </button>
-          <span className="text-xs text-gray-400 ml-2 tnum">
-            {safePage} / {totalPages} 페이지 · 총 {visible.length}건
-          </span>
-        </div>
-      )}
-        </>
-      )}
+        <div className="ops-reservation-tools"><span>{loading || error ? "예약 조회 중" : `검색 결과 ${visible.length}건 · 최신순`}</span><div>
+          <button className="ops-button" onClick={sendAlimtalk} disabled={sending || pending == null || pending === 0 || loading || !!error || !!actingId} title="숙소·검색 필터와 무관하게 미발송 예약 전체에 발송">{sending ? "발송 중…" : `예약확인 문자 일괄발송${pending != null ? ` (${pending})` : ""}`}</button>
+          <button className="ops-button ops-button-primary" onClick={() => downloadXlsx(`호텔예약명단_${todayISO().replace(/-/g, "")}.xlsx`, ROSTER_HEADER, toRosterRows(visible), "예약명단")} disabled={loading || !!error || visible.length === 0}>예약자 명단 다운로드 ({loading || error ? "—" : visible.length})</button>
+        </div><small>명단은 검색 결과 전체 · 문자는 검색 필터와 무관한 미발송 전체 예약에 발송</small></div>
+        {notifyError && <div className="ops-error" role="alert">문자 대기 건수 확인 실패: {notifyError} <button className="ops-button" onClick={loadPending}>문자 건수 다시 조회</button></div>}
+        {loading ? <p className="ops-empty" role="status">예약 불러오는 중…</p> : error ? <div className="ops-error" role="alert">{error} <button className="ops-button" onClick={load}>다시 조회</button></div> : visible.length === 0 ? <p className="ops-empty">조건에 맞는 예약이 없습니다</p> : <div className="ops-table-scroll"><table className="ops-table ops-reservations-table">
+          <thead><tr>{["예약자 · 예약번호", "숙소 · 객실", "투숙일 · 변경", "결제금액", "호텔 전달", "상태 · 처리"].map(h => <th scope="col" key={h}>{h}</th>)}</tr></thead>
+          <tbody>{paged.map(r => <tr key={r.id}>
+            <td data-label="예약자"><strong>{r.buyer_name}</strong><span className="ops-meta">{r.buyer_phone}</span><span className="ops-meta">{r.order_number}</span><span className="ops-meta">{r.influencer_name ? `@${r.influencer_name}` : "직접 유입"}</span></td>
+            <td data-label="숙소 · 객실"><strong>{hotelRoom(r.product_name)}</strong>{requestMemo(r.addr_memo) && <p className="ops-meta ops-reservation-memo">요청: {requestMemo(r.addr_memo)}</p>}</td>
+            <td data-label="투숙일"><span className="ops-nowrap">{md(r.stay_check_in)} ~ {md(r.stay_check_out)}</span><span className="ops-meta">{nightsOf(r.stay_check_in, r.stay_check_out)}박</span>{changeMark(r) && <span className="ops-status ops-status-preparing">{changeMark(r)}</span>}{r.last_change && <span className="ops-meta">변경: {r.last_change}</span>}</td>
+            <td data-label="결제금액"><strong className="ops-nowrap">{(Number(r.total_amount) + Number(r.extra_paid || 0)).toLocaleString()}원</strong>{Number(r.extra_paid) > 0 && <span className="ops-meta">차액 +{Number(r.extra_paid).toLocaleString()}원 포함</span>}{r.paid_at_kst && <span className="ops-meta">결제 {r.paid_at_kst}</span>}{r.status === "cancelled" && r.cancelled_at_kst && <span className="ops-meta ops-warning">취소 {r.cancelled_at_kst}</span>}</td>
+            <td data-label="호텔 전달">{renderDelivery(r) || <span className="ops-meta">전달 대상 아님</span>}{r.hotel_sent_kst && <span className="ops-meta">전달 {r.hotel_sent_kst}</span>}{r.hotel_confirmed_kst && <span className="ops-meta">확인 {r.hotel_confirmed_kst}</span>}</td>
+            <td data-label="상태 · 처리">{renderStatus(r, false)}{r.status === "paid" && <button className="ops-text-button ops-account-toggle" disabled={!!actingId || sending} onClick={() => openDateModal(r)}>예약변경</button>}</td>
+          </tr>)}</tbody>
+        </table></div>}
+        {!loading && !error && visible.length > PAGE_SIZE && <nav className="ops-pagination" aria-label="예약 페이지"><button className="ops-button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}>이전</button>{pageNums.map(n => <button key={n} className="ops-filter-chip" aria-current={n === safePage ? "page" : undefined} onClick={() => setPage(n)}>{n}</button>)}<button className="ops-button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>다음</button><span>{safePage} / {totalPages} 페이지 · 총 {visible.length}건</span></nav>}
+      </section>
+      <p className="ops-meta">호텔 전달 표시는 실제 전달·확인이 끝난 뒤 기록하세요. 작업지시서를 발행하면 포함된 예약에 전달 도장이 자동으로 기록됩니다.</p>
 
       {/* 날짜 변경 모달 */}
       {dateEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => !changing && setDateEdit(null)}>
-          <div className="bg-white rounded-none w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label="예약 변경" className="bg-white rounded-none w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-gray-100">
               <p className="text-sm font-bold text-gray-800">📅 예약 변경 — 날짜 · 인원 · 객실</p>
               <p className="text-xs text-gray-400 mt-0.5 font-mono">{dateEdit.order_number} · {dateEdit.buyer_name} · {hotelRoom(dateEdit.product_name)}</p>
@@ -835,7 +591,7 @@ export default function ReservationsClient() {
                   <label className="text-xs text-gray-400 block mb-1">인원 (패키지)</label>
                   <div className="flex gap-1.5">
                     {(["p2", "p3", "p4"] as PkgKey[]).map((p) => (
-                      <button key={p} onClick={() => pickPkg(p)}
+                      <button key={p} disabled={changing} onClick={() => pickPkg(p)}
                         className={`flex-1 py-2 text-xs font-bold rounded-none border ${newPkg === p ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
                         {PACKAGES[p].label}
                       </button>
@@ -849,7 +605,7 @@ export default function ReservationsClient() {
                     {(["디럭스 더블", "패밀리 트윈"] as RoomType[]).map((rm) => {
                       const disabled = newPkg !== "p2" && rm === "디럭스 더블";
                       return (
-                        <button key={rm} onClick={() => !disabled && setNewRoom(rm)} disabled={disabled}
+                        <button key={rm} onClick={() => !disabled && setNewRoom(rm)} disabled={disabled || changing}
                           className={`flex-1 py-2 text-xs font-bold rounded-none border ${newRoom === rm ? "bg-blue-600 text-white border-blue-600" : disabled ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"}`}>
                           {rm} <span className="font-normal">· {ROOM_META[rm].bed}</span>
                         </button>
@@ -863,13 +619,13 @@ export default function ReservationsClient() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-400 block mb-1">체크인</label>
-                    <input type="date" value={newIn} min={BOOKABLE_FROM} max={BOOKABLE_TO}
+                    <input type="date" disabled={changing} value={newIn} min={BOOKABLE_FROM} max={BOOKABLE_TO}
                       onChange={(e) => setNewIn(e.target.value)}
                       className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
                   <div>
                     <label className="text-xs text-gray-400 block mb-1">체크아웃</label>
-                    <input type="date" value={newOut} min={newIn || BOOKABLE_FROM} max={BOOKABLE_TO}
+                    <input type="date" disabled={changing} value={newOut} min={newIn || BOOKABLE_FROM} max={BOOKABLE_TO}
                       onChange={(e) => setNewOut(e.target.value)}
                       className="w-full border border-gray-200 rounded-none px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                   </div>

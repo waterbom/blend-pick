@@ -83,3 +83,31 @@ test('combined returns labels each row by its own kind and keeps request deep-li
  assert.match(html,/교환 완료/);assert.match(html,/반품 완료 · 환불/);
  assert.ok(f.requests.every(r=>r.url.endsWith('&id=request-uuid')));
 });
+
+
+const {settlementList}=load('lib/admin-settlement-list.ts');
+const settlementRows=Array.from({length:251},(_,i)=>({id:'s'+i,order_id:'o'+i,order_number:'SET-'+i,buyer_name:i===200?'찾는 구매자':'고객',site:'blendpick',settled_at:'2026-10-19T15:30:00Z',gross_amount:10000,fee:300,net_amount:i===200?null:9700,unresolved:i===200,fee_estimated:false}));
+test('settlement paging exposes records after 200 and intersects KST period, search and unresolved filter',()=>{
+ const now=new Date('2026-10-20T00:00:00Z');
+ const page=settlementList(settlementRows,{period:'today',page:'5'},now);
+ assert.equal(page.pages,6); assert.equal(page.rows[0].id,'s200');assert.equal(page.selected.length,251);
+ const filtered=settlementList(settlementRows,{period:'today',q:'찾는',check:'unresolved',page:'900'},now);
+ assert.equal(filtered.page,1); assert.deepEqual(filtered.rows.map(r=>r.id),['s200']);
+ assert.equal(settlementList(settlementRows,{period:'today'},new Date('2026-10-19T14:59:00Z')).rows.length,0);
+});
+test('settlement view preserves unknown totals and exposes direct order links with scoped paging',()=>{
+ const View=load('components/admin/SettlementsListView.tsx',common).default;
+ const html=renderToStaticMarkup(React.createElement(View,{all:settlementRows,filters:{period:'today',page:'5'},now:'2026-10-20T00:00:00Z'}));
+ assert.match(html,/확인 필요/);assert.match(html,/SET-200/);assert.match(html,/href="\/admin\/orders\/o200"/);
+ assert.match(html,/period=today&amp;page=6/);assert.doesNotMatch(html,/undefined|NaN/);
+ const failed=renderToStaticMarkup(React.createElement(View,{all:null,filters:{},now:'2026-10-20T00:00:00Z'}));
+ assert.match(failed,/role="alert"/);assert.doesNotMatch(failed,/내역이 없습니다|0원/);
+});
+test('settlement page authenticates before reading and passes only display fields to its view',async()=>{
+ let authenticated=false,reads=0;
+ const mocks={...common,'next/headers':{cookies:async()=>({get:()=>authenticated?{value:'fixture'}:undefined})},'next/navigation':{redirect:()=>{throw Error('login');}},'@/lib/auth':{verifyAdminToken:async()=>authenticated},'@/lib/admin-site':{currentAdminSite:async()=>{reads++;return {key:'sanjipick'};}},'@/lib/settlement-view':{settlementView:async(site)=>{reads++;assert.equal(site,'sanjipick');return [{...settlementRows[0],payment_key:'PRIVATE-PAYMENT',internal_note:'PRIVATE-NOTE'}];}},'@/components/admin/SettlementsListView':()=>null};
+ const Page=load('app/admin/(protected)/settlements/page.tsx',mocks).default;
+ await assert.rejects(Page({searchParams:Promise.resolve({})}),/login/);assert.equal(reads,0);
+ authenticated=true; const result=await Page({searchParams:Promise.resolve({q:'SET'})});
+ assert.equal(reads,2);assert.equal(result.props.all[0].site,'sanjipick');assert.doesNotMatch(JSON.stringify(result.props),/PRIVATE|payment_key|internal_note/);
+});

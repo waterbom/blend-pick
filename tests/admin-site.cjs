@@ -46,7 +46,7 @@ global.fetch = async () => { httpCalls++; throw Error('Unexpected external reque
 const sites = load('lib/sites.ts').SITES;
 const mocks = {
   'next/headers': { headers: async () => new Headers({ host: sites[site].host, 'x-site': site === 'sanjipick' ? 'blendpick' : 'sanjipick' }), cookies: async () => ({ get: () => ({ value: 'test-token' }) }) },
-  'next/navigation': { redirect: url => { throw Error(`REDIRECT:${url}`); }, notFound: () => { throw Error('NOT_FOUND'); }, usePathname: () => '/admin' },
+  'next/navigation': { redirect: url => { throw Error(`REDIRECT:${url}`); }, notFound: () => { throw Error('NOT_FOUND'); }, usePathname: () => '/admin', useRouter: () => ({refresh(){}}) },
   'next/link': ({ children, ...props }) => React.createElement('a', props, children),
   '@/lib/db-shop': pool,
   '@/lib/db': { query: async sql => {
@@ -194,7 +194,7 @@ async function orderStatus(n) { return (await db.query('SELECT status FROM order
     });
     await test(`${site}: dashboard and settlement SQL totals are scoped`,async()=>{
       const dashboard=renderToStaticMarkup(await load('app/admin/(protected)/page.tsx',mocks).default({searchParams:Promise.resolve({})}));
-      assert.ok(dashboard.includes(sites[site].name+' 운영 요약'));
+      assert.ok(dashboard.includes(sites[site].name+' 운영 홈'));
       assert.ok(dashboard.includes(site==='sanjipick'?'66,000':'44,000'));
       for (const period of [undefined,'today','week','month']) {
         const settlement=renderToStaticMarkup(await load('app/admin/(protected)/settlements/page.tsx',mocks).default({searchParams:Promise.resolve({period})}));

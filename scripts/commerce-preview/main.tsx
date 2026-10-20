@@ -6,8 +6,12 @@ import AdminDashboardView from '@/components/admin/AdminDashboardView';
 import OrdersClient from '@/components/admin/OrdersClient';
 import ShippingFlowClient from '@/components/admin/ShippingFlowClient';
 import ProductsListView from '@/components/admin/ProductsListView';
+import SettlementsListView from '@/components/admin/SettlementsListView';
+import MembersClient from '@/components/admin/MembersClient';
+import ReviewsClient from '@/components/admin/ReviewsClient';
+import ReservationsClient from '@/components/admin/ReservationsClient';
 import {SiteProvider} from '@/components/SiteContext';
-import {previewProducts,previewSales,previewNow,installPreviewApi} from './fixtures';
+import {previewProducts,previewSales,previewSettlements,previewNow,installPreviewApi} from './fixtures';
 import type {SalesSummary} from '@/lib/sales-statistics';
 import type {VisitSummary} from '@/lib/visit-analytics/rules';
 import type {WorkGroup} from '@/lib/operations';
@@ -41,20 +45,28 @@ function ProductPreview({site}:{site:SiteKey}){
  const params=useSearchParams(),filters=Object.fromEntries(params.entries());
  return <ProductsListView all={previewProducts(site)} now={previewNow} filters={filters} sales={previewSales(site)} salesError="" site={site}/>;
 }
+function SettlementPreview({site}:{site:SiteKey}){
+ const params=useSearchParams();
+ return <SettlementsListView all={previewSettlements(site)} filters={Object.fromEntries(params.entries())} now={new Date(previewNow).toISOString()}/>;
+}
 function ShippingPreview(){
  const query=useSearchParams(),tab=query.get('tab');
  return <ShippingFlowClient initialTab={tab==='exchange_requested'||tab==='return_requested'?tab:undefined} initialRequestId={query.get('requestId')||undefined}/>;
 }
 function App(){
  const [site,setSite]=useState<SiteKey>('blendpick'),path=usePathname();
- return <SiteProvider site={site}><div onSubmit={e=>{e.preventDefault();const form=e.target as HTMLFormElement;if(form.getAttribute('action')==='/admin/products'){const params=new URLSearchParams();new FormData(form).forEach((v,k)=>{if(String(v))params.set(k,String(v));});navigate('/admin/products?'+params);}}} onClick={e=>{const a=(e.target as HTMLElement).closest('a'),href=a?.getAttribute('href');if(href==='/'||href?.startsWith('/admin')||href?.startsWith('#flow-')||href==='#customer-requests'){e.preventDefault();if(href!=='/')navigate(href);}else if(href?.startsWith('/products')||href?.startsWith('https://')){e.preventDefault();alert('미리보기에서는 실제 상품 페이지로 이동하지 않습니다.');}}}>
-  <div className="preview-banner"><strong>관리자 개편 미리보기</strong><span>모든 수치는 예시 · 실제 발주/환불/저장 불가 · 운영 반영 전</span><select aria-label="미리보기 사이트" value={site} onChange={e=>{previewSite=e.target.value as SiteKey;setSite(previewSite);navigate('/admin');}}><option value="blendpick">블랜드픽</option><option value="sanjipick">산지픽</option></select><nav className="preview-page-links" aria-label="미리보기 화면">{[['/admin','운영 홈'],['/admin/orders','주문 관리'],['/admin/shipments','배송·반품'],['/admin/products','상품 관리']].map(([href,label])=><button key={href} onClick={()=>navigate(href)} aria-pressed={path===href}>{label}</button>)}</nav></div>
+ return <SiteProvider site={site}><div onSubmit={e=>{e.preventDefault();const form=e.target as HTMLFormElement;if(['/admin/products','/admin/settlements'].includes(form.getAttribute('action')||'')){const params=new URLSearchParams();new FormData(form).forEach((v,k)=>{if(String(v))params.set(k,String(v));});navigate(form.getAttribute('action')+'?'+params);}}} onClick={e=>{const a=(e.target as HTMLElement).closest('a'),href=a?.getAttribute('href');if(href==='/'||href?.startsWith('/admin')||href?.startsWith('#flow-')||href==='#customer-requests'){e.preventDefault();if(href!=='/')navigate(href);}else if(href?.startsWith('/products')||href?.startsWith('https://')){e.preventDefault();alert('미리보기에서는 실제 상품 페이지로 이동하지 않습니다.');}}}>
+  <div className="preview-banner"><strong>관리자 개편 미리보기</strong><span>모든 수치는 예시 · 실제 발주/환불/저장 불가 · 운영 반영 전</span><select aria-label="미리보기 사이트" value={site} onChange={e=>{previewSite=e.target.value as SiteKey;setSite(previewSite);navigate('/admin');}}><option value="blendpick">블랜드픽</option><option value="sanjipick">산지픽</option></select><nav className="preview-page-links" aria-label="미리보기 화면">{[['/admin','운영 홈'],['/admin/orders','주문 관리'],['/admin/shipments','배송·반품'],['/admin/products','상품 관리'],['/admin/settlements','매출·정산'],['/admin/members','회원 관리'],['/admin/reviews','리뷰 관리'],...(site==='blendpick'?[['/admin/reservations','숙박 예약']]:[])].map(([href,label])=><button key={href} onClick={()=>navigate(href)} aria-pressed={path===href}>{label}</button>)}</nav></div>
   <div className="admin-commerce" data-admin-site={site}><AdminSidebar key={site} siteKey={site}/><main className="commerce-main"><AdminWorkspaceHeader siteKey={site}/><div id="admin-content" tabIndex={-1} className="commerce-content">
    {path==='/admin'||path==='/admin/operations'||path==='/admin/visits'?<Summary key={site} site={site}/>
    :path==='/admin/orders'?<OrdersClient key={site}/>
    :path==='/admin/shipments'?<ShippingPreview key={site}/>
    :path==='/admin/products'?<ProductPreview key={site} site={site}/>
-   :<section className="overview-panel"><h1>업무 상세 화면</h1><p style={{margin:'14px 0',fontSize:14,lineHeight:1.8}}>이 미리보기에서 운영 홈·주문관리·배송반품·상품관리 구성을 확인할 수 있습니다. 상세 편집과 실제 처리는 운영 화면에서 제공됩니다.</p><p style={{fontSize:12,color:'#68747c'}}>선택한 경로: {path}</p><button className="overview-refresh" style={{marginTop:20}} onClick={()=>navigate('/admin')}>운영 홈으로 돌아가기</button></section>}
+   :path==='/admin/settlements'?<SettlementPreview key={site} site={site}/>
+   :path==='/admin/members'?<MembersClient key={site}/>
+   :path==='/admin/reviews'?<ReviewsClient key={site}/>
+   :path==='/admin/reservations'&&site==='blendpick'?<ReservationsClient/>
+   :<section className="overview-panel"><h1>업무 상세 화면</h1><p style={{margin:'14px 0',fontSize:14,lineHeight:1.8}}>이 미리보기에서 운영 홈·주문·배송반품·상품·정산·회원·리뷰·숙박예약 구성을 확인할 수 있습니다. 상세 편집과 실제 처리는 운영 화면에서 제공됩니다.</p><p style={{fontSize:12,color:'#68747c'}}>선택한 경로: {path}</p><button className="overview-refresh" style={{marginTop:20}} onClick={()=>navigate('/admin')}>운영 홈으로 돌아가기</button></section>}
   </div></main></div>
  </div></SiteProvider>;
 }

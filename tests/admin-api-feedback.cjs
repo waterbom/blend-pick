@@ -23,7 +23,7 @@ const fixtures = {
   '/api/admin/shipments/carriers': { carriers: [] },
   '/api/admin/reviews': [{ id: 'review', product_name: '테스트 상품', buyer_name: '작성자', content: '리뷰', rating: 5, is_hidden: false, created_at: '2026-10-01' }],
 };
-function mount(t, component, props = {}) {
+function mount(t, component, props = {}, extraMocks = {}) {
   const state = [], effects = [], messages = [], routes = [], requests = [];
   let cursor = 0, result = () => Response.json({ ok: true });
   let readResult = url => Response.json(fixtures[String(url).split('?')[0]] ?? []);
@@ -50,13 +50,13 @@ function mount(t, component, props = {}) {
     react, 'next/navigation': { useRouter: () => ({ push: url => routes.push(url), refresh: () => routes.push('refresh'), back() {} }) },
     '@/components/SiteContext': { useSiteKey: () => 'blendpick' },
     '@/components/CopyLinkButton': () => null, '@/components/admin/RichEditor': () => null,
-    './RoomInventoryClient': () => null,
+    './RoomInventoryClient': () => null, ...extraMocks,
   }).default;
   const render = () => { cursor = 0; effects.length = 0; return View(props); };
   const find = predicate => { const found = nodes(render()).find(predicate); assert.ok(found, 'Expected UI control'); return found; };
   const button = label => find(n => n.type === 'button' && text(n).includes(label));
   const click = async label => { await button(label).props.onClick(event); await flush(); };
-  return { render, find, button, click, messages, routes, requests,
+  return { render, find, button, click, messages, routes, requests, effects,
     async init() { render(); for (const effect of [...effects]) effect(); await flush(); requests.length = 0; messages.length = 0; },
     respond(fn) { result = fn; },
     respondGet(fn) { readResult = fn; },
@@ -119,7 +119,6 @@ const scenarios = [
     run: f => f.click('아이디/비밀번호 발급'), busy: '아이디/비밀번호 발급', method: 'POST', success: () => Response.json({ login_id: 'issued', password: 'test-password' }),
     verify(f) { assert.match(text(f.render()), /issued/); } },
   { name: 'member approval', component: 'MembersClient',
-    async prepare(f) { await f.find(n => n.type === 'tr' && n.props.onClick).props.onClick(); },
     run: f => f.click('신청 승인'), busy: '신청 승인', method: 'PATCH', success: () => Response.json({ ok: true }),
     verify(f) { assert.ok(f.requests.some(r => !r.method && r.url.startsWith('/api/admin/members'))); } },
   { name: 'product save', component: 'ProductFormClient', props: { mode: 'edit', productId: 'product' },
@@ -132,7 +131,7 @@ const scenarios = [
     run: f => f.click('문자'), method: 'POST', success: () => Response.json({ ok: true, sent: 1, failed: 0, total: 1 }),
     verify(f) { assert.match(f.messages.join(' '), /성공 1건/); } },
   { name: 'reservation status change', component: 'ReservationsClient',
-    async run(f) { await f.find(n => n.type === 'select' && n.props.title === '상태 변경').props.onChange({ target: { value: 'checked_in' } }); },
+    async run(f) { f.respondGet(url => Response.json(url.endsWith('/notify') ? {pending: 1} : [{...reservation, status: 'checked_in'}])); await f.find(n => n.type === 'select' && n.props.title === '상태 변경').props.onChange({ target: { value: 'checked_in' } }); },
     method: 'PATCH', success: () => Response.json({ ok: true }),
     verify(f) { assert.equal(f.find(n => n.props?.title === '상태 변경').props.value, 'checked_in'); },
     failureVerify(f) { assert.equal(f.find(n => n.props?.title === '상태 변경').props.value, 'paid'); } },
@@ -140,6 +139,8 @@ const scenarios = [
     prepare: f => f.click('예약변경'), run: f => f.click('차액 확인'), busy: '차액 확인',
     method: 'POST', success: () => Response.json({ ok: true, diff: 0, oldTotal: 100000, newTotal: 100000, nights: 1, pkgLabel: '2인', room: '패밀리 트윈', available: true, minRemaining: 1 }),
     verify(f) { assert.ok(f.button('변경 확정')); } },
+  { name: 'review visibility', component: 'ReviewsClient', run: f => f.click('숨기기'), busy: '숨기기', method: 'PATCH', success: () => Response.json({ok:true}), verify(f) { assert.ok(f.button('숨김 해제')); } },
+  { name: 'review removal', component: 'ReviewsClient', run: f => f.click('삭제'), method: 'DELETE', success: () => Response.json({ok:true}), verify(f) { assert.match(text(f.render()), /조건에 맞는 리뷰가 없습니다/); } },
   { name: 'tracking save', component: 'TrackingForm', props: { orderId: 'order', currentStatus: 'preparing', trackingCompany: '04', trackingNumber: '123456789012' },
     run: f => f.click('운송장 등록'), busy: '운송장 등록', method: 'PATCH', success: () => Response.json({ ok: true }),
     verify(f) { assert.deepEqual(f.routes, ['refresh']); assert.match(text(f.render()), /저장됐어요/); } },
@@ -194,7 +195,7 @@ test('invalid response bodies and unsafe request IDs never leak raw content', as
   for (const status of [401, 413]) await assert.rejects(readApiJson(new Response('<html/>', { status })), e => e.message.includes(status === 401 ? '로그인' : '파일 크기'));
 });
 
-for (const component of ['CampaignsClient', 'InfluencerFormClient', 'MembersClient', 'ProductFormClient', 'ReservationsClient', 'TrackingForm']) {
+for (const component of ['CampaignsClient', 'InfluencerFormClient', 'MembersClient', 'ReviewsClient', 'ProductFormClient', 'ReservationsClient', 'TrackingForm']) {
   test(`${component}: failed initial reads show server guidance and finish loading`, async t => {
     const f = mount(t, `components/admin/${component}.tsx`, { mode: 'edit', influencerId: 'influencer', productId: 'product', orderId: 'order', currentStatus: 'preparing' });
     global.fetch = async () => Response.json({ ...failure, code: 'AUTH_REQUIRED' }, { status: 401 });
@@ -239,4 +240,85 @@ test('shipment partial success keeps counts and support guidance after list refr
   assert.ok(f.feedback().includes(requestId));
   assert.equal(f.requests.filter(r => r.url === '/api/admin/shipments/import').length, 1);
   assert.ok(f.requests.some(r => !r.method && r.url.startsWith('/api/admin/orders')));
+});
+
+
+test('member approval is visible immediately; a failed post-write refresh removes stale action buttons', async t => {
+  const f = mount(t, 'components/admin/MembersClient.tsx'); await f.init();
+  assert.ok(f.button('신청 승인')); assert.ok(f.button('계정 비활성화'));
+  assert.ok(!nodes(f.render()).some(n => n.type === 'tr' && n.props.onClick));
+  f.respondGet(() => Response.json({...failure, code:'DB_UNAVAILABLE'}, {status:503}));
+  await f.click('신청 승인');
+  assert.match(text(f.render()), /DB_UNAVAILABLE/);
+  assert.ok(!nodes(f.render()).some(n => n.type === 'button' && text(n).includes('신청 승인')));
+  f.respondGet(() => Response.json({members:[{...member, role_status:'approved'}]}));
+  await f.click('다시 조회');
+  assert.equal(f.requests.filter(r => r.method === 'PATCH').length, 1);
+  assert.doesNotMatch(text(f.render()), /DB_UNAVAILABLE|신청 승인/);
+});
+test('switching member histories ignores a slower response for the previous member', async t => {
+  const f = mount(t, 'components/admin/MembersClient.tsx');
+  f.respondGet(() => Response.json({members:[member, {...member, id:'second', name:'두 번째 회원'}]}));
+  await f.init();
+  const resolvers = {};
+  f.respondGet(url => new Promise(resolve => { resolvers[url.split('/').at(-1)] = resolve; }));
+  const first = f.find(n => n.type === 'button' && n.props['aria-controls'] === 'member-history-member').props.onClick();
+  const second = f.find(n => n.type === 'button' && n.props['aria-controls'] === 'member-history-second').props.onClick();
+  resolvers.second(Response.json({orders:[{order_number:'ONLY-SECOND', product_name:'두 번째 주문', total_amount:1000, item_count:1, status:'delivered'}],reviewCount:2})); await second;
+  resolvers.member(Response.json({orders:[{order_number:'WRONG-FIRST', total_amount:9999, item_count:1}],reviewCount:9})); await first;
+  assert.match(text(f.render()), /ONLY-SECOND/); assert.doesNotMatch(text(f.render()), /WRONG-FIRST/);
+});
+test('review search intersects visibility, rating and photo filters without losing hidden text contrast', async t => {
+  const f = mount(t, 'components/admin/ReviewsClient.tsx');
+  const base=fixtures['/api/admin/reviews'][0];
+  f.respondGet(() => Response.json([{...base,id:'wanted',product_name:'사과',rating:2,is_hidden:true,images:['data:image/png;base64,AA=='],content:'HIDDEN-MATCH'}, {...base,id:'visible',product_name:'사과',rating:2,content:'VISIBLE-OTHER'}, {...base,id:'high',product_name:'사과',rating:5,is_hidden:true,content:'HIGH-OTHER'}]));
+  await f.init(); await f.click('숨김');
+  f.find(n => n.props?.['aria-label'] === '리뷰 검색').props.onChange({target:{value:'사과'}});
+  f.find(n => n.props?.['aria-label'] === '별점 필터').props.onChange({target:{value:'low'}});
+  f.find(n => n.type === 'input' && n.props.type === 'checkbox').props.onChange({target:{checked:true}});
+  assert.match(text(f.render()), /HIDDEN-MATCH/); assert.doesNotMatch(text(f.render()), /VISIBLE-OTHER|HIGH-OTHER/);
+  const row=f.find(n => n.type === 'article'); assert.equal(row.props['data-hidden'],true); assert.equal(row.props.style?.opacity,undefined);
+});
+test('rapid repeated review actions issue one write and wait for the server before changing visibility', async t => {
+  const f=mount(t,'components/admin/ReviewsClient.tsx');await f.init();
+  let resolve; f.respond(() => new Promise(r => {resolve=r;}));
+  const button=f.button('숨기기'); const first=button.props.onClick(); const second=button.props.onClick();
+  assert.equal(f.requests.filter(r=>r.method==='PATCH').length,1);
+  assert.equal(f.find(n=>n.type==='article').props['data-hidden'],false);
+  resolve(Response.json({ok:true})); await Promise.all([first,second]);
+  assert.equal(f.find(n=>n.type==='article').props['data-hidden'],true);
+});
+test('reservation export includes all filtered rows beyond the current page and inventory does not replace the list', async t => {
+  let downloaded;
+  const f=mount(t,'components/admin/ReservationsClient.tsx',{}, {'@/lib/xlsx-download':{downloadXlsx:(...args)=>{downloaded=args;}}});
+  const rows=Array.from({length:26},(_,i)=>({...reservation,id:'r'+i,order_number:'STAY-'+i,product_name:i===25?'단궁 · 독채':reservation.product_name,hotel_sent_at:null}));
+  f.respondGet(url=>Response.json(url.endsWith('/notify')?{pending:0}:rows));await f.init();
+  f.find(n=>n.props?.id==='reservation-stay').props.onChange({target:{value:'utop'}});
+  await f.click('객실 재고');
+  assert.match(text(f.render()), /STAY-0/); assert.doesNotMatch(text(f.render()), /STAY-25/);
+  await f.click('예약자 명단 다운로드');
+  assert.equal(downloaded[2].length,25); assert.ok(downloaded[2].every(row=>row[0]!=='STAY-25'));
+  assert.match(text(f.render()), /호텔 미전달25건/);
+  f.find(n=>n.props?.['aria-label']==='호텔 전달 필터').props.onChange({target:{value:'await_confirm'}});
+  assert.match(text(f.render()),/조건에 맞는 예약이 없습니다/);
+});
+test('partial reservation notification refreshes the remaining count instead of pretending it is zero', async t=>{
+  const f=mount(t,'components/admin/ReservationsClient.tsx'); await f.init();
+  f.respond(()=>Response.json({ok:true,sent:1,failed:2,total:3,errors:['예시 실패']}));
+  f.respondGet(url=>Response.json(url.endsWith('/notify')?{pending:2}:[reservation]));
+  await f.click('문자');
+  assert.match(text(f.button('예약확인 문자 일괄발송')),/2/); assert.equal(f.button('예약확인 문자 일괄발송').props.disabled,false);
+  assert.match(f.messages.join(' '),/실패 2건/); assert.equal(f.requests.filter(r=>r.method==='POST').length,1);
+});
+
+test('a late availability response cannot overwrite the newly selected reservation dates', async t=>{
+  const f=mount(t,'components/admin/ReservationsClient.tsx');await f.init();await f.click('예약변경');
+  const timers=[];t.mock.method(global,'setTimeout',fn=>{timers.push(fn);return timers.length;});t.mock.method(global,'clearTimeout',()=>{});
+  const resolvers=[];f.respond(()=>new Promise(resolve=>resolvers.push(resolve)));
+  f.render();const cleanup=f.effects[1]();const first=timers.shift()();
+  f.find(n=>n.type==='input'&&n.props.type==='date'&&n.props.value==='2026-10-10').props.onChange({target:{value:'2026-10-09'}});
+  f.render();cleanup();f.effects[1]();const second=timers.shift()();
+  resolvers[1](Response.json({ok:true,available:true,minRemaining:2}));await second;
+  resolvers[0](Response.json({ok:true,available:true,minRemaining:77}));await first;
+  assert.match(text(f.render()),/최소 2실/);assert.doesNotMatch(text(f.render()),/최소 77실/);
 });

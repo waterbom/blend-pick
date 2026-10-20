@@ -16,11 +16,39 @@ export function previewOrders(site:SiteKey):Order[]{
 export function previewSales(site:SiteKey):Record<string,ProductSales>{
  return Object.fromEntries(previewProducts(site).map((p,i)=>{const sold=[82,46,29,0,113,0][i],paid=sold+(sold?3:0);return[p.id,{paid,sold,orders:paid,cancelled:sold?2:0,returned:sold?1:0,pending:i===0?1:0,review:i===2?1:0,options:sold?[{key:'basic',label:site==='sanjipick'?'가정용 3kg':'기본 구성',paid,sold,orders:paid,cancelled:2,returned:1,pending:0,review:0}]:[]}];}));
 }
+export function previewSettlements(site:SiteKey){
+ return Array.from({length:65},(_,i)=>({id:uuid(700+i),order_id:uuid(100+i),order_number:`DEMO-SET-${String(i+1).padStart(3,'0')}`,buyer_name:`예시 고객 ${i+1}`,site,
+ settled_at:new Date(previewNow-Math.floor(i/5)*86400000).toISOString(),gross_amount:50000+i*1000,fee:1500+i*30,net_amount:i===2?null:48500+i*970,unresolved:i===2,fee_estimated:i%4===0}));
+}
+function previewMembers(){
+ return Array.from({length:8},(_,i)=>({id:uuid(800+i),name:`예시 회원 ${i+1}`,nickname:`미리보기 ${i+1}`,email:`member${i+1}@example.invalid`,role:i<2?'influencer':i===2?'vendor':'customer',role_status:i<2?'pending':null,is_active:i!==4,profile_image:null,via_kakao:i%2===0,joined_at:`2026-10-${String(20-i).padStart(2,'0')}`,joined_estimated:i===7,orders:i%4,spent:i%4*45900,cancels:i===4?1:0,returns:i===3?1:0,last_order_at:i%4?'2026-10-19':null}));
+}
+const previewPhoto='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="104" height="104"><rect width="104" height="104" fill="#e2e9de"/><circle cx="52" cy="44" r="23" fill="#749261"/><text x="52" y="90" text-anchor="middle" font-size="12" fill="#304c2d">사진 예시</text></svg>');
+function previewReviews(site:SiteKey){
+ const products=previewProducts(site);
+ return [5,4,2,5,1,4].map((rating,i)=>({id:uuid(900+i),product_id:products[i%3].id,product_name:products[i%3].name,product_code:products[i%3].product_code,buyer_name:`예시 작성자 ${i+1}`,rating,content:['포장이 깔끔하고 구성도 마음에 들어요. 다음 공구에도 구매하고 싶어요.','가족과 나누기 좋은 구성이에요.','배송 중 포장이 눌려 도착했어요. 포장 개선을 부탁드려요.','사진처럼 색상과 크기가 마음에 들어요. 잘 쓰겠습니다.','받은 구성에 누락된 상품이 있어 문의했어요.','선물용으로 주문했는데 만족합니다.'][i],images:i%2===0?[previewPhoto]:[],is_hidden:i===4,created_at:`2026-10-${20-i}T02:30:00Z`}));
+}
+function previewReservations(){
+ const states=['paid','paid','cancelled','paid','checked_in','awaiting','paid','no_show'];
+ return states.map((status,i)=>({id:uuid(1000+i),order_number:`DEMO-STAY-${String(i+1).padStart(3,'0')}`,status,buyer_name:`예시 예약자 ${i+1}`,buyer_phone:'01000000000',addr_memo:i===0?'요청: 가능하면 조용한 객실로 부탁드려요.':null,
+ stay_check_in:`2026-10-${21+i}`,stay_check_out:`2026-10-${22+i}`,total_amount:i===6?580000:198000,extra_paid:i===1?20000:0,influencer_name:i%2?'예시 파트너':null,stay_changed:i===1,repaid_after_cancel:false,created_at:'2026-10-19T00:30:00Z',paid_at_kst:status==='awaiting'?null:'10/19 09:30',cancelled_at_kst:status==='cancelled'?'10/20 10:00':null,product_name:i===6?'단궁 한옥 · 독채':'여수 UTOP 마리나 · 2인 패키지 · 패밀리 트윈',
+ hotel_sent_at:[0,5,6].includes(i)?null:'2026-10-19T02:00:00Z',hotel_confirmed_at:[4,7].includes(i)?'2026-10-19T03:00:00Z':null,stay_changed_at:i===1?'2026-10-20T01:00:00Z':null,cancelled_at:status==='cancelled'?'2026-10-20T01:00:00Z':null,hotel_sent_kst:[0,5,6].includes(i)?null:'10/19 11:00',hotel_confirmed_kst:[4,7].includes(i)?'10/19 12:00':null,last_change:i===1?'10/21 → 10/22 투숙일 변경':null}));
+}
 export function installPreviewApi(site:()=>SiteKey){
  window.fetch=async(input,init)=>{
   const url=new URL(typeof input==='string'?input:input instanceof Request?input.url:String(input),'https://preview.invalid');
   if ((init?.method||'GET').toUpperCase()!=='GET') return Response.json({error:'미리보기에서는 실제 발주·송장 등록·취소·환불·저장을 실행하지 않습니다.'},{status:409});
   const orders=previewOrders(site());
+  if(url.pathname==='/api/admin/members'){
+   const all=previewMembers(),q=(url.searchParams.get('q')||'').toLowerCase(),role=url.searchParams.get('role'),status=url.searchParams.get('status');
+   const members=all.filter(m=>(!q||[m.name,m.nickname,m.email].some(v=>v.toLowerCase().includes(q)))&&(!role||role===m.role)&&(status==='inactive'?!m.is_active:status==='active'?m.is_active:true)&&(url.searchParams.get('pending')!=='1'||m.role_status==='pending'));
+   return Response.json({members,summary:{total:8,new_month:8,influencers:2,pending:2,buyers30:6}});
+  }
+  if(url.pathname.startsWith('/api/admin/members/'))return Response.json({orders:[{order_number:'DEMO-1020-001',status:'delivered',order_type:'shop',total_amount:45900,paid_date:'2026-10-19',product_name:previewProducts(site())[0].name,item_count:1}],reviewCount:1});
+  if(url.pathname==='/api/admin/reviews')return Response.json(previewReviews(site()));
+  if(url.pathname==='/api/admin/reservations')return Response.json(site()==='blendpick'?previewReservations():[]);
+  if(url.pathname==='/api/admin/reservations/notify')return Response.json({pending:3});
+  if(url.pathname==='/api/admin/reservations/inventory')return Response.json(Array.from({length:31},(_,i)=>['디럭스 더블','패밀리 트윈','단궁 독채','단궁 파티룸'].map((room,j)=>({date:`2026-10-${String(i+1).padStart(2,'0')}`,room_type:room,allocated:j>1?1:10,booked:j>1?i%2:i%7,remaining:(j>1?1:10)-(j>1?i%2:i%7)}))).flat());
   if(url.pathname==='/api/admin/orders'){const statuses=url.searchParams.get('status')?.split(',');return Response.json(statuses?orders.filter(o=>statuses.includes(o.status)):orders);}
   if(url.pathname==='/api/admin/dispatches'&&!url.search)return Response.json([0,1,2].map(i=>({id:uuid(i+300),request_key:uuid(i+400),created_at:`2026-10-${20-i}T02:30:00Z`,order_count:3+i})));
   if(url.pathname==='/api/admin/shipments/carriers')return Response.json({carriers:CORE_CARRIERS});
