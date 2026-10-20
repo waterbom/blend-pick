@@ -15,7 +15,6 @@ function MenuSearch({siteKey}:{siteKey:SiteKey}) {
 }
 export default function AdminWorkspaceHeader({siteKey}:{siteKey:SiteKey}) {
  const path=usePathname(),location=adminLocation(path,siteKey);
- const group=adminGroups(siteKey).find(g=>g.label===location.group);
  return <header className="commerce-workspace-header"><div className="commerce-heading-row"><div className="commerce-workspace-identity"><span className="commerce-site-dot"/><p><strong>{siteKey==='sanjipick'?'산지픽':'블랜드픽'}</strong><span> 판매자 워크스페이스</span></p></div><div className="commerce-header-actions"><MenuSearch key={path+siteKey} siteKey={siteKey}/><Link href="/admin/notifications" className="commerce-icon-button" aria-label="카카오 상담·알림" title="카카오 상담·알림"><AdminIcon name="bell"/></Link><Link href="/admin/products/new" className="commerce-create-button"><AdminIcon name="plus"/><span>상품 등록</span></Link></div></div>
- <div className="commerce-context-row"><nav aria-label={`${location.group} 관련 업무`} className="commerce-context-tabs">{group?.items.map(i=><Link key={i.href} href={i.href} aria-current={location.href===i.href?'page':undefined}>{i.label}</Link>)}</nav><span className="commerce-section-label">{location.group}</span></div></header>;
+ <nav className="commerce-breadcrumb" aria-label="현재 위치"><Link href="/admin">운영 홈</Link>{path!=='/admin'&&<><span aria-hidden="true">/</span><span aria-current="page">{location.label}</span></>}</nav></header>;
 }

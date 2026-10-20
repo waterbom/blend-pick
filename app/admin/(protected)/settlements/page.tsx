@@ -44,7 +44,7 @@ export default async function SettlementsPage({
 
   return (
     <div>
-      {/* 대시보드 카드 */}
+      <div className="overview-section-heading"><div><h1>매출·정산</h1><p>기간별 예상액과 주문별 정산을 함께 확인하세요.</p></div><div className="overview-inline-links"><Link href="/admin/profit">원가·수익 분석</Link><Link href="/admin/link-sales">상품별 실적</Link><Link href="/admin/influencer-settlements">파트너 정산</Link></div></div>
       <p className="text-sm text-gray-500 mb-4">배송완료로 생성된 내역의 환불을 반영한 정산 예상액입니다. PG 실제 입금액과는 대조가 필요합니다.{unresolved>0 ? ` 환불 미확인 ${unresolved}건이 포함된 기간의 합계는 확인 필요로 표시합니다.` : ""}</p>
       <div className="bg-white rounded-none border border-gray-100 p-6 mb-6">
         <div className="flex items-center gap-2 mb-5">
@@ -60,7 +60,8 @@ export default async function SettlementsPage({
             <div key={card.key || "total"} className="flex items-center flex-1 min-w-[130px]">
               <Link
                 href={card.key ? `/admin/settlements?period=${card.key}` : "/admin/settlements"}
-                className="flex-1 group"
+                aria-current={(period || "") === card.key ? "page" : undefined}
+                className="flex-1 group overview-settlement-period"
               >
                 <div className="text-xs text-gray-400 mb-1">{card.label}</div>
                 <div className="text-2xl font-bold text-gray-800 group-hover:text-[#2D5A27] transition-colors">
@@ -76,31 +77,6 @@ export default async function SettlementsPage({
         <div className="mt-4 pt-4 border-t border-gray-50 text-xs text-gray-400">
           총 수수료: <span className="font-medium text-gray-600">{Number(stats.total_fee).toLocaleString()}원</span>
         </div>
-      </div>
-
-      {/* 필터 탭 */}
-      <div className="flex gap-1 mb-4 bg-white rounded-none border border-gray-100 p-1">
-        {[
-          { key: "", label: "전체" },
-          { key: "today", label: "오늘" },
-          { key: "week", label: "이번 주" },
-          { key: "month", label: "이번 달" },
-        ].map((tab) => {
-          const active = (period || "") === tab.key;
-          return (
-            <Link
-              key={tab.key}
-              href={tab.key ? `/admin/settlements?period=${tab.key}` : "/admin/settlements"}
-              className={`px-3 py-2 rounded-none text-sm font-medium transition-colors ${
-                active
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
       </div>
 
       <div className="mb-6"><MetricChart title="정산 예상액·수수료 추이" description="현재 선택 기간 전체 내역 · 한국시간 정산일 기준 · 60일 초과 범위는 월별 · 환불 미확인 구간은 빈 값 · 실제 입금액과 대조 필요" points={settlementPoints(selected)} series={[{label:'정산 예상액',color:'#315e43'},{label:'수수료',color:'#b87a28'}]} unit="won" kind="bar"/></div>

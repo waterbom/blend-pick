@@ -37,7 +37,7 @@ async function record(n = 10, minutes = 30) {
 }
 const detail = () => load('lib/settlement-view.ts', mocks).settlementView('blendpick');
 async function dashboard(extraMocks = {}) {
-  return (await load('app/admin/(protected)/page.tsx', { ...mocks, '@/components/admin/AdminDashboardView': () => null, ...extraMocks }).default({ searchParams: Promise.resolve({}) })).props;
+  return (await load('app/admin/(protected)/page.tsx', { ...mocks, '@/components/admin/AdminDashboardView': () => null, '@/lib/operations': {getTodayWork: async () => []}, '@/lib/automation-work': {getAutomationWork: async () => []}, '@/lib/server-traffic': {getServerTraffic: async () => ({state:'unavailable'})}, ...extraMocks }).default({ searchParams: Promise.resolve({}) })).props;
 }
 before(async () => {
   await require('./support/integrity-schema.cjs')(db, id);
