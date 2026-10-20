@@ -29,6 +29,11 @@ export function regionalShippingFee(r:ShippingRule,zipcode?:string):number {
   if(!/^\d{5}$/.test(zipcode))throw Error('주소 검색으로 배송지를 다시 선택해주세요.');
   return ranges.some(([a,b])=>zipcode>=a&&zipcode<=b)?cost:0;
 }
+export function regionalShippingEnabled(r: Pick<ShippingRule, 'island_shipping_cost' | 'remote_zipcodes'>): boolean {
+  if (!(Number(r.island_shipping_cost) > 0)) return false;
+  try { return postalRanges(r.remote_zipcodes || '').length > 0; }
+  catch { return false; } // Invalid settings must not promise a fee the checkout cannot quote.
+}
 export function productShippingFee(r:ShippingRule,qty:number,subtotal:number):number {
   const cost=Number(r.shipping_cost)||0;
   switch(r.shipping_type){
@@ -41,7 +46,7 @@ export function productShippingFee(r:ShippingRule,qty:number,subtotal:number):nu
 export function shippingLabel(r:ShippingRule):string {
   const cost=Number(r.shipping_cost)||0,th=Number(r.free_shipping_threshold)||0;
   const base=r.shipping_type==='free'?'무료배송':r.shipping_type==='conditional_free'&&th>0?`${th.toLocaleString()}원 이상 무료배송 (미만 ${cost.toLocaleString()}원)`:r.shipping_type==='per_unit'?`1건 무료배송 · 2건째부터 건당 ${(Number(r.per_unit_shipping_cost)||0).toLocaleString()}원`:`배송비 ${cost.toLocaleString()}원`;
-  return base+(Number(r.island_shipping_cost)>0?` · 지정 지역 추가 ${Number(r.island_shipping_cost).toLocaleString()}원`:'')+(Number(r.installation_cost)>0?` · 설치비 개당 ${Number(r.installation_cost).toLocaleString()}원`:'');
+  return base+(regionalShippingEnabled(r)?` · 지정 지역 추가 ${Number(r.island_shipping_cost).toLocaleString()}원`:'')+(Number(r.installation_cost)>0?` · 설치비 개당 ${Number(r.installation_cost).toLocaleString()}원`:'');
 }
 export interface CartFeeItem extends ShippingRule {product_id:string;quantity:number;unit_price:number;}
 const norm=(v:string|null|undefined)=>(v||'').trim().replace(/\s+/g,' ');

@@ -41,7 +41,7 @@ interface Product {
   shipping_cost: number;
   free_shipping_threshold: number | null;
   per_unit_shipping_cost?: number | null;
-  island_shipping_cost?:number|null; installation_cost?:number|null;
+  island_shipping_cost?:number|null; remote_zipcodes?:string|null; installation_cost?:number|null;
   main_image: string | null;
 }
 

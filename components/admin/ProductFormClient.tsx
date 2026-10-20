@@ -2,6 +2,7 @@
 import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
 import { productSeo } from "@/lib/product-seo";
+import { regionalShippingEnabled } from "@/lib/shipping";
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import RichEditor from "@/components/admin/RichEditor";
@@ -1302,7 +1303,12 @@ export default function ProductFormClient({ mode, productId }: Props) {
             <input value={form.island_shipping_cost} onChange={e => set("island_shipping_cost", e.target.value)}
               type="number" min="0" className={inp} placeholder="0 (미적용)" />
           </div>
-          <div><label className={lbl}>추가 배송비 적용 우편번호 (선택)</label><textarea className={inp} value={form.remote_zipcodes} onChange={e=>set("remote_zipcodes",e.target.value)} placeholder="5자리 번호 또는 시작-종료 범위, 쉼표로 구분" maxLength={12000}/><p className="text-xs text-gray-500 mt-1">비워도 상품을 저장할 수 있습니다. 비워두면 추가배송비는 자동 부과하지 않으며, 입력한 경우 해당 지역에만 적용합니다.</p></div>
+          <div><label className={lbl}>추가 배송비 적용 우편번호 (선택)</label><textarea className={inp} value={form.remote_zipcodes} onChange={e=>set("remote_zipcodes",e.target.value)} placeholder="5자리 번호 또는 시작-종료 범위, 쉼표로 구분" maxLength={12000}/><p className="text-xs text-gray-500 mt-1">비워도 상품을 저장할 수 있습니다. 비워두면 추가배송비는 자동 부과하지 않으며, 입력한 경우 해당 지역에만 적용합니다.</p>
+            <p className="text-sm mt-2" role="status">{regionalShippingEnabled({island_shipping_cost:Number(form.island_shipping_cost),remote_zipcodes:form.remote_zipcodes})
+              ? `지정 지역 추가배송비 자동 부과: ${Number(form.island_shipping_cost).toLocaleString()}원`
+              : form.remote_zipcodes.trim() && Number(form.island_shipping_cost)>0 ? "적용 우편번호 형식을 확인해주세요."
+              : "지역 추가배송비 자동 부과 안 함"}</p>
+          </div>
           <p className="text-xs text-gray-500">같은 공급사·출고지·택배사 상품은 고정 배송비 중 큰 금액으로 묶습니다. 정보가 하나라도 없으면 상품별로 계산합니다. 조건부 무료는 각 상품 금액 기준입니다.</p>
           <div>
             <label className={lbl}>개당 설치비 (원)</label>
@@ -1381,7 +1387,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           const preview=productSeo({name:form.name,brand:form.brand,description:form.detail_html,origin_country:form.origin_country,
             main_image:images[0],shipping_type:form.shipping_type,shipping_cost:Number(form.shipping_cost),
             free_shipping_threshold:Number(form.free_shipping_threshold),per_unit_shipping_cost:Number(form.per_unit_shipping_cost),
-            island_shipping_cost:Number(form.island_shipping_cost),installation_cost:Number(form.installation_cost),
+            island_shipping_cost:Number(form.island_shipping_cost),remote_zipcodes:form.remote_zipcodes,installation_cost:Number(form.installation_cost),
             expected_ship_date:form.expected_ship_date},currentSiteKey);
           return <section className="border rounded p-4 bg-white space-y-2" aria-label="검색 정보 자동 점검">
             <h2 className="font-bold">검색 정보 자동 점검</h2>

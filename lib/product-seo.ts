@@ -8,7 +8,7 @@ export interface SeoProduct {
   price?: number | string | null; main_image?: string | null; is_visible?: boolean;
   status?: string; stock?: number; sale_start_at?: string | null; sale_end_at?: string | null;
   shipping_type?: string; shipping_cost?: number | null; free_shipping_threshold?: number | null;
-  per_unit_shipping_cost?: number | null; island_shipping_cost?: number | null; installation_cost?: number | null;
+  per_unit_shipping_cost?: number | null; island_shipping_cost?: number | null; remote_zipcodes?: string | null; installation_cost?: number | null;
   expected_ship_date?: string | null;
 }
 export interface SeoOption { name?: string; value?: string; extra_price: number; stock: number; is_active: boolean; }
