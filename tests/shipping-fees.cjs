@@ -18,6 +18,17 @@ test('installation is a separate server-created line, not an extra shipping fee'
 test('single and cart verification agree and reject omitted installation or regional fees',async()=>{await product(1,{installation_cost:10000,island_shipping_cost:5000,remote_zipcodes:'12345'});const cart={...params(),totalAmount:30000,shippingCost:8000,amount:38000};assert.equal((await verifyCartAmount(cart)).ok,true);assert.equal((await verifySingleAmount({site,productId:id(1),quantity:1,unitPrice:20000,shippingZipcode:'12345',totalAmount:38000,shippingCost:8000,amount:38000})).ok,true);assert.equal((await verifyCartAmount({...cart,shippingCost:3000,amount:33000})).ok,false);assert.equal((await verifyCartAmount({...cart,totalAmount:20000,amount:28000})).ok,false);assert.equal((await verifyCartAmount({...cart,shippingZipcode:undefined})).ok,false);});
 test('quote reflects destination change and settings change without DB mutation',async()=>{await product(1,{island_shipping_cost:5000,remote_zipcodes:'12345'});const a=await quoteCartAmount(params());const b=await quoteCartAmount(params([item()],'99999'));assert.equal(a.quote.shippingCost,8000);assert.equal(b.quote.shippingCost,3000);await query('UPDATE products_shop SET shipping_cost=4000');assert.equal((await verifyCartAmount({...params(),totalAmount:20000,shippingCost:8000,amount:28000})).ok,false);assert.equal((await query('SELECT stock FROM products_shop')).rows[0].stock,100);assert.equal((await query('SELECT count(*) n FROM payment_attempts')).rows[0].n,0);});
 test('optional regions allow checkout without automatic regional surcharge',async()=>{await product(1,{island_shipping_cost:5000});const q=await quoteCartAmount(params());assert.equal(q.ok,true);assert.equal(q.quote.regionalCost,0);assert.equal(q.quote.shippingCost,3000);});
+test('delivery descriptions only advertise regional fees that the checkout can apply',()=>{
+ const rule={shipping_type:'paid',shipping_cost:3000,island_shipping_cost:5000,installation_cost:10000};
+ for(const remote_zipcodes of [undefined,null,'','   ','bad']) {
+  if(remote_zipcodes==='bad') assert.throws(()=>shipping.regionalShippingFee({...rule,remote_zipcodes},'12345'));
+  else assert.equal(shipping.regionalShippingFee({...rule,remote_zipcodes},'12345'),0);
+  assert.doesNotMatch(shipping.shippingLabel({...rule,remote_zipcodes}),/지정 지역 추가/);
+  assert.match(shipping.shippingLabel({...rule,remote_zipcodes}),/배송비 3,000원.*설치비 개당 10,000원/);
+ }
+ assert.match(shipping.shippingLabel({...rule,remote_zipcodes:'12340-12349'}),/지정 지역 추가 5,000원/);
+ assert.equal(shipping.regionalShippingFee({...rule,remote_zipcodes:'12340-12349'},'12345'),5000);
+});
 test('negative fees, fractional thresholds and unknown shipping types are rejected at admin API',async()=>{const route=load('app/api/admin/products/route.ts',mocks);const b={name:'입력 검증',category:'산지픽',price:20000,supply_price:10000,stock:10,shipping_type:'paid',shipping_cost:3000,options:[],addons:[]};for(const patch of [{shipping_cost:-1},{return_cost_oneway:-3000},{shipping_type:'bad'},{shipping_type:'conditional_free',free_shipping_threshold:-1},{shipping_type:'conditional_free',free_shipping_threshold:30000.5},{island_shipping_cost:5000,remote_zipcodes:'bad'}])assert.equal((await route.POST(req({...b,...patch}))).status,400);assert.equal((await query('SELECT count(*) n FROM products_shop')).rows[0].n,0);});
 test('valid admin shipping settings persist and survive migration replay',async()=>{const route=load('app/api/admin/products/route.ts',mocks);const b={name:'입력 검증',category:'산지픽',price:20000,supply_price:10000,stock:10,shipping_type:'paid',shipping_cost:3000,island_shipping_cost:5000,remote_zipcodes:'12345',installation_cost:10000,options:[],addons:[]};assert.equal((await route.POST(req(b))).status,201);await db.exec(fs.readFileSync('scripts/shipping-fees.sql','utf8'));assert.equal((await query('SELECT remote_zipcodes FROM products_shop')).rows[0].remote_zipcodes,'12345');});
 test('quote API trusts host scope and rejects missing destination or cross-site product',async()=>{await product();const route=load('app/api/checkout/quote/route.ts',mocks);assert.equal((await route.POST(req({items:[item()],shippingZipcode:'12345'}))).status,200);assert.equal((await route.POST(req({items:[item()]}))).status,400);site='blendpick';assert.equal((await route.POST(req({items:[item()],shippingZipcode:'12345',site:'sanjipick'}))).status,400);});
@@ -34,3 +45,30 @@ test('direct multi-line checkout records delivery and installation once and ship
  const cancelled=await load('lib/order-cancel.ts',mocks).cancelShopOrder(order.id,'검증',{deductShipping:true,site});assert.equal(cancelled.ok,true);assert.equal(refund,30000);assert.equal((await query('SELECT stock FROM products_shop')).rows[0].stock,100);
 });
 test('admin can save additional fee with optional empty postal regions',async()=>{const route=load('app/api/admin/products/route.ts',mocks);const b={name:'선택 지역',category:'산지픽',price:20000,supply_price:10000,stock:10,shipping_type:'paid',shipping_cost:3000,island_shipping_cost:5000,remote_zipcodes:'',options:[],addons:[]};assert.equal((await route.POST(req(b))).status,201);const r=(await query('SELECT island_shipping_cost, remote_zipcodes FROM products_shop')).rows[0];assert.equal(r.island_shipping_cost,5000);assert.ok(!r.remote_zipcodes);});
+test('shipping health distinguishes inactive optional regions from checkout-blocking fees',async()=>{
+ const {inspectShippingConfig,shippingConfigMessages}=require('../scripts/check-shipping-config.cjs');
+ await db.exec('ALTER TABLE products_shop ADD COLUMN IF NOT EXISTS archived_at timestamptz');
+ await product(1,{island_shipping_cost:5000,remote_zipcodes:'12345'});
+ await product(2,{island_shipping_cost:5000,remote_zipcodes:'  '});
+ await product(3);await product(4,{shipping_cost:-1});
+ await product(5,{status:'draft',shipping_cost:-1});await product(6,{archived_at:'2026-01-01',shipping_cost:-1});
+ const report=await inspectShippingConfig({query:async(sql)=>{assert.match(sql.trim(),/^SELECT /);return query(sql);}});
+ assert.deepEqual(report,{active_products:4,regional_surcharge_enabled:1,regional_surcharge_inactive:1,invalid_fee_settings:1});
+ const inactive=shippingConfigMessages({...report,invalid_fee_settings:0}).join(' ');
+ assert.match(inactive,/Checkout remains available/);assert.doesNotMatch(inactive,/require correction|before checkout/);
+ assert.match(shippingConfigMessages(report).join(' '),/Invalid shipping settings: 1/);
+ assert.equal((await query('SELECT count(*)::int AS n FROM products_shop')).rows[0].n,6);
+});
+test('both storefront product loaders carry configured postal regions into delivery descriptions',async()=>{
+ await product(1,{island_shipping_cost:5000,remote_zipcodes:'12345'});
+ const sanji=await load('lib/sanji-data.ts',mocks).getSanjiProduct(id(1));
+ assert.equal(sanji.remote_zipcodes,'12345');assert.match(shipping.shippingLabel(sanji),/지정 지역 추가 5,000원/);
+ await query("INSERT INTO products_shop(id,name,category,status,stock,price,supply_price,shipping_type,shipping_cost,tax_type,island_shipping_cost,remote_zipcodes) VALUES($1,'테스트','생활','active',100,20000,10000,'paid',3000,'taxable',5000,'12345')",[id(2)]);site='blendpick';
+ const page=load('app/products/[id]/page.tsx',{...mocks,'next/navigation':{notFound(){throw Error('NOT_FOUND');},redirect(){throw Error('REDIRECT');}},
+  '@/components/Header':()=>null,'@/components/ProductDetail':()=>null,'@/components/ProductSearchSummary':()=>null,'@/components/blend/ProductPolicy':()=>null,'@/components/blend/ProductPolicy.module.css':{}});
+ const metadata=await page.generateMetadata({params:Promise.resolve({id:id(2)}),searchParams:Promise.resolve({})});
+ assert.match(metadata.description,/지정 지역 추가 5,000원/);
+ await query("UPDATE products_shop SET remote_zipcodes='' WHERE id=$1",[id(2)]);
+ const inactive=await page.generateMetadata({params:Promise.resolve({id:id(2)}),searchParams:Promise.resolve({})});
+ assert.doesNotMatch(inactive.description,/지정 지역 추가/);
+});

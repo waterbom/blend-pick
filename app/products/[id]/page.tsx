@@ -38,6 +38,7 @@ interface Product {
   shipping_type: string;
   shipping_cost: number;
   free_shipping_threshold: number | null;
+  remote_zipcodes?: string | null;
   main_image: string | null;
   addon_multi: boolean;
   influencer_id: string | null; // 소속 인플루언서 (지정 시 그 인플루언서 링크만 귀속)
@@ -93,7 +94,7 @@ async function getProduct(id: string) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return undefined;
   const result = await shopPool.query(
     `SELECT id, name, brand, category, description, price, original_price,
-            stock, status, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, island_shipping_cost, installation_cost, main_image, addon_multi,
+            stock, status, shipping_type, shipping_cost, free_shipping_threshold, per_unit_shipping_cost, island_shipping_cost, remote_zipcodes, installation_cost, main_image, addon_multi,
             influencer_id, sale_start_at, sale_end_at, is_visible, to_jsonb(products_shop)->>'expected_ship_date' AS expected_ship_date, to_jsonb(products_shop)->>'origin_country' AS origin_country
      FROM products_shop WHERE id = $1 AND status IN ('active', 'soldout', 'ended')`,
     [id]

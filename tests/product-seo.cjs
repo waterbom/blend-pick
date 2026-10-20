@@ -14,6 +14,11 @@ test('generated text uses provided fields without inventing origin or shipping p
  assert.doesNotMatch(a.description,/당일|국내산|대한민국|무료배송/);assert.match(a.shipping,/3,000/);
  assert.equal(a.schedule,'출고 일정 확인 중');
 });
+test('product metadata describes regional delivery charges only with configured destinations',()=>{
+ const p={...product,island_shipping_cost:5000};
+ assert.doesNotMatch(seo.productMetadata(p,'sanjipick').description,/지정 지역 추가/);
+ assert.match(seo.productMetadata({...p,remote_zipcodes:'12345'},'sanjipick').description,/지정 지역 추가 5,000원/);
+});
 test('plain text removes active HTML and decodes Korean entities',()=>{
  assert.equal(seo.plainText('<script>bad()</script><style>bad</style><p>&#xD64D;&#44172;&nbsp;&amp; 게</p>'),'홍게 & 게');
  const text=seo.safeJsonLd({name:'</script><script>alert(1)</script>'});assert.ok(!text.includes('<'));assert.equal(JSON.parse(text).name,'</script><script>alert(1)</script>');
