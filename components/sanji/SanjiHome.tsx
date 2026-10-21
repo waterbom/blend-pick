@@ -123,7 +123,7 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
 
       <section className="sh-sec" id="sanji-new"><div className="sh-sec__h"><h2>지금 열린 산지 공구</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">새로 들어온 먹거리부터 차근차근 둘러보세요</p>{newest.length ? grid(newest.slice(0, 8)) : <div className="sh-empty">새로운 산지 공구를 준비하고 있어요.</div>}<a className="sh-more" href={`${linkBase}/products`}>공구 상품 더 보기 <SanjiIcon name="chevron" size={13} /></a></section>
 
-      <a href={`${linkBase}/about`} className="sh-story"><span className="sh-story-icon"><SanjiIcon name="leaf" size={33} /></span><div><strong>먹거리마다, 산지의 이야기가 있어요</strong><p>어디서 왔는지 알고 고르는 즐거움</p></div><SanjiIcon name="chevron" size={15} /></a>
+      <a href={`${linkBase}/about`} className="sh-story"><span className="sh-story-icon"><SanjiIcon name="leaf" size={33} /></span><div><strong>산지에서 시작해, 우리의 한 끼로</strong><p>산지픽이 먹거리를 연결하는 이야기</p></div><SanjiIcon name="chevron" size={15} /></a>
 
       {upcoming.length > 0 && <section className="sh-sec"><div className="sh-sec__h"><h2>다음 공구 미리보기</h2></div><p className="sh-sec__sub">오픈 일정을 확인해보세요</p><div className="sh-upcoming">{upcoming.map(p => <a key={p.id} href={href(p)}><SanjiIcon name="clock" size={26} /><div><time dateTime={p.sale_start_at!}>{new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(p.sale_start_at!))} 오픈</time><span>{p.name}</span></div></a>)}</div></section>}
 
