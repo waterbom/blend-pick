@@ -5,8 +5,8 @@ const DEFAULT_SECRET = "blend-pick-secret-key";
 
 function secretString() {
   const value = process.env.JWT_SECRET;
-  if (process.env.NODE_ENV === "production" && (!value || value === DEFAULT_SECRET || value.length < 32)) {
-    throw new Error("JWT_SECRET must be configured with at least 32 private characters");
+  if (process.env.NODE_ENV === "production" && (!value || value === DEFAULT_SECRET)) {
+    throw new Error("JWT_SECRET must be configured with a private value");
   }
   return value || DEFAULT_SECRET;
 }
