@@ -1,11 +1,6 @@
 name: Security server inspection
 
 on:
-  push:
-    branches:
-      - security-hardening-20261022
-    paths:
-      - .github/workflows/security-server-inspect.yml
   workflow_dispatch:
 
 permissions:
