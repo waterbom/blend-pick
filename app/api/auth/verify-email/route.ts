@@ -2,9 +2,12 @@ import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { signToken } from "@/lib/auth";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/request-rate-limit";
 
 async function handlePOST(req: NextRequest) {
   const { email, code } = await readJsonObject(req);
+  const rate = consumeRateLimit(req, "verify-email", 10, 10 * 60 * 1000, typeof email === "string" ? email.toLowerCase() : "invalid");
+  if (!rate.allowed) return rateLimitResponse(rate.retryAfter);
 
   const result = await pool.query(
     "SELECT id, role, name, email_verify_code, email_verify_expires_at FROM shop_users WHERE email = $1",
