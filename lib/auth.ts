@@ -1,8 +1,15 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "blend-pick-secret-key"
-);
+const DEFAULT_USER_SECRET = "blend-pick-secret-key";
+
+function userSecret() {
+  const value = process.env.JWT_SECRET;
+  // 개발·격리 테스트는 기존 기본값을 허용하지만 운영에서는 공개 기본키를 절대 사용하지 않는다.
+  if (process.env.NODE_ENV === "production" && (!value || value === DEFAULT_USER_SECRET || value.length < 32)) {
+    throw new Error("JWT_SECRET must be configured with at least 32 private characters");
+  }
+  return new TextEncoder().encode(value || DEFAULT_USER_SECRET);
+}
 
 export type TokenPayload = {
   id: string;
@@ -16,12 +23,13 @@ export async function signToken(payload: TokenPayload, expiresIn = "7d") {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime(expiresIn)
-    .sign(SECRET);
+    .sign(userSecret());
 }
 
 export async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, userSecret(), { algorithms: ["HS256"] });
+    if (typeof payload.id !== "string" || !payload.id || typeof payload.role !== "string") return null;
     return payload as TokenPayload;
   } catch {
     return null;
