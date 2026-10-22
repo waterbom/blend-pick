@@ -70,6 +70,8 @@ async function handlePOST(req: Request) {
     const file = formData.get("file") as File | null;
     if (!file)
         return NextResponse.json({ error: "파일이 없습니다" }, { status: 400 });
+    if (file.size > 5 * 1024 * 1024)
+        return NextResponse.json({ error: "엑셀 파일은 5MB 이하만 업로드할 수 있습니다." }, { status: 413 });
     const buffer = Buffer.from(await file.arrayBuffer());
     const wb = XLSX.read(buffer, { type: "buffer" });
     const ws = wb.Sheets[wb.SheetNames[0]];
