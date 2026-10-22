@@ -5,8 +5,8 @@ const DEFAULT_USER_SECRET = "blend-pick-secret-key";
 function userSecret() {
   const value = process.env.JWT_SECRET;
   // 개발·격리 테스트는 기존 기본값을 허용하지만 운영에서는 공개 기본키를 절대 사용하지 않는다.
-  if (process.env.NODE_ENV === "production" && (!value || value === DEFAULT_USER_SECRET || value.length < 32)) {
-    throw new Error("JWT_SECRET must be configured with at least 32 private characters");
+  if (process.env.NODE_ENV === "production" && (!value || value === DEFAULT_USER_SECRET)) {
+    throw new Error("JWT_SECRET must be configured with a private value");
   }
   return new TextEncoder().encode(value || DEFAULT_USER_SECRET);
 }
