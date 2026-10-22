@@ -4,6 +4,8 @@ import { sendSMS, phoneVerifyOn } from "@/lib/sms";
 import { signChallenge, normPhone } from "@/lib/phone-verify";
 import { siteFromRequest } from "@/lib/site-request";
 import { siteSmsTag } from "@/lib/site-label";
+import { randomInt } from "crypto";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/request-rate-limit";
 
 // 인증번호 발송
 async function handlePOST(req: NextRequest) {
@@ -13,11 +15,13 @@ async function handlePOST(req: NextRequest) {
   if (p.length < 10) {
     return NextResponse.json({ ok: false, error: "올바른 휴대폰 번호를 입력해주세요." }, { status: 400 });
   }
+  const rate = consumeRateLimit(req, "phone-send", 5, 10 * 60 * 1000, p);
+  if (!rate.allowed) return rateLimitResponse(rate.retryAfter);
   if (!phoneVerifyOn()) {
     return NextResponse.json({ ok: false, error: "문자 인증이 현재 비활성화되어 있어요." }, { status: 400 });
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(randomInt(100000, 1000000));
   // 머리말은 요청이 온 사이트 브랜드로 (산지픽 결제 인증이면 [산지픽])
   const sms = await sendSMS(p, `${siteSmsTag(siteFromRequest(req))} 인증번호 [${code}] 를 입력해주세요.`);
   if (!sms.ok) {

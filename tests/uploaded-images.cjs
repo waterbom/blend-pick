@@ -41,3 +41,7 @@ test('legacy public uploads remain readable when storage directory changes',asyn
  const legacy=path.join(process.cwd(),'public/uploads'),name='legacy-test-'+Date.now()+'.png';await fs.mkdir(legacy,{recursive:true});await fs.writeFile(path.join(legacy,name),png);
  try{assert.deepEqual((await storage.readUploadedImage([name])).data,png);}finally{await fs.unlink(path.join(legacy,name));}
 });
+
+test('renamed executable payload cannot pass as an image',async()=>{
+ await assert.rejects(()=>storage.saveUploadedImage(new File(['<?php echo 1; ?>'],'shell.php.png',{type:'image/png'})),/파일 내용과 이미지 형식/);
+});

@@ -1,6 +1,7 @@
 import { trackingRows } from '@/lib/shipping-flow';
 
 export async function parseTrackingXlsx(buf: ArrayBuffer) {
+  if (buf.byteLength > 5 * 1024 * 1024) throw Error('엑셀 파일은 5MB 이하만 업로드할 수 있습니다.');
   const XLSX = await import('xlsx');
   const wb = XLSX.read(buf, { type: 'array', cellNF: true });
   const ws = wb.Sheets[wb.SheetNames[0]];

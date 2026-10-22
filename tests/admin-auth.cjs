@@ -28,6 +28,19 @@ function load(file, mocks) {
   let count = 0;
   async function test(name, run) { await run(); count++; console.log(`PASS ${name}`); }
   const signed = (payload, expires = '1h', key = process.env.ADMIN_JWT_SECRET) => new jose.SignJWT(payload).setProtectedHeader({ alg: 'HS256' }).setExpirationTime(expires).sign(new TextEncoder().encode(key));
+  await test('production refuses missing or public customer JWT secret', async () => {
+    const oldNodeEnv = process.env.NODE_ENV, oldJwt = process.env.JWT_SECRET;
+    try {
+      process.env.NODE_ENV = 'production';
+      delete process.env.JWT_SECRET;
+      await assert.rejects(() => auth.signToken({ id: 'customer-1', role: 'customer' }), /JWT_SECRET/);
+      process.env.JWT_SECRET = 'blend-pick-secret-key';
+      await assert.rejects(() => auth.signToken({ id: 'customer-1', role: 'customer' }), /JWT_SECRET/);
+    } finally {
+      if (oldNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldNodeEnv;
+      if (oldJwt === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = oldJwt;
+    }
+  });
   await test('designated admin token is accepted', async () => assert.deepEqual(await auth.verifyAdminToken(await auth.signAdminToken(admin)), admin));
   await test('other-email token cannot be issued or accepted even with a valid signature', async () => {
     const other = { ...admin, email: 'personal@example.com' };
@@ -55,6 +68,7 @@ function load(file, mocks) {
     '@/lib/db': { query: async () => ({ rows: [{ id: 'personal-1', role: 'customer', name: 'Personal', password_hash: 'mock', is_verified: true, is_active: true }] }) },
     '@/lib/db-shop': { query: async () => ({ rows: [{ ...admin, password_hash: 'mock' }] }) },
     bcryptjs: { compare: async password => password === 'correct' },
+    '@/lib/request-rate-limit': { consumeRateLimit: () => ({ allowed: true, retryAfter: 0 }), rateLimitResponse: retryAfter => new Response(String(retryAfter), { status: 429 }) },
   };
   const login = load('app/api/auth/login-email/route.ts', mocks).POST;
   const req = (email, password = 'correct') => new NextRequest('https://sanjipick.blendpunch.com/api/auth/login-email', { method: 'POST', headers: { 'content-type': 'application/json', cookie: 'admin_token=previous-admin; shop_token=previous-customer' }, body: JSON.stringify({ email, password }) });

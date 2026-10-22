@@ -1,0 +1,72 @@
+name: Security server inspection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read-only runtime inspection
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -u
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+
+            echo "=== application runtime ==="
+            node --version 2>/dev/null || true
+            npm --version 2>/dev/null || true
+            npm ls next react react-dom sharp --depth=0 2>/dev/null || true
+
+            echo "=== required secret presence (values are never printed) ==="
+            node - <<'NODE'
+            require('@next/env').loadEnvConfig(process.cwd(), false);
+            for (const key of ['JWT_SECRET', 'ADMIN_JWT_SECRET']) {
+              const value = process.env[key] || '';
+              console.log(key + ': ' + (value ? 'configured' : 'MISSING'));
+            }
+            NODE
+
+            echo "=== PHP / Apache / FPM exposure ==="
+            if command -v php >/dev/null 2>&1; then
+              php -v | head -1
+            else
+              echo "php-cli: not installed"
+            fi
+            if command -v apache2 >/dev/null 2>&1; then
+              apache2 -v | head -2
+            else
+              echo "apache2: not installed"
+            fi
+            systemctl list-units --all --type=service --no-legend 2>/dev/null | grep -Ei 'php.*fpm|apache2' || echo "php-fpm/apache2 service: none"
+            sudo nginx -T 2>&1 | grep -Ein 'fastcgi_pass|\.php($|[[:space:]{])|php[0-9.]*-fpm' || echo "nginx PHP handler: none"
+
+            echo "=== listening web processes ==="
+            sudo ss -ltnp 2>/dev/null | grep -E ':(80|443|3000)[[:space:]]' || true
+
+  external:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check public PHP paths and headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for host in shop.blendpunch.com sanjipick.blendpunch.com; do
+            echo "=== $host response headers ==="
+            curl -fsSIL --max-time 20 "https://$host/" | sed -n '1,30p' || true
+            for path in /index.php /phpinfo.php /info.php /test.php; do
+              code="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' "https://$host$path" || true)"
+              echo "$path -> $code"
+            done
+          done

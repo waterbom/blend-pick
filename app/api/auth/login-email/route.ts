@@ -4,9 +4,15 @@ import pool from "@/lib/db";
 import shopPool from "@/lib/db-shop";
 import bcrypt from "bcryptjs";
 import { ADMIN_EMAIL, signToken, signAdminToken } from "@/lib/auth";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/request-rate-limit";
 
 async function handlePOST(req: NextRequest) {
   const { email, password } = await readJsonObject(req);
+  if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
+    return NextResponse.json({ ok: false, error: "이메일 또는 비밀번호가 올바르지 않습니다." }, { status: 400 });
+  }
+  const rate = consumeRateLimit(req, "login", 10, 10 * 60 * 1000, email.toLowerCase());
+  if (!rate.allowed) return rateLimitResponse(rate.retryAfter);
 
   // 관리자 계정이면 admin_users 테이블에서 처리
   if (email === ADMIN_EMAIL) {

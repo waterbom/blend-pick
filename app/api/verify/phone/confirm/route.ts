@@ -1,11 +1,14 @@
 import { withApiErrors, readJsonObject } from '@/lib/api-errors';
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifyChallenge, signVerified } from "@/lib/phone-verify";
+import { verifyChallenge, signVerified, normPhone } from "@/lib/phone-verify";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/request-rate-limit";
 
 // 인증번호 확인
 async function handlePOST(req: NextRequest) {
   const { phone, code } = await readJsonObject(req);
+  const rate = consumeRateLimit(req, "phone-confirm", 10, 10 * 60 * 1000, normPhone(phone));
+  if (!rate.allowed) return rateLimitResponse(rate.retryAfter);
   const token = (await cookies()).get("phone_verify")?.value;
   if (!token) {
     return NextResponse.json({ ok: false, error: "인증번호가 만료되었어요. 다시 요청해주세요." }, { status: 400 });

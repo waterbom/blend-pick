@@ -17,6 +17,21 @@ export function proxy(req: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  // 브라우저의 cross-site 요청으로 관리자 변경 API가 호출되는 것을 차단한다.
+  if (pathname.startsWith("/api/admin/") && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    const origin = req.headers.get("origin");
+    const host = req.headers.get("host");
+    if (origin) {
+      try {
+        if (!host || new URL(origin).host !== host) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      } catch {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+  }
+
   if (pathname.startsWith("/admin")) {
     const adminToken = req.cookies.get("admin_token")?.value;
     if (!adminToken) {
