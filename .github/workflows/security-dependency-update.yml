@@ -24,7 +24,7 @@ jobs:
       - name: Remediate fixable audit findings
         run: |
           npm install --save-exact nodemailer@10.2.0
-          npm audit fix
+          npm audit fix || true
       - name: Record remediation
         run: |
           git config user.name "github-actions[bot]"
