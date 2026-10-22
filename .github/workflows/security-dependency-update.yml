@@ -1,0 +1,39 @@
+name: Security dependency remediation
+
+on:
+  push:
+    branches: [security-hardening-20261022]
+    paths:
+      - .github/workflows/security-dependency-update.yml
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: security-hardening-20261022
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Remediate fixable audit findings
+        run: |
+          npm install --save-exact nodemailer@10.2.0
+          npm audit fix
+      - name: Record remediation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency changes"
+          else
+            git commit -m "fix(security): remediate fixable npm audit findings"
+            git pull --rebase origin security-hardening-20261022
+            git push origin HEAD:security-hardening-20261022
+          fi
