@@ -34,6 +34,7 @@ After:
 - react 19.2.9
 - react-dom 19.2.9
 - eslint-config-next 16.4.2
+- nodemailer 10.2.0
 
 Reason:
 - Next 16.4.1 carried critical RCE fixes and 16.4.2 is the current stable patch used here.
@@ -86,9 +87,16 @@ After:
 
 A strict site-wide Content-Security-Policy was intentionally not forced in this change because checkout, Kakao, Meta Pixel and other third-party integrations need a complete allowlist first; an incorrect CSP would break purchase/login flows.
 
+### Residual dependency risk — xlsx
+- npm audit reports high-severity advisories for the npm xlsx package and reports no fixed npm version.
+- The affected parsing paths are administrator-only; server-side spreadsheet inputs are now capped at 5 MB to reduce parser DoS exposure.
+- Browser-side xlsx use only generates downloads from application data and does not parse arbitrary remote files.
+- Full removal/replacement of xlsx remains a follow-up because changing spreadsheet engines can alter workbook compatibility and import behavior.
+
 ## CI / regression controls
 - Existing admin, buyer, account, image, shipping and process regression suites remain enabled.
 - CI now runs npm audit --omit=dev --audit-level=critical after npm ci and blocks future critical production dependency advisories.
+- Fixable npm findings were remediated; nodemailer was upgraded to 10.2.0. The remaining xlsx advisory has no fixed npm release and is constrained as described above.
 - Added regression coverage for production JWT fallback rejection and forged-image rejection.
 - The read-only Security server inspection workflow is kept as workflow_dispatch for repeat checks without exposing secrets.
 
