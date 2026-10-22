@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
+import { randomInt } from "crypto";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/request-rate-limit";
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -23,6 +25,9 @@ async function handlePOST(req: NextRequest) {
     email_marketing_agreed,
   } = await readJsonObject(req);
 
+  const rate = consumeRateLimit(req, "signup", 8, 60 * 60 * 1000, typeof email === "string" ? email.toLowerCase() : "invalid");
+  if (!rate.allowed) return rateLimitResponse(rate.retryAfter);
+
   if (!name || !email || !password) {
     return NextResponse.json(
       { ok: false, error: "모든 항목을 입력해주세요." },
@@ -42,7 +47,7 @@ async function handlePOST(req: NextRequest) {
   }
 
   const password_hash = await bcrypt.hash(password, 10);
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = randomInt(100000, 1000000).toString();
   const expires_at = new Date(Date.now() + 10 * 60 * 1000);
   const userId = crypto.randomUUID();
 
