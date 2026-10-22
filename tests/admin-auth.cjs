@@ -68,6 +68,7 @@ function load(file, mocks) {
     '@/lib/db': { query: async () => ({ rows: [{ id: 'personal-1', role: 'customer', name: 'Personal', password_hash: 'mock', is_verified: true, is_active: true }] }) },
     '@/lib/db-shop': { query: async () => ({ rows: [{ ...admin, password_hash: 'mock' }] }) },
     bcryptjs: { compare: async password => password === 'correct' },
+    '@/lib/request-rate-limit': { consumeRateLimit: () => ({ allowed: true, retryAfter: 0 }), rateLimitResponse: retryAfter => new Response(String(retryAfter), { status: 429 }) },
   };
   const login = load('app/api/auth/login-email/route.ts', mocks).POST;
   const req = (email, password = 'correct') => new NextRequest('https://sanjipick.blendpunch.com/api/auth/login-email', { method: 'POST', headers: { 'content-type': 'application/json', cookie: 'admin_token=previous-admin; shop_token=previous-customer' }, body: JSON.stringify({ email, password }) });
