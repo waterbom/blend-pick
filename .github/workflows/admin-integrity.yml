@@ -2,7 +2,9 @@ name: Admin integrity checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, security-hardening-20261022]
+permissions:
+  contents: write
 jobs:
   isolated-regressions:
     runs-on: ubuntu-latest
@@ -30,3 +32,24 @@ jobs:
         env:
           # No DB service/secrets in this job; defer catalog queries to runtime.
           CI_DB_FREE_BUILD: 'true'
+
+
+  security-dependency-refresh:
+    if: github.ref == 'refs/heads/security-hardening-20261022'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: security-hardening-20261022
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --save-exact next@16.4.2 react@19.2.9 react-dom@19.2.9 eslint-config-next@16.4.2
+      - name: Commit patched lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git diff --cached --quiet || git commit -m "fix(security): patch Next.js and React vulnerabilities"
+          git push origin HEAD:security-hardening-20261022
