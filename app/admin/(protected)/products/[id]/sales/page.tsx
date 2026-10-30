@@ -6,7 +6,7 @@ import shopPool from '@/lib/db-shop';
 import { currentAdminSite, adminProductScopeSql } from '@/lib/admin-site';
 import { validDateRange } from '@/lib/order-finance';
 import { getProductFinancials, emptyProductMoney } from '@/lib/product-financials';
-import { getProductSales, emptySalesCounts } from '@/lib/product-sales';
+import { getProductSales, emptySalesCounts, type ProductSales } from '@/lib/product-sales';
 
 const money = (value: number) => value.toLocaleString('ko-KR') + '원';
 const date = (value: string) => new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -33,7 +33,7 @@ export default async function ProductFinancialReport({ params, searchParams }: {
   const to = typeof q.to === 'string' ? q.to : product.sale_type === 'groupbuy' && product.sale_end_at
     ? new Date(product.sale_end_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }) : '';
   const valid = validDateRange(from || null, to || null) && (q.from === undefined || typeof q.from === 'string') && (q.to === undefined || typeof q.to === 'string');
-  let report = emptyProductMoney(), quantities = { ...emptySalesCounts(), options: [] } as Awaited<ReturnType<typeof getProductSales>> extends Map<string, infer V> ? V : never;
+  let report = emptyProductMoney(), quantities: ProductSales = { ...emptySalesCounts(), options: [] };
   let error = '';
   if (!valid) error = '조회 기간을 확인해주세요.';
   else {
