@@ -53,7 +53,7 @@ test('Sanjipick report includes archived, finished and non-display product reven
   assert.match(html,/현재 비전시/);
   assert.match(html,/115,000원/);
   assert.match(html,/5,000원/);
-  assert.match(html,/10월/); // HTML table contains dates from October
+  assert.match(html,/2026-10-01/);
   assert.match(html,/전시·비전시 전체/);
   assert.match(html,/admin\/products\/00000000-0000-4000-8000-000000000002\/sales\?from=2026-10-01&amp;to=2026-10-30/);
   assert.equal(saleCalls.length,1);
