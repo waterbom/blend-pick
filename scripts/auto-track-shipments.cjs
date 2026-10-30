@@ -52,17 +52,31 @@ async function main() {
    const client = await pool.connect();
    try {
     await client.query('BEGIN');
-    const {rows:updated} = await client.query(`UPDATE orders SET status = 'delivered', delivered_at=COALESCE(delivered_at,NOW())
-     WHERE id = ANY($1::uuid[]) AND status = 'shipped'
-     RETURNING id, order_number, total_amount, payment_method, payment_key`, [deliveredIds]);
-    for (const order of updated) await recordDeliverySettlement(client, order);
+    // Isolate each delivery: a refund-intent race on one order must not roll back other delivered parcels.
+    const committed = [];
+    for (const id of deliveredIds) {
+     await client.query('SAVEPOINT shipment_delivery');
+     try {
+      const {rows:updated} = await client.query(`UPDATE orders SET status = 'delivered', delivered_at=COALESCE(delivered_at,NOW())
+       WHERE id=$1 AND status='shipped'
+       RETURNING id,order_number,total_amount,payment_method,payment_key`, [id]);
+      for (const order of updated) await recordDeliverySettlement(client,order);
+      await client.query('RELEASE SAVEPOINT shipment_delivery');
+      committed.push(...updated.map(order=>order.id));
+     } catch (error) {
+      await client.query('ROLLBACK TO SAVEPOINT shipment_delivery');
+      await client.query('RELEASE SAVEPOINT shipment_delivery');
+      const row=results.find(r=>r.order_id===id);
+      if(row){row.outcome='failed';row.message=error?.code==='P2001'
+        ? '환불 처리 중인 주문은 배송완료 반영을 보류했습니다.'
+        : '배송완료 저장 실패 · 이 주문을 별도로 확인해주세요.';row.code='DELIVERY_SAVE_FAILED';}
+     }
+    }
     await client.query('COMMIT');
-    applyDeliveryResults(results, updated.map(order=>order.id));
+    applyDeliveryResults(results,committed);
    } catch (error) {
     await client.query('ROLLBACK');
-    const reason = error?.code === 'P2001' ? '환불 처리 중인 주문이 포함되어 배송완료 반영을 보류했습니다. 환불 상태를 확인해주세요.'
-     : '배송완료 저장에 실패했습니다. 주문 상태를 확인하고 다시 조회해주세요.';
-    applyDeliveryResults(results, [], reason);
+    applyDeliveryResults(results,[], '배송완료 트랜잭션을 저장하지 못했습니다. 다시 조회해주세요.');
    } finally { client.release(); }
   }
  } catch {
