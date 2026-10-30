@@ -5,7 +5,7 @@ import {usePathname} from 'next/navigation';
 import type {SiteKey} from '@/lib/sites';
 import {adminLocation,adminPrimaryLinks,adminSupportingGroups} from '@/lib/admin-navigation';
 import AdminIcon, {type AdminIconName} from '@/components/admin/AdminIcon';
-const icons:Record<string,AdminIconName>={'/admin':'home','/admin/orders':'box','/admin/shipments':'truck','/admin/products':'box','/admin/settlements':'chart','/admin/members':'users','/admin/reviews':'check','/admin/reservations':'calendar'};
+const icons:Record<string,AdminIconName>={'/admin':'home','/admin/orders':'box','/admin/shipments':'truck','/admin/products':'box','/admin/product-sales':'chart','/admin/settlements':'chart','/admin/members':'users','/admin/reviews':'check','/admin/reservations':'calendar'};
 export default function AdminSidebar({siteKey='blendpick'}:{siteKey?:SiteKey}) {
  const path=usePathname(),current=adminLocation(path,siteKey),primary=adminPrimaryLinks(siteKey),supporting=adminSupportingGroups(siteKey);
  const [mobile,setMobile]=useState(false);
