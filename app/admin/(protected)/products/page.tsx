@@ -7,6 +7,7 @@ import type { SiteKey } from '@/lib/sites';
 import { emptySalesCounts, getProductSales, type ProductSales } from '@/lib/product-sales';
 import { validDateRange } from '@/lib/order-finance';
 import ProductsListView from '@/components/admin/ProductsListView';
+import { getProductFinancials, type ProductMoney, emptyProductMoney } from '@/lib/product-financials';
 import type { ProductListFilters, ProductListItem } from '@/lib/admin-product-list';
 
 // 접속 도메인 범위의 상품만 — 산지픽 어드민은 산지픽 카테고리, Shop 어드민은 그 외
@@ -31,14 +32,15 @@ export default async function AdminProductsPage({searchParams}: {searchParams: P
   const raw=await searchParams;
   const filters=Object.fromEntries(Object.entries(raw).filter(([,value])=>typeof value==='string')) as ProductListFilters;
   const from=filters.from||'',to=filters.to||'';
-  let sales: Record<string,ProductSales>|null=null, salesError='';
+  let sales: Record<string,ProductSales>|null=null, financials: Record<string,ProductMoney>|null=null, salesError='';
   if ((raw.from!==undefined&&typeof raw.from!=='string') || (raw.to!==undefined&&typeof raw.to!=='string') || !validDateRange(from||null,to||null)) {
     salesError='판매 집계 기간을 확인해주세요. 시작일은 종료일보다 늦을 수 없습니다.';
   } else {
     try {
-      const result=await getProductSales(site.key,from,to);
+      const [result, money]=await Promise.all([getProductSales(site.key,from,to),getProductFinancials(site.key,from,to)]);
       sales=Object.fromEntries(all.map(p=>[p.id,result.get(p.id)??{...emptySalesCounts(),options:[]}]));
+      financials=Object.fromEntries(all.map(p=>[p.id,money.get(p.id)??emptyProductMoney()]));
     } catch(error) { console.error('[admin/products] sales lookup failed',error); salesError='판매량을 불러오지 못했습니다. 잠시 후 다시 조회해주세요.'; }
   }
-  return <ProductsListView all={all} now={now} filters={filters} sales={sales} salesError={salesError} site={site.key}/>;
+  return <ProductsListView all={all} now={now} filters={filters} sales={sales} financials={financials} salesError={salesError} site={site.key}/>;
 }
