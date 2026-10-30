@@ -1,9 +1,9 @@
 import type { SiteKey } from '@/lib/sites';
-export type AdminLink = { label: string; href: string; blendOnly?: boolean };
+export type AdminLink = { label: string; href: string; blendOnly?: boolean; sanjiOnly?: boolean };
 export type AdminGroup = { label: string; items: AdminLink[] };
 export const ADMIN_GROUPS: AdminGroup[] = [
  {label:'운영 홈',items:[{label:'운영 요약',href:'/admin'},{label:'오늘 처리할 일',href:'/admin/operations'}]},
- {label:'상품 관리',items:[{label:'상품 조회·수정',href:'/admin/products'},{label:'상품 등록',href:'/admin/products/new'},{label:'엑셀 등록',href:'/admin/products/import'},{label:'카테고리',href:'/admin/categories'}]},
+ {label:'상품 관리',items:[{label:'상품 조회·수정',href:'/admin/products'},{label:'상품별 판매실적',href:'/admin/product-sales',sanjiOnly:true},{label:'상품 등록',href:'/admin/products/new'},{label:'엑셀 등록',href:'/admin/products/import'},{label:'카테고리',href:'/admin/categories'}]},
  {label:'주문·배송',items:[{label:'전체 주문',href:'/admin/orders'},{label:'출고·배송 흐름',href:'/admin/shipments'},{label:'배송 알림 이력',href:'/admin/shipment-notifications'}]},
  {label:'매출·정산',items:[{label:'결제 정산',href:'/admin/settlements'},{label:'인플루언서 정산',href:'/admin/influencer-settlements'},{label:'수익 분석',href:'/admin/profit'},{label:'전시·비전시 실적',href:'/admin/link-sales'},{label:'방문 통계',href:'/admin/visits'}]},
  {label:'고객 관리',items:[{label:'회원 관리',href:'/admin/members'},{label:'리뷰 관리',href:'/admin/reviews'},{label:'카카오 상담·알림',href:'/admin/notifications'}]},
@@ -18,7 +18,7 @@ const SANJI_LABELS: Record<string,string> = {
 export function adminGroups(site: SiteKey) {
  return ADMIN_GROUPS.map(g=>({
   ...g,label:site==='sanjipick'&&g.label==='공구 운영'?'산지 공구':g.label,
-  items:g.items.filter(i=>site==='blendpick'||!i.blendOnly).map(i=>({...i,label:site==='sanjipick'?SANJI_LABELS[i.href]??i.label:i.label})),
+  items:g.items.filter(i=>(site!=='sanjipick'||!i.blendOnly)&&(site!=='blendpick'||!i.sanjiOnly)).map(i=>({...i,label:site==='sanjipick'?SANJI_LABELS[i.href]??i.label:i.label})),
  }));
 }
 export function adminLocation(path: string, site: SiteKey) {
@@ -29,8 +29,8 @@ export function adminLocation(path: string, site: SiteKey) {
 
 // Specialist tools stay searchable; everyday destinations need no submenu.
 export function adminPrimaryLinks(site: SiteKey) {
- const paths=['/admin','/admin/orders','/admin/shipments','/admin/products','/admin/settlements','/admin/members','/admin/reviews',...(site==='blendpick'?['/admin/reservations']:[])];
- const labels:Record<string,string>={'/admin':'운영 홈','/admin/orders':'주문 관리','/admin/shipments':'배송·반품','/admin/products':'상품 관리','/admin/settlements':'매출·정산','/admin/members':'회원 관리','/admin/reviews':site==='sanjipick'?'구매 후기':'리뷰 관리'};
+ const paths=['/admin','/admin/orders','/admin/shipments','/admin/products',...(site==='sanjipick'?['/admin/product-sales']:[]),'/admin/settlements','/admin/members','/admin/reviews',...(site==='blendpick'?['/admin/reservations']:[])];
+ const labels:Record<string,string>={'/admin':'운영 홈','/admin/orders':'주문 관리','/admin/shipments':'배송·반품','/admin/products':'상품 관리','/admin/product-sales':'상품별 판매실적','/admin/settlements':'매출·정산','/admin/members':'회원 관리','/admin/reviews':site==='sanjipick'?'구매 후기':'리뷰 관리'};
  const items=adminGroups(site).flatMap(g=>g.items);
  return paths.map(href=>({...items.find(i=>i.href===href)!,label:labels[href]||items.find(i=>i.href===href)!.label}));
 }
