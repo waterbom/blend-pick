@@ -1,0 +1,63 @@
+name: Public search visibility health check
+
+on:
+  schedule:
+    - cron: '15 1 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  seo-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Verify storefront SEO discovery endpoints
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+          import xml.etree.ElementTree as ET
+
+          class Head(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.title = ""
+                  self.in_title = False
+                  self.canonical = []
+                  self.robots = []
+              def handle_starttag(self, tag, attrs):
+                  a = dict(attrs)
+                  if tag == "title": self.in_title = True
+                  if tag == "link" and a.get("rel") == "canonical": self.canonical.append(a.get("href"))
+                  if tag == "meta" and a.get("name") == "robots": self.robots.append(a.get("content", ""))
+              def handle_endtag(self, tag):
+                  if tag == "title": self.in_title = False
+              def handle_data(self, data):
+                  if self.in_title: self.title += data
+
+          def get(url):
+              with urlopen(Request(url, headers={"User-Agent": "BlendpickSeoHealth/1.0"}), timeout=22) as response:
+                  if response.status != 200: raise ValueError(f"{url} HTTP {response.status}")
+                  return response.read().decode("utf-8", "replace")
+
+          for host in ("shop.blendpunch.com", "sanjipick.blendpunch.com"):
+              base=f"https://{host}"
+              home = Head()
+              home.feed(get(base+"/"))
+              guide=Head()
+              guide.feed(get(base+"/group-buy"))
+              if "공동구매" not in home.title: raise AssertionError(f"{host} missing main keyword in title")
+              if "공동구매" not in guide.title: raise AssertionError(f"{host} missing guide keyword in title")
+              if base+"/group-buy" not in guide.canonical: raise AssertionError(f"{host} wrong guide canonical: {guide.canonical}")
+              if any("noindex" in r.lower() for r in guide.robots): raise AssertionError(f"{host} guide unexpectedly noindex")
+              robots=get(base+"/robots.txt")
+              if base+"/sitemap.xml" not in robots: raise AssertionError(f"{host} robots missing sitemap")
+              sitemap=get(base+"/sitemap.xml")
+              root=ET.fromstring(sitemap)
+              urls={node.text for node in root.iter() if node.tag.endswith("loc") and node.text}
+              if base+"/group-buy" not in urls: raise AssertionError(f"{host} guide missing from sitemap")
+              print(f"{host}: home title OK; guide 200/canonical/indexable; robots/sitemap OK")
+          PY
