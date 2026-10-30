@@ -1,6 +1,6 @@
 import { SITES, type SiteKey } from "@/lib/sites";
 export const SANJI_COLLECTIONS = {
-  all:{title:"산지픽 상품 모아보기",description:"농산물과 수산물의 구성·가격·원산지·배송 조건을 비교하고 원하는 상품을 선택하세요."},
+  all:{title:"농산물·수산물 공동구매 모아보기",description:"산지픽 농산물·수산물 공동구매의 원산지, 중량·구성, 가격, 공구 일정과 배송 조건을 상품별로 비교하세요."},
   produce:{title:"농산물 공동구매",description:"산지픽에 등록된 농산물을 모았습니다. 상품별 원산지, 중량과 구성, 보관 방법, 출고 일정을 확인하세요."},
   seafood:{title:"수산물 공동구매",description:"산지픽에 등록된 수산물을 모았습니다. 상품별 원산지, 규격, 냉장·냉동 여부와 배송 조건을 확인하세요."},
 } as const;

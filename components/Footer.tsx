@@ -27,6 +27,7 @@ export default async function Footer() {
             <Link href="/orders/lookup" className="transition-colors hover:underline font-semibold" style={{ color: "var(--accent)" }}>주문 조회</Link>
             <Link href="/terms" className="transition-colors hover:underline" style={{ color: "var(--text-secondary)" }}>이용약관</Link>
             <Link href="/privacy" className="transition-colors hover:underline font-semibold" style={{ color: "var(--text-primary)" }}>개인정보처리방침</Link>
+            <Link href="/group-buy" className="transition-colors hover:underline font-semibold" style={{ color: "var(--text-primary)" }}>{sanji ? "농산물·수산물 공동구매" : "공동구매 안내"}</Link>
             <Link href="/guide" className="transition-colors hover:underline" style={{ color: "var(--text-secondary)" }}>이용안내</Link>
             {!sanji && <Link href="/suppliers" className="transition-colors hover:underline" style={{ color: "var(--text-secondary)" }}>공급사 제안</Link>}
             {!sanji && <a href="https://www.instagram.com/blend_punch/" target="_blank" rel="noopener noreferrer" className="transition-colors hover:underline" style={{ color: "var(--text-secondary)" }} aria-label="블랜드펀치 인스타그램 (새 창)">Instagram ↗</a>}

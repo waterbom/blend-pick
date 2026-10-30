@@ -18,8 +18,8 @@ import { SITES } from "@/lib/sites";
 const BP = SITES.blendpick;
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${BP.host}`),
-  title: "블랜드픽 — 이런 것까지 공구가 된다고?",
-  description: "일상에 필요한 물건부터 숙박·호텔까지, 새로운 공동구매의 발견 — 블랜드픽",
+  title: "공동구매 쇼핑·숙박 공구 | 블랜드픽",
+  description: "생활용품부터 호텔·독채 숙박까지 다양한 공동구매를 블랜드픽에서 둘러보세요. 진행 중인 공구, 상품 구성·가격, 판매 기간과 이용 조건을 확인할 수 있습니다.",
   verification: {
     google: BP.verification.google.length ? BP.verification.google : undefined,
     other: BP.verification.naver.length ? { "naver-site-verification": BP.verification.naver } : undefined,
@@ -34,8 +34,8 @@ export const metadata: Metadata = {
   },
   // 카톡·인스타 링크 미리보기 — 블랜드픽 전용 이미지 (public/og.png, 1200×630, BLEND PICK 워드마크). 산지픽 레이아웃은 자기 로고로 덮어씀
   openGraph: {
-    title: "블랜드픽 — 이런 것까지 공구가 된다고?",
-    description: "일상에 필요한 물건부터 숙박·호텔까지, 새로운 공동구매의 발견 — 블랜드픽",
+    title: "공동구매 쇼핑·숙박 공구 | 블랜드픽",
+    description: "생활용품부터 호텔·독채 숙박까지 다양한 공동구매를 둘러보세요. 상품별 가격, 판매 기간과 구매·예약 조건을 확인할 수 있습니다.",
     url: `https://${BP.host}`,
     siteName: BP.nameEn,
     type: "website",

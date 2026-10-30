@@ -9,8 +9,9 @@ import { SITES } from "@/lib/sites";
 import { deferDbFreeBuild } from "@/lib/ci-db-free-build";
 
 export const metadata: Metadata = {
-  title: "블랜드픽 — 이런 것까지 공구가 된다고?",
-  description: "일상에 필요한 제품부터 호텔과 독채 숙박까지. 블랜드픽에서 카테고리별 공동구매를 발견하고 상품별 가격과 이용 조건을 확인하세요.",
+  title: "공동구매 쇼핑·숙박 공구 | 블랜드픽",
+  description: "공동구매 사이트 블랜드픽에서 생활용품과 숙박·호텔 공구를 둘러보세요. 진행 중인 상품과 가격·옵션·공구 기간, 구매·예약 조건을 확인할 수 있습니다.",
+  alternates: { canonical: "/" },
 };
 
 // 산지픽 상품은 산지픽 전용 홈페이지와 목록에서만 보여준다.

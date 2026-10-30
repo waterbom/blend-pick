@@ -19,8 +19,8 @@ export async function generateMetadata(): Promise<Metadata> {
   }
   return {
     metadataBase: new URL(`https://${S.host}`),
-    title: { default: "농가 직송 제철 농산물 공동구매", template: `%s · ${S.name}` },
-    description: "산지에서 바로, 제철 그대로 집 앞까지. 농가 직송·중간유통 ZERO·수확 당일 발송 — 인플루언서가 직접 검증한 농산물 공동구매, 산지픽.",
+    title: { default: "제철 농산물·수산물 공동구매 | 산지픽", template: `%s | ${S.name}` },
+    description: "산지픽에서 제철 농산물과 수산물 공동구매를 둘러보세요. 상품별 원산지, 중량·구성, 공구 일정과 배송 조건을 비교해 선택할 수 있습니다.",
     alternates: { canonical: path || "/" },
     robots: onSanjiHost ? { index: true, follow: true } : { index: false, follow: false },
     // 탭 아이콘 — 산지픽 로고 (루트 레이아웃의 블랜드픽 아이콘을 덮어씀). 산지픽 도메인의 /favicon.ico 직접 요청은 proxy가 이 파일로 보낸다
@@ -36,8 +36,8 @@ export async function generateMetadata(): Promise<Metadata> {
       other: S.verification.naver.length ? { "naver-site-verification": S.verification.naver } : undefined,
     },
     openGraph: {
-      title: "농가 직송 제철 농산물 공동구매",
-      description: "산지에서 바로, 제철 그대로 집 앞까지. 농가 직송 · 중간유통 ZERO · 수확 당일 발송",
+      title: "제철 농산물·수산물 공동구매 | 산지픽",
+      description: "농산물·수산물 공동구매 상품의 원산지와 구성, 가격·배송 조건을 상품별로 확인하세요.",
       url: `https://${S.host}`,
       siteName: S.name,
       type: "website",
