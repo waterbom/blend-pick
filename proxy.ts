@@ -122,7 +122,7 @@ const PREVIEW_CLEAR = new Set<string>(["hotel", "influencer", "campaigns", "admi
 //   "p"     → /sanji/p/<id> (개별 상품 판매 페이지)
 //   "about" → /sanji/about  (브랜드 소개 — 예전 랜딩)
 //   (정확히 "/products" 만) → /sanji/products (산지픽 전체 상품·검색) — proxy() 안에서 별도 처리
-const SANJI_OWN_PATHS = new Set<string>(["", "p", "about", "mypage"]);
+const SANJI_OWN_PATHS = new Set<string>(["", "p", "about", "group-buy", "mypage"]);
 
 function firstSegment(pathname: string) {
   return pathname.split("/")[1] ?? "";
