@@ -81,6 +81,10 @@ async function handlePATCH(request: Request, { params }: {
             await client.query('ROLLBACK');
             return NextResponse.json({ error: '현재 주문 상태에서 변경할 수 없습니다.' }, { status: 409 });
         }
+        if (status === 'shipped' && (!tracking_company || !tracking_number)) {
+            await client.query('ROLLBACK');
+            return NextResponse.json({ error: '송장번호와 택배사를 입력한 뒤 배송중으로 변경해주세요.' }, { status: 409 });
+        }
         if (status === 'shipped' && tracking_company && tracking_number) {
             const orderNumber = prev.rows[0].order_number;
             if (!await registerShipment(client, { id, orderNumber, site, carrier: tracking_company, tracking: tracking_number })) {
