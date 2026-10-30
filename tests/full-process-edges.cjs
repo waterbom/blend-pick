@@ -178,5 +178,6 @@ test('manual invoice validation normalizes legacy carrier and preserves leading 
   }
   assert.equal((await route.PATCH(req('/x','PATCH',{status:'shipped',tracking_company:' cj ',tracking_number:' 00123-456 '}),ctx(10))).status,200);
   assert.deepEqual((await native('SELECT tracking_company,tracking_number FROM orders')).rows[0],{tracking_company:'04',tracking_number:'00123-456'});
-  await order(11,100000,'preparing');assert.equal((await route.PATCH(req('/x','PATCH',{status:'shipped'}),ctx(11))).status,200);
+  await order(11,100000,'preparing');assert.equal((await route.PATCH(req('/x','PATCH',{status:'shipped'}),ctx(11))).status,409);
+  assert.equal((await native('SELECT status FROM orders WHERE id=$1',[id(11)])).rows[0].status,'preparing');
 });
