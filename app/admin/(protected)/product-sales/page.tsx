@@ -5,8 +5,8 @@ import { verifyAdminToken } from '@/lib/auth';
 import { currentAdminSite, adminProductScopeSql } from '@/lib/admin-site';
 import shopPool from '@/lib/db-shop';
 import { validDateRange } from '@/lib/order-finance';
-import { getProductSales, emptySalesCounts } from '@/lib/product-sales';
-import { getProductFinancials, emptyProductMoney } from '@/lib/product-financials';
+import { getProductSales, emptySalesCounts, type ProductSales } from '@/lib/product-sales';
+import { getProductFinancials, emptyProductMoney, type ProductMoney } from '@/lib/product-financials';
 import { productStage } from '@/lib/admin-workflow';
 
 export const dynamic = 'force-dynamic';
@@ -47,8 +47,8 @@ export default async function SanjipickProductSalesPage({ searchParams }: {
     || !validDateRange(from, to);
 
   let products: ReportProduct[] = [];
-  let sales = new Map<string, Awaited<ReturnType<typeof getProductSales>> extends Map<string, infer V> ? V : never>();
-  let financials = new Map<string, Awaited<ReturnType<typeof getProductFinancials>> extends Map<string, infer V> ? V : never>();
+  let sales = new Map<string, ProductSales>();
+  let financials = new Map<string, ProductMoney>();
   let error = invalid ? '조회 날짜를 확인해주세요. 시작일은 종료일 이후일 수 없습니다.' : '';
   if (!error) {
     try {
