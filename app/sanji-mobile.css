@@ -16,6 +16,8 @@ body:has(.sanji-mobile-shell){background:#f0f0f3;background-image:none}
 @container sanji-mobile (max-width:370px){.sanji-mobile-shell .product-facts{gap:8px}.sanji-mobile-shell .product-summary h2{font-size:17px}.sanji-mobile-shell .checkout-grand-total{flex-wrap:wrap}.sanji-mobile-shell .commerce-checkout .ds-section-title>small{display:none}}
 @container sanji-mobile (max-width:999px){.sanji-mobile-shell .sj-header-nav{display:none}.sanji-mobile-shell .sj-header-menu{display:flex}}
 @container sanji-mobile (max-width:760px){
+  .sanji-mobile-shell .ds-input{font-size:16px}
+  .sanji-mobile-shell .ds-label{font-size:12px;letter-spacing:.06em;color:var(--text-secondary)}
   .sanji-mobile-shell .sj-header-inner{height:58px;padding:0 10px 0 14px;gap:8px}
   .sanji-mobile-shell .sj-header-brand img{height:40px}
   .sanji-mobile-shell .sj-header-brand>span{display:none}
