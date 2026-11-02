@@ -216,6 +216,9 @@ body {
 
 /* 상품 상세 본문 — 에디터로 넣은 이미지가 원본 크기 그대로 커지지 않게 제한 */
 .product-desc img {
+  position: static !important;
+  float: none !important;
+  transform: none !important;
   max-width: 100% !important;
   height: auto !important;
   max-height: none !important;
@@ -229,6 +232,7 @@ body {
    고정 폭(width:860px 등)이 인라인으로 박혀 온다 — 모바일에서 페이지가
    옆으로 늘어나 헤더가 반쪽으로 깨지는 원인. 상세 안의 모든 요소를 화면 폭에 가둔다. */
 .product-desc * {
+  box-sizing: border-box;
   max-width: 100% !important;
   min-width: 0 !important;
 }
@@ -236,7 +240,32 @@ body {
   width: 100% !important;
 }
 .product-desc {
+  width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   overflow-x: hidden; /* 그래도 남는 넘침(긴 URL 등)은 상세 영역 안에서만 잘리게 — 마지막 안전망 */
+}
+
+/* Imported editor wrappers must shrink with their image instead of retaining a fixed height. */
+.product-desc :is(div, p, figure, a):has(> img) {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+.product-description-media { width: 100%; min-width: 0; }
+.product-description-media > img { display: block; max-width: 100%; height: auto; }
+
+/* Size covers from the content column, including Sanjipick's desktop phone frame. */
+.product-detail-shell { min-width: 0; }
+.product-detail-top { min-width: 0; container: product-detail / inline-size; }
+.product-detail-layout, .product-detail-layout > * { min-width: 0; }
+.product-media { aspect-ratio: 1 / 1; max-height: min(640px, 68svh); min-height: 0; }
+.product-media > .product-media-image {
+  position: absolute; inset: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%;
+  object-fit: contain; object-position: center;
+}
+@container product-detail (max-width: 720px) {
+  .product-detail-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
 }
 
 /* 상세 붙여넣기에 딸려 온 영상·iframe은 표시하지 않음 (인앱 브라우저에서 검은 박스로만 보임) */
@@ -294,4 +323,5 @@ textarea.ds-input { height: auto; min-height: 48px; padding: 13px 16px; }
 @media (prefers-reduced-motion: reduce) {
   .roll-col { transition: none !important; }
 }
+
 

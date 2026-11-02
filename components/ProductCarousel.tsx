@@ -66,7 +66,7 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
   if (products.length === 0) return null;
 
   return (
-    <section className="relative" aria-label="상품 캐러셀">
+    <section className="relative" aria-label="상품 캐러셀" style={{ containerType: "inline-size", minWidth: 0, maxWidth: "100%" }}>
       <style>{`
         .pc-track { scrollbar-width: none; -ms-overflow-style: none; }
         .pc-track::-webkit-scrollbar { display: none; }
@@ -83,7 +83,7 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
         style={{
           scrollSnapType: "x mandatory",
           // 첫·마지막 카드도 정중앙에 올 수 있게 좌우 패딩 확보
-          paddingInline: "max(16px, calc((100% - min(72vw, 640px)) / 2))",
+          paddingInline: "max(16px, calc((100cqw - min(80cqw, 640px)) / 2))",
         }}
       >
         {products.map((p) => (
@@ -92,10 +92,10 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
             href={`/products/${p.id}`}
             className="pc-slide relative shrink-0 overflow-hidden"
             style={{
-              width: "min(72vw, 640px)",
-              aspectRatio: "4 / 3",
-              minHeight: "280px",
-              maxHeight: "500px",
+              width: "min(80cqw, 640px)",
+              aspectRatio: "1 / 1",
+              minHeight: 0,
+              maxHeight: "min(500px, 68svh)",
               scrollSnapAlign: "center",
               background: "#F6F4EE",
               boxShadow: "0 18px 44px rgba(28,36,24,.18)",
@@ -189,3 +189,4 @@ export default function ProductCarousel({ products }: { products: CarouselProduc
     </section>
   );
 }
+

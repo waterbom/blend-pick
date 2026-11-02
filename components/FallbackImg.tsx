@@ -8,15 +8,20 @@ interface Props {
   className?: string;
   style?: React.CSSProperties;
   fallbackText?: string;
+  loading?: "eager" | "lazy";
+  fetchPriority?: "high" | "low" | "auto";
 }
 
-export default function FallbackImg({ src, alt, className, style, fallbackText = "이미지 없음" }: Props) {
-  const [failed, setFailed] = useState(false);
+export default function FallbackImg({ src, alt, className, style, fallbackText = "이미지 없음", loading, fetchPriority }: Props) {
+  const url = typeof src === "string" ? src.trim() : "";
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
-  if (!src || failed) {
+  if (!url || failedSrc === url) {
     return (
       <div
         className={className}
+        role="img"
+        aria-label={alt || fallbackText}
         style={{ ...style, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, background: "var(--surface-soft, #f5f0eb)" }}
       >
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B7BDAD" strokeWidth="1.5">
@@ -31,11 +36,15 @@ export default function FallbackImg({ src, alt, className, style, fallbackText =
 
   return (
     <img
-      src={src}
+      src={url}
       alt={alt}
       className={className}
-      style={style}
-      onError={() => setFailed(true)}
+      style={{ display: "block", maxWidth: "100%", ...style }}
+      loading={loading}
+      fetchPriority={fetchPriority}
+      decoding="async"
+      onError={() => setFailedSrc(url)}
     />
   );
 }
+
