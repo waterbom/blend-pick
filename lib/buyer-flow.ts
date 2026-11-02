@@ -4,7 +4,12 @@ export function optionText(name?: string | null, value?: string | null): string 
 }
 
 export function internalReturnPath(path: string | null): string {
-  return path && path.startsWith("/") && !path.startsWith("//") && !/[\\\r\n]/.test(path) ? path : "/";
+  // Browsers remove tabs and newlines before parsing URLs; reject controls before resolving.
+  if (!path || !path.startsWith("/") || path.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(path)) return "/";
+  try {
+    const url = new URL(path, "https://return.invalid");
+    return url.origin === "https://return.invalid" ? url.pathname + url.search + url.hash : "/";
+  } catch { return "/"; }
 }
 
 export type CartPayload = { product_id: string; option_id: string | null; quantity: number };
@@ -23,3 +28,4 @@ export async function submitCartItems(items: CartPayload[], send: (item: CartPay
   }
   return { completed, unauthorized: false, error: "" };
 }
+

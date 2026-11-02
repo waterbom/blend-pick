@@ -14,7 +14,7 @@ function load(file, mocks) {
   const mod = { exports: {} };
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: full })(name => {
     if (Object.hasOwn(mocks, name)) return mocks[name];
-    if (name === '@/lib/api-errors') return require('./support/load.cjs').load('lib/api-errors.ts');
+    if (name === '@/lib/api-errors' || name === '@/lib/buyer-flow') return require('./support/load.cjs').load(name.slice(2) + '.ts');
     if (name.startsWith('@/')) throw Error(`Unmocked dependency: ${name}`);
     return require(name);
   }, mod, mod.exports);
@@ -145,3 +145,4 @@ function load(file, mocks) {
   });
   console.log(`${count} authentication checks passed. No production access.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });
+

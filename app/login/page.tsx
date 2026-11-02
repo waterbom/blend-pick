@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { BrandMark } from "@/components/SiteContext";
 import { internalReturnPath } from "@/lib/buyer-flow";
+import { apiErrorMessage, readApiJson } from "@/lib/api-error-message";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [redirect, setRedirect] = useState("");
+  const submitting = useRef(false);
 
   useEffect(() => {
     const r = new URLSearchParams(window.location.search).get("redirect");
@@ -19,23 +21,26 @@ export default function LoginPage() {
 
   async function handleEmailLogin(e: React.SyntheticEvent) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError("");
     setLoading(true);
 
-    const res = await fetch("/api/auth/login-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    setLoading(false);
-
-    if (!data.ok) {
-      setError(data.error);
-      return;
+    try {
+      const res = await fetch("/api/auth/login-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = await readApiJson(res, "로그인하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      if (data.ok !== true) throw new Error("로그인 결과를 확인하지 못했습니다. 다시 시도해주세요.");
+      window.location.href = data.isAdmin ? "/admin" : internalReturnPath(redirect || data.redirect || "/");
+    } catch (cause) {
+      setError(apiErrorMessage(cause, "로그인하지 못했습니다. 잠시 후 다시 시도해주세요."));
+    } finally {
+      submitting.current = false;
+      setLoading(false);
     }
-
-    window.location.href = data.isAdmin ? "/admin" : redirect || data.redirect || "/";
   }
 
   return (
@@ -68,30 +73,40 @@ export default function LoginPage() {
             </div>
 
             {/* 이메일 로그인 */}
-            <form onSubmit={handleEmailLogin} className="flex flex-col gap-3">
+            <form onSubmit={handleEmailLogin} className="flex flex-col gap-3" aria-busy={loading}>
               <div>
-                <label className="ds-label">이메일</label>
+                <label className="ds-label" htmlFor="login-email">이메일</label>
                 <input
-                  type="text"
+                  id="login-email"
+                  name="email"
+                  type="email"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  aria-describedby={error ? "login-error" : undefined}
                   className="ds-input"
                 />
               </div>
               <div>
-                <label className="ds-label">비밀번호</label>
+                <label className="ds-label" htmlFor="login-password">비밀번호</label>
                 <input
+                  id="login-password"
+                  name="password"
                   type="password"
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  aria-describedby={error ? "login-error" : undefined}
                   className="ds-input"
                 />
               </div>
-              {error && <p className="text-xs" style={{ color: "var(--sale)" }}>{error}</p>}
+              {error && <p id="login-error" role="alert" className="text-sm leading-relaxed" style={{ color: "var(--sale)", overflowWrap: "anywhere" }}>{error}</p>}
               <button type="submit" disabled={loading} className="ds-btn ds-btn-primary mt-2">
                 {loading ? "로그인 중..." : "로그인"}
               </button>
@@ -119,3 +134,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

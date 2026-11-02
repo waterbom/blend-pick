@@ -259,6 +259,8 @@ body {
   padding: 0 16px; font-size: 13.5px; border-radius: 0; outline: none; color: #1c2418;
 }
 .ds-input:focus { border-color: #244b1f; }
+.ds-input:focus-visible,
+.ds-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 textarea.ds-input { height: auto; min-height: 48px; padding: 13px 16px; }
 .ds-btn {
   height: 48px; display: flex; align-items: center; justify-content: center;
@@ -267,6 +269,11 @@ textarea.ds-input { height: auto; min-height: 48px; padding: 13px 16px; }
 .ds-btn-primary { background: #244b1f; color: #fff; }
 .ds-btn-primary:hover { background: #1c2418; }
 .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Keep shared shopping forms readable without enlarging the entire mobile viewport. */
+@media (max-width: 767px) {
+  .ds-input { font-size: 16px; }
+  .ds-label { font-size: 12px; letter-spacing: .06em; color: var(--text-secondary); }
+}
 .ds-section-title {
   display: flex; justify-content: space-between; align-items: baseline;
   border-bottom: 2px solid #1c2418; padding-bottom: 12px;
@@ -287,3 +294,4 @@ textarea.ds-input { height: auto; min-height: 48px; padding: 13px 16px; }
 @media (prefers-reduced-motion: reduce) {
   .roll-col { transition: none !important; }
 }
+
