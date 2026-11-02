@@ -1,13 +1,13 @@
-import { SANJI_IMAGE_ASPECT_RATIO } from "@/lib/sanji-image-layout";
+import { SANJI_IMAGE_ASPECT_RATIO, SANJI_IMAGE_OBJECT_POSITION } from "@/lib/sanji-image-layout";
 
 export default function SanjiProductStyles() {
   return <style>{`
     .sj-product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 12px}
     .sj-product-card{display:flex;flex-direction:column;min-width:0;align-items:flex-start;color:#202020;text-decoration:none}
     .sj-product-image{position:relative;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};width:100%;overflow:hidden;border-radius:6px;background:#f6f5f2}
-    .sj-product-image img{width:100%;height:100%;object-fit:contain;object-position:center;display:block}
+    .sj-product-image img{width:100%;height:100%;object-fit:cover;object-position:${SANJI_IMAGE_OBJECT_POSITION};display:block}
     .sj-product-gallery{position:absolute;inset:0;overflow:hidden}
-    .sj-product-gallery img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;opacity:0;transition:opacity .65s ease;pointer-events:none}
+    .sj-product-gallery img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:${SANJI_IMAGE_OBJECT_POSITION};opacity:0;transition:opacity .65s ease;pointer-events:none}
     .sj-product-gallery img.is-active{opacity:1}
     @media(prefers-reduced-motion:reduce){.sj-product-gallery img{transition:none}}
     .sj-product-placeholder{display:grid;place-items:center;width:100%;height:100%;font-size:24px;font-weight:700;color:#aaa598;background:#f3f1eb}
