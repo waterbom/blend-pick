@@ -12,6 +12,7 @@ import { suggestCategories } from "@/lib/admin-workflow";
 import { SITES } from "@/lib/sites";
 import { sanjiSecretLinkUrl } from "@/lib/secret-link";
 import { shrinkImage, uploadErrorMessage } from "@/lib/client-image";
+import ImageExposurePreview from "@/components/admin/ImageExposurePreview";
 
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
@@ -45,6 +46,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
   const [error, setError] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [images, setImages] = useState<string[]>([...EMPTY_IMAGES]);
+  const [imagePreviewIndex, setImagePreviewIndex] = useState(0);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
   const [loadedVersion,setLoadedVersion]=useState<string|null>(null);
   const [options, setOptions] = useState<OptionRow[]>([]);
@@ -316,6 +318,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
 
   function setImage(i: number, val: string) {
     setImages(imgs => imgs.map((img, idx) => idx === i ? val : img));
+    if (val.trim()) setImagePreviewIndex(i);
   }
 
   async function handleFileUpload(i: number, file: File) {
@@ -907,6 +910,9 @@ export default function ProductFormClient({ mode, productId }: Props) {
               ))}
             </div>
           </div>
+          <ImageExposurePreview images={images} selectedIndex={imagePreviewIndex} onSelect={setImagePreviewIndex}
+            site={isSanjiCat || (!form.category && currentSiteKey === "sanjipick") ? "sanjipick" : "blendpick"}
+            productName={form.name} />
         </Section>
 
         {/* ③-1 비전시 링크 — 상품은 항상 전시(기본값). 켜면 전용 가격으로 파는 비공개 링크가 하나 더 생긴다 (산지픽 상품) */}
