@@ -19,10 +19,11 @@ body:has(.sanji-mobile-shell){background:#f0f0f3;background-image:none}
   .sanji-mobile-shell .sj-header-inner{height:58px;padding:0 10px 0 14px;gap:8px}
   .sanji-mobile-shell .sj-header-brand img{height:40px}
   .sanji-mobile-shell .sj-header-brand>span{display:none}
-  .sanji-mobile-shell .sj-header-search{flex:1 1 auto;height:38px;padding:0 12px}
-  .sanji-mobile-shell .sj-header-search input{font-size:13px}
+  .sanji-mobile-shell .sj-header-search{flex:1 1 auto;min-width:0;height:44px;padding:0 12px}
+  .sanji-mobile-shell .sj-header-search input{min-width:0;font-size:16px}
   .sanji-mobile-shell .sj-header-account{display:none}
-  .sanji-mobile-shell .sj-header-icon{width:40px;height:40px}
+  .sanji-mobile-shell .sj-header-icon{width:44px;height:44px}
   .sanji-mobile-shell .product-summary-sanji{margin:16px 16px 145px;padding:20px;border-radius:14px}
   .sanji-mobile-shell .sanji-footer>.container-blend{padding:28px 20px}
 }
+

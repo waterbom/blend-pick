@@ -2,18 +2,15 @@ import { randomBytes, createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import shopPool from "@/lib/db-shop";
 import { SITES, siteFromHost, type SiteKey } from "@/lib/sites";
+import { internalReturnPath } from "@/lib/buyer-flow";
 
 export const KAKAO_FLOW_COOKIE = "kakao_login_flow";
 export type LoginFlow = { site: SiteKey; return_path: string };
 export const loginHash = (value: string) => createHash("sha256").update(value).digest("hex");
 export const loginNonce = () => randomBytes(32).toString("hex");
 export function safeReturnPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || /[\\\r\n]/.test(value)) return "/";
-  try {
-    const parsed = new URL(value, "https://local.invalid");
-    if (parsed.origin !== "https://local.invalid" || parsed.pathname.startsWith("/api/auth/")) return "/";
-    return parsed.pathname + parsed.search + parsed.hash;
-  } catch { return "/"; }
+  const path = internalReturnPath(value);
+  return path === "/api/auth" || path.startsWith("/api/auth/") ? "/" : path;
 }
 export function loginOrigin(req: NextRequest, site: SiteKey) {
   return process.env.NODE_ENV === "production" ? `https://${SITES[site].host}` : req.nextUrl.origin;
@@ -59,3 +56,4 @@ export async function completeOrRelay(req: NextRequest, flow: LoginFlow, token: 
   res.headers.set("Referrer-Policy", "no-referrer");
   return res;
 }
+
