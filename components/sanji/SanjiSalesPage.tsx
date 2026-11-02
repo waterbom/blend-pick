@@ -1,6 +1,6 @@
 "use client";
 
-import { SANJI_IMAGE_ASPECT_RATIO, SANJI_LARGE_IMAGE_MAX_WIDTH } from "@/lib/sanji-image-layout";
+import { SANJI_IMAGE_ASPECT_RATIO, SANJI_IMAGE_OBJECT_POSITION, SANJI_LARGE_IMAGE_MAX_WIDTH } from "@/lib/sanji-image-layout";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -301,7 +301,7 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
         .sp-slider{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;align-items:stretch;width:100%;aspect-ratio:${SANJI_IMAGE_ASPECT_RATIO};background:${BAND}}
         .sp-slider::-webkit-scrollbar{display:none}
         .sp-slide{position:relative;flex:0 0 100%;scroll-snap-align:start;width:100%;min-width:0;min-height:0;overflow:hidden;border:0;padding:0;background:none;cursor:zoom-in}
-        .sp-slide>img,.sp-slide>div{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+        .sp-slide>img,.sp-slide>div{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:${SANJI_IMAGE_OBJECT_POSITION}}
         .sp-slide:focus-visible{outline:2px solid ${ORANGE};outline-offset:-4px}
         .sp-count{position:absolute;right:14px;bottom:14px;z-index:2;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;font-variant-numeric:tabular-nums;pointer-events:none}
         .sp-slider-wrap{position:relative;width:100%;max-width:${SANJI_LARGE_IMAGE_MAX_WIDTH};margin:0 auto}
