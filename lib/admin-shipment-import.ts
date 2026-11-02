@@ -8,6 +8,7 @@ import { registerShipment } from '@/lib/shipment-transition';
 import type { SiteKey } from '@/lib/sites';
 import { smsConfigured, sendSMS } from '@/lib/sms';
 import { ApiError, statusErrorCode } from '@/lib/api-errors';
+import { dispatchOrderBase } from '@/lib/dispatch-number';
 
 export class ShipmentImportError extends ApiError {
   constructor(message: string, status = 409) { super(statusErrorCode(status), message, status); }
@@ -48,7 +49,7 @@ async function input(body: unknown) {
 const orderSQL = `SELECT o.id,o.order_number,o.status,o.tracking_company,o.tracking_number,
   EXISTS(SELECT 1 FROM refund_operations r WHERE r.order_id=o.id AND r.status NOT IN ('completed','rejected')) AS pending_refunds
   FROM orders o WHERE o.site=$1 AND o.order_number=ANY($2::text[])`;
-const numbers = (rows: ImportRow[]) => [...new Set(rows.flatMap(r => [r.order_number, suffixBase(r.order_number)]))];
+const numbers = (rows: ImportRow[]) => [...new Set(rows.flatMap(r => [r.order_number, dispatchOrderBase(r.order_number), suffixBase(r.order_number)]))];
 
 export async function previewShipmentImport(site: string, admin: Admin, body: unknown) {
   const { rows, carriers } = await input(body);
@@ -126,3 +127,4 @@ export async function commitShipmentImport(site: string, admin: Admin, body: unk
   }
   return result;
 }
+

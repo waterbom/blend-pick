@@ -1,7 +1,8 @@
 import { CORE_CARRIERS, LEGACY_TEXT_TO_CODE } from '@/lib/carriers';
 import { validTrackingNumber } from '@/lib/tracking-validation';
+import { dispatchOrderBase } from '@/lib/dispatch-number';
 
-export const IMPORT_POLICY_VERSION = 1;
+export const IMPORT_POLICY_VERSION = 2;
 export type Carrier = { code: string; name: string };
 export type ImportRow = {
   order_number: string; tracking_number: string; carrier: string | null;
@@ -69,6 +70,10 @@ export function reviewImport(rows: ImportRow[], orders: ImportOrder[], carriers:
   const groups = new Map<string, { order: ImportOrder; indexes: number[] }>();
   rows.forEach((row, index) => {
     let order = byNumber.get(row.order_number);
+    // Our supplier line number resolves without requiring a separate unsuffixed row.
+    // Exact order numbers still win, including real orders whose names contain -L001.
+    const dispatchBase = dispatchOrderBase(row.order_number);
+    if (!order && dispatchBase !== row.order_number) order = byNumber.get(dispatchBase);
     // Exact order always wins. A supplier suffix is redundant only with an identical base row in this file.
     if (!order && !row.issue) {
       const base = suffixBase(row.order_number);
@@ -87,7 +92,7 @@ export function reviewImport(rows: ImportRow[], orders: ImportOrder[], carriers:
       for (const i of indexes) Object.assign(reviewed[i], { result: 'blocked', reason: '같은 주문에 서로 다른 송장·택배사 또는 오류 행이 있습니다. 해당 주문의 모든 행을 확인해주세요.' });
       continue;
     }
-    const primary = indexes.find(i => rows[i].order_number === order.order_number)!;
+    const primary = indexes.find(i => rows[i].order_number === order.order_number) ?? indexes[0];
     Object.assign(reviewed[primary], orderImportState(order, rows[primary], carriers));
     for (const i of indexes.filter(i => i !== primary)) Object.assign(reviewed[i], { result: 'duplicate', reason: `${rows[primary].source_row}행과 같은 주문·송장입니다. 중복 행을 제외합니다.` });
   }
@@ -98,3 +103,4 @@ export function summarizeImport(rows: ReviewRow[]): ImportReview {
   for (const row of rows) counts[row.result]++;
   return { rows, counts };
 }
+

@@ -10,6 +10,7 @@ import { matchesOrderSearch, selectionAction } from "@/lib/admin-list-workspace"
 import { useSiteKey } from "@/components/SiteContext";
 import { SITES } from "@/lib/sites";
 import { formatPhone } from "@/lib/phone-format";
+import { dispatchLineNumbers } from "@/lib/dispatch-number";
 
 interface OrderItem {
   id: string;
@@ -88,7 +89,7 @@ const COLUMNS = [
 
 // 발주용 엑셀(.xlsx) 행 데이터 — 수량·금액은 숫자 셀
 // 총 결제 금액(배송비 포함, 주문 단위)은 주문의 첫 줄에만 기재 → 컬럼 SUM해도 중복 없음
-export function toOrderRows(orders: Order[], includeStatus = false): (string | number)[][] {
+export function toOrderRows(orders: Order[], includeStatus = false, uniqueDispatchNumbers = false): (string | number)[][] {
   const rows: (string | number)[][] = [];
   for (const o of orders) {
     // 추가옵션 행도 상품명은 공구명(본상품)으로 통일하고, 추가상품 이름은 선택옵션 칸에
@@ -97,6 +98,7 @@ export function toOrderRows(orders: Order[], includeStatus = false): (string | n
     const items = includeStatus && !o.items.length
       ? [{ product_id: null, product_name: "상품 정보 없음", option_label: null, quantity: "", supplier_name: null, expected_ship_date: null }]
       : o.items;
+    const lineNumbers = dispatchLineNumbers(o.order_number, o.items);
     items.forEach((item, idx) => {
       const isAddon = !item.product_id;
       const addr = [o.addr_address, o.addr_detail].filter(Boolean).join(" ");
@@ -105,7 +107,7 @@ export function toOrderRows(orders: Order[], includeStatus = false): (string | n
         d.toLocaleString("ko-KR", { hour12: false }),
         d.toLocaleDateString("ko-KR"),
         d.toLocaleTimeString("ko-KR", { hour12: false, hour: "2-digit", minute: "2-digit" }),
-        o.order_number,
+        uniqueDispatchNumbers ? lineNumbers[idx] : o.order_number,
         o.buyer_name,
         formatPhone(o.buyer_phone),
         o.recipient_name ?? o.buyer_name,
@@ -125,6 +127,7 @@ export function toOrderRows(orders: Order[], includeStatus = false): (string | n
         idx === 0 ? Number(o.total_amount) : "",
         (o.sales_channel ?? (o.link_code?"non_display":"display")) === "non_display" ? "비전시" : "전시", o.link_code ?? "", item.supplier_name || "미지정", item.expected_ship_date?.slice(0,10) || "미지정",
         ...(includeStatus ? [STATUS_LABEL[o.status] || o.status] : []),
+        ...(uniqueDispatchNumbers ? [o.order_number] : []),
       ]);
     });
   }
@@ -243,7 +246,9 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
   async function saveDispatchDownload(b: {snapshot:Order[];excluded:{order_number:string;reason:string}[]}, filename:string) {
     if (b.excluded?.length) alert(`출고 대상에서 ${b.excluded.length}건을 제외했습니다.\n${b.excluded.map(o=>`${o.order_number}: ${o.reason}`).join("\n")}`);
     if (!b.snapshot?.length) { alert("현재 출고 가능한 주문이 없습니다."); return; }
-    await downloadXlsx(filename, COLUMNS, toOrderRows(b.snapshot), "발주");
+    const rows = toOrderRows(b.snapshot, false, true);
+    if (new Set(rows.map(row => row[3])).size !== rows.length) throw Error("발주번호가 중복되었습니다. 주문을 확인한 뒤 다시 다운로드해주세요.");
+    await downloadXlsx(filename, [...COLUMNS, "원주문번호"], rows, "발주");
   }
   async function handleDownloadOnly() {
     if (!selected.size) return;
@@ -344,3 +349,4 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
     </div>
   );
 }
+

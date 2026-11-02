@@ -19,6 +19,16 @@ const cache=new Map();
 const preview=load('app/api/admin/shipments/import/preview/route.ts',mocks,cache).POST;
 const commit=load('app/api/admin/shipments/import/route.ts',mocks,cache).POST;
 const req=body=>new Request('https://test.invalid/api/admin/shipments/import',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+test('dispatch line numbers round-trip through preview, database lookup and atomic shipment registration',async()=>{
+ await order(1);
+ const rows=[{...row(1),order_number:'TEST1-L001'},{...row(1),order_number:'TEST1-L002',source_row:3}];
+ const p=await prepared(rows);
+ assert.equal(p.data.counts.ready,1);assert.equal(p.data.counts.duplicate,1);
+ assert.equal(p.data.rows[0].resolved_order,'TEST1');
+ const r=await result(p.body);assert.equal(r.succeeded,1);assert.equal(r.duplicateExcluded,1);assert.equal(sent,1);
+ assert.equal((await native('SELECT status FROM orders WHERE id=$1',[id(1)])).rows[0].status,'shipped');
+ const again=await prepared(rows);assert.equal(again.data.counts.already,1);
+});
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const row=(n=1,number='001-234',carrier='cj대한통운')=>({order_number:'TEST'+n,tracking_number:number,carrier,source_row:n+1,source_sheet:'송장'});
 async function order(n=1,status='preparing',scope=site,number=null,carrier=null){await native('INSERT INTO orders(id,order_number,site,status,order_type,buyer_name,buyer_phone,tracking_number,tracking_company) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[id(n),'TEST'+n,scope,status,'shop','검증','01000000000',number,carrier]);}
@@ -151,3 +161,4 @@ test('a previewed no-op cannot turn into a new shipment if an order is reopened 
  const r=await result(p.body);assert.equal(r.succeeded,1);assert.equal(r.failed.length,1);assert.equal(sent,1);
  assert.equal((await native('SELECT status FROM orders WHERE id=$1',[id(1)])).rows[0].status,'preparing');
 });
+

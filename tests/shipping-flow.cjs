@@ -2,6 +2,9 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {load}=require('./support/load.cjs');
 const {shippingExceptions,trackingRows,trackingRowIssues}=load('lib/shipping-flow.ts');
+const {dispatchLineNumbers,dispatchOrderBase}=load('lib/dispatch-number.ts');
+const {normalizeImportRows,reviewImport}=load('lib/tracking-import.ts');
+const {CORE_CARRIERS}=load('lib/carriers.ts');
 const now=Date.parse('2026-09-09T15:10:00Z'); // KST September 10
 const base={id:'example',status:'preparing',created_at:'2026-09-01',items:[]};
 test('scheduled future shipments do not become overdue based on order age',()=>{
@@ -36,3 +39,32 @@ test('CSV rejects unclosed and misplaced quotes instead of guessing columns',()=
  assert.throws(()=>parseTrackingCSV('주문번호,운송장번호\n"BP1"x,123'),/인용부호/);
  assert.throws(()=>parseTrackingCSV('주문번호,운송장번호\nBP"1,123'),/인용부호/);
 });
+test('dispatch numbers are unique per item and stable across reorder and repeated downloads',()=>{
+ const items=[{id:'item-b'},{id:'item-a'},{id:'item-c'}];
+ const numbers=dispatchLineNumbers('SJ-20261102-ABC',items);
+ assert.deepEqual(numbers,['SJ-20261102-ABC-L002','SJ-20261102-ABC-L001','SJ-20261102-ABC-L003']);
+ assert.equal(new Set(numbers).size,items.length);
+ assert.deepEqual(dispatchLineNumbers('SJ-20261102-ABC',items),numbers);
+ assert.deepEqual(dispatchLineNumbers('SJ-20261102-ABC',[items[2],items[0],items[1]]),[numbers[2],numbers[0],numbers[1]]);
+ assert.equal(dispatchLineNumbers('SJ-20261103-ABC',[items[0]])[0],'SJ-20261103-ABC-L001');
+ assert.deepEqual(dispatchLineNumbers('OLD',[{},{}]),['OLD-L001','OLD-L002']);
+ for(const number of ['SJ-ABC','SJ-ABC-L000','SJ-ABC-L01','SJ-ABC-1'])assert.equal(dispatchOrderBase(number),number);
+ assert.equal(dispatchOrderBase('SJ-ABC-L001'),'SJ-ABC');
+ assert.equal(dispatchOrderBase('SJ-ABC-L1000'),'SJ-ABC');
+});
+test('supplier line numbers resolve alone, deduplicate matching invoices and block conflicting shipments',()=>{
+ const order={id:'o1',order_number:'SJ-ABC',status:'preparing',pending_refunds:false,tracking_company:null,tracking_number:null};
+ const make=(number,tracking='001234')=>({order_number:number,tracking_number:tracking,carrier_raw:'CJ대한통운'});
+ const review=rows=>reviewImport(normalizeImportRows(rows,null,CORE_CARRIERS),[order],CORE_CARRIERS);
+ const alone=review([make('SJ-ABC-L002')]);
+ assert.equal(alone.counts.ready,1);assert.equal(alone.rows[0].resolved_order,'SJ-ABC');
+ assert.deepEqual(review([make('SJ-ABC-L001'),make('SJ-ABC-L002')]).counts,{total:2,ready:1,already:0,duplicate:1,blocked:0});
+ assert.equal(review([make('SJ-ABC-L001'),make('SJ-ABC-L002','777888')]).counts.blocked,2);
+ assert.equal(review([make('SJ-ABC-L001'),make('SJ-ABC-L002','')]).counts.blocked,2);
+ assert.equal(review([make('MISSING-L001')]).counts.blocked,1);
+ assert.equal(review([make('SJ-ABC-1')]).counts.blocked,1);
+ const exact={...order,id:'o2',order_number:'SJ-ABC-L001'};
+ assert.equal(reviewImport(normalizeImportRows([make(exact.order_number)],null,CORE_CARRIERS),[order,exact],CORE_CARRIERS).rows[0].order_id,'o2');
+ for(const state of [{status:'cancelled'},{pending_refunds:true}])assert.equal(reviewImport(normalizeImportRows([make('SJ-ABC-L001')],null,CORE_CARRIERS),[{...order,...state}],CORE_CARRIERS).counts.blocked,1);
+});
+
