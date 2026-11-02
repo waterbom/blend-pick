@@ -256,7 +256,8 @@ body {
 .product-description-media > img { display: block; max-width: 100%; height: auto; }
 
 /* Size covers from the content column, including Sanjipick's desktop phone frame. */
-.product-detail-shell { min-width: 0; container: product-detail / inline-size; }
+.product-detail-shell { min-width: 0; }
+.product-detail-top { min-width: 0; container: product-detail / inline-size; }
 .product-detail-layout, .product-detail-layout > * { min-width: 0; }
 .product-media { aspect-ratio: 1 / 1; max-height: min(640px, 68svh); min-height: 0; }
 .product-media > .product-media-image {

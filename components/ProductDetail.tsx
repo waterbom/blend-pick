@@ -406,7 +406,7 @@ export default function ProductDetail({
         <span style={{ color: "var(--text-primary)" }}>{product.name}</span>
       </div>
 
-      <div className={siteKey === "blendpick" ? calendarStyles.topLayout : undefined}>
+      <div className={`product-detail-top ${siteKey === "blendpick" ? calendarStyles.topLayout : ""}`}>
       {siteKey === "blendpick" && <ProductHeading name={product.name} brand={product.brand} category={product.category} saleState={saleState} saleStartMs={saleStartMs} saleEndMs={saleEndMs} nowMs={nowMs} soldOut={isSoldout} reviewSummary={reviewSummary} />}
       <div className="product-detail-layout grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
         {/* 대표 이미지 */}
