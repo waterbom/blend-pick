@@ -64,10 +64,10 @@ function Stars({ n, size = 12 }: { n: number; size?: number }) {
 }
 
 // 이미지 — 깨지면 빈 자리 대신 연한 그라데이션
-function Img({ src, alt, style, className }: { src: string | null; alt: string; style?: React.CSSProperties; className?: string }) {
-  const [bad, setBad] = useState(!src);
-  if (bad) return <div className={className} style={{ ...style, background: `linear-gradient(135deg,${BAND},${TINT})` }} aria-hidden />;
-  return <img src={src!} alt={alt} className={className} style={style} loading="lazy" onError={() => setBad(true)} />;
+function Img({ src, alt, style, className, eager = false }: { src: string | null; alt: string; style?: React.CSSProperties; className?: string; eager?: boolean }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (!src || failedSrc === src) return <div className={className} style={{ ...style, background: `linear-gradient(135deg,${BAND},${TINT})` }} aria-hidden />;
+  return <img src={src!} alt={alt} className={className} style={style} loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" onError={() => setFailedSrc(src)} />;
 }
 
 function RecommendedBadge() {
@@ -405,8 +405,8 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
         .sp-lb::backdrop{background:rgba(0,0,0,.85)}
         .sp-lb__head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:8px 12px;border-bottom:1px solid ${LINE};font-size:14px}
         .sp-lb__head button{min-width:44px;min-height:44px;border:1px solid ${LINE};border-radius:10px;background:#fff;color:${INK}}
-        .sp-lb__body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px}
-        .sp-lb img{display:block;width:100%;height:auto;max-width:100%;margin:auto}
+        .sp-lb__body{display:flex;align-items:center;justify-content:center;flex:1;min-width:0;min-height:0;overflow:hidden;overscroll-behavior:contain;padding:12px}
+        .sp-lb img{display:block;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;margin:auto}
         @keyframes sp-up{from{transform:translate(-50%,40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
         @container sanji-mobile (max-width:370px){.sp-opt{padding:12px;font-size:13px}.sp-sheet{padding:12px 14px 20px}.sp-price .rate,.sp-price .now{font-size:26px}}
         @media(prefers-reduced-motion:reduce){.sp-sheet{animation:none}.sp-desc{transition:none}}
@@ -418,7 +418,7 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
           {slides.map((src, i) => (
             <button type="button" key={`${i}-${src}`} className="sp-slide" data-active={i === slide} aria-hidden={i !== slide}
               tabIndex={i === slide ? 0 : -1} disabled={!src} onClick={() => setLightbox(src)} aria-label={`${product.name} 사진 ${i + 1} 크게 보기`}>
-              <Img src={src} alt={`${product.name} ${i + 1}`} />
+              <Img src={src} alt={`${product.name} ${i + 1}`} eager={i === 0} />
             </button>
           ))}
         </div>
@@ -672,3 +672,4 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
     </div>
   );
 }
+

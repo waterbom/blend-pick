@@ -396,7 +396,7 @@ export default function ProductDetail({
   const stepBtn = "w-9 h-9 flex items-center justify-center text-lg transition-colors hover:bg-gray-50";
 
   return (
-    <div className={siteKey === "blendpick" ? calendarStyles.detailShell : "max-w-5xl mx-auto px-6 py-10"}>
+    <div className={`product-detail-shell ${siteKey === "blendpick" ? calendarStyles.detailShell : "max-w-5xl mx-auto px-6 py-10"}`}>
       {/* 브레드크럼 */}
       <div className="flex items-center gap-2 text-xs mb-6" style={{ color: "var(--text-muted)" }}>
         <Link href="/products" className="hover:underline">Products</Link>
@@ -408,16 +408,18 @@ export default function ProductDetail({
 
       <div className={siteKey === "blendpick" ? calendarStyles.topLayout : undefined}>
       {siteKey === "blendpick" && <ProductHeading name={product.name} brand={product.brand} category={product.category} saleState={saleState} saleStartMs={saleStartMs} saleEndMs={saleEndMs} nowMs={nowMs} soldOut={isSoldout} reviewSummary={reviewSummary} />}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
+      <div className="product-detail-layout grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
         {/* 대표 이미지 */}
         <div
-          className="relative w-full self-start overflow-hidden"
+          className="product-media relative w-full self-start overflow-hidden"
           style={{ background: "var(--cream-dark)", border: "1px solid #E4E1D6" }}
         >
           <FallbackImg
             src={images[0]?.url}
             alt={product.name}
-            className="w-full h-auto object-contain"
+            className="product-media-image w-full h-full object-contain"
+            loading="eager"
+            fetchPriority="high"
           />
           {isSoldout && (
             <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }}>
@@ -690,13 +692,14 @@ export default function ProductDetail({
 
       {/* 추가 이미지 — 세로 정렬 (원본이 커도 한눈에 보이게 폭 제한) */}
       {images.length > 1 && (
-        <div className="mb-8 space-y-2 max-w-xl mx-auto">
+        <div className="product-description-media mb-8 space-y-2 max-w-xl mx-auto">
           {images.slice(1).map((img, i) => (
             <FallbackImg
               key={img.id ?? i}
               src={img.url}
               alt={`상세 이미지 ${i + 1}`}
-              className="w-full object-contain"
+              className="w-full h-auto object-contain"
+              loading="lazy"
             />
           ))}
         </div>
@@ -729,3 +732,4 @@ export default function ProductDetail({
     </div>
   );
 }
+
