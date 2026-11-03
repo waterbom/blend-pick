@@ -141,7 +141,7 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
       @container sanji-mobile (max-width:350px){.sh-sec{padding-inline:16px}.sh-feature-head{padding-inline:16px}.sh-feature h1{font-size:22px}.sh-feature-head>a{font-size:11px}.sh-tabs button{padding-inline:8px;font-size:13px}.sh-shortcuts{margin-inline:16px;gap:3px}.sh-shortcuts span{width:43px;height:43px}.sh-shortcuts a{font-size:10px}}
     `}</style>
 
-    <div className="sh-hd"><div className="sh-tabs" role="tablist" aria-label="공구 둘러보기">{tabs.map((label, index) => <button key={label} role="tab" aria-selected={tab === index} className={`${tab === index ? "on" : ""}${index === 4 && hasUrgentClosing ? " sh-tab-urgent" : ""}`} onClick={() => setTab(index)}>{index === 4 && hasUrgentClosing && <span className="sh-tab-signal" aria-hidden="true" />}{label}</button>)}</div></div>
+    <div className="sh-hd"><div className="sh-tabs" role="tablist" aria-label="공구 둘러보기">{tabs.map((label, index) => <button key={label} role="tab" aria-selected={tab === index} className={`${tab === index ? "on" : ""}${index === 4 && hasUrgentClosing ? " sh-tab-urgent" : ""}`} onClick={() => setTab(index)}>{index === 4 && hasUrgentClosing ? <><span className="sh-tab-signal" aria-hidden="true" />{label}</> : label}</button>)}</div></div>
 
     {tab === 0 ? <>
       {banners.length > 0 && <section className="sh-feature" aria-label="대표 산지 공구">
