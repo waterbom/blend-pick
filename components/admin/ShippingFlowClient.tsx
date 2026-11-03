@@ -1,11 +1,12 @@
 "use client";
 import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Order } from '@/components/admin/OrdersClient';
 import ShipmentsClient, { type ShipmentTab } from '@/components/admin/ShipmentsClient';
+import type {ReturnListFilter} from '@/lib/admin-insights';
 import ReturnsPanel from '@/components/admin/ReturnsPanel';
 import ShipmentTrackingPanel from '@/components/admin/ShipmentTrackingPanel';
 import type { WorkGroup } from '@/lib/operations';
@@ -14,7 +15,7 @@ import { shippingExceptions } from '@/lib/shipping-flow';
 import { useSiteKey } from '@/components/SiteContext';
 import { SITES } from '@/lib/sites';
 
-export default function ShippingFlowClient({initialTab, initialRequestId, automationWork=[], automationUnavailable=false}: {initialTab?: 'preparing' | 'exchange_requested' | 'return_requested'; initialRequestId?: string; automationWork?: WorkGroup[]; automationUnavailable?: boolean}) {
+export default function ShippingFlowClient({initialTab, initialRequestId, automationWork=[], automationUnavailable=false, returnInsights, analysisFilter}: {initialTab?: 'preparing' | 'exchange_requested' | 'return_requested'; initialRequestId?: string; automationWork?: WorkGroup[]; automationUnavailable?: boolean;returnInsights?:ReactNode;analysisFilter?:ReturnListFilter|null}) {
   const site = useSiteKey();
   const [shipmentTab, setShipmentTab] = useState<ShipmentTab>('active');
   useEffect(() => {
@@ -98,6 +99,7 @@ export default function ShippingFlowClient({initialTab, initialRequestId, automa
         <div className="ops-section-heading"><h2>배송 주문</h2><span>배송준비·배송중을 함께 확인하고, 완료 이력은 상태 필터로 조회합니다.</span></div>
         <ShipmentsClient key={shipmentTab} initialTab={shipmentTab} sharedOrders={orders} onChanged={afterChange}/>
       </section>
+      {returnInsights}
       <section id="customer-requests" className="ops-customer-requests">
         <div className="ops-section-heading"><h2>고객 요청</h2><span>요청 내용과 처리 버튼을 함께 표시합니다.</span></div>
         <div id="flow-cancel_requested" className="ops-list-panel">
@@ -106,8 +108,8 @@ export default function ShippingFlowClient({initialTab, initialRequestId, automa
         </div>
         <div className="ops-list-panel ops-anchor-section">
           <span id="flow-exchange_requested" className="ops-anchor"/><span id="flow-return_requested" className="ops-anchor"/>
-          <div className="ops-section-heading"><h3>교환·반품 신청</h3><span>접수·수거 중 신청</span></div>
-          <ReturnsPanel kind="all" compact refreshKey={orders} initialRequestId={initialRequestId} onChanged={()=>{void afterChange();}}/>
+          <div className="ops-section-heading"><h3>교환·반품 신청</h3><span>{analysisFilter?'차트에서 선택한 신청':'접수·수거 중 신청'}</span></div>
+          <ReturnsPanel key={JSON.stringify(analysisFilter)} analysisFilter={analysisFilter} kind="all" compact refreshKey={orders} initialRequestId={initialRequestId} onChanged={()=>{void afterChange();}}/>
         </div>
       </section>
     </>:!error&&<p className="ops-empty" role="status">배송 주문을 불러오는 중입니다.</p>}

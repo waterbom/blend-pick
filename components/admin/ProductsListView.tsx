@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import ProductPerformanceChart from '@/components/admin/charts/ProductPerformanceChart';
+import {productInsightRows} from '@/lib/admin-insights';
 import ProductDeleteButton from '@/components/admin/ProductDeleteButton';
 import ProductCodeCopy from '@/components/admin/ProductCodeCopy';
 import SecretLinkCopy from '@/components/admin/SecretLinkCopy';
@@ -34,6 +36,7 @@ export default function ProductsListView({all, now, filters, sales, financials, 
         <div className="ops-period-row"><span>판매량 집계 기간</span><label>결제일 시작 <input type="date" name="from" defaultValue={from}/></label><label>종료 <input type="date" name="to" defaultValue={to}/></label><small>한국시간 · 기간 변경 후 조회</small></div>
       </form>
       <div className="ops-sales-summary" aria-label="상품별 판매량"><strong>{products.length}개 상품 표시</strong>{salesError?<p role="alert" className="ops-warning">{salesError}</p>:<><span>판매 수량{totals.review?' (잠정)':''} <b>{totals.sold.toLocaleString()}개</b></span><span>결제 <b>{totals.paid.toLocaleString()}개</b></span><span>취소·반품 완료 <b>{totals.excluded.toLocaleString()}개</b></span></>}{!salesError&&<><span>총 결제액 <b>{won(moneyTotals.gross)}</b></span><span>환불액 <b>{won(moneyTotals.refunds)}</b></span><span>유료배송 <b>{moneyTotals.delivery.toLocaleString()}건 · {won(moneyTotals.shipping)}</b></span>{moneyTotals.review>0&&<span className="ops-warning">금액 확인 필요 {moneyTotals.review}건</span>}</>}<small>{from||'전체 기간'} ~ {to||'현재'}</small></div>
+      {!salesError&&<ProductPerformanceChart rows={productInsightRows(products,sales,financials,from,to)} from={from} to={to}/>}
       {!products.length?<p className="ops-empty">조건에 맞는 상품이 없습니다.</p>:<div className="ops-table-scroll"><table className="ops-table ops-products-table"><thead><tr><th>상품 · 코드</th><th>판매 가격</th><th>재고</th><th>판매 수량 · 금액 · 배송비</th><th>판매 상태 · 일정</th><th>관리</th></tr></thead><tbody>{products.map(p=>{
         const stage=productStage(p,now),link=linkStage(p,now),warn=p.status==='active'&&Number(p.stock)===0;
         return <tr key={p.id}><td><div className="ops-product-name">{p.main_image?<img src={p.main_image} alt="" loading="lazy"/>:<span className="ops-product-placeholder" aria-hidden="true">□</span>}<div><Link href={`/admin/products/${p.id}`} className="ops-product-title">{p.name}</Link><span className="ops-meta">{[p.brand,p.category].filter(Boolean).join(' · ')||'분류 미지정'}</span>{p.product_code&&<ProductCodeCopy code={p.product_code}/>}</div></div></td>

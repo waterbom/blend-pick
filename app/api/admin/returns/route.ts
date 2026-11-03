@@ -8,6 +8,9 @@ import shopPool from "@/lib/db-shop";
 import { smsConfigured } from "@/lib/sms";
 import { sendReturnRefundSMS } from "@/lib/return-notify";
 
+import {readReturnRange,readReturnListFilter} from '@/lib/admin-insights';
+import {getReturnPage} from '@/lib/admin-insights-db';
+
 async function getAdmin() {
   const token = (await cookies()).get("admin_token")?.value;
   if (!token) return null;
@@ -25,6 +28,14 @@ async function handleGET(req: Request) {
   const site = (await currentAdminSite()).key;
 
   const sp = new URL(req.url).searchParams;
+  if (sp.has('page')) {
+    const page=Number(sp.get('page'));
+    const {range,error}=readReturnRange({returnsFrom:sp.get('from')??'',returnsTo:sp.get('to')??'',returnsKind:sp.get('kind')??'all'});
+    const query=Object.fromEntries(['reason','status','duration'].filter(k=>sp.has(k)).map(k=>['returns'+k[0].toUpperCase()+k.slice(1),sp.get(k)]));
+    const filter=range?readReturnListFilter(query,range):null;
+    if (!Number.isSafeInteger(page)||page<1||page>1000000||!filter) return NextResponse.json({error:error||'분석 조회 조건이 올바르지 않습니다.'},{status:400});
+    return NextResponse.json(await getReturnPage(site,filter,page));
+  }
   const kind = sp.get("kind"); // exchange | return
   if (!["exchange", "return"].includes(kind || "")) {
     return NextResponse.json({ error: "kind가 필요합니다" }, { status: 400 });
