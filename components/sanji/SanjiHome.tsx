@@ -25,6 +25,8 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
   const [showTop, setShowTop] = useState(false);
   const track = useRef<HTMLDivElement>(null);
   const paused = useRef(false);
+  const closingSection = useRef<HTMLElement>(null);
+  const [closingVisible, setClosingVisible] = useState(false);
   const href = (p: SanjiCard) => `${linkBase}/p/${p.id}`;
 
   useEffect(() => {
@@ -47,6 +49,18 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
     const urgency = closingCountdown(p.sale_end_at!, now)?.urgency;
     return urgency === "urgent" || urgency === "soon";
   });
+  const hasClosing = closing.length > 0;
+  useEffect(() => {
+    setClosingVisible(false);
+    const section = closingSection.current;
+    if (!section || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!("IntersectionObserver" in window)) { setClosingVisible(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setClosingVisible(true); observer.disconnect(); }
+    }, { threshold: 0.12, rootMargin: "0px 0px -70px 0px" });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [tab, hasClosing]);
   // Latest five public, open products with images. Never fill the live store with demo inventory.
   const banners = useMemo(() => newest.filter(p => p.main_image?.trim()).slice(0, 5), [newest]);
   const bannerIds = banners.map(p => p.id).join(",");
@@ -105,14 +119,15 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
       .sh-closing-section{background:linear-gradient(180deg,#fff3e9 0%,#fffaf6 68%,#fff 100%);border-top:1px solid #f5decd;padding-bottom:20px}
       .sh-closing-section .sh-sec__h h2{display:flex;align-items:center;gap:8px;color:#a93217}.sh-closing-section .sh-sec__h>a,.sh-closing-section .sh-sec__h>button{border:0;background:none;padding:4px 0;color:#a94525;font-size:12px;white-space:nowrap;text-decoration:none}
       .sh-closing-title-signal{position:relative;display:inline-grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#C9430E;color:#fff;flex-shrink:0}
-      .sh-closing-title-signal.is-urgent::after{content:"";position:absolute;inset:0;border:1px solid #C9430E;border-radius:50%;animation:sh-closing-signal 2.2s ease-out 2}
+      .sh-closing-section.is-in-view .sh-closing-title-signal.is-urgent::after{content:"";position:absolute;inset:0;border:1px solid #C9430E;border-radius:50%;animation:sh-closing-signal 2.2s ease-out 2}
       .sh-closing-section .sh-sec__sub{color:#8c604a;margin-bottom:12px}.sh-closing-section .sh-close-list{gap:0}.sh-closing-section .sh-close{padding:14px 0;border-bottom:1px solid #eedfd3;align-items:center}.sh-closing-section .sh-close:last-child{border-bottom:0}
       .sh-closing-section .sh-close>div:last-child{min-width:0}.sh-closing-section .sh-close-name{margin-top:7px}.sh-closing-section .sh-close-price{margin-top:5px;color:#9d3218}
-      .sh-close[data-urgency="soon"] .sh-close-image,.sh-close[data-urgency="urgent"] .sh-close-image,.sh-closing-card[data-urgency="soon"] .sj-product-image,.sh-closing-card[data-urgency="urgent"] .sj-product-image{outline:1px solid #d96c3a;animation:sh-closing-pulse 2.2s ease-out 2}
+      .sh-close[data-urgency="soon"] .sh-close-image,.sh-close[data-urgency="urgent"] .sh-close-image,.sh-closing-card[data-urgency="soon"] .sj-product-image,.sh-closing-card[data-urgency="urgent"] .sj-product-image{outline:1px solid #d96c3a}
+      .sh-closing-section.is-in-view .sh-close[data-urgency="soon"] .sh-close-image,.sh-closing-section.is-in-view .sh-close[data-urgency="urgent"] .sh-close-image,.sh-closing-section.is-in-view .sh-closing-card[data-urgency="soon"] .sj-product-image,.sh-closing-section.is-in-view .sh-closing-card[data-urgency="urgent"] .sj-product-image{animation:sh-closing-pulse 2.2s ease-out 2}
       .sh-deadline{display:flex;flex-direction:column;align-items:flex-start;gap:4px;color:#ac3c1b}.sh-deadline-caption{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;line-height:1.5}.sh-deadline-caption>i{width:5px;height:5px;flex-shrink:0;border-radius:50%;background:currentColor}
       .sh-deadline-digits{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 7px;font-size:22px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;letter-spacing:-.035em}.sh-deadline-days{display:inline-flex;align-items:baseline;gap:3px}.sh-deadline-days small{font-size:11px;font-weight:600}.sh-deadline-clock{display:inline-flex;align-items:center;gap:2px;white-space:nowrap}.sh-deadline-clock b{font:inherit;display:inline-block;min-width:2ch;text-align:center}.sh-deadline-clock i{font-style:normal;font-size:.76em;opacity:.65}
       .sh-deadline.urgent{color:#a82118}.sh-deadline.scheduled{color:#865641}.sh-deadline.scheduled .sh-deadline-caption>i{background:#a78671}
-      .sh-closing-card{min-width:0}.sh-closing-card>.sh-deadline{min-height:64px;padding:9px 9px 8px;background:#fff0e4;border-top:2px solid #d96c3a;border-radius:6px 6px 0 0}.sh-closing-card>.sh-deadline.urgent{background:#a93217;border-top-color:#a93217;color:#fff}.sh-closing-card>.sh-deadline.scheduled{background:#f7f0e9;border-top-color:#c7ac98}.sh-closing-card .sh-deadline-digits{font-size:18px}.sh-closing-card .sj-product-image{border-top-left-radius:0;border-top-right-radius:0}
+      .sh-closing-card{min-width:0}.sh-closing-card>.sh-deadline{min-height:64px;padding:9px 9px 8px;background:#fff0e4;border-top:2px solid #d96c3a;border-radius:6px 6px 0 0}.sh-closing-card>.sh-deadline.soon{background:#C9430E;border-top-color:#C9430E;color:#fff}.sh-closing-card>.sh-deadline.urgent{background:#a93217;border-top-color:#a93217;color:#fff}.sh-closing-card>.sh-deadline.scheduled{background:#f7f0e9;border-top-color:#c7ac98}.sh-closing-card .sh-deadline-digits{font-size:18px}.sh-closing-card .sj-product-image{border-top-left-radius:0;border-top-right-radius:0}
       @keyframes sh-closing-signal{from{transform:scale(1);opacity:.6}to{transform:scale(1.65);opacity:0}}
       @keyframes sh-closing-pulse{from{box-shadow:0 0 0 0 #c9430e35}to{box-shadow:0 0 0 6px #c9430e00}}
       @media(prefers-reduced-motion:reduce){.sh-closing-section *,.sh-closing-section *::after{animation:none!important;transition:none!important}}
@@ -137,7 +152,7 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
       </section>}
       <nav className="sh-shortcuts" aria-label="상품 바로가기">{shortcuts.map(item => <a key={item.label} href={item.href}><span className={item.tone}><SanjiIcon name={item.icon} size={26} /></span>{item.label}</a>)}</nav>
 
-      {closing.length > 0 && <section className="sh-sec sh-closing-section" id="sanji-closing"><div className="sh-sec__h"><h2><span className={`sh-closing-title-signal${hasUrgentClosing ? " is-urgent" : ""}`} aria-hidden="true"><SanjiIcon name="clock" size={17} /></span>곧 마감하는 공구</h2><button type="button" onClick={() => { setTab(4); window.scrollTo({ top: 0, behavior: "instant" }); }}>마감순 보기 ›</button></div><p className="sh-sec__sub">남은 시간을 확인하고, 마감 전에 골라보세요.</p><div className="sh-close-list">{closing.slice(0, 2).map(p => <a key={p.id} href={href(p)} className="sh-close" data-urgency={closingCountdown(p.sale_end_at!, now)?.urgency}><div className="sh-close-image"><SanjiProductImage mainImage={p.main_image} images={p.images} name={p.name} autoPlay /></div><div><SanjiClosingCountdown end={p.sale_end_at!} now={now} /><span className="sh-close-name">{p.name}</span><strong className="sh-close-price">{p.price.toLocaleString("ko-KR")}원</strong></div></a>)}</div></section>}
+      {closing.length > 0 && <section ref={closingSection} className={`sh-sec sh-closing-section${closingVisible ? " is-in-view" : ""}`} id="sanji-closing"><div className="sh-sec__h"><h2><span className={`sh-closing-title-signal${hasUrgentClosing ? " is-urgent" : ""}`} aria-hidden="true"><SanjiIcon name="clock" size={17} /></span>곧 마감하는 공구</h2><button type="button" onClick={() => { setTab(4); window.scrollTo({ top: 0, behavior: "instant" }); }}>마감순 보기 ›</button></div><p className="sh-sec__sub">남은 시간을 확인하고, 마감 전에 골라보세요.</p><div className="sh-close-list">{closing.slice(0, 2).map(p => <a key={p.id} href={href(p)} className="sh-close" data-urgency={closingCountdown(p.sale_end_at!, now)?.urgency}><div className="sh-close-image"><SanjiProductImage mainImage={p.main_image} images={p.images} name={p.name} autoPlay /></div><div><SanjiClosingCountdown end={p.sale_end_at!} now={now} /><span className="sh-close-name">{p.name}</span><strong className="sh-close-price">{p.price.toLocaleString("ko-KR")}원</strong></div></a>)}</div></section>}
 
       <section className="sh-sec" id="sanji-new"><div className="sh-sec__h"><h2>지금 열린 산지 공구</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">새로 들어온 먹거리부터 차근차근 둘러보세요</p>{newest.length ? grid(newest.slice(0, 8)) : <div className="sh-empty">새로운 산지 공구를 준비하고 있어요.</div>}<a className="sh-more" href={`${linkBase}/products`}>공구 상품 더 보기 <SanjiIcon name="chevron" size={13} /></a></section>
 
@@ -148,7 +163,7 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
       {reviews.length > 0 && <section className="sh-sec"><div className="sh-sec__h"><h2>먼저 받아본 분들의 이야기</h2></div><p className="sh-sec__sub">산지픽에 남겨주신 소중한 후기</p><div className="sh-reviews">{reviews.slice(0, 3).map(r => <a key={r.id} href={`${linkBase}/p/${r.product_id}`} className="sh-review">{r.image && <img src={r.image} alt="" loading="lazy" />}<div><small><span className="stars" aria-label={`${r.rating}점`}>{"★".repeat(Math.round(r.rating))}</span>{maskName(r.buyer_name)}</small><p>{r.content}</p><span className="product">{r.product_name}</span></div></a>)}</div></section>}
 
       {closed.length > 0 && <section className="sh-sec"><div className="sh-sec__h"><h2>마감된 공구</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">지난 공구도 여기에서 확인할 수 있어요</p>{grid(closed)}</section>}
-    </> : <section className={`sh-sec${tab === 4 ? " sh-closing-section" : ""}`}><div className="sh-sec__h"><h2>{tab === 4 && <span className={`sh-closing-title-signal${hasUrgentClosing ? " is-urgent" : ""}`} aria-hidden="true"><SanjiIcon name="clock" size={17} /></span>}{tab === 1 ? "산지에서 온 농산물" : tab === 2 ? "바다에서 온 수산물" : tab === 4 ? "곧 마감하는 공구" : "새로 열린 공구"}</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">{tab === 4 ? "남은 시간을 확인하고, 마감 전에 골라보세요." : "원하는 먹거리를 골라보세요"}</p>{filtered.length ? grid(filtered, tab === 4) : <div className="sh-empty">지금은 해당 공구를 준비하고 있어요.</div>}</section>}
+    </> : <section ref={tab === 4 ? closingSection : undefined} className={`sh-sec${tab === 4 ? " sh-closing-section" : ""}${tab === 4 && closingVisible ? " is-in-view" : ""}`}><div className="sh-sec__h"><h2>{tab === 4 && <span className={`sh-closing-title-signal${hasUrgentClosing ? " is-urgent" : ""}`} aria-hidden="true"><SanjiIcon name="clock" size={17} /></span>}{tab === 1 ? "산지에서 온 농산물" : tab === 2 ? "바다에서 온 수산물" : tab === 4 ? "곧 마감하는 공구" : "새로 열린 공구"}</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">{tab === 4 ? "남은 시간을 확인하고, 마감 전에 골라보세요." : "원하는 먹거리를 골라보세요"}</p>{filtered.length ? grid(filtered, tab === 4) : <div className="sh-empty">지금은 해당 공구를 준비하고 있어요.</div>}</section>}
 
     <a className="sh-kakao" href={kakaoUrl} target="_blank" rel="noreferrer" aria-label="카카오톡 문의"><svg width="23" height="23" viewBox="0 0 24 24" fill="#191600" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7L5.6 21l4.3-2.6c.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8S17.5 3 12 3z" /></svg></a>
     {showTop && <button className="sh-top" aria-label="맨 위로" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><SanjiIcon name="chevron" size={19} /></button>}
