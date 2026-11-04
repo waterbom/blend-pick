@@ -10,11 +10,13 @@ import MetricChart from '@/components/admin/charts/MetricChart';
 import OverviewWorkQueue from '@/components/admin/OverviewWorkQueue';
 import DashboardRefresh from '@/components/admin/DashboardRefresh';
 import AdminIcon from '@/components/admin/AdminIcon';
+import OrderQueueChart from '@/components/admin/charts/OrderQueueChart';
+import type {QueueSummary} from '@/lib/admin-insights';
 export type DashboardStats={liveGongu:number;upcoming:number;newOrders:number;preparingOrders:number;shippedOrders:number;todaySettlement:number|null};
 const number=(v:number|null|undefined,suffix='')=>v==null?'확인 필요':v.toLocaleString('ko-KR')+suffix;
 const time=(value:string)=>new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 const visitStates={active:'수집 기록 있음',empty:'아직 수집 기록 없음',disabled:'방문 수집 꺼짐',unconfigured:'통계 연결 미설정',error:'방문 통계 조회 실패'};
-export default function AdminDashboardView({siteKey,siteName,date,stats,sales,visits,workGroups,workUnavailable=[],traffic}:{siteKey:SiteKey;siteName:string;date:string;stats:DashboardStats|null;sales:SalesSummary|null;visits:VisitSummary;workGroups:WorkGroup[];workUnavailable?:string[];traffic?:ServerTraffic}){
+export default function AdminDashboardView({siteKey,siteName,date,stats,sales,visits,workGroups,workUnavailable=[],traffic,queueInsights}:{siteKey:SiteKey;siteName:string;date:string;stats:DashboardStats|null;sales:SalesSummary|null;visits:VisitSummary;workGroups:WorkGroup[];workUnavailable?:string[];traffic?:ServerTraffic;queueInsights?:QueueSummary|null}){
  const today=sales?.daily.at(-1),visitValid=visits.state==='active'||visits.state==='empty';
  const todayVisitors=visitValid?(visits.daily.find(d=>d.day===kstDay(visits.to))?.visitors??0):null;
  const days=visits.days;
@@ -41,6 +43,7 @@ export default function AdminDashboardView({siteKey,siteName,date,stats,sales,vi
     <div className="overview-shortcuts"><Link href="/admin/products/new"><AdminIcon name="plus"/>상품 등록</Link><Link href="/admin/notifications"><AdminIcon name="bell"/>카카오 상담·알림</Link>{siteKey==='blendpick'&&<Link href="/admin/dangung"><AdminIcon name="calendar"/>단궁 예약·요금</Link>}</div>
    </aside>
   </div>
+  <OrderQueueChart data={queueInsights??null}/>
   <section id="performance" className="overview-performance" aria-labelledby="performance-title">
    <div className="overview-section-heading overview-performance-heading"><div><h2 id="performance-title">매출과 방문 흐름</h2><p>같은 기간의 판매·방문 현황을 함께 확인하세요.</p></div><nav className="overview-period" aria-label="매출·방문 공통 조회 기간">{[1,7,30].map(d=><Link key={d} href={`/admin?days=${d}#performance`} prefetch={false} aria-current={days===d?'page':undefined}>{d===1?'오늘':`최근 ${d}일`}</Link>)}</nav></div>
    <div className="overview-chart-grid">

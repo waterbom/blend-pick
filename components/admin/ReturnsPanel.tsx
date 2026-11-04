@@ -4,6 +4,7 @@ import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 import { useCallback, useEffect, useState } from "react";
 import { RETURN_STATUS_LABEL } from "@/lib/returns";
 import Link from "next/link";
+import {RETURN_REASONS_CHART,RETURN_STATES,AGE_BUCKETS,type ReturnListFilter} from '@/lib/admin-insights';
 import { formatPhone } from "@/lib/phone-format";
 
 interface ReturnEvent {
@@ -39,7 +40,9 @@ interface ReturnRow {
 
 // 교환·반품 신청 처리 패널 — 신청 상세(사유·사진·수거지)를 보고
 // 수거 접수 → 완료(반품은 토스 환불) / 거절을 건별로 처리한다
-export default function ReturnsPanel({ kind, onChanged, initialRequestId, compact = false, refreshKey }: { refreshKey?: object; compact?: boolean; kind: "exchange" | "return" | "all"; onChanged?: () => void; initialRequestId?: string }) {
+export default function ReturnsPanel({ kind, onChanged, initialRequestId, compact = false, refreshKey, analysisFilter }: { analysisFilter?:ReturnListFilter|null; refreshKey?: object; compact?: boolean; kind: "exchange" | "return" | "all"; onChanged?: () => void; initialRequestId?: string }) {
+  const [page,setPage]=useState(1);
+  const [total,setTotal]=useState(0);
   const [requestId, setRequestId] = useState(initialRequestId);
   const [kindFilter, setKindFilter] = useState("all");
   const [rows, setRows] = useState<ReturnRow[]>([]);
@@ -51,6 +54,13 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
     setLoading(true);
     setLoadError("");
     try {
+      if (analysisFilter) {
+        const query=new URLSearchParams({page:String(page),kind:analysisFilter.kind,from:analysisFilter.from,to:analysisFilter.to,...(analysisFilter.reason?{reason:analysisFilter.reason}:{}),...(analysisFilter.status?{status:analysisFilter.status}:{}),...(analysisFilter.duration?{duration:analysisFilter.duration}:{})});
+        const res=await fetch('/api/admin/returns?'+query,{signal}),data=await readApiJson(res);
+        if (!res.ok||!Array.isArray(data.rows)||!Number.isFinite(data.total)) throw new Error(apiErrorMessage(data,'신청 분석 목록을 불러오지 못했습니다.'));
+        if (!signal?.aborted) {setRows(data.rows);setTotal(data.total);}
+        return;
+      }
       const kinds = kind === 'all' ? ['exchange', 'return'] : [kind];
       const results = await Promise.allSettled(kinds.map(async value => {
         const res = await fetch(`/api/admin/returns?kind=${value}${requestId ? `&id=${encodeURIComponent(requestId)}` : ''}`, { signal });
@@ -67,7 +77,7 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [kind, requestId]);
+  }, [kind, requestId, analysisFilter, page]);
 
   useEffect(() => {
     if (actingId) return;
@@ -77,6 +87,7 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
   }, [load, refreshKey, actingId]);
 
   async function act(r: ReturnRow, action: "collect" | "complete" | "reject") {
+    if (!["requested","collecting"].includes(r.status)) return;
     let note = "";
     let refundAmount = 0;
 
@@ -151,15 +162,21 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
   const kindLabel = kind === "all" ? "교환·반품" : kind === "exchange" ? "교환" : "반품";
   const visibleRows = rows.filter(r => kindFilter === "all" || r.kind === kindFilter);
 
-  if (loading) return <div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>불러오는 중...</div>;
-  if (loadError && !rows.length) return <div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600" role="alert">{loadError}<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div>;
-  if (rows.length === 0) return <div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>{requestId ? "이 신청은 처리되었거나 현재 사이트에서 확인할 수 없습니다." : `진행 중인 ${kindLabel} 신청이 없습니다`}{requestId && <button className="block mx-auto mt-3 underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button>}</div>;
+  const analysisControls=analysisFilter&&<div className="border border-green-200 bg-green-50 p-3 text-xs space-y-2">
+    <div className="flex flex-wrap justify-between gap-2"><strong>차트 선택 조건 · {analysisFilter.from||'전체 기간'} ~ {analysisFilter.to||'현재'}</strong><Link className="underline" href="/admin/shipments#customer-requests">조건 해제 · 진행 중 신청 보기</Link></div>
+    <p>{analysisFilter.kind==='all'?'교환·반품':analysisFilter.kind==='return'?'반품':'교환'}{analysisFilter.reason?' · '+RETURN_REASONS_CHART.find(r=>r.key===analysisFilter.reason)?.label:''}{analysisFilter.status?' · '+RETURN_STATES.find(r=>r.key===analysisFilter.status)?.label:''}{analysisFilter.duration?' · 소요시간 '+(AGE_BUCKETS.find(b=>b.key===analysisFilter.duration)?.label??'완료 시각 미기록'):''}</p>
+    <div className="flex flex-wrap items-center gap-3"><span>{loading?'조회 중':total.toLocaleString()+'건'} · {page} / {Math.max(1,Math.ceil(total/50))}쪽 · 50건씩 표시</span><button className="underline disabled:opacity-40" disabled={loading||!!actingId||page<=1} onClick={()=>setPage(p=>p-1)}>이전</button><button className="underline disabled:opacity-40" disabled={loading||!!actingId||page*50>=total} onClick={()=>setPage(p=>p+1)}>다음</button></div>
+  </div>;
+  if (loading) return <>{analysisControls}<div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>불러오는 중...</div></>;
+  if (loadError && !rows.length) return <>{analysisControls}<div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600" role="alert">{loadError}<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div></>;
+  if (rows.length === 0) return <>{analysisControls}<div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>{requestId ? "이 신청은 처리되었거나 현재 사이트에서 확인할 수 없습니다." : (analysisFilter?"선택한 조건에 맞는 신청이 없습니다.":`진행 중인 ${kindLabel} 신청이 없습니다`)}{requestId && <button className="block mx-auto mt-3 underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button>}</div></>;
 
   return (
     <div className="space-y-3">
+      {analysisControls}
       {requestId && <div className="flex items-center justify-between gap-3 p-3 bg-green-50 text-xs text-green-800"><span>오늘 처리할 일에서 선택한 신청입니다.</span><button className="underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button></div>}
       {loadError && <p className="ops-error" role="alert">{loadError} · 조회된 신청은 아래에 표시됩니다. <button className="ops-text-button" onClick={()=>load()}>다시 조회</button></p>}
-      {kind==='all'&&<div className="ops-toolbar"><label className="ops-inline-field">신청 구분 <select aria-label="교환·반품 구분" value={kindFilter} onChange={e=>setKindFilter(e.target.value)}><option value="all">교환·반품 전체</option><option value="exchange">교환</option><option value="return">반품</option></select></label><span className="ops-meta">{visibleRows.length}건 표시 · 사유와 수거지를 확인한 뒤 처리하세요.</span></div>}
+      {kind==='all'&&!analysisFilter&&<div className="ops-toolbar"><label className="ops-inline-field">신청 구분 <select aria-label="교환·반품 구분" value={kindFilter} onChange={e=>setKindFilter(e.target.value)}><option value="all">교환·반품 전체</option><option value="exchange">교환</option><option value="return">반품</option></select></label><span className="ops-meta">{visibleRows.length}건 표시 · 사유와 수거지를 확인한 뒤 처리하세요.</span></div>}
       {!visibleRows.length&&<p className="ops-empty">선택한 구분의 신청이 없습니다.</p>}
       {visibleRows.map((r) => {
         const acting = actingId === r.id;
@@ -232,7 +249,7 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
             </div>
 
             {/* 처리 버튼 */}
-            <div className="flex flex-wrap gap-2 px-5 py-3 border-t border-gray-100">
+            {["requested","collecting"].includes(r.status)&&<div className="flex flex-wrap gap-2 px-5 py-3 border-t border-gray-100">
               {r.status === "requested" && (
                 <button onClick={() => act(r, "collect")} disabled={acting}
                   className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-none transition-colors">
@@ -249,7 +266,7 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
                 className="disabled:opacity-50 text-xs font-bold px-4 py-2 rounded-none border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
                 거절
               </button>
-            </div>
+            </div>}
           </div>
         );
       })}

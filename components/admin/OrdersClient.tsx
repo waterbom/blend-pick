@@ -10,6 +10,7 @@ import { matchesOrderSearch, selectionAction } from "@/lib/admin-list-workspace"
 import { useSiteKey } from "@/components/SiteContext";
 import { SITES } from "@/lib/sites";
 import { formatPhone } from "@/lib/phone-format";
+import {matchesQueueFilter, QUEUE_BUCKETS, QUEUE_STATUSES, type QueueFilter} from '@/lib/admin-insights';
 import { dispatchLineNumbers } from "@/lib/dispatch-number";
 
 interface OrderItem {
@@ -28,6 +29,7 @@ export interface Order {
   order_number: string;
   status: string;
   order_type: string;
+  test_payment?: boolean;
   site: string | null; // 결제된 사이트 — 'blendpick' | 'sanjipick'
   buyer_name: string;
   buyer_phone: string;
@@ -134,14 +136,15 @@ export function toOrderRows(orders: Order[], includeStatus = false, uniqueDispat
   return rows.sort((a,b)=>String(a[19]).localeCompare(String(b[19]),"ko") || String(a[20]).localeCompare(String(b[20])));
 }
 
-export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?: Order[]; onChanged?: () => Promise<void>} = {}) {
-  const [queue, setQueue] = useState("work");
+export default function OrdersClient({ sharedOrders, onChanged, initialInsight=null, insightError='' }: {sharedOrders?: Order[]; onChanged?: () => Promise<void>; initialInsight?:QueueFilter|null; insightError?:string} = {}) {
+  const [queue, setQueue] = useState(initialInsight?'history':'work');
+  const [insight,setInsight]=useState(initialInsight);
   const [loadError, setLoadError] = useState("");
   const [batches, setBatches] = useState<{id:string;request_key:string;created_at:string;order_count:number}[]>([]);
   const pendingDispatch = useRef<{key:string;ids:string[]} | null>(null);
   const [orders, setOrders] = useState<Order[]>(sharedOrders??[]);
   const [loading, setLoading] = useState(!sharedOrders);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>(initialInsight?.status??'');
   const [typeFilter, setTypeFilter] = useState("");
   const [channelFilter, setChannelFilter] = useState("");
   const siteFilter = useSiteKey(); // '' | 'blendpick' | 'sanjipick'
@@ -161,7 +164,7 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
   useEffect(() => {if(sharedOrders){setOrders(sharedOrders);setLoading(false);setSelected(prev=>new Set([...prev].filter(id=>sharedOrders.some(o=>o.id===id && orderQueue(o)==="ready"))));}},[sharedOrders]);
   // 검색 — 주문번호·구매자·수령인·연락처·상품명·옵션·인플루언서 통합
   const [query, setQuery] = useState("");
-  useEffect(()=>{setSelected(new Set());},[queue,statusFilter,typeFilter,channelFilter,query,productFilter]);
+  useEffect(()=>{setSelected(new Set());},[queue,statusFilter,typeFilter,channelFilter,query,productFilter,insight]);
   const siteOf = (o: Order) => o.site || "blendpick";
   const visibleOrders = useMemo(() => {
     let list =
@@ -169,12 +172,13 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
       : typeFilter === "shop" ? orders.filter((o) => !isCampaign(o))
       : orders;
     if(queue!=="history")list=list.filter(o=>queue === "work" ? orderQueue(o)!=="history" : orderQueue(o)===queue);
+    if(insight)list=list.filter(o=>matchesQueueFilter(o,insight));
     if(statusFilter)list=list.filter(o=>o.status===statusFilter);
     if (siteFilter) list = list.filter((o) => siteOf(o) === siteFilter);
     if (channelFilter) list = list.filter(o=>(o.sales_channel ?? (o.link_code ? "non_display" : "display")) === channelFilter);
     if (productFilter) list = list.filter(o => o.items.some(i => i.product_name === productFilter));
     return list.filter(o => matchesOrderSearch(o, query));
-  }, [orders, typeFilter, siteFilter, query, channelFilter, queue, statusFilter, productFilter]);
+  }, [orders, typeFilter, siteFilter, query, channelFilter, queue, statusFilter, productFilter, insight]);
   const scopedOrders = orders.filter(o => siteOf(o) === siteFilter);
   const selectedAction = selectionAction(visibleOrders, selected);
 
@@ -301,20 +305,22 @@ export default function OrdersClient({ sharedOrders, onChanged }: {sharedOrders?
         <div><h1>주문 관리</h1><p>{SITES[siteFilter].name} · 주문 확인부터 발주까지 한 목록에서 처리합니다.</p></div>
         <div className="ops-heading-actions"><Link href="/admin/shipments" className="ops-button">배송·반품 관리 →</Link><button onClick={()=>{void load();void loadBatches();}} className="ops-button" disabled={loading}>새로고침</button></div>
       </header>}
+      {insightError&&<p className="ops-warning" role="alert">{insightError}</p>}
+      {insight&&<div className="ops-sales-summary"><strong>{QUEUE_STATUSES.find(s=>s.key===insight.status)?.label} · {QUEUE_BUCKETS.find(b=>b.key===insight.bucket)?.label}</strong><span>{new Date(insight.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} 기준 경과시간 · 처리 상태는 현재 기준</span><button className="ops-text-button" onClick={()=>{setInsight(null);setStatusFilter('');}}>차트 조건 해제</button></div>}
       <section className="ops-list-panel" aria-label="주문 목록">
         <div className="ops-filter-strip" aria-label="주문 범위">
           {[{key:"work",label:"처리할 주문"},{key:"ready",label:"발주 가능"},{key:"check",label:"확인 필요"},{key:"requests",label:"고객 요청"},{key:"history",label:"전체 주문"}].map(t=>{
             const count = scopedOrders.filter(o=>t.key==="history" || (t.key==="work" ? orderQueue(o)!=="history" : orderQueue(o)===t.key)).length;
-            return <button key={t.key} aria-pressed={queue===t.key} onClick={()=>{setQueue(t.key);setStatusFilter("");}} className="ops-filter-chip">{t.label}<b>{loading || loadError && !orders.length ? '—' : count}</b></button>;
+            return <button key={t.key} aria-pressed={queue===t.key} onClick={()=>{setQueue(t.key);setStatusFilter("");setInsight(null);}} className="ops-filter-chip">{t.label}<b>{loading || loadError && !orders.length ? '—' : count}</b></button>;
           })}
         </div>
         <div className="ops-toolbar">
           <input aria-label="주문 검색" value={query} onChange={e=>setQuery(e.target.value)} placeholder="주문번호 · 이름 · 연락처 · 상품 검색" className="ops-search" />
           <select aria-label="상품별 주문" value={productFilter} onChange={e=>setProductFilter(e.target.value)}><option value="">상품 전체</option>{[...new Set(scopedOrders.flatMap(o=>o.items.map(i=>i.product_name)))].map(name=><option key={name}>{name}</option>)}</select>
-          <select aria-label="처리 상태" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setQueue("history");}}><option value="">처리상태 전체</option>{Object.entries(STATUS_LABEL).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select>
+          <select aria-label="처리 상태" value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setQueue("history");setInsight(null);}}><option value="">처리상태 전체</option>{Object.entries(STATUS_LABEL).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select>
           <select aria-label="판매 방식" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="">판매방식 전체</option><option value="shop">일반 상품</option><option value="campaign">공동구매</option></select>
           <select aria-label="구매 구분" value={channelFilter} onChange={e=>setChannelFilter(e.target.value)}><option value="">구매구분 전체</option><option value="display">전시</option><option value="non_display">비전시</option></select>
-          {(query||productFilter||typeFilter||channelFilter||statusFilter) && <button className="ops-text-button" onClick={()=>{setQuery("");setProductFilter("");setTypeFilter("");setChannelFilter("");setStatusFilter("");}}>검색 초기화</button>}
+          {(query||productFilter||typeFilter||channelFilter||statusFilter) && <button className="ops-text-button" onClick={()=>{setQuery("");setProductFilter("");setTypeFilter("");setChannelFilter("");setStatusFilter("");setInsight(null);}}>검색 초기화</button>}
         </div>
         {loadError && <p role="alert" className="ops-error">{loadError}</p>}
         {<div className="ops-selection-bar" aria-live="polite">

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import ProductPerformanceChart from '@/components/admin/charts/ProductPerformanceChart';
+import {productInsightRows} from '@/lib/admin-insights';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { verifyAdminToken } from '@/lib/auth';
@@ -146,6 +148,7 @@ export default async function SanjipickProductSalesPage({ searchParams }: {
           <p className="text-xs text-gray-500">{label}</p><p className="mt-1 font-bold text-lg break-words ds-mono">{value}</p>
         </div>)}
       </section>
+      <ProductPerformanceChart rows={productInsightRows(rows,Object.fromEntries(sales),Object.fromEntries(financials),from,to)} from={from} to={to}/>
       <section className="ops-list-panel" aria-label="상품별 실적 목록">
         <div className="ops-sales-summary">
           <strong>{rows.length}개 상품 · {from} ~ {to}</strong>

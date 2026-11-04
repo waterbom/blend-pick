@@ -60,7 +60,7 @@ async function handleGET(req: Request) {
       o.tracking_number,
       o.influencer_name,
       o.link_code, o.sales_channel, o.link_start_at, o.link_end_at,
-      o.created_at, o.paid_at, (o.payment_key IS NOT NULL AND o.payment_key<>'' AND o.payment_key NOT LIKE 'SIM_%') AS payment_verified,
+      o.created_at, o.paid_at, COALESCE(o.payment_key LIKE 'SIM_%',false) AS test_payment, (o.payment_key IS NOT NULL AND o.payment_key<>'' AND o.payment_key NOT LIKE 'SIM_%') AS payment_verified,
       EXISTS(SELECT 1 FROM refund_operations r WHERE r.order_id=o.id AND r.status NOT IN ('completed','rejected')) AS pending_refunds,
       COALESCE(json_agg(
         json_build_object(
