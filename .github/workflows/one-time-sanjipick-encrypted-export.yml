@@ -51,7 +51,7 @@ jobs:
                'COALESCE(SUM(r.amount),0)::bigint refunds,COALESCE(SUM(o.shipping_fee),0)::bigint shipping,'+
                'COUNT(*) FILTER(WHERE o.shipping_fee>0)::int shipping_payments,'+
                'COUNT(*) FILTER(WHERE '+review+')::int review '+sqlBase;
-              const monthSql="SELECT to_char(o.paid_at AT TIME ZONE 'Asia/Seoul' ,'YYYY-MM') AS "month","+
+              const monthSql="SELECT to_char(o.paid_at AT TIME ZONE 'Asia/Seoul' ,'YYYY-MM') AS month_label,"+
                'COUNT(*)::int orders,COALESCE(SUM(o.total_amount),0)::bigint gross,'+
                'COALESCE(SUM(r.amount),0)::bigint refunds,COALESCE(SUM(o.shipping_fee),0)::bigint shipping,'+
                'COUNT(*) FILTER(WHERE o.shipping_fee>0)::int shipping_payments,'+
