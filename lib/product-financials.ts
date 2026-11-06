@@ -141,6 +141,7 @@ export function summarizeProductFinancials(orders: MoneySnapshot[], detailed = f
 export async function getProductFinancials(
   site: SiteKey, from?: string, to?: string, productId?: string,
   db: Pick<typeof shopPool, 'query'> = shopPool,
+  includeOrderRows = false,
 ): Promise<Map<string, ProductMoney>> {
   if (!validDateRange(from || null, to || null)) throw new Error('판매 집계 기간을 확인해주세요.');
   if (productId && !uuid(productId)) throw new Error('상품 식별자를 확인해주세요.');
@@ -172,5 +173,5 @@ export async function getProductFinancials(
     'ORDER BY o.paid_at,o.id',
   ].join('\n');
   const { rows } = await db.query<MoneySnapshot>(sql, args);
-  return summarizeProductFinancials(rows, !!productId);
+  return summarizeProductFinancials(rows, !!productId || includeOrderRows);
 }
