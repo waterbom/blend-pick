@@ -1,0 +1,110 @@
+name: One-time encrypted Sanjipick sales snapshot
+on:
+  push:
+    branches: [ops/sanji-export-encrypted-20261106]
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Query live data in read-only snapshot and encrypt before upload
+        id: extract
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          capture_stdout: true
+          command_timeout: 5m
+          script: |
+            set -eu
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.EC2_APP_DIR }}
+            node <<'NODE'
+            require('@next/env').loadEnvConfig(process.cwd(), false);
+            const { Pool } = require('pg');
+            const { load } = require('./tests/support/load.cjs');
+            const { randomBytes, createCipheriv, publicEncrypt, createPublicKey, constants } = require('node:crypto');
+            const { gzipSync } = require('node:zlib');
+            const start='2026-09-01', end='2026-11-06';
+            const pub="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxPpbJFLCGh4G1w04Bgb+aYlpj2iVe8srst+MCTFwvXYkdfsHLqWQLCqjRvTutP9CGIM+o4K2b3aF1FfhrLAdZzdd5edq8aipjxGcvgmPzb70jPQNy56B+X3ggq+ijglzWOpnxxW7aiHleT+9HsgzmAjQZ0YnHIuyxUaDHrA8YFsYORj6MxHdKa4YE+AmzdjZA7UylbNeGDkh3iJF4yFgFKEntE1qdmh/u+8KoVE8WEPNvWthvySdDr9ZYuVI1VK+TVkuI7o8dS9z3ASclf70jpmY6hBFb52MdQlaVk7m6mg3wEoKmat4NzxfEHKjaskj3VMLVtTlJOJ22sLl61CDKQIDAQAB";
+            const pool=new Pool({connectionString:process.env.SHOP_DATABASE_URL,ssl:{rejectUnauthorized:false},connectionTimeoutMillis:6000,statement_timeout:90000});
+            const eligible=["o.site='sanjipick'","o.order_type IN ('shop','campaign')","o.paid_at IS NOT NULL",
+            "NULLIF(o.payment_key,'') IS NOT NULL","o.payment_key NOT LIKE 'SIM_%'","o.status <> 'pending'",
+            "o.paid_at>=($1::date::timestamp AT TIME ZONE 'Asia/Seoul')",
+            "o.paid_at<(($2::date+1)::timestamp AT TIME ZONE 'Asia/Seoul')"].join(' AND ');
+            const refund="LEFT JOIN LATERAL (SELECT COALESCE(SUM(amount),0) amount,COUNT(*)::int cnt FROM order_refund_amounts WHERE order_id=o.id) r ON true";
+            const review="(o.refund_amount_unresolved OR (o.status IN ('cancelled','return_completed') AND r.cnt=0) OR r.amount>o.total_amount OR EXISTS(SELECT 1 FROM refund_operations op WHERE op.order_id=o.id AND op.status NOT IN ('completed','rejected')))";
+            async function main(){
+             if(!process.env.SHOP_DATABASE_URL) throw Error('NO_DATABASE');
+             const c=await pool.connect();
+             try{
+              await c.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+              const mocks={'@/lib/db-shop':{query:(...args)=>c.query(...args)}};
+              const {getProductSales}=load('lib/product-sales.ts',mocks);
+              const {getProductFinancials}=load('lib/product-financials.ts',mocks);
+              const sqlBase=' FROM orders o '+refund+' WHERE '+eligible;
+              const countSql='SELECT COUNT(*)::int orders,COALESCE(SUM(o.total_amount),0)::bigint gross,'+
+               'COALESCE(SUM(r.amount),0)::bigint refunds,COALESCE(SUM(o.shipping_fee),0)::bigint shipping,'+
+               'COUNT(*) FILTER(WHERE o.shipping_fee>0)::int shipping_payments,'+
+               'COUNT(*) FILTER(WHERE '+review+')::int review '+sqlBase;
+              const monthSql="SELECT to_char(o.paid_at AT TIME ZONE 'Asia/Seoul','YYYY-MM') month,"+
+               'COUNT(*)::int orders,COALESCE(SUM(o.total_amount),0)::bigint gross,'+
+               'COALESCE(SUM(r.amount),0)::bigint refunds,COALESCE(SUM(o.shipping_fee),0)::bigint shipping,'+
+               'COUNT(*) FILTER(WHERE o.shipping_fee>0)::int shipping_payments,'+
+               'COUNT(*) FILTER(WHERE '+review+')::int review '+sqlBase+' GROUP BY 1 ORDER BY 1';
+              const count=(await c.query(countSql,[start,end])).rows[0];
+              const monthly=(await c.query(monthSql,[start,end])).rows;
+              const [saleMap,moneyMap,metadata,oldNames]=await Promise.all([
+                getProductSales('sanjipick',start,end,c),
+                getProductFinancials('sanjipick',start,end,undefined,c,true),
+                c.query('SELECT id,name,brand,category,product_code,sale_type,is_visible,status,sale_start_at,sale_end_at,archived_at '+
+                  'FROM products_shop WHERE category=ANY($1::text[])',[['산지픽','산지픽 농산물','산지픽 해산물']]),
+                c.query('SELECT DISTINCT ON (COALESCE(oi.product_ref,oi.product_id)) '+
+                  'COALESCE(oi.product_ref,oi.product_id)::text id,oi.product_name name '+
+                  'FROM order_items oi JOIN orders o ON o.id=oi.order_id '+
+                  'WHERE '+eligible+' AND COALESCE(oi.product_ref,oi.product_id) IS NOT NULL '+
+                  'ORDER BY COALESCE(oi.product_ref,oi.product_id),o.paid_at DESC',[start,end])
+              ]);
+              await c.query('COMMIT');
+              const pmeta=new Map(metadata.rows.map(x=>[String(x.id),x]));
+              const snap=new Map(oldNames.rows.map(x=>[String(x.id),String(x.name)]));
+              const pids=[...new Set([...saleMap.keys(),...moneyMap.keys()])];
+              const products=pids.map(id=>({
+                id,meta:pmeta.get(id)||null,name:pmeta.get(id)?.name||snap.get(id)||'상품명 미확인',
+                sales:saleMap.get(id)||null,financials:moneyMap.get(id)||null
+              })).sort((a,b)=>(b.financials?.gross||0)-(a.financials?.gross||0));
+              const report={basis:'sanjipick_live_db_read_only',period:{from:start,to:end,timezone:'Asia/Seoul'},captured_at:new Date().toISOString(),
+                totals:count,monthly,products};
+              const compressed=gzipSync(Buffer.from(JSON.stringify(report),'utf8'));
+              const sym=randomBytes(32),iv=randomBytes(12);
+              const cipher=createCipheriv('aes-256-gcm',sym,iv);
+              const ciphertext=Buffer.concat([cipher.update(compressed),cipher.final()]);
+              const wrapped=publicEncrypt({key:createPublicKey({key:Buffer.from(pub,'base64'),format:'der',type:'spki'}),padding:constants.RSA_PKCS1_OAEP_PADDING,oaepHash:'sha256'},sym);
+              const seal=Buffer.concat([Buffer.from('SJX1'),wrapped,iv,cipher.getAuthTag(),ciphertext]);
+              const b64=seal.toString('base64');
+              for(let i=0;i<b64.length;i+=2048)console.log('SANJI_B64:'+b64.slice(i,i+2048));
+             }finally{c.release();await pool.end();}
+            }
+            main().catch(()=>{console.error('READ_ONLY_EXPORT_FAILED');process.exitCode=1});
+            NODE
+      - name: Decode only encrypted bytes into temporary file
+        shell: bash
+        env:
+          CAPTURE: ${{ steps.extract.outputs.stdout }}
+        run: |
+          set -euo pipefail
+          mkdir -p secure-output
+          printf '%s\n' "$CAPTURE" | sed -n 's/^SANJI_B64://p' | tr -d '\r\n' | base64 -d > secure-output/sanjipick_snapshot.bin
+          test $(wc -c < secure-output/sanjipick_snapshot.bin) -gt 280
+          test "$(head -c4 secure-output/sanjipick_snapshot.bin)" = 'SJX1'
+      - name: Upload encrypted artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanjipick-sales-encrypted-20261106
+          path: secure-output/sanjipick_snapshot.bin
+          retention-days: 1
+          if-no-files-found: error
