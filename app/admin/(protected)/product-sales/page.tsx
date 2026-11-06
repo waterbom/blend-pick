@@ -99,7 +99,7 @@ export default async function SanjipickProductSalesPage({ searchParams }: {
       <div><h1>상품별 판매실적</h1>
         <p>산지픽 · 판매 종료와 비전시 상품까지 주문 당시 결제 기준으로 조회합니다.</p>
       </div>
-      <div className="ops-heading-actions"><Link href="/admin/products?f=all" className="ops-text-button">상품 관리</Link></div>
+      <div className="ops-heading-actions"><Link href="/admin/products?f=all" className="ops-text-button">상품 관리</Link>{!error&&<a className="ops-button ops-button-primary" href={"/api/admin/product-sales/export?"+new URLSearchParams({from,to}).toString()}>전체 상품 엑셀 다운로드</a>}</div>
     </header>
     <section className="ops-list-panel" aria-label="상품별 판매실적 검색">
       <form action="/admin/product-sales" className="ops-product-filters">
