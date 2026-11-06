@@ -51,7 +51,7 @@ jobs:
                'COALESCE(SUM(r.amount),0)::bigint refunds,COALESCE(SUM(o.shipping_fee),0)::bigint shipping,'+
                'COUNT(*) FILTER(WHERE o.shipping_fee>0)::int shipping_payments,'+
                'COUNT(*) FILTER(WHERE '+review+')::int review '+sqlBase;
-              const monthSql="SELECT to_char(o.paid_at AT TIME ZONE 'Asia/Seoul','YYYY-MM') month,"+
+              const monthSql="SELECT to_char(o.paid_at AT TIME ZONE 'Asia/Seoul' ,'YYYY-MM') AS "month","+
                'COUNT(*)::int orders,COALESCE(SUM(o.total_amount),0)::bigint gross,'+
                'COALESCE(SUM(r.amount),0)::bigint refunds,COALESCE(SUM(o.shipping_fee),0)::bigint shipping,'+
                'COUNT(*) FILTER(WHERE o.shipping_fee>0)::int shipping_payments,'+
@@ -89,7 +89,7 @@ jobs:
               for(let i=0;i<b64.length;i+=2048)console.log('SANJI_B64:'+b64.slice(i,i+2048));
              }finally{c.release();await pool.end();}
             }
-            main().catch(e=>{console.error('READ_ONLY_EXPORT_FAILED',String(e?.name||'Unknown'),String(e?.code||'NO_CODE'),String(e?.message||'').slice(0,220).replace(/[\\r\\n]/g,' '));process.exitCode=1});
+            main().catch(e=>{console.error('READ_ONLY_EXPORT_FAILED',String(e?.name||'Unknown'),String(e?.code||'NO_CODE'),String(e?.message||'').slice(0,220));process.exitCode=1});
             NODE
       - name: Decode only encrypted bytes into temporary file
         shell: bash
