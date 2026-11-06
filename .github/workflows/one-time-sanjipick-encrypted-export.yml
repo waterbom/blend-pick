@@ -89,7 +89,7 @@ jobs:
               for(let i=0;i<b64.length;i+=2048)console.log('SANJI_B64:'+b64.slice(i,i+2048));
              }finally{c.release();await pool.end();}
             }
-            main().catch(()=>{console.error('READ_ONLY_EXPORT_FAILED');process.exitCode=1});
+            main().catch(e=>{console.error('READ_ONLY_EXPORT_FAILED',String(e?.name||'Unknown'),String(e?.code||'NO_CODE'),String(e?.message||'').slice(0,220).replace(/[\\r\\n]/g,' '));process.exitCode=1});
             NODE
       - name: Decode only encrypted bytes into temporary file
         shell: bash
