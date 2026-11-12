@@ -72,6 +72,8 @@ export default async function ProductFinancialReport({ params, searchParams }: {
           ['순 결제액', report.net == null ? '확인 필요' : money(report.net)],
           ['유료배송 결제', report.shippingPayments.toLocaleString() + '건'],
           ['배분 배송비', money(report.shipping)],
+          ['주문 당시 상품 원가', report.supplyCost == null ? '확인 필요' : money(report.supplyCost)],
+          ['예상 상품마진 (환불 전)', report.grossMargin == null ? '공급가 확인 필요' : money(report.grossMargin)],
         ].map(([label, value]) => <div className="border border-gray-200 bg-white p-4" key={label}><p className="text-sm text-gray-500">{label}</p><p className="text-lg font-semibold mt-1 ds-mono">{value}</p></div>)}
       </section>
       <section className="ops-sales-summary"><strong>결제 당시 유입 경로</strong><span>전시 <b>{report.displayOrders}건</b></span><span>비전시 <b>{report.nonDisplayOrders}건</b></span><span>여러 상품 혼합 주문 <b>{report.allocatedOrders}건</b></span>{report.review > 0 && <span className="ops-warning">금액 확인 필요 {report.review}건</span>}</section>
@@ -82,11 +84,11 @@ export default async function ProductFinancialReport({ params, searchParams }: {
           <td><Link className="font-semibold text-[#2D5A27] underline" href={'/admin/orders/' + o.id}>{o.orderNumber}</Link><span className="ops-meta">{date(o.paidAt)}</span></td>
           <td>{o.channel === 'non_display' ? '비전시' : '전시'}<span className="ops-meta">{o.status}</span></td>
           <td>{o.units.toLocaleString()}개</td><td>{money(o.gross)}</td><td>{money(o.refunds)}</td>
-          <td>{o.shippingPaid ? '결제 1건 · ' + money(o.shipping) : '무료'}</td>
+          <td>{o.shippingPaid ? '결제 1건 · ' + money(o.shipping) : '무료'}<span className="ops-meta">예상 마진 {o.grossMargin==null?'원가 확인 필요':money(o.grossMargin)}</span>{o.marginReview&&<span className="ops-warning ops-meta">환불·취소 주의</span>}</td>
           <td>{o.review ? <span className="ops-warning">대조 필요</span> : o.estimated ? '금액 배분' : '직접 집계'}</td>
         </tr>)}</tbody></table></div>}
       </section>
-      <p className="text-xs text-gray-500">결제 금액에는 배송비가 포함됩니다. 배송비 결제 건수는 해당 상품이 담긴 유료배송 주문 수이므로 다른 상품의 건수와 합산하면 중복될 수 있습니다. 환불 처리 중·기록 불일치 주문은 순 결제액을 확정하지 않습니다. 환불 시점이 아니라 결제일 기준으로 조회합니다.</p>
+      <p className="text-xs text-gray-500">결제 금액에는 배송비가 포함됩니다. 배송비 결제 건수는 해당 상품이 담긴 유료배송 주문 수이므로 다른 상품의 건수와 합산하면 중복될 수 있습니다. 환불 처리 중·기록 불일치 주문은 순 결제액을 확정하지 않습니다. 예상 상품마진은 주문 당시 공급가를 사용한 환불 전 상품 차익으로 배송비·PG·세금·광고·수수료 등을 포함한 확정 순이익이 아닙니다. 환불 시점이 아니라 결제일 기준으로 조회합니다.</p>
     </>}
   </div>;
 }

@@ -13,6 +13,7 @@ import { SITES } from "@/lib/sites";
 import { sanjiSecretLinkUrl } from "@/lib/secret-link";
 import { shrinkImage, uploadErrorMessage } from "@/lib/client-image";
 import ImageExposurePreview from "@/components/admin/ImageExposurePreview";
+import { calculateUnitMargin, unitMarginLabel } from "@/lib/option-margin";
 
 interface Category { id: string; name: string; }
 // active: 판매상태(판매중/판매중지), sel: 일괄편집용 체크 상태(저장에는 미포함)
@@ -174,7 +175,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           discount_rate: discountRate,
           price,
           instant_discount_price: data.instant_discount_price ? String(data.instant_discount_price) : "",
-          supply_price: data.supply_price ? String(data.supply_price) : "",
+          supply_price: data.supply_price != null ? String(data.supply_price) : "",
           influencer_rate: data.influencer_rate != null ? String(data.influencer_rate) : "",
           sale_start_at: utcToKSTLocal(data.sale_start_at),
           sale_end_at: utcToKSTLocal(data.sale_end_at),
@@ -955,6 +956,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                           : "→ 전시가와 같음"}
                     </p>
                   )}
+                  {options.length === 0 && form.link_price !== "" && <p role="status" className="text-xs mt-1 font-semibold text-[#2D5A27]">비전시 단가 차익: {unitMarginLabel(calculateUnitMargin(form.link_price,form.supply_price))}</p>}
                   <p className="text-xs text-gray-400 mt-1">옵션 상품은 상단 링크가격 대신 아래 '옵션별 판매가격'을 사용합니다. 가격을 비운 옵션은 비전시 판매에서 제외됩니다.</p>
                 </div>
               </Grid2>
@@ -965,9 +967,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
               )}
               {options.length > 0 && <div className="space-y-2">
                 <p className="text-sm font-semibold">옵션별 판매가격</p>
-                {options.filter(o=>o.name).map((o)=> <div key={o.name} className="grid grid-cols-3 items-center gap-3 text-sm">
+                {options.filter(o=>o.name).map((o)=> <div key={o.rowKey ?? o.id ?? o.name} className="grid grid-cols-1 sm:grid-cols-[minmax(130px,1fr)_130px_140px_minmax(220px,1fr)] items-center gap-3 text-sm">
                   <span>{o.name}</span><span>전시 {Number(o.price).toLocaleString()}원</span>
                   <input aria-label={`${o.name} 비전시 가격`} type="number" min="0" step="1" placeholder="비전시 제외" value={o.linkPrice ?? ""} onChange={e=>setOptions(prev=>prev.map(v=>v===o?{...v,linkPrice:e.target.value}:v))} className={inp}/>
+                  <span className="text-xs text-[#2D5A27]" role="status">{o.linkPrice != null && o.linkPrice !== "" ? unitMarginLabel(calculateUnitMargin(o.linkPrice,o.supply !== "" ? o.supply : form.supply_price)) : '비전시 제외'}</span>
                 </div>)}
               </div>}
               <div>
@@ -1043,6 +1046,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 type="number" min="0" className={inp} placeholder="손익관리용 — 고객에게 노출 안 됨"
                 required={!options.some(o => o.name && o.active !== false)} />
               <p className="text-xs text-gray-400 mt-1">손익 집계에 꼭 필요해요. 옵션별 공급가가 다르면 아래 옵션 행마다 개별 입력 (옵션값 우선 적용)</p>
+              {options.length === 0 && <p className="text-xs font-semibold mt-1 text-[#2D5A27]" role="status">{unitMarginLabel(calculateUnitMargin(form.price,form.supply_price))}</p>}
             </div>
             <div>
               <label className={lbl}>인플루언서 수수료율 (%)</label>
@@ -1126,14 +1130,14 @@ export default function ProductFormClient({ mode, productId }: Props) {
                 </div>
               )}
               <div className="space-y-2 overflow-x-auto">
-                <p className="text-xs text-gray-500">왼쪽 손잡이를 드래그하거나 화살표로 순서를 바꿀 수 있어요. 변경 후 마지막 단계에서 저장해주세요.</p>
-                <div className="grid grid-cols-[84px_24px_minmax(140px,1fr)_90px_90px_70px_92px_28px] gap-2 text-xs text-gray-400 items-center">
+                <p className="text-xs text-gray-500">왼쪽 손잡이를 드래그하거나 화살표로 순서를 바꿀 수 있어요. 변경 후 마지막 단계에서 저장해주세요. 표시 마진은 판매가−공급가인 개당 예상 차익으로, 배송비·할인·부가세·PG·광고비·수수료는 제외합니다.</p>
+                <div className="grid grid-cols-[84px_24px_minmax(140px,1fr)_100px_100px_145px_115px_70px_92px_28px] gap-2 text-xs text-gray-400 items-center">
                   <span>순서</span><input type="checkbox" checked={allSelected} onChange={toggleSelAll}
                     className="w-4 h-4 accent-[#2D5A27] cursor-pointer" title="전체 선택/해제" />
-                  <span>옵션명</span><span>옵션 가격</span><span>공급가</span><span>재고</span><span>판매상태</span><span />
+                  <span>옵션명</span><span>옵션 가격</span><span>공급가</span><span>개당 마진금액</span><span>공급가 대비 (%)</span><span>재고</span><span>판매상태</span><span />
                 </div>
                 {options.map((opt, i) => (
-                  <OptionOrderRow key={opt.rowKey ?? opt.id ?? i} index={i} count={options.length} label={opt.name || `옵션 ${i + 1}`} drag={optionDrag} onMove={moveOption} className="grid grid-cols-[84px_24px_minmax(140px,1fr)_90px_90px_70px_92px_28px] gap-2 items-center">
+                  <OptionOrderRow key={opt.rowKey ?? opt.id ?? i} index={i} count={options.length} label={opt.name || `옵션 ${i + 1}`} drag={optionDrag} onMove={moveOption} className="grid grid-cols-[84px_24px_minmax(140px,1fr)_100px_100px_145px_115px_70px_92px_28px] gap-2 items-center">
                     <input type="checkbox" checked={opt.sel} onChange={() => toggleSel(i)}
                       className="w-4 h-4 accent-[#2D5A27] cursor-pointer" />
                     <input value={opt.name} onChange={e => setOption(i, "name", e.target.value)}
@@ -1142,6 +1146,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                       type="number" min="0" className={inp} placeholder="판매가" />
                     <input value={opt.supply} onChange={e => setOption(i, "supply", e.target.value)}
                       type="number" min="0" className={inp} placeholder={form.supply_price ? "공급가 (비우면 상품 공급가)" : "공급가 *"} />
+                    <MarginCells price={opt.price} supply={opt.supply !== "" ? opt.supply : form.supply_price} />
                     <input value={opt.stock} onChange={e => setOption(i, "stock", e.target.value)}
                       type="number" min="0" className={inp} placeholder="0" />
                     <button type="button" onClick={() => setOptionActive(i, !opt.active)}
@@ -1189,17 +1194,18 @@ export default function ProductFormClient({ mode, productId }: Props) {
           ) : (
             <>
               <div className="space-y-2 overflow-x-auto">
-                <p className="text-xs text-gray-500">왼쪽 손잡이를 드래그하거나 화살표로 순서를 바꿀 수 있어요. 변경 후 마지막 단계에서 저장해주세요.</p>
-                <div className="grid grid-cols-[84px_minmax(140px,1fr)_100px_100px_92px_28px] gap-2 text-xs text-gray-400">
-                  <span>순서</span><span>추가옵션명</span><span>추가금액(원)</span><span>공급가(원)</span><span>판매상태</span><span />
+                <p className="text-xs text-gray-500">왼쪽 손잡이를 드래그하거나 화살표로 순서를 바꿀 수 있어요. 변경 후 마지막 단계에서 저장해주세요. 표시 마진은 판매가−공급가인 개당 예상 차익으로, 배송비·할인·부가세·PG·광고비·수수료는 제외합니다.</p>
+                <div className="grid grid-cols-[84px_minmax(140px,1fr)_100px_100px_145px_115px_92px_28px] gap-2 text-xs text-gray-400">
+                  <span>순서</span><span>추가옵션명</span><span>추가금액(원)</span><span>공급가(원)</span><span>개당 마진금액</span><span>공급가 대비 (%)</span><span>판매상태</span><span />
                 </div>
                 {addons.map((ad, i) => (
-                  <OptionOrderRow key={ad.rowKey ?? i} index={i} count={addons.length} label={ad.name || `추가옵션 ${i + 1}`} drag={addonDrag} onMove={moveAddon} className="grid grid-cols-[84px_minmax(140px,1fr)_100px_100px_92px_28px] gap-2 items-center">
+                  <OptionOrderRow key={ad.rowKey ?? i} index={i} count={addons.length} label={ad.name || `추가옵션 ${i + 1}`} drag={addonDrag} onMove={moveAddon} className="grid grid-cols-[84px_minmax(140px,1fr)_100px_100px_145px_115px_92px_28px] gap-2 items-center">
                     <input value={ad.name} onChange={e => setAddon(i, "name", e.target.value)}
                       className={inp} placeholder="예: 아이스팩 추가" />
                     <input value={ad.price} onChange={e => setAddon(i, "price", e.target.value)}
                       type="number" min="0" className={inp} placeholder="1000" />
                     <input aria-label={`${ad.name} 공급가`} value={ad.supply} onChange={e=>setAddon(i,"supply",e.target.value)} type="number" min="0" className={inp} placeholder="공급가 필수" />
+                    <MarginCells price={ad.price} supply={ad.supply} />
                     <button type="button" onClick={() => setAddonActive(i, !ad.active)}
                       className={`text-xs font-bold px-2 py-1.5 rounded-none border transition-colors ${
                         ad.active
@@ -1557,6 +1563,21 @@ function moveRow<T>(rows: T[], from: number, to: number): T[] {
   const next = [...rows];
   next.splice(to, 0, next.splice(from, 1)[0]);
   return next;
+}
+
+/** Admin-only preview. Money and percentage are derived from the saved price/supply pair.
+ * Checkout already snapshots these two values at purchase time. */
+function MarginCells({price,supply}: {price:string;supply:string}) {
+  const margin=calculateUnitMargin(price,supply);
+  const amount=margin ? (margin.amount > 0 ? '+' : '')+margin.amount.toLocaleString('ko-KR')+'원' : '—';
+  const markup=margin?.supplyMarkupPercent==null ? '—' :
+    (margin.supplyMarkupPercent > 0 ? '+' : '')+margin.supplyMarkupPercent.toFixed(1)+'%';
+  return <>
+    <span aria-label="개당 마진금액" className={`text-xs font-semibold ${margin&&margin.amount<0?'text-red-700':'text-[#2D5A27]'}`}>
+      {amount}
+    </span>
+    <span aria-label="공급가 대비 마진율" className="text-xs text-gray-600">{markup}</span>
+  </>;
 }
 
 function OptionOrderRow({ index, count, label, drag, onMove, className, children }: {

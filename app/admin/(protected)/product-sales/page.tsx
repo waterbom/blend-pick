@@ -158,7 +158,7 @@ export default async function SanjipickProductSalesPage({ searchParams }: {
         {!rows.length ? <p className="ops-empty">조회 조건에 맞는 상품이 없습니다.</p>
         : <div className="ops-table-scroll"><table className="ops-table ops-products-table">
           <thead><tr><th>상품 · 코드</th><th>판매 기간 · 상태</th><th>주문 · 실판매</th><th>결제 당시 경로</th>
-            <th>총 결제액</th><th>확인된 환불액</th><th>순 결제액</th><th>유료배송 건수 · 금액</th><th>상세</th></tr></thead>
+            <th>총 결제액</th><th>확인된 환불액</th><th>순 결제액</th><th>주문 당시 공급가</th><th>환불 전 예상 마진 (원·%)</th><th>유료배송 건수 · 금액</th><th>상세</th></tr></thead>
           <tbody>{rows.map(p => {
             const counts = sales.get(p.id) || { ...emptySalesCounts(), options: [] };
             const m = financials.get(p.id) || emptyProductMoney();
@@ -177,6 +177,11 @@ export default async function SanjipickProductSalesPage({ searchParams }: {
               <td><strong>{won(m.gross)}</strong></td>
               <td>{won(m.refunds)}</td>
               <td>{m.net === null ? <span className="ops-warning">대조 필요</span> : <strong>{won(m.net)}</strong>}</td>
+              <td>{m.supplyCost == null ? <span className="ops-warning">원가 확인 필요</span> : won(m.supplyCost)}</td>
+              <td>{m.grossMargin == null ? <span className="ops-warning">원가 확인 필요</span> : <strong>{won(m.grossMargin)}</strong>}
+                <span className="ops-meta">{m.grossMargin == null || !m.supplyCost ? '비율 확인 불가' : (m.grossMargin / m.supplyCost * 100).toFixed(1)+'% · 공급가 대비'}</span>
+                {m.marginReviewOrders > 0 && <span className="ops-warning ops-meta">환불·취소 {m.marginReviewOrders}건 포함</span>}
+              </td>
               <td>{fmt(m.shippingPayments, '건')}<span className="ops-meta">{won(m.shipping)}</span></td>
               <td><Link href={detail} className="ops-text-button">주문 상세</Link></td>
             </tr>;
@@ -185,7 +190,7 @@ export default async function SanjipickProductSalesPage({ searchParams }: {
       </section>
       <p className="text-xs text-gray-500">
         주문일이 아닌 결제일 기준이며 환불액은 현재까지 확정된 내역입니다. 상품별 주문·유료배송 건수는 한 주문에 여러 상품이 포함되면 중복될 수 있어 상품 간 단순 합계가 실제 주문 건수와 다를 수 있습니다.
-        상품별 결제액·배송비는 주문 내 상품 비중으로 배분합니다. 환불이 미확정인 경우 순 결제액을 확정 표시하지 않습니다.
+        상품별 결제액·배송비는 주문 내 상품 비중으로 배분합니다. 예상 마진은 결제 당시 상품 판매액에서 공급가만 뺀 환불 전 차익으로, 부가세·PG수수료·배송비·광고비·인플루언서 수수료를 제외한 최종 순이익이 아닙니다. 취소·환불 건이 있으면 확정 마진으로 취급하지 않습니다. 환불이 미확정인 경우 순 결제액을 확정 표시하지 않습니다.
       </p>
     </>}
   </div>;

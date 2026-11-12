@@ -134,7 +134,9 @@ async function handleGET(request: Request) {
         orders: m?.orders ?? q.orders,
         paidUnits: q.paid, cancelledUnits: q.cancelled, returnedUnits: q.returned,
         soldUnits: q.sold, gross: m?.gross ?? 0, refunds: m?.refunds ?? 0,
-        net: m?.net ?? null, shippingPayments: m?.shippingPayments ?? 0,
+        net: m?.net ?? null, supplierCost: m?.supplyCost ?? null, expectedMargin: m?.grossMargin ?? null,
+        supplierMarkup: m?.supplyCost && m.grossMargin != null ? Number((m.grossMargin / m.supplyCost * 100).toFixed(1)) : null,
+        marginReview: m?.marginReviewOrders || 0, shippingPayments: m?.shippingPayments ?? 0,
         shipping: m?.shipping ?? 0, displayOrders: m?.displayOrders ?? 0,
         hiddenOrders: m?.nonDisplayOrders ?? 0,
         check: m?.review || q.review ? '대조 필요' : '정상',
@@ -149,7 +151,9 @@ async function handleGET(request: Request) {
         status: row.status, units: row.units, gross: row.gross,
         refunds: row.refunds, net: row.review ? null : row.gross - row.refunds,
         shippingPaid: row.shippingPaid ? '유료' : '무료',
-        shipping: row.shipping, check: row.review ? '금액 대조 필요' : row.estimated ? '주문 내 금액 배분' : '직접 집계',
+        shipping: row.shipping, supplierCost: row.supplyCost, expectedMargin: row.grossMargin,
+        marginReview: row.marginReview ? '환불·취소 주의' : '단순 예상 마진',
+        check: row.review ? '금액 대조 필요' : row.estimated ? '주문 내 금액 배분' : '직접 집계',
       }))
     ).sort((a,b)=>a.date.localeCompare(b.date) || a.orderNumber.localeCompare(b.orderNumber));
 
@@ -158,7 +162,10 @@ async function handleGET(request: Request) {
         code: metadata.get(id)?.product_code || '', name: label(id),
         option: option.label, orders: option.orders,
         paid: option.paid, cancelled: option.cancelled, returned: option.returned,
-        sold: option.sold, check: option.review ? '수량 대조 필요' : '정상',
+        sold: option.sold, supplierCost: option.supplyCost, expectedMargin: option.grossMargin,
+        supplierMarkup: option.grossMargin==null || !option.supplyCost ? null : Number((option.grossMargin / option.supplyCost * 100).toFixed(1)),
+        marginReview: option.marginReview ? '환불·취소 주의 '+option.marginReview+'건' : '환불 전 명목마진',
+        check: option.review ? '수량 대조 필요' : '정상',
       }))
     ).sort((a,b)=>a.name.localeCompare(b.name, 'ko') || b.sold-a.sold);
 
@@ -199,6 +206,10 @@ async function handleGET(request: Request) {
       {key:'gross',header:'총 결제액(원)',width:18,money:true},
       {key:'refunds',header:'환불액(원)',width:18,money:true},
       {key:'net',header:'순 결제액(원)',width:18,money:true},
+      {key:'supplierCost',header:'주문 당시 상품 공급가(원)',width:25,money:true},
+      {key:'expectedMargin',header:'환불 전 예상 마진금액(원)',width:25,money:true},
+      {key:'supplierMarkup',header:'공급가 대비 마진율(%)',width:20},
+      {key:'marginReview',header:'마진 대조 대상 주문 수',width:22},
       {key:'shippingPayments',header:'유료배송 주문 건수',width:18},
       {key:'shipping',header:'배송비(원)',width:16,money:true},
       {key:'displayOrders',header:'전시 주문',width:12},
@@ -214,6 +225,9 @@ async function handleGET(request: Request) {
       {key:'net',header:'배분 순 결제액(원)',width:20,money:true},
       {key:'shippingPaid',header:'유료배송 여부',width:16},
       {key:'shipping',header:'배분 배송비(원)',width:19,money:true},
+      {key:'supplierCost',header:'상품 공급가 합계(원)',width:23,money:true},
+      {key:'expectedMargin',header:'환불 전 예상 마진(원)',width:23,money:true},
+      {key:'marginReview',header:'마진 확인',width:19},
       {key:'check',header:'정산 확인',width:22},
     ],orderRows);
     writeSheet(book,'옵션별 수량',[
@@ -221,6 +235,10 @@ async function handleGET(request: Request) {
       {key:'option',header:'옵션 구성',width:40},{key:'orders',header:'주문 건수',width:14},
       {key:'paid',header:'결제 수량',width:14},{key:'cancelled',header:'취소 수량',width:14},
       {key:'returned',header:'반품 수량',width:14},{key:'sold',header:'실판매 수량',width:16},
+      {key:'supplierCost',header:'원가 합계(원)',width:20,money:true},
+      {key:'expectedMargin',header:'환불 전 예상 마진금액(원)',width:25,money:true},
+      {key:'supplierMarkup',header:'공급가 대비 마진율(%)',width:20},
+      {key:'marginReview',header:'마진 주의',width:23},
       {key:'check',header:'검토 상태',width:18},
     ],optionRows);
     const notes = book.addWorksheet('집계 기준');
@@ -233,6 +251,8 @@ async function handleGET(request: Request) {
       ['총 결제액','주문 총 결제액(배송비 포함). 상품별 금액은 주문 구성 비중으로 배분'],
       ['환불액','조회 시점까지 확정된 환불액. 해당 결제일 주문에 귀속'],
       ['배송비','원주문에서는 1회 집계. 상품별 배송비/배송 건수는 여러 상품 주문에서 각각 배분·표시 가능'],
+      ['예상 마진','결제 당시 상품별 판매액(배송비 제외) - 주문 당시 저장된 공급가×수량. 환불 전 단순 상품 차익으로 광고·PG·수수료·세금·배송원가 미반영'],
+      ['마진 검토','취소·반품·환불 주문은 원가 회수 여부가 확인되지 않아 확정 이익으로 취급하지 않음'],
       ['순 결제액','환불이 미확정이거나 불일치 시 숫자 대신 대조 필요'],
       ['옵션 수량','옵션별 수량은 주문 당시 선택 구성을 기준으로 하며 금액 배분과 분리'],
       ['개인정보','고객 이름·전화번호·주소·결제키는 포함하지 않음'],

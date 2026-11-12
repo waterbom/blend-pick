@@ -16,16 +16,19 @@ export default function ProductSalesCell({ sales }: { sales: ProductSales | null
             <p className="mb-2 text-gray-600">취소 완료 {n(sales.cancelled)}개 · 반품 완료 {n(sales.returned)}개</p>
             <table className="w-full min-w-64 text-left">
               <caption className="sr-only">옵션별 판매 수량</caption>
-              <thead><tr className="text-gray-500"><th className="py-1 pr-2">옵션</th><th className="py-1 pr-2">결제</th><th className="py-1 pr-2">취소/반품</th><th className="py-1">판매</th></tr></thead>
+              <thead><tr className="text-gray-500"><th className="py-1 pr-2">옵션</th><th className="py-1 pr-2">결제</th><th className="py-1 pr-2">취소/반품</th><th className="py-1">판매</th><th className="py-1 pr-2">환불 전 예상마진</th><th className="py-1">공급가 대비 (%)</th></tr></thead>
               <tbody>{sales.options.map(option => (
                 <tr key={option.key} className="border-t border-gray-200">
                   <td className="py-2 pr-2 whitespace-normal">{option.label}</td>
                   <td className="py-2 pr-2 ds-mono">{n(option.paid)}</td>
                   <td className="py-2 pr-2 ds-mono">{n(option.cancelled + option.returned)}</td>
                   <td className="py-2 font-semibold ds-mono">{n(option.sold)}{option.review > 0 ? " (잠정)" : ""}</td>
+                  <td className="py-2 pr-2 ds-mono">{option.grossMargin == null ? '원가 확인 필요' : n(option.grossMargin)+'원'}{option.marginReview > 0 ? ' (환불·취소 주의)' : ''}</td>
+                  <td className="py-2 ds-mono">{option.grossMargin == null || !option.supplyCost ? '—' : (option.grossMargin / option.supplyCost * 100).toFixed(1)+'%'}</td>
                 </tr>
               ))}</tbody>
             </table>
+            <p className="mt-2 text-xs text-gray-500">환불 전 예상 차익 = 주문 당시 옵션 판매가 − 공급가. PG·부가세·배송비·광고비·수수료 제외, 확정 순이익 아님.</p>
           </div>
         </details>
       )}
