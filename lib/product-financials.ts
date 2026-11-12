@@ -4,7 +4,7 @@ import type { SiteKey } from '@/lib/sites';
 
 type MoneyLine = {
   id: string; product_id: string | null; product_ref: string | null;
-  product_name: string; quantity: number; unit_price: number | null;
+  product_name: string; quantity: number; unit_price: number | null; supply_price?: number | null;
 };
 type MoneyRefund = { source_key: string; amount: number };
 type MoneyReturn = { id: string; kind: string; status: string; items: unknown };
@@ -12,12 +12,15 @@ export type ProductMoneyOrder = {
   id: string; orderNumber: string; paidAt: string; status: string; channel: string;
   units: number; gross: number; refunds: number; shipping: number; shippingPaid: boolean;
   estimated: boolean; review: boolean;
+  /** Merchandise margin on paid quantities, before refunds, tax, payment fees, shipping and commission. */
+  supplyCost: number | null; grossMargin: number | null; marginReview: boolean;
 };
 export type ProductMoney = {
   gross: number; refunds: number; net: number | null; shipping: number;
   shippingPayments: number; orders: number; units: number;
   displayOrders: number; nonDisplayOrders: number; review: number; allocatedOrders: number;
   estimatedOrders: number; orderRows: ProductMoneyOrder[];
+  supplyCost: number | null; grossMargin: number | null; marginReviewOrders: number;
 };
 export type MoneySnapshot = {
   id: string; order_number?: string | null; paid_at: string; status: string;
@@ -29,6 +32,7 @@ export const emptyProductMoney = (): ProductMoney => ({
   gross: 0, refunds: 0, net: 0, shipping: 0, shippingPayments: 0, orders: 0,
   units: 0, displayOrders: 0, nonDisplayOrders: 0, review: 0,
   allocatedOrders: 0, estimatedOrders: 0, orderRows: [],
+  supplyCost: 0, grossMargin: 0, marginReviewOrders: 0,
 });
 const productKey = (line: MoneyLine) => line.product_ref || line.product_id;
 const isAddon = (line: MoneyLine) => !line.product_id && /^\[(추가|설치비)\]/.test(line.product_name || '');
@@ -106,12 +110,19 @@ export function summarizeProductFinancials(orders: MoneySnapshot[], detailed = f
       let row = result.get(id);
       if (!row) { row = emptyProductMoney(); result.set(id, row); }
       let gross = 0, refund = 0, delivery = 0, units = 0;
+      let merchandise = 0, supplierCost = 0, missingCost = false;
       lines.forEach((line, i) => {
         if (keys[i] !== id) return;
         gross += paidByLine[i];
         refund += refundsByLine[i];
         delivery += shippingByLine[i];
-        if (!isAddon(line) && integer(line.quantity)) units += Number(line.quantity);
+        if (!isAddon(line) && integer(line.quantity)) {
+          units += Number(line.quantity);
+          merchandise += goodsByLine[i];
+          // Historical orders use the supplier cost saved at payment time; never today's catalog price.
+          if (line.supply_price == null || !integer(line.supply_price) || !integer(line.unit_price)) missingCost = true;
+          else supplierCost += Number(line.supply_price) * Number(line.quantity);
+        } else if (!isAddon(line)) missingCost = true;
       });
       const review = invalid || refund > gross;
       row.gross += gross;
@@ -119,6 +130,15 @@ export function summarizeProductFinancials(orders: MoneySnapshot[], detailed = f
       row.shipping += delivery;
       row.orders++;
       row.units += units;
+      const marginReview = refundTotal > 0 || invalid || ['cancelled','cancel_requested','return_requested','return_completed'].includes(order.status);
+      if (marginReview) row.marginReviewOrders++;
+      if (missingCost || row.supplyCost === null || row.grossMargin === null) {
+        row.supplyCost = null;
+        row.grossMargin = null;
+      } else {
+        row.supplyCost += supplierCost;
+        row.grossMargin += merchandise - supplierCost;
+      }
       if (shipping > 0) row.shippingPayments++;
       if (channel === 'non_display') row.nonDisplayOrders++;
       else row.displayOrders++;
@@ -130,6 +150,7 @@ export function summarizeProductFinancials(orders: MoneySnapshot[], detailed = f
         id: order.id, orderNumber: order.order_number || order.id.slice(0, 8),
         paidAt: order.paid_at, status: order.status, channel, units, gross, refunds: refund,
         shipping: delivery, shippingPaid: shipping > 0, estimated, review,
+        supplyCost: missingCost ? null : supplierCost, grossMargin: missingCost ? null : merchandise - supplierCost, marginReview,
       });
     }
   }
@@ -163,7 +184,7 @@ export async function getProductFinancials(
     "COALESCE(t.return_rows,'[]'::jsonb) AS return_rows",
     'FROM orders o',
     "LEFT JOIN LATERAL (SELECT jsonb_agg(jsonb_build_object('id',oi.id,'product_id',oi.product_id,'product_ref',oi.product_ref,",
-    "'product_name',oi.product_name,'quantity',oi.quantity,'unit_price',oi.unit_price) ORDER BY oi.id) AS items",
+    "'product_name',oi.product_name,'quantity',oi.quantity,'unit_price',oi.unit_price,'supply_price',oi.supply_price) ORDER BY oi.id) AS items",
     'FROM order_items oi WHERE oi.order_id=o.id) i ON true',
     "LEFT JOIN LATERAL (SELECT jsonb_agg(jsonb_build_object('source_key',ra.source_key,'amount',ra.amount) ORDER BY ra.source_key) AS refund_rows",
     'FROM order_refund_amounts ra WHERE ra.order_id=o.id) r ON true',
