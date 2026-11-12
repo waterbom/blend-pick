@@ -175,7 +175,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
           discount_rate: discountRate,
           price,
           instant_discount_price: data.instant_discount_price ? String(data.instant_discount_price) : "",
-          supply_price: data.supply_price ? String(data.supply_price) : "",
+          supply_price: data.supply_price != null ? String(data.supply_price) : "",
           influencer_rate: data.influencer_rate != null ? String(data.influencer_rate) : "",
           sale_start_at: utcToKSTLocal(data.sale_start_at),
           sale_end_at: utcToKSTLocal(data.sale_end_at),
