@@ -162,7 +162,10 @@ async function handleGET(request: Request) {
         code: metadata.get(id)?.product_code || '', name: label(id),
         option: option.label, orders: option.orders,
         paid: option.paid, cancelled: option.cancelled, returned: option.returned,
-        sold: option.sold, check: option.review ? '수량 대조 필요' : '정상',
+        sold: option.sold, supplierCost: option.supplyCost, expectedMargin: option.grossMargin,
+        supplierMarkup: option.grossMargin==null || !option.supplyCost ? null : Number((option.grossMargin / option.supplyCost * 100).toFixed(1)),
+        marginReview: option.marginReview ? '환불·취소 주의 '+option.marginReview+'건' : '환불 전 명목마진',
+        check: option.review ? '수량 대조 필요' : '정상',
       }))
     ).sort((a,b)=>a.name.localeCompare(b.name, 'ko') || b.sold-a.sold);
 
@@ -232,6 +235,10 @@ async function handleGET(request: Request) {
       {key:'option',header:'옵션 구성',width:40},{key:'orders',header:'주문 건수',width:14},
       {key:'paid',header:'결제 수량',width:14},{key:'cancelled',header:'취소 수량',width:14},
       {key:'returned',header:'반품 수량',width:14},{key:'sold',header:'실판매 수량',width:16},
+      {key:'supplierCost',header:'원가 합계(원)',width:20,money:true},
+      {key:'expectedMargin',header:'환불 전 예상 마진금액(원)',width:25,money:true},
+      {key:'supplierMarkup',header:'공급가 대비 마진율(%)',width:20},
+      {key:'marginReview',header:'마진 주의',width:23},
       {key:'check',header:'검토 상태',width:18},
     ],optionRows);
     const notes = book.addWorksheet('집계 기준');
