@@ -76,3 +76,20 @@ test('both storefronts show won and supplier percentage without applying a marku
   assert.match(form,/unitMarginLabel\(calculateUnitMargin\(o.linkPrice/);
   assert.match(fs.readFileSync('lib/order-amount.ts','utf8'),/supplyPrice: opt\?\.supply_price \?\? prod\.supply_price/);
 });
+
+test('option margin records the order-time price/cost independently from current catalog',()=>{
+  const {summarizeProductSales}=load('lib/product-sales.ts',{'@/lib/db-shop':blocked});
+  const item={id:'line1',product_id:'p1',product_ref:'p1',product_name:'사과',option_id:'option1',
+    option_label:'3kg',quantity:2,unit_price:30000,supply_price:20000};
+  const saleOrder={id:'o1',status:'paid',refund_amount_unresolved:false,pending_refunds:false,unmapped_refunds:false,
+    items:[item],returns:[]};
+  const product=summarizeProductSales([saleOrder]).get('p1');
+  assert.equal(product.options[0].supplyCost,40000);
+  assert.equal(product.options[0].grossMargin,20000);
+  assert.equal(product.options[0].marginReview,0);
+  const cancelled=summarizeProductSales([{...saleOrder,status:'cancelled'}]).get('p1');
+  assert.equal(cancelled.options[0].grossMargin,20000);
+  assert.equal(cancelled.options[0].marginReview,1);
+  const missing=summarizeProductSales([{...saleOrder,items:[{...item,supply_price:null}]}]).get('p1');
+  assert.equal(missing.options[0].grossMargin,null);
+});
