@@ -956,6 +956,7 @@ export default function ProductFormClient({ mode, productId }: Props) {
                           : "→ 전시가와 같음"}
                     </p>
                   )}
+                  {options.length === 0 && form.link_price !== "" && <p role="status" className="text-xs mt-1 font-semibold text-[#2D5A27]">비전시 단가 차익: {unitMarginLabel(calculateUnitMargin(form.link_price,form.supply_price))}</p>}
                   <p className="text-xs text-gray-400 mt-1">옵션 상품은 상단 링크가격 대신 아래 '옵션별 판매가격'을 사용합니다. 가격을 비운 옵션은 비전시 판매에서 제외됩니다.</p>
                 </div>
               </Grid2>
@@ -966,9 +967,10 @@ export default function ProductFormClient({ mode, productId }: Props) {
               )}
               {options.length > 0 && <div className="space-y-2">
                 <p className="text-sm font-semibold">옵션별 판매가격</p>
-                {options.filter(o=>o.name).map((o)=> <div key={o.name} className="grid grid-cols-3 items-center gap-3 text-sm">
+                {options.filter(o=>o.name).map((o)=> <div key={o.rowKey ?? o.id ?? o.name} className="grid grid-cols-1 sm:grid-cols-[minmax(130px,1fr)_130px_140px_minmax(220px,1fr)] items-center gap-3 text-sm">
                   <span>{o.name}</span><span>전시 {Number(o.price).toLocaleString()}원</span>
                   <input aria-label={`${o.name} 비전시 가격`} type="number" min="0" step="1" placeholder="비전시 제외" value={o.linkPrice ?? ""} onChange={e=>setOptions(prev=>prev.map(v=>v===o?{...v,linkPrice:e.target.value}:v))} className={inp}/>
+                  <span className="text-xs text-[#2D5A27]" role="status">{o.linkPrice != null && o.linkPrice !== "" ? unitMarginLabel(calculateUnitMargin(o.linkPrice,o.supply !== "" ? o.supply : form.supply_price)) : '비전시 제외'}</span>
                 </div>)}
               </div>}
               <div>
