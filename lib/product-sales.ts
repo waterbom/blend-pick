@@ -2,20 +2,22 @@ import shopPool from "@/lib/db-shop";
 import type { SiteKey } from "@/lib/sites";
 import { validDateRange } from "@/lib/order-finance";
 
-type SaleItem = { id: string; product_id: string | null; product_ref: string | null; product_name: string; option_id: string | null; option_label: string | null; quantity: number };
+type SaleItem = { id: string; product_id: string | null; product_ref: string | null; product_name: string; option_id: string | null; option_label: string | null; quantity: number; unit_price?: number | null; supply_price?: number | null };
 type SaleReturn = { id: string; kind: string; status: string; items: unknown };
 export type ProductSaleOrder = {
   id: string; status: string; refund_amount_unresolved: boolean; pending_refunds: boolean;
   unmapped_refunds: boolean; items: SaleItem[]; returns: SaleReturn[];
 };
 export type SalesCounts = { paid: number; cancelled: number; returned: number; sold: number; orders: number; review: number; pending: number };
-export type ProductSales = SalesCounts & { options: (SalesCounts & { key: string; label: string })[] };
+export type ProductSales = SalesCounts & { options: (SalesCounts & { key: string; label: string; supplyCost: number | null; grossMargin: number | null; marginReview: number })[] };
 export const emptySalesCounts = (): SalesCounts => ({ paid: 0, cancelled: 0, returned: 0, sold: 0, orders: 0, review: 0, pending: 0 });
 
 /** Count units, never infer returned units from refunded money. Add-ons are not products. */
 export function summarizeProductSales(orders: ProductSaleOrder[]): Map<string, ProductSales> {
-  type Bucket = { counts: SalesCounts; orders: Set<string>; review: Set<string>; pending: Set<string> };
-  const bucket = (): Bucket => ({ counts: emptySalesCounts(), orders: new Set(), review: new Set(), pending: new Set() });
+  type Bucket = { counts: SalesCounts; orders: Set<string>; review: Set<string>; pending: Set<string>;
+    supplyCost: number | null; grossMargin: number | null; marginReview: Set<string> };
+  const bucket = (): Bucket => ({ counts: emptySalesCounts(), orders: new Set(), review: new Set(), pending: new Set(),
+    supplyCost: 0, grossMargin: 0, marginReview: new Set() });
   const products = new Map<string, { total: Bucket; options: Map<string, Bucket & { label: string }> }>();
   for (const order of orders) {
     const byId = new Map(order.items.map(item => [item.id, item]));
@@ -63,13 +65,24 @@ export function summarizeProductSales(orders: ProductSaleOrder[]): Map<string, P
         target.orders.add(order.id);
         if (review || !validQuantity) target.review.add(order.id);
         if (pending) target.pending.add(order.id);
+        // Order-item cost and unit price are immutable checkout snapshots, not today's editable price.
+        if (item.supply_price == null || item.unit_price == null || !Number.isSafeInteger(Number(item.supply_price)) || Number(item.supply_price)<0 || !Number.isSafeInteger(Number(item.unit_price)) || Number(item.unit_price)<0 || !validQuantity) {
+          target.supplyCost = null;
+          target.grossMargin = null;
+        } else if (target.supplyCost !== null && target.grossMargin !== null) {
+          const cost = Number(item.supply_price)*paid;
+          target.supplyCost += cost;
+          target.grossMargin += Number(item.unit_price)*paid - cost;
+        }
+        if (review || pending || cancelled || returns || ['cancelled','return_completed'].includes(order.status)) target.marginReview.add(order.id);
       }
     }
   }
   const finish = (b: Bucket): SalesCounts => ({ ...b.counts, orders: b.orders.size, review: b.review.size, pending: b.pending.size });
   return new Map([...products].map(([id, product]) => [id, {
     ...finish(product.total),
-    options: [...product.options].map(([key, option]) => ({ key, label: option.label, ...finish(option) }))
+    options: [...product.options].map(([key, option]) => ({ key, label: option.label, ...finish(option),
+      supplyCost: option.supplyCost, grossMargin: option.grossMargin, marginReview: option.marginReview.size }))
       .sort((a, b) => b.sold - a.sold || a.label.localeCompare(b.label, "ko")),
   }]));
 }
@@ -89,7 +102,7 @@ export async function getProductSales(site: SiteKey, from?: string, to?: string,
     COALESCE(i.items,'[]'::jsonb) AS items, COALESCE(r.returns,'[]'::jsonb) AS returns
     FROM orders o
     LEFT JOIN LATERAL (SELECT jsonb_agg(jsonb_build_object('id',oi.id,'product_id',oi.product_id,'product_ref',oi.product_ref,
-      'product_name',oi.product_name,'option_id',oi.option_id,'option_label',oi.option_label,'quantity',oi.quantity) ORDER BY oi.id) AS items
+      'product_name',oi.product_name,'option_id',oi.option_id,'option_label',oi.option_label,'quantity',oi.quantity,'unit_price',oi.unit_price,'supply_price',oi.supply_price) ORDER BY oi.id) AS items
       FROM order_items oi WHERE oi.order_id=o.id) i ON true
     LEFT JOIN LATERAL (SELECT jsonb_agg(jsonb_build_object('id',rr.id,'kind',rr.kind,'status',rr.status,'items',rr.items) ORDER BY rr.id) AS returns
       FROM order_returns rr WHERE rr.order_id=o.id AND rr.kind='return' AND rr.status IN ('done','requested','collecting')) r ON true
