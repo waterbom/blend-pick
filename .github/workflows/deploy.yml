@@ -105,9 +105,9 @@ jobs:
           html = html_bytes.decode("utf-8")
           assert "SUPPLIER PARTNERSHIP" in html, "Supplier landing page is stale or missing"
           paths = (
-            "food-editorial.webp", "seasonal-gifts.webp", "phone-editorial.webp",
-            "living-studio.svg", "stay-escape.svg", "class-workshop.svg",
-            "experience-lake.svg",
+            "food-natural.webp", "living-natural.webp", "stay-natural.webp",
+            "class-natural.webp", "experience-natural.webp", "gifts-natural.webp",
+            "phone-natural.webp",
           )
           for name in paths:
               path = "/suppliers/" + name
