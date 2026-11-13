@@ -32,12 +32,12 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
 }
 
 const categoryCards: { title: string; copy: string; icon: IconName; examples: string; image: string | null; tone: string }[] = [
-  { title: "식품·먹거리", copy: "우리 식탁에 좋은 발견을 더하는 상품", icon: "leaf", examples: "식품 · 간편식 · 음료", image: "/sanji/banners/02-복숭아.png", tone: "food" },
-  { title: "생활·리빙", copy: "일상을 편리하게 바꾸는 아이템", icon: "bag", examples: "주방 · 생활용품 · 소형가전", image: "/banner-1.jpeg", tone: "living" },
-  { title: "숙박·여행", copy: "기억에 남을 하루와 여행 경험", icon: "stay", examples: "호텔 · 리조트 · 독채", image: "/hotel/dangung-hero.jpg", tone: "stay" },
-  { title: "교육·클래스", copy: "새로운 취향과 배움을 연결하는 제안", icon: "book", examples: "교육 · 원데이클래스 · 수강권", image: null, tone: "class" },
-  { title: "문화·체험", copy: "물건 너머의 경험을 공구로", icon: "ticket", examples: "공간 · 체험 · 이용권", image: "/hotel/4.png", tone: "experience" },
-  { title: "시즌·기획상품", copy: "지금 필요한 이유가 분명한 상품", icon: "spark", examples: "명절 · 선물 · 시즌 패키지", image: "/sanji/banners/04-배도라지즙.png", tone: "season" },
+  { title: "식품·먹거리", copy: "우리 식탁에 좋은 발견을 더하는 상품", icon: "leaf", examples: "식품 · 간편식 · 음료", image: "/suppliers/food-editorial.webp", tone: "food" },
+  { title: "생활·리빙", copy: "일상을 편리하게 바꾸는 아이템", icon: "bag", examples: "주방 · 생활용품 · 소형가전", image: "/suppliers/living-studio.svg", tone: "living" },
+  { title: "숙박·여행", copy: "기억에 남을 하루와 여행 경험", icon: "stay", examples: "호텔 · 리조트 · 독채", image: "/suppliers/stay-escape.svg", tone: "stay" },
+  { title: "교육·클래스", copy: "새로운 취향과 배움을 연결하는 제안", icon: "book", examples: "교육 · 원데이클래스 · 수강권", image: "/suppliers/class-workshop.svg", tone: "class" },
+  { title: "문화·체험", copy: "물건 너머의 경험을 공구로", icon: "ticket", examples: "공간 · 체험 · 이용권", image: "/suppliers/experience-lake.svg", tone: "experience" },
+  { title: "시즌·기획상품", copy: "지금 필요한 이유가 분명한 상품", icon: "spark", examples: "명절 · 선물 · 시즌 패키지", image: "/suppliers/seasonal-gifts.webp", tone: "season" },
 ];
 
 const benefits: { title: string; copy: string; icon: IconName }[] = [
@@ -195,11 +195,11 @@ export default function SupplierPage() {
         </div>
         <div className={styles.heroVisual} aria-label="상품, 숙박과 콘텐츠를 연결하는 공동구매 운영 이미지">
           <div className={styles.visualHalo} aria-hidden="true" />
-          <div className={styles.heroStayPhoto}><img src="/hotel/dangung-hero.jpg" alt="블랜드픽에서 소개하는 한옥 독채 숙박 공간" /></div>
-          <div className={styles.heroProductPhoto}><img src="/sanji/banners/02-복숭아.png" alt="공급사 제안 카테고리 중 식품 이미지" /></div>
+          <div className={styles.heroStayPhoto}><img src="/suppliers/stay-escape.svg" alt="블랜드픽에서 소개하는 한옥 독채 숙박 공간" /></div>
+          <div className={styles.heroProductPhoto}><img src="/suppliers/food-editorial.webp" alt="공급사 제안 카테고리 중 식품 이미지" /></div>
           <div className={styles.heroPhone}>
             <div className={styles.phoneTop}><span>BLEND PICK</span><span aria-hidden="true">● ● ●</span></div>
-            <div className={styles.phonePhoto}><img src="/sanji/banners/04-배도라지즙.png" alt="식품 공동구매 콘텐츠 구성 예시" /></div>
+            <div className={styles.phonePhoto}><img src="/suppliers/phone-editorial.webp" alt="식품 공동구매 콘텐츠 구성 예시" /></div>
             <div className={styles.phoneBody}><span>CONTENT × COMMERCE</span><strong>좋은 상품을<br />사고 싶어지는 이야기로.</strong><small>콘텐츠 기획 · 공구 구성 · 판매 운영</small></div>
           </div>
           <div className={styles.heroResultCard}><span className={styles.smallIcon}><Icon name="chart" size={23} /></span><div><strong>공동구매 운영</strong><small>브랜드에 맞는 판매 구조 설계</small></div></div>
@@ -249,9 +249,9 @@ export default function SupplierPage() {
       <section className={styles.strategy} aria-labelledby="supplier-strategy">
         <div className={styles.sectionHead}><div><span className={styles.eyebrow}>BUILT FOR THE NEXT CAMPAIGN</span><h2 id="supplier-strategy">단발성 홍보가 아닌, <em>구매로 이어지는 흐름.</em></h2></div><p>노출만으로 끝내지 않고,<br />상품의 매력이 전달되는 과정을 설계합니다.</p></div>
         <div className={styles.strategyGrid}>
-          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/sanji/banners/03-단호박.png" alt="" loading="lazy" /></div><div><span>01 · CAMPAIGN</span><h3>상품에 맞는 공구 구성</h3><p>누구에게 어떤 구성이 필요한지 고민하고 판매 혜택과 기간을 논의합니다.</p></div></article>
-          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/banner-2.jpeg" alt="" loading="lazy" /></div><div><span>02 · CONTENT</span><h3>설득력 있는 콘텐츠</h3><p>제품의 기능과 경험을 이해하기 쉬운 이야기로 풀어냅니다.</p></div></article>
-          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/hotel/dangung-hero.jpg" alt="" loading="lazy" /></div><div><span>03 · FOLLOW-UP</span><h3>데이터 기반의 다음 협업</h3><p>공구 종료 뒤 결과를 살펴보고 후속 진행 가능성을 검토합니다.</p></div></article>
+          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/suppliers/food-editorial.webp" alt="" loading="lazy" /></div><div><span>01 · CAMPAIGN</span><h3>상품에 맞는 공구 구성</h3><p>누구에게 어떤 구성이 필요한지 고민하고 판매 혜택과 기간을 논의합니다.</p></div></article>
+          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/suppliers/living-studio.svg" alt="" loading="lazy" /></div><div><span>02 · CONTENT</span><h3>설득력 있는 콘텐츠</h3><p>제품의 기능과 경험을 이해하기 쉬운 이야기로 풀어냅니다.</p></div></article>
+          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/suppliers/stay-escape.svg" alt="" loading="lazy" /></div><div><span>03 · FOLLOW-UP</span><h3>데이터 기반의 다음 협업</h3><p>공구 종료 뒤 결과를 살펴보고 후속 진행 가능성을 검토합니다.</p></div></article>
           <aside className={styles.strategyInsight} aria-label="공구 운영에서 확인하는 핵심 정보">
             <div className={styles.insightTop}><Icon name="chart" size={26} /><span>PERFORMANCE VIEW</span></div>
             <h3>공구 결과를<br />다음 기회로.</h3>
