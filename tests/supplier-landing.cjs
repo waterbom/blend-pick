@@ -41,9 +41,21 @@ test('supplier proof differentiates group-wide numbers from Blend Pick platform 
 
 test('categories use only existing first-party assets and responsive CSS contains narrow screen rules',()=>{
  const src=fs.readFileSync('components/blend/SupplierPage.tsx','utf8');
- const urls=[...src.matchAll(/(?:src|image)\s*[:=]\s*["'](\/[^"'\n]+\.(?:png|jpg|jpeg))["']/g)].map(m=>m[1]);
- assert.ok(urls.length>=7,'expect illustrative product and category visuals');
- for(const image of urls) assert.ok(fs.existsSync('public'+image),image);
+ const urls=[...src.matchAll(/(?:src|image)\s*[:=]\s*["'](\/[^"'\n]+\.(?:png|jpg|jpeg|webp|svg))["']/g)].map(m=>m[1]);
+ assert.ok(urls.length>=11,'expect purpose-built product, category and hero visuals');
+ assert.equal(new Set(urls).size,7,'every category and hero slot uses the dedicated asset set');
+ for(const image of urls) {
+   assert.ok(image.startsWith('/suppliers/'),'must never borrow product photos or runtime upload URLs: '+image);
+   assert.ok(fs.existsSync('public'+image),'missing bundled asset: '+image);
+   const data=fs.readFileSync('public'+image);
+   assert.ok(data.length>1000,'unexpected empty asset: '+image);
+   if(image.endsWith('.webp')) {
+     assert.equal(data.toString('ascii',0,4),'RIFF','invalid WEBP header: '+image);
+     assert.equal(data.toString('ascii',8,12),'WEBP','invalid WEBP content: '+image);
+   } else {
+     assert.match(data.toString('utf8').slice(0,160),/<svg xmlns="http:\/\/www.w3.org\/2000\/svg"/);
+   }
+ }
  const css=fs.readFileSync('components/blend/SupplierPage.module.css','utf8');
  for(const cls of ['.heroWrap','.trustStats','.visualCategoryGrid','.journey','.strategyGrid','.faqItem','.proposalShell']) assert.ok(css.includes(cls),cls);
  assert.match(css,/@media\(max-width:760px\)/);
