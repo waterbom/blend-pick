@@ -195,7 +195,7 @@ export default function SupplierPage() {
         </div>
         <div className={styles.heroVisual} aria-label="상품, 숙박과 콘텐츠를 연결하는 공동구매 운영 이미지">
           <div className={styles.visualHalo} aria-hidden="true" />
-          <div className={styles.heroStayPhoto}><img src="/suppliers/stay-escape.svg" alt="블랜드픽에서 소개하는 한옥 독채 숙박 공간" /></div>
+          <div className={styles.heroStayPhoto}><img src="/suppliers/stay-escape.svg" alt="숙박·여행 협업을 표현한 리조트 일러스트" /></div>
           <div className={styles.heroProductPhoto}><img src="/suppliers/food-editorial.webp" alt="공급사 제안 카테고리 중 식품 이미지" /></div>
           <div className={styles.heroPhone}>
             <div className={styles.phoneTop}><span>BLEND PICK</span><span aria-hidden="true">● ● ●</span></div>
