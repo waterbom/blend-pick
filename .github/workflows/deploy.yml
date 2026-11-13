@@ -90,3 +90,33 @@ jobs:
                   assert response.status == 200 and parser.verified, "Google verification tag missing from " + host
               print("PASS: Google verification tag is present in the live HTML head: " + host)
           PY
+
+      - name: Verify supplier landing page and dedicated images
+        run: |
+          python3 - <<'PY'
+          from urllib.request import Request, urlopen
+          host = "https://shop.blendpunch.com"
+          def read(path):
+              req = Request(host + path, headers={"User-Agent":"Mozilla/5.0"})
+              with urlopen(req, timeout=30) as response:
+                  assert response.status == 200, "Asset not served: " + path
+                  return response.headers.get("Content-Type", ""), response.read()
+          _, html_bytes = read("/suppliers")
+          html = html_bytes.decode("utf-8")
+          assert "SUPPLIER PARTNERSHIP" in html, "Supplier landing page is stale or missing"
+          paths = (
+            "food-editorial.webp", "seasonal-gifts.webp", "phone-editorial.webp",
+            "living-studio.svg", "stay-escape.svg", "class-workshop.svg",
+            "experience-lake.svg",
+          )
+          for name in paths:
+              path = "/suppliers/" + name
+              assert path in html, "Supplier asset not referenced by rendered page: " + path
+              mime, data = read(path)
+              if name.endswith(".webp"):
+                  assert data.startswith(b"RIFF") and data[8:12] == b"WEBP" and "image/webp" in mime, "Broken WEBP: " + path
+              else:
+                  assert data.lstrip().startswith(b"<svg") and "image/svg+xml" in mime, "Broken SVG: " + path
+              assert len(data) > 1000, "Empty supplier image: " + path
+              print("PASS: publicly served supplier image " + path)
+          PY
