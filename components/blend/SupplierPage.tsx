@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { SUPPLIER_CATEGORIES, SUPPLIER_FIELD_LIMITS, SUPPLIER_CONTACT_EMAIL, validateSupplierProposal } from "@/lib/supplier-proposal";
 import styles from "./SupplierPage.module.css";
 
-type IconName = "arrow" | "bag" | "spark" | "leaf" | "stay" | "book" | "ticket" | "check";
+type IconName = "arrow" | "bag" | "spark" | "leaf" | "stay" | "book" | "ticket" | "check" | "people" | "play" | "chart" | "layers" | "search" | "clipboard" | "shield" | "calendar" | "repeat" | "mail";
 
 function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -17,26 +17,50 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
     book: <><path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1ZM12 5v15" /><path d="M5 8h3M5 11h3M16 8h3M16 11h3" /></>,
     ticket: <><path d="M3 5h18v5a2 2 0 0 0 0 4v5H3v-5a2 2 0 0 0 0-4V5Z" /><path d="M15 5v3m0 3v2m0 3v3" /></>,
     check: <path d="m5 12 4 4L19 6" />,
+    people: <><circle cx="9" cy="7.5" r="3" /><path d="M2 20v-2a6 6 0 0 1 12 0v2M16 4a3 3 0 0 1 0 6m1 4a5 5 0 0 1 5 5v1" /></>,
+    play: <><rect x="3" y="5" width="18" height="14" rx="3" /><path d="m10 9 5 3-5 3V9Z" /></>,
+    chart: <><path d="M3 20h18M6 17v-5m6 5V8m6 9V4" /><path d="m4 8 6-3 4 2 6-5" /></>,
+    layers: <><path d="m12 3 10 6-10 6L2 9l10-6Zm-10 11 10 6 10-6M2 18l10 5 10-5" /></>,
+    search: <><circle cx="10" cy="10" r="6" /><path d="m14.5 14.5 6 6" /></>,
+    clipboard: <><rect x="5" y="5" width="14" height="17" rx="2" /><rect x="9" y="2" width="6" height="5" rx="1" /><path d="M9 12h6m-6 4h5" /></>,
+    shield: <><path d="M12 2 3.5 6v6c0 5.5 3.4 9 8.5 10 5.1-1 8.5-4.5 8.5-10V6L12 2Z" /><path d="m8.5 12 2.4 2.5 4.8-5" /></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4m8-4v4M3 10h18m-12 5h6" /></>,
+    repeat: <><path d="M20 7h-12a4 4 0 0 0-4 4v1M4 17h12a4 4 0 0 0 4-4v-1m-3-8 3 3-3 3m-10 4-3 3 3 3" /></>,
+    mail: <><rect x="2.5" y="5" width="19" height="14" rx="2" /><path d="m3 7 9 7 9-7" /></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-const categoryCards: { title: string; copy: string; icon: IconName; examples: string }[] = [
-  { title: "생활·리빙", copy: "매일 쓰는 물건의 새로운 발견", icon: "bag", examples: "생활용품 · 주방 · 가전" },
-  { title: "뷰티·패션", copy: "나를 위한 취향 있는 선택", icon: "spark", examples: "뷰티 · 의류 · 잡화" },
-  { title: "식품", copy: "맛있는 일상을 함께 나누는 일", icon: "leaf", examples: "먹거리 · 간편식 · 음료" },
-  { title: "숙박·여행", copy: "머무는 하루도 특별해지도록", icon: "stay", examples: "호텔 · 독채 · 여행 경험" },
-  { title: "교육·클래스", copy: "배우고 싶던 경험을 더 가까이", icon: "book", examples: "교육 프로그램 · 원데이 클래스" },
-  { title: "문화·서비스", copy: "물건을 넘어, 일상의 경험까지", icon: "ticket", examples: "문화 체험 · 이용권 · 생활 서비스" },
+const categoryCards: { title: string; copy: string; icon: IconName; examples: string; image: string | null; tone: string }[] = [
+  { title: "식품·먹거리", copy: "우리 식탁에 좋은 발견을 더하는 상품", icon: "leaf", examples: "식품 · 간편식 · 음료", image: "/sanji/banners/02-복숭아.png", tone: "food" },
+  { title: "생활·리빙", copy: "일상을 편리하게 바꾸는 아이템", icon: "bag", examples: "주방 · 생활용품 · 소형가전", image: "/banner-1.jpeg", tone: "living" },
+  { title: "숙박·여행", copy: "기억에 남을 하루와 여행 경험", icon: "stay", examples: "호텔 · 리조트 · 독채", image: "/hotel/dangung-hero.jpg", tone: "stay" },
+  { title: "교육·클래스", copy: "새로운 취향과 배움을 연결하는 제안", icon: "book", examples: "교육 · 원데이클래스 · 수강권", image: null, tone: "class" },
+  { title: "문화·체험", copy: "물건 너머의 경험을 공구로", icon: "ticket", examples: "공간 · 체험 · 이용권", image: "/hotel/4.png", tone: "experience" },
+  { title: "시즌·기획상품", copy: "지금 필요한 이유가 분명한 상품", icon: "spark", examples: "명절 · 선물 · 시즌 패키지", image: "/sanji/banners/04-배도라지즙.png", tone: "season" },
 ];
 
-const steps = [
-  { title: "제안 보내기", copy: "상품이나 서비스의 특징과 함께 소개하고 싶은 내용을 알려 주세요." },
-  { title: "상품·혜택 설계", copy: "제안 내용을 바탕으로 공구 구성과 가격, 이용 조건을 논의해요." },
-  { title: "페이지·일정 준비", copy: "진행이 결정되면 소개 자료와 판매 일정, 전달할 정보를 준비해요." },
-  { title: "판매·이용·정산", copy: "협의한 조건에 따라 판매와 배송·이용, 정산 절차를 진행해요." },
+const benefits: { title: string; copy: string; icon: IconName }[] = [
+  { title: "브랜드에 맞는 파트너", copy: "상품의 강점과 고객층을 고려해 알맞은 콘텐츠·인플루언서 협업을 검토합니다.", icon: "people" },
+  { title: "콘텐츠로 설득하는 판매", copy: "가격만 내세우지 않고 실제 쓰임과 경험을 보여주는 콘텐츠를 기획합니다.", icon: "play" },
+  { title: "공구 운영을 하나의 흐름으로", copy: "상품 구성부터 오픈·판매·마감까지 필요한 운영 과정을 함께 조율합니다.", icon: "bag" },
+  { title: "확인할 수 있는 운영 결과", copy: "판매·정산 결과를 토대로 다음 협업 가능성을 함께 검토합니다.", icon: "chart" },
 ];
 
+const steps: {title:string;copy:string;icon:IconName}[] = [
+  { title: "제안 접수", copy: "브랜드와 상품·서비스의 특징을 알려 주세요.", icon: "clipboard" },
+  { title: "상품·브랜드 검토", copy: "시장성, 혜택, 공급·이용 조건을 살펴봅니다.", icon: "search" },
+  { title: "협업 방식 설계", copy: "필요한 콘텐츠와 파트너·공구 구성을 협의합니다.", icon: "people" },
+  { title: "콘텐츠·공구 진행", copy: "진행 결정 후 일정과 페이지를 준비해 판매합니다.", icon: "play" },
+  { title: "정산·성과 공유", copy: "진행 결과를 확인하고 후속 기회를 논의합니다.", icon: "chart" },
+];
+
+const questions = [
+  { question: "어떤 상품이나 서비스를 제안할 수 있나요?", answer: "식품·생활용품·뷰티 같은 상품부터 숙박·호텔, 교육·클래스, 체험·이용권까지 다양한 형태를 검토합니다. 목록에 없는 상품도 제안서의 ‘기타’ 항목으로 보내 주세요." },
+  { question: "수수료나 진행 비용은 어떻게 결정하나요?", answer: "상품의 구성과 판매 방식, 콘텐츠 제작 범위, 운영 조건에 따라 협의합니다. 정해진 비용을 임의로 약속하지 않고, 제안 검토 후 진행 가능 조건을 안내합니다." },
+  { question: "공구 시작까지 얼마나 걸리나요?", answer: "상품 자료, 배송·예약 방식, 콘텐츠 제작 일정에 따라 달라집니다. 구체적인 판매 기간과 오픈 일정은 협의 후 정합니다." },
+  { question: "정식 입점이 아닌 단일 캠페인도 제안할 수 있나요?", answer: "네. 단일 상품이나 특정 시즌을 위한 제안도 보내실 수 있습니다. 진행 여부와 반복 운영 가능성은 별도 검토합니다." },
+];
 function ProposalForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [error, setError] = useState("");
@@ -155,36 +179,109 @@ function ProposalForm() {
 
 export default function SupplierPage() {
   return <main className={styles.page}>
-    <section className={styles.hero} aria-labelledby="supplier-title">
-      <div className={styles.heroInner}>
-        <span className={styles.heroBadge}><span />새로운 공구를 만드는 공급사 제안</span>
-        <h1 id="supplier-title">좋은 제안이라면,<br className={styles.mobileBreak} /> <em>블랜드픽.</em></h1>
-        <p className={styles.heroLead}>이런 것까지 공구가 된다고?</p>
-        <p className={styles.heroDescription}>물건부터 머무는 하루, 배우는 경험까지.<br />함께 소개하고 싶은 상품과 서비스를 제안해 주세요.</p>
-        <div className={styles.heroActions}><a href="#proposal" className={styles.primaryButton}>공급사 제안하기 <Icon name="arrow" size={20} /></a><a href="#process" className={styles.secondaryButton}>진행 과정 알아보기</a></div>
-        <div className={styles.heroFoot}><span>PRODUCT</span><span className={styles.heroDot} />STAY<span className={styles.heroDot} />CLASS<span className={styles.heroDot} />SERVICE</div>
+    <section className={styles.newHero} aria-labelledby="supplier-title">
+      <div className={styles.heroWrap}>
+        <div className={styles.heroCopy}>
+          <span className={styles.heroBadge}><span />SUPPLIER PARTNERSHIP</span>
+          <h1 id="supplier-title">좋은 상품,<br /><em>더 큰 기회로.</em></h1>
+          <p className={styles.heroLead}>브랜드·공급사와 함께 만드는 공동구매</p>
+          <p className={styles.heroDescription}>일상의 좋은 물건부터 머무는 하루, 특별한 경험까지.<br />상품의 매력을 콘텐츠로 보여주고 구매로 연결되는<br className={styles.desktopBreak} /> 협업 구조를 함께 고민합니다.</p>
+          <p className={styles.heroEligibility}><Icon name="check" size={18} />식품 · 생활용품 · 숙박·호텔 · 교육·클래스 · 서비스 제안 가능</p>
+          <div className={styles.heroActions}>
+            <a href="#proposal" className={styles.primaryButton}>공급사 제안하기 <Icon name="arrow" size={19} /></a>
+            <a href="#process" className={styles.secondaryButton}>진행 방식 보기 <Icon name="arrow" size={17} /></a>
+          </div>
+          <div className={styles.heroFoot}><span>BRANDS</span><span className={styles.heroDot} />CONTENT<span className={styles.heroDot} />COMMERCE</div>
+        </div>
+        <div className={styles.heroVisual} aria-label="상품, 숙박과 콘텐츠를 연결하는 공동구매 운영 이미지">
+          <div className={styles.visualHalo} aria-hidden="true" />
+          <div className={styles.heroStayPhoto}><img src="/hotel/dangung-hero.jpg" alt="블랜드픽에서 소개하는 한옥 독채 숙박 공간" /></div>
+          <div className={styles.heroProductPhoto}><img src="/sanji/banners/02-복숭아.png" alt="공급사 제안 카테고리 중 식품 이미지" /></div>
+          <div className={styles.heroPhone}>
+            <div className={styles.phoneTop}><span>BLEND PICK</span><span aria-hidden="true">● ● ●</span></div>
+            <div className={styles.phonePhoto}><img src="/sanji/banners/04-배도라지즙.png" alt="식품 공동구매 콘텐츠 구성 예시" /></div>
+            <div className={styles.phoneBody}><span>CONTENT × COMMERCE</span><strong>좋은 상품을<br />사고 싶어지는 이야기로.</strong><small>콘텐츠 기획 · 공구 구성 · 판매 운영</small></div>
+          </div>
+          <div className={styles.heroResultCard}><span className={styles.smallIcon}><Icon name="chart" size={23} /></span><div><strong>공동구매 운영</strong><small>브랜드에 맞는 판매 구조 설계</small></div></div>
+          <span className={styles.visualSpark} aria-hidden="true"><Icon name="spark" size={38} /></span>
+        </div>
       </div>
-      <div className={styles.heroMarkOne} aria-hidden="true"><Icon name="spark" size={55} /></div><div className={styles.heroMarkTwo} aria-hidden="true"><Icon name="spark" size={27} /></div>
+      <div className={styles.trustBand}>
+        <div className={styles.trustStats} aria-label="블랜드펀치 그룹 공개 소개 실적">
+          <div><span><Icon name="people" size={27} /></span><strong>300+</strong><small>파트너 인플루언서</small></div>
+          <div><span><Icon name="layers" size={27} /></span><strong>500+</strong><small>진행 캠페인</small></div>
+          <div><span><Icon name="chart" size={27} /></span><strong>50억+</strong><small>그룹 누적 파트너 매출</small></div>
+        </div>
+        <p className={styles.statSource}>블랜드펀치 공식 소개 페이지의 그룹 실적이며 블랜드픽 단독 실적은 아닙니다. <a href="https://blendpunch.com/" target="_blank" rel="noopener noreferrer">공식 소개 보기</a></p>
+      </div>
     </section>
 
     <div className={styles.container}>
-      <section className={styles.categories} aria-labelledby="supplier-categories-title">
-        <div className={styles.sectionHead}><div><span className={styles.eyebrow}>BEYOND THE ORDINARY</span><h2 id="supplier-categories-title">공구의 경계는,<br /><em>생각보다 넓으니까.</em></h2></div><p>익숙한 상품도, 새로운 경험도 좋아요.<br />함께 나누고 싶은 가치를 기다립니다.</p></div>
-        <div className={styles.categoryGrid}>{categoryCards.map(category => <article className={styles.category} key={category.title}><span className={styles.categoryIcon}><Icon name={category.icon} size={25} /></span><h3>{category.title}</h3><p>{category.copy}</p><small>{category.examples}</small></article>)}</div>
-        <p className={styles.categoryNote}><Icon name="spark" size={15} />분류에 꼭 맞지 않아도 괜찮아요. 그 밖의 제안은 ‘기타’를 선택해 주세요.</p>
+      <section className={styles.benefits} aria-labelledby="why-suppliers">
+        <div className={styles.sectionHead}><div><span className={styles.eyebrow}>WHY BLEND PICK</span><h2 id="why-suppliers">판매를 넘어, <em>브랜드의 다음 기회까지.</em></h2></div><p>좋은 상품을 알아보는 사람에게 닿게 하고,<br />콘텐츠와 운영을 하나의 흐름으로 연결합니다.</p></div>
+        <div className={styles.benefitGrid}>{benefits.map((item,index)=><article key={item.title} className={styles.benefitCard}>
+          <span className={styles.benefitNumber}>0{index+1}</span><span className={styles.benefitIcon}><Icon name={item.icon} size={27} /></span>
+          <h3>{item.title}</h3><p>{item.copy}</p>
+        </article>)}</div>
       </section>
 
-      <section className={styles.process} id="process" aria-labelledby="supplier-process-title">
-        <div className={styles.sectionHead}><div><span className={styles.eyebrow}>FROM IDEA TO PICK</span><h2 id="supplier-process-title">제안이 공구가 되기까지</h2></div><p>필요한 내용을 하나씩 확인하며,<br />서로에게 맞는 진행 방식을 찾아가요.</p></div>
-        <ol className={styles.steps}>{steps.map((step, index) => <li key={step.title}><span className={styles.stepNumber}>0{index + 1}</span><h3>{step.title}</h3><p>{step.copy}</p>{index < steps.length - 1 && <span className={styles.stepArrow}><Icon name="arrow" size={19} /></span>}</li>)}</ol>
-        <div className={styles.classExample}><span className={styles.classExampleIcon}><Icon name="book" size={24} /></span><div><h3>교육·클래스라면, 이렇게 함께 준비해요.</h3><p>회차·정원·이용 기간을 정한 <strong>수강권 구성</strong><span aria-hidden="true"> → </span>공구 판매 일정 협의<span aria-hidden="true"> → </span>구매 후 예약·이용 방법 안내</p><small>온라인 강의, 오프라인 클래스 등 운영 방식에 맞춰 수강 조건과 예약 방법을 협의합니다.</small></div></div>
-        <p className={styles.processNote}>상품·서비스 특성에 따라 준비 과정은 달라질 수 있어요. 판매 구성, 비용과 정산 조건은 진행 전 협의합니다.</p>
+      <section className={styles.visualCategories} aria-labelledby="supplier-categories-title">
+        <div className={styles.sectionHead}><div><span className={styles.eyebrow}>WHAT WE CAN BUILD</span><h2 id="supplier-categories-title">이런 제안을 <em>기다리고 있어요.</em></h2></div><p>정해진 상품군에만 머무르지 않습니다.<br />브랜드의 강점을 함께 살펴봅니다.</p></div>
+        <div className={styles.visualCategoryGrid}>{categoryCards.map(category => <article className={styles.visualCategoryCard} key={category.title}>
+          <div className={styles.categoryMedia}>
+            {category.image ? <img src={category.image} loading="lazy" alt="" /> : <div className={styles.categoryArt} aria-hidden="true"><Icon name={category.icon} size={72} /><span>CLASS & LEARNING</span></div>}
+            <span className={styles.categoryIcon}><Icon name={category.icon} size={20} /></span>
+          </div>
+          <div className={styles.categoryContent}><h3>{category.title}</h3><p>{category.copy}</p><small>{category.examples}</small></div>
+        </article>)}</div>
+        <p className={styles.categoryNote}><Icon name="spark" size={16} />다른 분야도 제안해 주세요. 접수된 내용을 보고 함께 검토하겠습니다.</p>
       </section>
 
-      <section className={styles.proposalSection} id="proposal" aria-labelledby="supplier-proposal-title">
-        <div className={styles.proposalIntro}><span className={styles.eyebrow}>YOUR NEXT PICK STARTS HERE</span><h2 id="supplier-proposal-title">다음 공구는,<br /><em>당신의 제안에서.</em></h2><p>먼저, 어떤 제안인지 들려주세요.<br />아래 내용을 남겨 주시면 검토 후<br className={styles.desktopBreak} /> 연락드릴게요.</p><div className={styles.introNote}><Icon name="check" size={19} /><span>회원가입 없이 제안할 수 있어요.</span></div><div className={styles.introNote}><Icon name="check" size={19} /><span>확정되지 않은 구성은 함께 논의해요.</span></div><p>이메일로도 제안할 수 있어요.<br /><a href={`mailto:${SUPPLIER_CONTACT_EMAIL}`} style={{ overflowWrap: "anywhere", textDecoration: "underline" }}>{SUPPLIER_CONTACT_EMAIL}</a></p><span className={styles.introMark} aria-hidden="true"><Icon name="spark" size={112} /></span></div>
-        <ProposalForm />
+      <section className={styles.newProcess} id="process" aria-labelledby="supplier-process-title">
+        <div className={styles.sectionHead}><div><span className={styles.eyebrow}>HOW WE WORK</span><h2 id="supplier-process-title">제안부터 정산까지, <em>한눈에.</em></h2></div><p>무엇을 준비하고 어떤 순서로 진행하는지<br />미리 확인하실 수 있도록 정리했습니다.</p></div>
+        <ol className={styles.journey}>{steps.map((step,index)=><li key={step.title} className={styles.journeyStep}>
+          <div className={styles.journeyTop}><span className={styles.journeyNumber}>{String(index+1).padStart(2,"0")}</span><span className={styles.journeyIcon}><Icon name={step.icon} size={23} /></span></div>
+          <h3>{step.title}</h3><p>{step.copy}</p>{index<steps.length-1&&<span className={styles.journeyArrow} aria-hidden="true"><Icon name="arrow" size={17} /></span>}
+        </li>)}</ol>
+        <p className={styles.processNote}>상품 특성과 협업 조건에 따라 세부 절차·일정은 달라질 수 있으며, 비용과 정산 기준은 시작 전에 협의합니다.</p>
+      </section>
+
+      <section className={styles.strategy} aria-labelledby="supplier-strategy">
+        <div className={styles.sectionHead}><div><span className={styles.eyebrow}>BUILT FOR THE NEXT CAMPAIGN</span><h2 id="supplier-strategy">단발성 홍보가 아닌, <em>구매로 이어지는 흐름.</em></h2></div><p>노출만으로 끝내지 않고,<br />상품의 매력이 전달되는 과정을 설계합니다.</p></div>
+        <div className={styles.strategyGrid}>
+          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/sanji/banners/03-단호박.png" alt="" loading="lazy" /></div><div><span>01 · CAMPAIGN</span><h3>상품에 맞는 공구 구성</h3><p>누구에게 어떤 구성이 필요한지 고민하고 판매 혜택과 기간을 논의합니다.</p></div></article>
+          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/banner-2.jpeg" alt="" loading="lazy" /></div><div><span>02 · CONTENT</span><h3>설득력 있는 콘텐츠</h3><p>제품의 기능과 경험을 이해하기 쉬운 이야기로 풀어냅니다.</p></div></article>
+          <article className={styles.strategyCard}><div className={styles.strategyImage}><img src="/hotel/dangung-hero.jpg" alt="" loading="lazy" /></div><div><span>03 · FOLLOW-UP</span><h3>데이터 기반의 다음 협업</h3><p>공구 종료 뒤 결과를 살펴보고 후속 진행 가능성을 검토합니다.</p></div></article>
+          <aside className={styles.strategyInsight} aria-label="공구 운영에서 확인하는 핵심 정보">
+            <div className={styles.insightTop}><Icon name="chart" size={26} /><span>PERFORMANCE VIEW</span></div>
+            <h3>공구 결과를<br />다음 기회로.</h3>
+            <div className={styles.insightBars} aria-hidden="true"><span /><span /><span /><span /><span /></div>
+            <ul><li><Icon name="check" size={17} /> 주문·판매 흐름 확인</li><li><Icon name="check" size={17} /> 정산 조건 및 결과 공유</li><li><Icon name="check" size={17} /> 후속 운영 방향 검토</li></ul>
+            <small>위 그래픽은 운영 방식 설명을 위한 예시이며 실제 매출 수치가 아닙니다.</small>
+          </aside>
+        </div>
+      </section>
+
+      <section className={styles.faq} aria-labelledby="supplier-faq">
+        <div className={styles.sectionHead}><div><span className={styles.eyebrow}>FREQUENT QUESTIONS</span><h2 id="supplier-faq">제안 전에 <em>궁금한 점</em></h2></div><p>처음 제안하시는 브랜드도<br />진행 방식을 이해할 수 있도록 안내합니다.</p></div>
+        <div className={styles.faqList}>{questions.map((item,index)=><details key={item.question} className={styles.faqItem} open={index===0}>
+          <summary><span><b>Q.</b> {item.question}</span><span className={styles.faqPlus} aria-hidden="true">+</span></summary>
+          <p>{item.answer}</p>
+        </details>)}</div>
       </section>
     </div>
+
+    <section className={styles.proposalBand} id="proposal" aria-labelledby="supplier-proposal-title">
+      <div className={styles.proposalShell}>
+        <div className={styles.proposalIntro}>
+          <span className={styles.eyebrow}>START A PARTNERSHIP</span>
+          <h2 id="supplier-proposal-title">좋은 상품을,<br /><em>더 많은 사람에게.</em></h2>
+          <p>상품, 숙소, 클래스, 서비스까지.<br />지금 제안서를 남겨 주시면 내용을 검토한 뒤<br />담당자가 안내드리겠습니다.</p>
+          <div className={styles.promiseList}><span><Icon name="check" size={18} /> 회원가입 없이 접수</span><span><Icon name="check" size={18} /> 상품 특성에 맞는 협업 검토</span><span><Icon name="check" size={18} /> 조건·일정 사전 협의</span></div>
+          <div className={styles.proposalContact}>이메일로 제안하기 <a href={"mailto:"+SUPPLIER_CONTACT_EMAIL}>{SUPPLIER_CONTACT_EMAIL}</a></div>
+        </div>
+        <ProposalForm />
+      </div>
+    </section>
   </main>;
 }
