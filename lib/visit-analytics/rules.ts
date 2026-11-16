@@ -16,7 +16,7 @@ export function pageGroup(path: string): string | null {
   if (/^\/products\/?$/.test(p)) return 'catalog';
   if (/^\/(?:products|p)\/[a-z0-9_-]+\/?$/i.test(p)) return 'product';
   if (/^\/(?:products|campaigns)\/[a-z0-9_-]+\/checkout\/?$/i.test(p) || p === '/cart/checkout') return 'checkout';
-  const fixed: Record<string, string> = { '/cart':'cart', '/login':'login', '/signup':'signup', '/mypage':'mypage', '/about':'about', '/guide':'guide', '/terms':'terms', '/privacy':'privacy', '/hotel':'hotel', '/hotel/utop':'hotel', '/hotel/dangung':'hotel', '/campaigns':'campaign', '/influencer':'influencer' };
+  const fixed: Record<string, string> = { '/cart':'cart', '/login':'login', '/signup':'signup', '/mypage':'mypage', '/about':'about', '/guide':'guide', '/terms':'terms', '/privacy':'privacy', '/hotel':'hotel', '/hotel/utop':'hotel', '/hotel/dangung':'hotel', '/hotel/jshouse':'hotel', '/campaigns':'campaign', '/influencer':'influencer' };
   return fixed[p.replace(/\/$/, '')] || null;
 }
 export type PageviewInput = { eventId: string; visitorId: string; page: string };

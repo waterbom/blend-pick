@@ -23,6 +23,21 @@ export interface StayBannerConfig {
 
 export const STAY_BANNERS: StayBannerConfig[] = [
   {
+    key: "jshouse",
+    name: "JS하우스 · 연남동",
+    slides: [
+      {
+        images: ["/hotel/jshouse/bedroom.webp", "/hotel/jshouse/kitchen.webp", "/hotel/jshouse/twin.webp"],
+        grad: "linear-gradient(135deg,#C9B08C,#8A6238)",
+        tag: "서울 연남동 · 프라이빗 스테이",
+        title: "JS하우스\n나무결 사이로 머무는 하루",
+        subtitle: "오크와 화이트로 채운 공간을, 하루 한 팀이 온전히",
+        href: "/hotel/jshouse",
+        cta: "JS하우스 둘러보고 예약하기",
+      },
+    ],
+  },
+  {
     key: "dangung",
     name: "단궁 펜션",
     slides: [

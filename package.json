@@ -23,6 +23,7 @@
     "test:buyer": "node --test tests/buyer-flow.cjs tests/buyer-convenience.cjs tests/buyer-checkout-events.cjs tests/meta-pixel.cjs tests/sanji-mobile.cjs tests/closed-groupbuys.cjs tests/groupbuy-calendar.cjs tests/blend-help.cjs tests/blend-help-ui.cjs tests/supplier-inquiry.cjs tests/supplier-landing.cjs tests/login-interface.cjs tests/image-display.cjs tests/image-exposure.cjs tests/closing-countdown.cjs",
     "test:account": "node --test tests/account-flow.cjs tests/account-followup.cjs",
     "test:dangung": "node --test --test-concurrency=1 tests/dangung-logic.cjs tests/dangung-db.cjs tests/dangung-routes.cjs tests/dangung-sms.cjs tests/dangung-pricing.cjs tests/dangung-booking-ui.cjs",
+    "test:jshouse": "node --test --test-concurrency=1 tests/jshouse-db.cjs tests/jshouse-site.cjs",
     "test:tracking-import": "node --test --test-concurrency=1 tests/tracking-import.cjs tests/shipping-flow.cjs tests/shipping-simulation.cjs",
     "test:product-sales": "node --test --test-concurrency=1 tests/product-sales.cjs tests/product-financials.cjs tests/option-margin.cjs tests/sanjipick-product-sales-report.cjs tests/sanjipick-sales-export.cjs tests/phone-format.cjs"
   },
