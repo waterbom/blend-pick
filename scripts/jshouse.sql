@@ -1,4 +1,4 @@
--- JS하우스(연남동) 예약 신청 원장 — 단궁·유탑 예약과 분리해 관리한다.
+-- JS하우스(연남동) 예약 원장 (예약 신청 + 카드 결제) — 단궁·유탑 예약과 분리해 관리한다.
 -- 재실행해도 기존 설정·예약·날짜 설정을 바꾸지 않는다 (idempotent).
 BEGIN;
 CREATE TABLE IF NOT EXISTS jshouse_settings (
@@ -33,7 +33,21 @@ CREATE TABLE IF NOT EXISTS jshouse_bookings (
  updated_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE(owner_hash,request_id)
 );
+-- 카드 결제(토스) 정보 — 신청 방식 예약은 모두 비어 있다. 이미 만들어진 테이블에도 그대로 덧붙는다.
+ALTER TABLE jshouse_bookings ADD COLUMN IF NOT EXISTS amount integer CHECK(amount IS NULL OR amount>0);
+ALTER TABLE jshouse_bookings ADD COLUMN IF NOT EXISTS payment_key text UNIQUE;
+ALTER TABLE jshouse_bookings ADD COLUMN IF NOT EXISTS receipt_url text;
+ALTER TABLE jshouse_bookings ADD COLUMN IF NOT EXISTS paid_at timestamptz;
+ALTER TABLE jshouse_bookings ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+ALTER TABLE jshouse_bookings ADD COLUMN IF NOT EXISTS refund_amount integer CHECK(refund_amount IS NULL OR refund_amount>=0);
+ALTER TABLE jshouse_bookings ADD COLUMN IF NOT EXISTS cancel_reason text;
+-- 상태: requested(신청) · pending(결제 대기, 15분) · confirming(결제 승인 확인 중) · confirmed(확정)
+--       · cancelling(환불 확인 중) · cancelled · declined · expired(결제하지 않고 끝남)
+ALTER TABLE jshouse_bookings DROP CONSTRAINT IF EXISTS jshouse_bookings_status_check;
+ALTER TABLE jshouse_bookings ADD CONSTRAINT jshouse_bookings_status_check
+ CHECK(status IN ('requested','pending','confirming','confirmed','cancelling','cancelled','declined','expired'));
 CREATE INDEX IF NOT EXISTS jshouse_bookings_status ON jshouse_bookings(status,check_in);
+CREATE INDEX IF NOT EXISTS jshouse_bookings_pending ON jshouse_bookings(expires_at) WHERE status='pending';
 CREATE INDEX IF NOT EXISTS jshouse_bookings_owner ON jshouse_bookings(owner_hash,status);
 -- 하루 한 팀: 날짜가 기본키라 같은 밤을 두 예약이 동시에 잡을 수 없다.
 CREATE TABLE IF NOT EXISTS jshouse_nights (

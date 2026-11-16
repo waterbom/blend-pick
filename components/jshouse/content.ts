@@ -96,4 +96,5 @@ export type StayConfig = {
   weekdayPrice: number | null; weekendPrice: number | null;
   checkInTime: string; checkOutTime: string; address: string; walkNote: string; parkingNote: string;
   mapUrl: string; notice: string; rules: string;
+  payOnline: boolean; refundTerms: string;
 };

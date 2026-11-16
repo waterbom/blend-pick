@@ -2,26 +2,47 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
-// JS하우스 예약 관리 — 예약 신청 확정/거절, 날짜 닫기·요금 지정, 직접 예약 등록, 기본 설정.
+// JS하우스 예약 관리 — 예약 신청 확정/거절, 카드 결제 예약 환불 취소, 날짜 닫기·요금 지정, 직접 예약 등록, 기본 설정.
 // 손님 화면(/hotel/jshouse)의 달력·요금·주소·입실 시간은 모두 여기서 넣은 값으로 바뀐다.
 
 type Booking = {
-  id: string; code: string; status: "requested" | "confirmed" | "declined" | "cancelled";
+  id: string; code: string; status: "requested" | "pending" | "confirming" | "confirmed" | "cancelling" | "cancelled" | "declined" | "expired";
   check_in: string; check_out: string; guests: number; guest_name: string; guest_phone: string; memo: string;
-  estimate: { total?: number | null }; admin_note: string; cancel_requested: boolean; created_at: string;
+  estimate: { total?: number | null; refundTerms?: string }; admin_note: string; cancel_requested: boolean; created_at: string;
+  // 카드 결제 예약일 때만 값이 있다
+  amount: number | null; paid_at: string | null; refund_amount: number | null; cancel_reason: string | null; receipt_url: string | null;
 };
 type DayRow = { day: string; closed: boolean; price: number | null; note: string };
 type Config = {
   open: boolean; minLeadDays: number; maxNights: number; windowDays: number; maxGuests: number;
   weekdayPrice: number | null; weekendPrice: number | null; checkInTime: string; checkOutTime: string;
   address: string; walkNote: string; parkingNote: string; mapUrl: string; notice: string; rules: string; notifyPhone: string;
+  payOnline: boolean; refundTerms: string;
 };
-type Data = { today: string; config: Config; days: DayRow[]; bookings: Booking[]; events: { id: number; action: string; detail: { kind?: string; note?: string }; created_at: string; code: string | null }[]; smsConfigured: boolean };
+type Data = {
+  today: string; config: Config; days: DayRow[]; bookings: Booking[];
+  events: { id: number; action: string; detail: { kind?: string; note?: string; amount?: number; refundAmount?: number; reason?: string }; created_at: string; code: string | null }[];
+  smsConfigured: boolean;
+  pay: boolean;            // 지금 손님 화면에서 카드 결제가 열려 있는지
+  termsReady: boolean;     // 취소·환불 규정이 입력되어 있는지
+  paymentReady: boolean;   // 서버에 실결제 키가 있는지
+  refundTemplate: string;  // 단궁 예약에 쓰는 환불 규정 (불러와서 고쳐 쓰는 참고용)
+};
 
-const STATUS: Record<Booking["status"], string> = { requested: "확인 대기", confirmed: "예약 확정", declined: "거절", cancelled: "취소" };
-const TONE: Record<Booking["status"], string> = { requested: "bg-amber-100 text-amber-900", confirmed: "bg-green-100 text-green-900", declined: "bg-gray-100 text-gray-600", cancelled: "bg-gray-100 text-gray-600" };
+const STATUS: Record<Booking["status"], string> = {
+  requested: "확인 대기", pending: "결제 대기", confirming: "결제 확인 중", confirmed: "예약 확정",
+  cancelling: "환불 확인 중", cancelled: "취소", declined: "거절", expired: "결제 미완료",
+};
+const QUIET = "bg-gray-100 text-gray-600", WAIT = "bg-amber-100 text-amber-900";
+const TONE: Record<Booking["status"], string> = {
+  requested: WAIT, pending: WAIT, confirming: WAIT, cancelling: WAIT, confirmed: "bg-green-100 text-green-900", declined: QUIET, cancelled: QUIET, expired: QUIET,
+};
+// 날짜를 잡고 있는 상태
+const HOLDING: Booking["status"][] = ["requested", "pending", "confirming", "confirmed", "cancelling"];
 const EVENT: Record<string, string> = {
   requested: "예약 신청 접수", confirmed: "예약 확정", declined: "예약 거절", cancelled: "예약 취소", guest_cancelled: "손님이 신청 취소", guest_cancel_requested: "손님이 취소 요청",
+  pay_started: "결제 시작", confirming: "결제 승인 요청", paid: "카드 결제 완료", pay_failed: "결제 승인 실패", pay_abandoned: "결제 중단",
+  cancelling: "환불 요청", refunded: "환불 완료", cancelled_without_refund: "환불 없이 취소",
   admin_created: "직접 예약 등록", settings_changed: "기본 설정 변경", days_changed: "날짜 설정 변경", days_cleared: "날짜 설정 초기화", sms_sent: "문자 발송", sms_failed: "문자 발송 실패",
 };
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -67,6 +88,19 @@ export default function JsHouseAdmin() {
     if (decision === "confirm" && !window.confirm(`${b.guest_name}님 ${b.check_in} ~ ${b.check_out} 예약을 확정할까요?${notify && data?.smsConfigured ? "\n손님에게 확정 문자가 발송됩니다." : ""}`)) return;
     void post({ action: "decide", id: b.id, decision, note, notify }, `${b.guest_name}님 예약을 ${label}했습니다.`);
   }
+  // 카드 결제 예약 취소 — 손님이 동의한 규정을 보고 환불 금액을 정한다 (0 = 환불 없이 취소)
+  function refund(b: Booking) {
+    if (b.amount === null) return;
+    const raw = window.prompt(`${b.guest_name}님 예약(${b.check_in} ~ ${b.check_out})을 취소합니다.\n결제금액은 ${won(b.amount)}입니다. 환불할 금액을 숫자로 입력해 주세요. (0 = 환불 없이 취소)\n손님이 동의한 취소·환불 규정을 먼저 확인하세요.`, String(b.amount));
+    if (raw === null) return;
+    const amount = Number(raw.replace(/[^0-9]/g, ""));
+    if (raw.trim() === "" || !Number.isSafeInteger(amount) || amount > b.amount) { setError(`환불 금액은 0원부터 ${won(b.amount)} 사이로 입력해 주세요.`); return; }
+    const reason = window.prompt("취소 사유를 적어 주세요. (카드사 취소 내역에 남습니다)", b.cancel_requested ? "고객 요청 취소" : "");
+    if (reason === null) return;
+    if (reason.trim().length < 2) { setError("취소 사유를 2자 이상 입력해 주세요."); return; }
+    if (!window.confirm(`${won(amount)}을 카드로 환불하고 예약을 취소할까요?\n취소하면 되돌릴 수 없고, 날짜가 다시 열립니다.`)) return;
+    void post({ action: "refund", id: b.id, amount, reason: reason.trim(), notify }, `${b.guest_name}님 예약을 취소하고 ${won(amount)}을 환불했습니다.`);
+  }
   const field = <K extends keyof Config>(key: K, value: Config[K]) => setConfig(c => (c ? { ...c, [key]: value } : c));
   const numberField = (key: "weekdayPrice" | "weekendPrice", raw: string) => field(key, raw === "" ? null : Number(raw));
 
@@ -75,7 +109,7 @@ export default function JsHouseAdmin() {
     const map = new Map<string, { booking?: Booking; row?: DayRow }>();
     for (const row of data?.days ?? []) map.set(row.day, { row });
     for (const b of data?.bookings ?? []) {
-      if (b.status !== "requested" && b.status !== "confirmed") continue;
+      if (!HOLDING.includes(b.status)) continue;
       for (let day = b.check_in; day < b.check_out; day = addDays(day, 1)) map.set(day, { ...map.get(day), booking: b });
     }
     return map;
@@ -89,36 +123,47 @@ export default function JsHouseAdmin() {
 
   const waiting = data.bookings.filter(b => b.status === "requested"), upcoming = data.bookings.filter(b => b.status === "confirmed" && b.check_out >= data.today);
   const cancelAsks = data.bookings.filter(b => b.status === "confirmed" && b.cancel_requested);
+  const unsettled = data.bookings.filter(b => b.status === "confirming" || b.status === "cancelling");
+  // 카드 결제가 꺼져 있는 이유 (모두 해결되면 요금이 정해진 날짜부터 결제로 받는다)
+  const payBlocks = [
+    !config.payOnline && "기본 설정의 ‘카드 결제 받기’가 꺼져 있습니다.",
+    !data.termsReady && "취소·환불 규정이 비어 있습니다. 기본 설정에서 입력해 주세요.",
+    !data.paymentReady && "서버에 토스 실결제 키가 설정되어 있지 않습니다.",
+  ].filter((v): v is string => !!v);
   const shown = data.bookings.filter(b => filter === "all" || b.status === filter);
   const base = new Date(`${data.today.slice(0, 7)}-01T00:00:00Z`); base.setUTCMonth(base.getUTCMonth() + month);
   const months = [0, 1].map(offset => { const d = new Date(base); d.setUTCMonth(d.getUTCMonth() + offset); return d; });
 
   return <div className="commerce-reservation-workspace max-w-6xl mx-auto space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><h1 className="text-2xl font-bold">JS하우스 예약</h1><p className="text-sm text-gray-600 mt-1">연남동 JS하우스의 예약 신청, 날짜, 요금, 안내 문구를 관리합니다. 단궁·유탑 예약과 따로 집계됩니다.</p></div>
+      <div><h1 className="text-2xl font-bold">JS하우스 예약</h1><p className="text-sm text-gray-600 mt-1">연남동 JS하우스의 예약·결제, 날짜, 요금, 안내 문구를 관리합니다. 단궁·유탑 예약과 따로 집계됩니다.</p></div>
       <a className="text-sm underline" href="/hotel/jshouse" target="_blank" rel="noopener noreferrer">손님 화면 열기 ↗</a>
     </div>
     {error && <p role="alert" className="p-3 bg-red-50 text-red-800">{error}</p>}
     {notice && <p role="status" className="p-3 bg-green-50 text-green-900">{notice}</p>}
 
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {[["확인 대기", `${waiting.length}건`], ["다가오는 확정 예약", `${upcoming.length}건`], ["예약 신청 받기", config.open ? "받는 중" : "중지"], ["문자 발송", data.smsConfigured ? "설정됨" : "설정 필요"]].map(([k, v]) => <div key={k} className="border rounded-xl p-4"><p className="text-sm">{k}</p><b>{v}</b></div>)}
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      {[["확인 대기", `${waiting.length}건`], ["다가오는 확정 예약", `${upcoming.length}건`], ["예약 받기", config.open ? "받는 중" : "중지"], ["카드 결제", data.pay ? "받는 중" : "꺼짐"], ["문자 발송", data.smsConfigured ? "설정됨" : "설정 필요"]].map(([k, v]) => <div key={k} className="border rounded-xl p-4"><p className="text-sm">{k}</p><b>{v}</b></div>)}
     </div>
+    {data.pay
+      ? <p className="p-3 bg-green-50 text-green-900 text-sm">카드 결제를 받고 있습니다. 요금이 모두 정해진 일정은 손님이 토스 결제창에서 결제하면 바로 확정됩니다.{config.weekdayPrice === null && " 지금은 기본 요금이 비어 있어, 날짜별 요금을 넣은 날만 결제로 받습니다."} 요금이 없는 날짜는 결제 없이 신청으로 받습니다.</p>
+      : <div className="p-3 bg-amber-50 text-amber-900 text-sm"><b>카드 결제가 꺼져 있어 모든 예약을 ‘신청 → 확정’으로 받고 있습니다.</b><ul className="list-disc pl-5 mt-1">{payBlocks.map(line => <li key={line}>{line}</li>)}</ul></div>}
+    {unsettled.length > 0 && <p className="p-3 bg-amber-50 text-amber-900 text-sm">결제·환불 확인 중인 예약이 {unsettled.length}건 있습니다. 목록에서 ‘결제 상태 다시 확인’을 눌러 주세요. 확인 중인 날짜는 자동으로 열리지 않습니다.</p>}
     {cancelAsks.length > 0 && <p className="p-3 bg-amber-50 text-amber-900 text-sm">확정 예약 {cancelAsks.length}건에 손님의 취소 요청이 있습니다. 아래 목록에서 ‘취소 요청’ 표시를 확인해 주세요.</p>}
 
     <section className="border rounded-xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-bold text-lg">1. 예약 신청 관리</h2>
+        <h2 className="font-bold text-lg">1. 예약 관리</h2>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {([["requested", `확인 대기 ${waiting.length}`], ["confirmed", "확정"], ["all", "전체"]] as const).map(([key, label]) => <button key={key} type="button" onClick={() => setFilter(key)} className={`px-3 py-1.5 rounded-full border ${filter === key ? "bg-gray-900 text-white border-gray-900" : ""}`}>{label}</button>)}
           <button type="button" disabled={busy} onClick={() => load().catch(e => setError((e as Error).message))}>새로고침 ↻</button>
         </div>
       </div>
-      <p className="text-sm text-gray-600 my-2">신청이 들어오면 그 날짜는 바로 마감으로 표시됩니다. 확정하면 유지되고, 거절·취소하면 날짜가 다시 열립니다. 결제는 온라인으로 받지 않으므로 확정 후 손님에게 따로 안내해 주세요.</p>
+      <p className="text-sm text-gray-600 my-2">카드로 결제한 예약은 결제와 동시에 확정됩니다. 취소할 때는 ‘환불 취소’로 환불 금액을 정해 주세요. 결제 없이 들어온 신청은 그 날짜가 바로 마감으로 표시되고, 확정하면 유지되며 거절·취소하면 다시 열립니다.</p>
       <label className="flex items-center gap-2 text-sm my-3"><input type="checkbox" checked={notify} onChange={e => setNotify(e.target.checked)} />처리 결과를 손님에게 문자로 알리기{!data.smsConfigured && <span className="text-gray-500">(문자 설정이 없어 발송되지 않습니다)</span>}</label>
       <div className="overflow-auto">
         <table className="w-full text-sm whitespace-nowrap">
-          <thead><tr>{["예약번호", "입실 → 퇴실", "예약자", "인원", "예상 요금", "상태", "처리"].map(t => <th className="p-2 text-left" key={t}>{t}</th>)}</tr></thead>
+          <thead><tr>{["예약번호", "입실 → 퇴실", "예약자", "인원", "요금·결제", "상태", "처리"].map(t => <th className="p-2 text-left" key={t}>{t}</th>)}</tr></thead>
           <tbody>
             {shown.map(b => <tr className="border-t align-top" key={b.id}>
               <td className="p-2"><b>{b.code}</b><br /><span className="text-gray-500">{stamp(b.created_at)} 신청</span></td>
@@ -127,11 +172,19 @@ export default function JsHouseAdmin() {
                 {b.memo && <p className="max-w-xs whitespace-pre-wrap text-gray-600 mt-1">요청: {b.memo}</p>}
                 {b.admin_note && <p className="max-w-xs whitespace-pre-wrap text-gray-500 mt-1">메모: {b.admin_note}</p>}</td>
               <td className="p-2">{b.guests}명</td>
-              <td className="p-2">{typeof b.estimate?.total === "number" ? won(b.estimate.total) : "요금 미설정"}</td>
+              <td className="p-2">{b.amount !== null
+                ? <>{b.paid_at ? <b>카드 결제 {won(b.amount)}</b> : <span className="text-gray-600">결제 예정 {won(b.amount)}</span>}
+                  {b.refund_amount !== null && <span className="block text-gray-600">환불 {won(b.refund_amount)}{b.cancel_reason ? ` · ${b.cancel_reason}` : ""}</span>}
+                  {b.receipt_url && <a className="block underline" href={b.receipt_url} target="_blank" rel="noopener noreferrer">영수증 ↗</a>}
+                  {b.estimate?.refundTerms && <details className="mt-1"><summary className="cursor-pointer text-gray-600">동의한 환불 규정</summary><p className="max-w-sm whitespace-pre-wrap text-gray-600 mt-1">{b.estimate.refundTerms}</p></details>}</>
+                : typeof b.estimate?.total === "number" ? <>예상 {won(b.estimate.total)}<span className="block text-gray-500">결제 없음</span></> : "요금 미설정"}</td>
               <td className="p-2"><span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${TONE[b.status]}`}>{STATUS[b.status]}</span>{b.cancel_requested && <span className="block mt-1 text-xs font-bold text-red-700">취소 요청</span>}</td>
               <td className="p-2 space-x-2">
                 {b.status === "requested" && <><button type="button" disabled={busy} className="bg-green-800 text-white px-3 py-1.5 rounded" onClick={() => decide(b, "confirm")}>확정</button><button type="button" disabled={busy} className="border px-3 py-1.5 rounded" onClick={() => decide(b, "decline")}>거절</button></>}
-                {b.status === "confirmed" && <button type="button" disabled={busy} className="border border-red-300 text-red-800 px-3 py-1.5 rounded" onClick={() => decide(b, "cancel")}>예약 취소</button>}
+                {b.status === "confirmed" && (b.paid_at
+                  ? <button type="button" disabled={busy} className="border border-red-300 text-red-800 px-3 py-1.5 rounded" onClick={() => refund(b)}>환불 취소</button>
+                  : <button type="button" disabled={busy} className="border border-red-300 text-red-800 px-3 py-1.5 rounded" onClick={() => decide(b, "cancel")}>예약 취소</button>)}
+                {(b.status === "confirming" || b.status === "cancelling") && <button type="button" disabled={busy} className="border px-3 py-1.5 rounded" onClick={() => void post({ action: "reconcile", id: b.id }, "결제 기록을 다시 확인했습니다.")}>결제 상태 다시 확인</button>}
               </td>
             </tr>)}
           </tbody>
@@ -171,7 +224,7 @@ export default function JsHouseAdmin() {
       <fieldset disabled={busy} className="grid sm:grid-cols-4 gap-3 items-end">
         <label className="text-sm">시작일<input className={input} type="date" value={range.start} onChange={e => setRange(r => ({ ...r, start: e.target.value }))} /></label>
         <label className="text-sm">종료일 (포함)<input className={input} type="date" value={range.end} min={range.start} onChange={e => setRange(r => ({ ...r, end: e.target.value }))} /></label>
-        <label className="text-sm">그날만의 1박 요금 <span className="text-gray-500">(선택)</span><input className={input} type="number" min={1} step={1000} value={dayPrice} onChange={e => setDayPrice(e.target.value)} placeholder="비우면 기본 요금" /></label>
+        <label className="text-sm">그날만의 1박 요금 <span className="text-gray-500">(선택)</span><input className={input} type="number" min={1} value={dayPrice} onChange={e => setDayPrice(e.target.value)} placeholder="비우면 기본 요금" /></label>
         <label className="text-sm">메모 <span className="text-gray-500">(선택)</span><input className={input} maxLength={80} value={dayNote} onChange={e => setDayNote(e.target.value)} placeholder="예: 타 플랫폼 예약" /></label>
       </fieldset>
       <div className="flex flex-wrap gap-2 text-sm">
@@ -203,10 +256,10 @@ export default function JsHouseAdmin() {
       <h2 className="font-bold text-lg">4. 기본 설정</h2>
       <p className="text-sm text-gray-600">비워 둔 항목은 손님 화면에서 ‘예약 확정 시 안내’로 표시됩니다. 요금을 넣으면 달력 칸과 예상 금액에 나타납니다.</p>
       <fieldset disabled={busy} className="space-y-4">
-        <label className="flex items-center gap-2 font-bold"><input type="checkbox" checked={config.open} onChange={e => field("open", e.target.checked)} />예약 신청 받기</label>
+        <label className="flex items-center gap-2 font-bold"><input type="checkbox" checked={config.open} onChange={e => field("open", e.target.checked)} />예약 받기</label>
         <div className="grid sm:grid-cols-3 gap-3">
-          <label className="text-sm">일~목 1박 요금 (원)<input className={input} type="number" min={1} step={1000} value={config.weekdayPrice ?? ""} onChange={e => numberField("weekdayPrice", e.target.value)} placeholder="비우면 요금 미표시" /></label>
-          <label className="text-sm">금·토 1박 요금 (원)<input className={input} type="number" min={1} step={1000} value={config.weekendPrice ?? ""} onChange={e => numberField("weekendPrice", e.target.value)} placeholder="비우면 주중과 동일" /></label>
+          <label className="text-sm">일~목 1박 요금 (원)<input className={input} type="number" min={1} value={config.weekdayPrice ?? ""} onChange={e => numberField("weekdayPrice", e.target.value)} placeholder="비우면 요금 미표시" /></label>
+          <label className="text-sm">금·토 1박 요금 (원)<input className={input} type="number" min={1} value={config.weekendPrice ?? ""} onChange={e => numberField("weekendPrice", e.target.value)} placeholder="비우면 주중과 동일" /></label>
           <label className="text-sm">최대 인원<input className={input} type="number" min={1} max={20} value={config.maxGuests} onChange={e => field("maxGuests", Number(e.target.value))} /></label>
           <label className="text-sm">체크인 시간<input className={input} type="time" value={config.checkInTime} onChange={e => field("checkInTime", e.target.value)} /></label>
           <label className="text-sm">체크아웃 시간<input className={input} type="time" value={config.checkOutTime} onChange={e => field("checkOutTime", e.target.value)} /></label>
@@ -221,6 +274,13 @@ export default function JsHouseAdmin() {
           <label className="text-sm">오시는 길 한 줄<input className={input} maxLength={80} value={config.walkNote} onChange={e => field("walkNote", e.target.value)} placeholder="예: 홍대입구역 3번 출구에서 걸어서 8분" /></label>
           <label className="text-sm">주차 안내<input className={input} maxLength={80} value={config.parkingNote} onChange={e => field("parkingNote", e.target.value)} placeholder="예: 주차 불가 · 인근 공영주차장 이용" /></label>
         </div>
+        <div className="border rounded-lg p-4 space-y-3 bg-gray-50">
+          <label className="flex items-center gap-2 font-bold"><input type="checkbox" checked={config.payOnline} onChange={e => field("payOnline", e.target.checked)} />카드 결제 받기 <span className="font-normal text-sm text-gray-600">(블랜드픽과 같은 토스 결제 · 결제 즉시 예약 확정)</span></label>
+          <p className="text-sm text-gray-600">요금이 모두 정해진 일정만 카드로 결제받습니다. 아래 취소·환불 규정이 20자 이상 입력되어 있어야 결제가 열리고, 손님은 결제 전에 이 규정에 동의합니다. 동의한 내용은 예약마다 그대로 저장됩니다.</p>
+          <label className="block text-sm">취소·환불 규정 <span className="text-gray-500">(손님 화면에 그대로 표시됩니다)</span>
+            <textarea className={`${input} min-h-44`} maxLength={4000} value={config.refundTerms} onChange={e => field("refundTerms", e.target.value)} placeholder={"예: 이용일 7일 전까지 전액 환불\n예: 이용일 3~6일 전 50% 환불\n예: 이용일 2일 전부터 환불 불가"} /></label>
+          <button type="button" className="border px-3 py-1.5 rounded text-sm bg-white" onClick={() => { if (!config.refundTerms.trim() || window.confirm("지금 적힌 규정을 지우고 단궁 예약의 환불 규정으로 바꿀까요? 불러온 뒤 JS하우스에 맞게 고쳐서 저장하세요.")) field("refundTerms", data.refundTemplate); }}>단궁 예약의 환불 규정 불러오기</button>
+        </div>
         <label className="block text-sm">예약 영역 공지 한 줄<input className={input} maxLength={200} value={config.notice} onChange={e => field("notice", e.target.value)} /></label>
         <label className="block text-sm">이용 안내 <span className="text-gray-500">(한 줄에 하나씩 · 손님 화면 ‘머무는 동안 지켜 주세요’에 표시)</span><textarea className={`${input} min-h-28`} maxLength={2000} value={config.rules} onChange={e => field("rules", e.target.value)} placeholder={"예: 실내 전 구역 금연\n예: 밤 10시 이후에는 조용히"} /></label>
       </fieldset>
@@ -230,7 +290,7 @@ export default function JsHouseAdmin() {
     <details className="border rounded-xl p-5">
       <summary className="font-bold cursor-pointer">최근 처리 기록 ({data.events.length})</summary>
       <ul className="mt-3 space-y-1 text-sm">
-        {data.events.map(e => <li key={e.id} className="flex flex-wrap gap-x-3 border-t py-1.5"><span className="text-gray-500">{stamp(e.created_at)}</span><b>{EVENT[e.action] || e.action}</b>{e.code && <span>{e.code}</span>}{e.detail?.kind && <span className="text-gray-500">{e.detail.kind.startsWith("operator") ? "운영자에게" : "손님에게"}</span>}{e.detail?.note && <span className="text-gray-600">메모: {e.detail.note}</span>}</li>)}
+        {data.events.map(e => <li key={e.id} className="flex flex-wrap gap-x-3 border-t py-1.5"><span className="text-gray-500">{stamp(e.created_at)}</span><b>{EVENT[e.action] || e.action}</b>{e.code && <span>{e.code}</span>}{e.detail?.kind && <span className="text-gray-500">{e.detail.kind.startsWith("operator") ? "운영자에게" : "손님에게"}</span>}{e.detail?.note && <span className="text-gray-600">메모: {e.detail.note}</span>}{typeof e.detail?.amount === "number" && <span className="text-gray-600">{won(e.detail.amount)}</span>}{typeof e.detail?.refundAmount === "number" && <span className="text-gray-600">환불 {won(e.detail.refundAmount)}</span>}{e.detail?.reason && <span className="text-gray-600">사유: {e.detail.reason}</span>}</li>)}
       </ul>
     </details>
   </div>;

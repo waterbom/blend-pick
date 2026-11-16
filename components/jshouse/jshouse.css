@@ -446,6 +446,44 @@
 .jsh-done dd{margin:0;font-weight:600}
 .jsh-done .jsh-done-note{font-size:12.5px;color:var(--mute)}
 
+/* ── 카드 결제: 환불 규정 동의 · 결제창 여는 중 · 결제 결과 화면 ── */
+.jsh-pre{margin:0;white-space:pre-line}
+.jsh-terms{display:grid;gap:10px}
+.jsh-terms>b{font-size:13px;color:var(--ink)}
+.jsh-terms>p{max-height:168px;margin:0;padding:12px 14px;overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:12.5px;line-height:1.7;color:var(--soft);white-space:pre-line;word-break:keep-all}
+.jsh-terms>p:focus-visible{outline:2px solid var(--oak-deep);outline-offset:2px}
+.jsh-status-terms{font-size:12.5px;color:var(--mute)}
+.jsh-status-terms summary{min-height:32px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.jsh-status-terms p{margin:6px 0 0;padding:12px 14px;border-radius:10px;background:#fff;font-size:12.5px;line-height:1.7;white-space:pre-line;word-break:keep-all}
+.jsh-status a{text-decoration:underline;text-underline-offset:3px}
+.jsh-status[data-status="confirming"] .jsh-status-chip,.jsh-status[data-status="cancelling"] .jsh-status-chip,.jsh-status[data-status="pending"] .jsh-status-chip{background:#F6E9CF;color:#7A5410}
+.jsh-status[data-status="expired"] .jsh-status-chip{background:#ECE7DD;color:var(--mute)}
+.jsh-paying{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));z-index:80;display:flex;align-items:center;gap:10px;margin:0;padding:13px 20px;border-radius:999px;background:var(--ink);color:var(--bone);font-size:14px;box-shadow:0 14px 40px rgba(30,26,21,.28);transform:translateX(-50%);animation:jsh-rise .4s var(--ease)}
+.jsh-paying i,.jsh-result-spin{width:16px;height:16px;border:2px solid rgba(244,240,232,.3);border-top-color:#D9B285;border-radius:50%;animation:jsh-spin .8s linear infinite}
+.jsh-result{display:grid;justify-items:center;align-content:start;gap:22px;min-height:100svh;padding:clamp(28px,6vw,64px) 20px 56px;background:var(--bone)}
+.jsh-result-brand{font-family:var(--serif-en);font-size:25px;letter-spacing:.02em;color:var(--ink)}
+.jsh-result-brand span{margin-left:8px;font-family:var(--sans);font-size:12px;color:var(--mute)}
+.jsh-result-card{display:grid;justify-items:center;gap:16px;width:min(100%,480px);padding:clamp(26px,5vw,40px) clamp(20px,5vw,36px);border:1px solid var(--line-strong);border-radius:22px;background:var(--paper);text-align:center;animation:jsh-rise .6s var(--ease)}
+.jsh-result-card h1{margin:0;font-family:var(--serif);font-size:clamp(23px,5.4vw,28px);font-weight:500;letter-spacing:-.035em;word-break:keep-all}
+.jsh-result-card>p{margin:0;font-size:14.5px;line-height:1.75;color:var(--soft);word-break:keep-all}
+.jsh-result-card>p b{color:var(--ink)}
+.jsh-result-card dl{display:grid;gap:8px;width:100%;margin:0;text-align:left;font-size:14px}
+.jsh-result-card dl div{display:flex;justify-content:space-between;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.jsh-result-card dt{color:var(--mute)}
+.jsh-result-card dd{margin:0;font-weight:600;text-align:right}
+.jsh-result-card .jsh-done-note{font-size:12.5px;color:var(--mute)}
+.jsh-result-card .jsh-status-terms{width:100%;text-align:left}
+.jsh-result-card .jsh-form-error{width:100%;text-align:left}
+.jsh-result-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:999px;background:#F6E9CF;font-size:13px;font-weight:700;color:#7A5410}
+.jsh-result-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.jsh-result-chip[data-status="expired"],.jsh-result-chip[data-status="cancelled"],.jsh-result-chip[data-status="declined"]{background:#ECE7DD;color:var(--mute)}
+.jsh-result-spin{width:34px;height:34px;border-width:3px;border-color:var(--line-strong);border-top-color:var(--oak-deep)}
+.jsh-result-link{font-size:13.5px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--oak)}
+.jsh-result-actions{display:grid;gap:10px;width:100%}
+.jsh-result-actions:empty{display:none}
+.jsh-result-help{max-width:480px;margin:0;font-size:13px;line-height:1.7;text-align:center;color:var(--mute);word-break:keep-all}
+.jsh-result-help a{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--oak)}
+
 /* ── 이용 안내 ────────────────────────────────────── */
 .jsh-guide{background:var(--paper);border-top:1px solid var(--line)}
 .jsh-guide-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(36px,7vw,110px);align-items:start}
@@ -592,7 +630,7 @@
   .jsh-mobilebar b{font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .jsh-mobilebar small{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .jsh-mobilebar .jsh-btn{flex-shrink:0;min-height:48px;padding:0 22px}
-  body:has(.jsh) > footer{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+  body:has(.jsh-mobilebar) > footer{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
   .jsh-cursor{display:none}
 }
 @media (max-width:560px){

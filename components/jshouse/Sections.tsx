@@ -221,15 +221,21 @@ export function Location({ config }: { config: StayConfig }) {
   </section>;
 }
 
-export function Guide({ config }: { config: StayConfig }) {
+// pay: 카드 결제를 받는 상태인지 (요금·환불 규정·결제 키가 모두 준비됨)
+export function Guide({ config, pay = false }: { config: StayConfig; pay?: boolean }) {
   const rules = config.rules.split("\n").map(line => line.trim()).filter(Boolean);
   const items: { q: string; a: ReactNode }[] = [
-    { q: "예약은 어떻게 진행되나요?", a: <>달력에서 날짜를 고르고 예약을 신청하면, 일정을 확인한 뒤 확정 여부와 결제 방법을 문자로 안내드려요. 신청 단계에서는 결제하지 않습니다.</> },
+    { q: "예약은 어떻게 진행되나요?", a: pay
+      ? <>달력에서 날짜를 고르고 예약자 정보를 적은 뒤 카드로 결제하면 바로 예약이 확정돼요. 결제는 블랜드픽과 같은 토스페이먼츠 결제창에서 진행되고, 확정 문자를 보내드립니다. 요금이 아직 정해지지 않은 날짜는 결제 없이 신청만 받고 일정 확인 후 안내드려요.</>
+      : <>달력에서 날짜를 고르고 예약을 신청하면, 일정을 확인한 뒤 확정 여부와 결제 방법을 문자로 안내드려요. 신청 단계에서는 결제하지 않습니다.</> },
     { q: "체크인·체크아웃은 몇 시인가요?", a: config.checkInTime || config.checkOutTime
       ? <>체크인 <b>{config.checkInTime || "별도 안내"}</b> · 체크아웃 <b>{config.checkOutTime || "별도 안내"}</b> 입니다.</>
       : <>입실·퇴실 시간과 들어오는 방법은 예약 확정 문자에서 함께 알려드려요.</> },
     { q: "몇 명까지 머물 수 있나요?", a: <>침대는 라지 1개와 싱글 2개가 있어요. 예약 신청은 최대 <b>{config.maxGuests}명</b>까지 받고 있습니다.</> },
-    { q: "신청을 취소하고 싶어요.", a: <>확정 전 신청은 아래 <a href="#lookup">예약 조회</a>에서 바로 취소할 수 있어요. 이미 확정된 예약은 조회 화면에서 취소 요청을 남기면 확인 후 연락드립니다.</> },
+    pay
+      ? { q: "예약을 취소하고 싶어요.", a: <><a href="#lookup">예약 조회</a>에서 취소를 요청해 주세요. 결제할 때 동의하신 취소·환불 규정에 따라 환불 금액을 확인한 뒤 처리해 드려요.</> }
+      : { q: "신청을 취소하고 싶어요.", a: <>확정 전 신청은 아래 <a href="#lookup">예약 조회</a>에서 바로 취소할 수 있어요. 이미 확정된 예약은 조회 화면에서 취소 요청을 남기면 확인 후 연락드립니다.</> },
+    ...(pay && config.refundTerms ? [{ q: "취소·환불 규정이 궁금해요.", a: <p className="jsh-pre">{config.refundTerms}</p> }] : []),
     ...(rules.length ? [{ q: "머무는 동안 지켜 주세요", a: <ul className="jsh-rules">{rules.map(rule => <li key={rule}>{rule}</li>)}</ul> }] : []),
     { q: "더 궁금한 점이 있어요.", a: <>블랜드픽 <a href={KAKAO_URL} target="_blank" rel="noopener noreferrer">카카오 상담</a>으로 편하게 물어봐 주세요. JS하우스 문의라고 말씀해 주시면 빠르게 도와드려요.</> },
   ];
@@ -248,6 +254,15 @@ export function Guide({ config }: { config: StayConfig }) {
       </div>
     </div>
   </section>;
+}
+
+// 영문 제목용 글꼴 — JS하우스 화면에서만 불러온다
+export function Fonts() {
+  return <>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" />
+  </>;
 }
 
 export function Closing() {
