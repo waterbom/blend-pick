@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
     return [
       { source: "/hotel/reserve", destination: "/hotel/utop", permanent: true },
       { source: "/hotel/reserve/checkout", destination: "/hotel/utop/checkout", permanent: true },
+      // 숙소 브랜드명이 LIMEN으로 확정되기 전 주소 — 보낸 문자·공유 링크가 계속 열리게 한다
+      { source: "/hotel/jshouse", destination: "/hotel/limen", permanent: true },
+      { source: "/hotel/jshouse/:path*", destination: "/hotel/limen/:path*", permanent: true },
+      { source: "/admin/jshouse", destination: "/admin/limen", permanent: true },
     ];
   },
 };

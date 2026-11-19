@@ -2,6 +2,6 @@
 // 서버 첫 응답과 클라이언트 화면 전환에 같은 조건을 적용한다.
 export function isFloatingExcludedPath(pathname: string): boolean {
   return /^\/(?:admin|partners|influencer|sanji|pay)(?:\/|$)/.test(pathname)
-    || /^\/hotel\/(?:dangung|jshouse)(?:\/|$)/.test(pathname)
+    || /^\/hotel\/(?:dangung|limen)(?:\/|$)/.test(pathname)
     || /(?:^|\/)checkout(?:\/|$)/.test(pathname);
 }

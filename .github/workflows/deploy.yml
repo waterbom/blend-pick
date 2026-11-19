@@ -29,7 +29,7 @@ jobs:
             npm ci
             npm run test:visits
             npm run test:dangung
-            npm run test:jshouse
+            npm run test:limen
             npm run test:admin-integrity
             npm run test:admin-charts
             npm run test:product-sales
@@ -53,7 +53,7 @@ jobs:
             node scripts/prepare-commerce-automation.cjs
             node scripts/prepare-buyer-convenience.cjs
             node scripts/prepare-dangung.cjs
-            node scripts/prepare-jshouse.cjs
+            node scripts/prepare-limen.cjs
             node scripts/check-shipping-config.cjs
             node scripts/prepare-visit-analytics.cjs
             npm run build

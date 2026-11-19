@@ -23,17 +23,17 @@ export interface StayBannerConfig {
 
 export const STAY_BANNERS: StayBannerConfig[] = [
   {
-    key: "jshouse",
-    name: "JS하우스 · 연남동",
+    key: "limen",
+    name: "LIMEN · 연남동",
     slides: [
       {
-        images: ["/hotel/jshouse/bedroom.webp", "/hotel/jshouse/kitchen.webp", "/hotel/jshouse/twin.webp"],
-        grad: "linear-gradient(135deg,#C9B08C,#8A6238)",
+        images: ["/hotel/limen/twin.webp", "/hotel/limen/kitchen.webp", "/hotel/limen/bedroom.webp"],
+        grad: "linear-gradient(135deg,#C9B08C,#7E6140)",
         tag: "서울 연남동 · 프라이빗 스테이",
-        title: "JS하우스\n나무결 사이로 머무는 하루",
-        subtitle: "오크와 화이트로 채운 공간을, 하루 한 팀이 온전히",
-        href: "/hotel/jshouse",
-        cta: "JS하우스 둘러보고 예약하기",
+        title: "LIMEN\n경계를 넘어, 고요함 속으로",
+        subtitle: "문 하나를 경계로 펼쳐지는 고요 · 원룸 2인 · 투룸 4인",
+        href: "/hotel/limen",
+        cta: "LIMEN 둘러보고 예약하기",
       },
     ],
   },
