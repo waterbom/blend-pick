@@ -61,11 +61,11 @@ export const CLOSING = {
 // 운영 방식 (이용 안내에 싣는다)
 export const HOSTING = "과도한 개입이나 형식적인 환대보다, 머무는 분의 사생활을 존중하면서 필요한 순간에는 세심하게 응답하는 방식을 추구합니다.";
 
-// 객실 — 요금·최대 인원은 관리자 설정(config.rooms)에서 읽는다. 여기는 이름과 소개만.
+// 객실 — 요금·최대 인원은 관리자 설정(config.rooms)에서 읽는다. 여기는 이름과 소개, 대표 사진만.
 export type RoomKey = "one" | "two";
 export const ROOM_KEYS: RoomKey[] = ["one", "two"];
-export const ROOMS: Record<RoomKey, { name: string; en: string; summary: string; photo?: { src: string; small: string }; alt?: string }> = {
-  one: { name: "원룸", en: "ONE ROOM", summary: "둘이 머무는 방 하나." },
+export const ROOMS: Record<RoomKey, { name: string; en: string; summary: string; photo: { src: string; small: string }; alt: string }> = {
+  one: { name: "원룸", en: "ONE ROOM", summary: "낮은 가벽이 나누는 방 하나. 침대와 주방, 창가의 식탁까지.", photo: photo("one-living"), alt: "낮은 가벽과 창이 있는 LIMEN 원룸" },
   two: { name: "투룸", en: "TWO ROOM", summary: "침실 둘, 주방과 세탁실까지 한 팀이 온전히.", photo: photo("bedroom"), alt: "오크 패널 벽과 넓은 침대가 놓인 LIMEN 투룸 침실" },
 };
 export const RATE_ROWS: { key: "weekday" | "friday" | "saturday" | "shoulder" | "peak"; label: string; note: string }[] = [
@@ -80,53 +80,90 @@ export type Space = {
   key: string; label: string; title: string; body: string; points: string[];
   photo: { src: string; small: string }; alt: string;
 };
-// 공간 둘러보기 — 지금 있는 사진은 모두 투룸(4인)이다.
-export const SPACES: Space[] = [
-  {
-    key: "twin", label: "TWIN ROOM", title: "문 너머, 나란한 두 자리",
-    body: "낮은 우드 플랫폼 위에 싱글 침대 두 개를 나란히 올렸습니다. 머리맡 선반과 콘센트가 침대마다 하나씩 있습니다.",
-    points: ["싱글 침대 2", "헤드보드 선반 · 콘센트", "벽걸이 에어컨"],
-    photo: photo("twin"), alt: "열린 문 너머로 우드 플랫폼 위 싱글 침대 두 개가 보이는 LIMEN 트윈룸",
-  },
-  {
-    key: "bedroom", label: "MASTER BEDROOM", title: "우드 월이 감싸는 침실",
-    body: "벽을 따라 두른 오크 패널이 침대를 감쌉니다. 길게 난 가로창에는 블라인드를 달아 아침 빛을 원하는 만큼만 들일 수 있습니다.",
-    points: ["라지 사이즈 침대", "가로창 · 블라인드", "침대 옆 협탁 · 콘센트"],
-    photo: photo("bedroom"), alt: "오크 패널 벽과 넓은 침대가 놓인 LIMEN 침실",
-  },
-  {
-    key: "kitchen", label: "KITCHEN", title: "간접조명이 켜지는 주방",
-    body: "오크 수납장과 밝은 상판, 조리대 위로 켜지는 간접조명. 큰 냉장고와 인덕션, 정수기가 있어 한 끼를 차리기 좋습니다.",
-    points: ["대형 냉장고", "인덕션 · 정수기", "조리도구 · 식기건조대"],
-    photo: photo("kitchen"), alt: "오크 수납장과 빌트인 냉장고가 있는 LIMEN 주방",
-  },
-  {
-    key: "dressing", label: "DRESSING & LAUNDRY", title: "수납과 세탁, 문 하나 뒤에",
-    body: "한쪽 벽을 가득 채운 붙박이장에 짐을 풀고, 미닫이문 뒤 세탁실에서 빨래까지. 며칠을 머물러도 짐이 늘지 않습니다.",
-    points: ["벽면 붙박이장", "세탁기 · 건조기", "분리된 세탁실"],
-    photo: photo("dressing"), alt: "벽면 붙박이장과 미닫이문 너머 세탁기가 보이는 LIMEN 드레스룸",
-  },
-  {
-    key: "bath", label: "BATHROOM", title: "따뜻한 빛의 욕실",
-    body: "거울 위로 번지는 간접조명과 베이지 톤 타일. 유리문으로 나뉜 샤워부스가 따로 있습니다.",
-    points: ["유리문 샤워부스", "간접조명 거울", "세면대 · 수건걸이"],
-    photo: photo("bath"), alt: "간접조명 거울과 샤워부스가 있는 LIMEN 욕실",
-  },
-];
+// 공간 둘러보기 — 객실별 사진. 설명은 사진에서 확인되는 것만 적는다.
+export const SPACES_BY_ROOM: Record<RoomKey, Space[]> = {
+  one: [
+    {
+      key: "one-living", label: "LIVING", title: "낮은 가벽이 나누는 방",
+      body: "낮은 가벽 하나가 공간을 둘로 나눕니다. 창으로는 바깥의 나무가 보이고, 미닫이문 너머로 다음 공간이 이어집니다.",
+      points: ["낮은 가벽", "창가 자리", "벽걸이 에어컨"],
+      photo: photo("one-living"), alt: "낮은 가벽과 창, 미닫이문이 보이는 LIMEN 원룸",
+    },
+    {
+      key: "one-bed", label: "BED", title: "우드 패널이 감싸는 침대",
+      body: "오크 패널이 머리맡과 옆을 감싸는 침대 자리입니다. 벽등과 콘센트, 작은 선반이 양쪽에 하나씩 있습니다.",
+      points: ["2인 침대", "벽등 2", "머리맡 콘센트 · 선반"],
+      photo: photo("one-bed"), alt: "오크 패널이 감싼 침대와 벽등이 있는 LIMEN 원룸 침대 자리",
+    },
+    {
+      key: "one-dining", label: "DINING", title: "창가의 식탁",
+      body: "창 옆에 식탁과 의자 네 개를 두었습니다. 주방과 한 걸음 거리라 차린 음식을 바로 올리기 좋습니다.",
+      points: ["식탁 · 의자 4", "창 · 블라인드", "전자레인지"],
+      photo: photo("one-dining"), alt: "창가에 식탁과 의자 네 개가 놓인 LIMEN 원룸 주방",
+    },
+    {
+      key: "one-kitchen", label: "KITCHEN", title: "오크 하부장과 밝은 상판",
+      body: "오크 하부장 위로 밝은 상판과 벽이 이어집니다. 인덕션과 싱크, 정수기가 한 줄로 놓여 있습니다.",
+      points: ["인덕션", "싱크", "정수기"],
+      photo: photo("one-kitchen"), alt: "오크 하부장과 밝은 상판, 정수기가 놓인 LIMEN 원룸 주방",
+    },
+  ],
+  two: [
+    {
+      key: "twin", label: "TWIN ROOM", title: "문 너머, 나란한 두 자리",
+      body: "낮은 우드 플랫폼 위에 싱글 침대 두 개를 나란히 올렸습니다. 머리맡 선반과 콘센트가 침대마다 하나씩 있습니다.",
+      points: ["싱글 침대 2", "헤드보드 선반 · 콘센트", "벽걸이 에어컨"],
+      photo: photo("twin"), alt: "열린 문 너머로 우드 플랫폼 위 싱글 침대 두 개가 보이는 LIMEN 트윈룸",
+    },
+    {
+      key: "bedroom", label: "MASTER BEDROOM", title: "우드 월이 감싸는 침실",
+      body: "벽을 따라 두른 오크 패널이 침대를 감쌉니다. 길게 난 가로창에는 블라인드를 달아 아침 빛을 원하는 만큼만 들일 수 있습니다.",
+      points: ["라지 사이즈 침대", "가로창 · 블라인드", "침대 옆 협탁 · 콘센트"],
+      photo: photo("bedroom"), alt: "오크 패널 벽과 넓은 침대가 놓인 LIMEN 침실",
+    },
+    {
+      key: "kitchen", label: "KITCHEN", title: "간접조명이 켜지는 주방",
+      body: "오크 수납장과 밝은 상판, 조리대 위로 켜지는 간접조명. 큰 냉장고와 인덕션, 정수기가 있어 한 끼를 차리기 좋습니다.",
+      points: ["대형 냉장고", "인덕션 · 정수기", "조리도구 · 식기건조대"],
+      photo: photo("kitchen"), alt: "오크 수납장과 빌트인 냉장고가 있는 LIMEN 주방",
+    },
+    {
+      key: "dressing", label: "DRESSING & LAUNDRY", title: "수납과 세탁, 문 하나 뒤에",
+      body: "한쪽 벽을 가득 채운 붙박이장에 짐을 풀고, 미닫이문 뒤 세탁실에서 빨래까지. 며칠을 머물러도 짐이 늘지 않습니다.",
+      points: ["벽면 붙박이장", "세탁기 · 건조기", "분리된 세탁실"],
+      photo: photo("dressing"), alt: "벽면 붙박이장과 미닫이문 너머 세탁기가 보이는 LIMEN 드레스룸",
+    },
+    {
+      key: "bath", label: "BATHROOM", title: "따뜻한 빛의 욕실",
+      body: "거울 위로 번지는 간접조명과 베이지 톤 타일. 유리문으로 나뉜 샤워부스가 따로 있습니다.",
+      points: ["유리문 샤워부스", "간접조명 거울", "세면대 · 수건걸이"],
+      photo: photo("bath"), alt: "간접조명 거울과 샤워부스가 있는 LIMEN 욕실",
+    },
+  ],
+};
+export const SPACES: Space[] = ROOM_KEYS.flatMap(key => SPACES_BY_ROOM[key]);
+const space = (key: string) => { const found = SPACES.find(s => s.key === key); if (!found) throw Error(`unknown space ${key}`); return { photo: found.photo, alt: found.alt }; };
 
-// 첫 화면과 '문을 지나는' 장면에 쓰는 사진 — 문 너머로 찍힌 장면
-export const HERO = { photo: SPACES[0].photo, alt: SPACES[0].alt };
-export const PASSAGE_PHOTO = { photo: SPACES[3].photo, alt: SPACES[3].alt };
-export const STORY_PHOTO = { photo: SPACES[2].photo, alt: SPACES[2].alt };
-export const CLOSING_PHOTO = { photo: SPACES[4].photo, alt: SPACES[4].alt };
+// 첫 화면과 '문을 지나는' 장면, 스토리·맺음에 쓰는 사진 — 문 너머로 찍힌 장면들
+export const HERO = space("twin");
+export const PASSAGE_PHOTO = space("dressing");
+export const STORY_PHOTO = space("kitchen");
+export const CLOSING_PHOTO = space("bath");
 
-// 사진으로 확인되는 비품 (투룸)
-export const AMENITIES: { group: string; items: string[] }[] = [
-  { group: "침실", items: ["라지 베드", "싱글 베드 2", "헤드보드 콘센트", "블라인드", "에어컨"] },
-  { group: "주방", items: ["대형 냉장고", "인덕션", "정수기", "조리도구", "식기건조대"] },
-  { group: "생활", items: ["세탁기", "건조기", "벽면 붙박이장"] },
-  { group: "욕실", items: ["샤워부스", "세면대", "간접조명 거울"] },
-];
+// 사진으로 확인되는 비품 (객실별)
+export const AMENITIES: Record<RoomKey, { group: string; items: string[] }[]> = {
+  one: [
+    { group: "침대", items: ["2인 침대", "벽등", "머리맡 콘센트 · 선반"] },
+    { group: "주방", items: ["인덕션", "전자레인지", "정수기", "싱크"] },
+    { group: "생활", items: ["식탁 · 의자 4", "에어컨", "블라인드"] },
+  ],
+  two: [
+    { group: "침실", items: ["라지 베드", "싱글 베드 2", "헤드보드 콘센트", "블라인드", "에어컨"] },
+    { group: "주방", items: ["대형 냉장고", "인덕션", "정수기", "조리도구", "식기건조대"] },
+    { group: "생활", items: ["세탁기", "건조기", "벽면 붙박이장"] },
+    { group: "욕실", items: ["샤워부스", "세면대", "간접조명 거울"] },
+  ],
+};
 
 // 동네 안내 — 널리 알려진 사실만. 숙소 기준 거리·시간은 주소 확정 전이라 적지 않는다.
 export const NEIGHBORHOOD: { key: string; title: string; body: string }[] = [

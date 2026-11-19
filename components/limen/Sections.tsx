@@ -179,6 +179,7 @@ export function Rooms({ config }: { config: StayConfig }) {
         {ROOM_KEYS.map((key, i) => {
           const room = ROOMS[key], rates = config.rooms[key], from = fromPrice(key);
           return <article className="lm-room" key={key} data-reveal style={delay(i)}>
+            <figure className="lm-door lm-room-photo" data-reveal="door"><img src={room.photo.src} srcSet={srcSet(room.photo)} sizes="(max-width: 640px) 60vw, 22vw" alt={room.alt} width={952} height={1269} loading="lazy" /></figure>
             <p className="lm-room-en">{room.en}</p>
             <h3>{room.name}<small>{rates.guests}인</small></h3>
             <p className="lm-room-summary">{room.summary}</p>
@@ -225,12 +226,17 @@ export function Amenities() {
       <div className="lm-head">
         <p className="lm-label" data-reveal><b>—</b><span>AMENITIES</span></p>
         <h2 className="lm-h3" id="lm-amen-title" data-reveal>세심하게 준비한 것들</h2>
-        <p className="lm-fine" data-reveal>투룸 사진에서 확인되는 비품입니다. 더 궁금한 것은 <a href={KAKAO_URL} target="_blank" rel="noopener noreferrer">카카오 상담</a>으로 물어봐 주세요.</p>
+        <p className="lm-fine" data-reveal>사진에서 확인되는 비품을 객실별로 적었습니다. 더 궁금한 것은 <a href={KAKAO_URL} target="_blank" rel="noopener noreferrer">카카오 상담</a>으로 물어봐 주세요.</p>
       </div>
-      <div className="lm-amen-grid">
-        {AMENITIES.map((group, g) => <div className="lm-amen-group" key={group.group} data-reveal style={delay(g)}>
-          <h3>{group.group}</h3>
-          <ul>{group.items.map(item => <li key={item}>{item}</li>)}</ul>
+      <div className="lm-amen-rooms">
+        {ROOM_KEYS.map(key => <div className="lm-amen-room" key={key} data-reveal>
+          <h3>{ROOMS[key].name}<small>{ROOMS[key].en}</small></h3>
+          <div className="lm-amen-grid">
+            {AMENITIES[key].map(group => <div className="lm-amen-group" key={group.group}>
+              <h4>{group.group}</h4>
+              <ul>{group.items.map(item => <li key={item}>{item}</li>)}</ul>
+            </div>)}
+          </div>
         </div>)}
       </div>
     </div>

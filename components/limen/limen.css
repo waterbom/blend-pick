@@ -194,6 +194,7 @@
 .lm-room-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong)}
 .lm-room{display:grid;gap:18px;align-content:start;padding:clamp(28px,4vw,56px) clamp(0px,3vw,48px) clamp(28px,4vw,56px) 0}
 .lm-room+.lm-room{padding-left:clamp(22px,4vw,56px);padding-right:0;border-left:1px solid var(--line)}
+.lm-room-photo{width:min(72%,300px);margin-bottom:clamp(8px,1.6vw,22px)}
 .lm-room-en{font-size:11px;font-weight:500;letter-spacing:.26em;color:var(--mute)}
 .lm-room h3{display:flex;align-items:baseline;gap:16px;font-size:clamp(40px,5.6vw,84px);font-weight:300;line-height:1;letter-spacing:-.05em}
 .lm-room h3 small{font-size:clamp(15px,1.5vw,19px);font-weight:400;letter-spacing:0;color:var(--mute)}
@@ -231,7 +232,14 @@
 
 /* ── 05 공간 둘러보기 ── */
 .lm-tour{background:var(--paper)}
-.lm-tour-head .lm-fine{max-width:34em}
+.lm-tour-pick{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 24px}
+.lm-tour-pick .lm-room-cta{margin-top:0}
+.lm-tour-tabs{display:inline-flex;gap:6px;padding:6px;border:1px solid var(--line-strong);border-radius:999px}
+.lm-tour-tabs button{display:inline-flex;align-items:center;gap:10px;min-height:46px;padding:0 22px;border-radius:999px;font-size:15.5px;font-weight:500;transition:background .4s var(--ease),color .4s var(--ease)}
+.lm-tour-tabs small{font-size:12px;font-weight:400;color:var(--mute);transition:color .4s}
+.lm-tour-tabs button[aria-selected="true"]{background:var(--ink);color:var(--bone)}
+.lm-tour-tabs button[aria-selected="true"] small{color:var(--bone-soft)}
+.lm-tour-grid{animation:lm-fade .6s var(--ease)}
 .lm-tour-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:clamp(40px,8vw,140px);align-items:start}
 .lm-tour-stage{position:sticky;top:calc(50vh - min(34vh,300px));display:grid;justify-items:center;gap:20px}
 .lm-tour-frame{width:min(100%,calc(68vh/1.4),440px);cursor:zoom-in}
@@ -271,8 +279,11 @@
 .lm-amenities{padding-top:0;background:var(--paper)}
 .lm-amen-wrap{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:clamp(32px,7vw,120px);padding-top:clamp(56px,7vw,96px);border-top:1px solid var(--line-strong)}
 .lm-amen-wrap .lm-head{margin:0;align-content:start}
-.lm-amen-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(28px,4vw,56px) clamp(24px,4vw,64px)}
-.lm-amen-group h3{padding-bottom:14px;border-bottom:1px solid var(--line-strong);font-size:13px;font-weight:500;letter-spacing:.04em}
+.lm-amen-rooms{display:grid;gap:clamp(40px,5vw,72px)}
+.lm-amen-room>h3{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;font-size:clamp(24px,2.6vw,34px);font-weight:300;letter-spacing:-.04em}
+.lm-amen-room>h3 small{font-size:10.5px;font-weight:500;letter-spacing:.24em;color:var(--mute)}
+.lm-amen-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(24px,3vw,40px) clamp(18px,2.6vw,36px)}
+.lm-amen-group h4{padding-bottom:14px;border-bottom:1px solid var(--line-strong);font-size:13px;font-weight:500;letter-spacing:.04em}
 .lm-amen-group li{padding:12px 0;border-bottom:1px solid var(--line);font-size:15px;color:var(--soft)}
 
 /* ── 06 위치 (어두운 구간) ── */
@@ -610,7 +621,7 @@
   .lm-tour-dots{display:flex;align-items:center;gap:6px;margin-top:22px}
   .lm-tour-dots button{display:grid;place-items:center;width:28px;height:32px}
   .lm-tour-dots i{width:100%;height:1px;background:var(--line-strong);transition:background .4s,height .4s}
-  .lm-tour-dots button[aria-selected="true"] i{height:2px;background:var(--ink)}
+  .lm-tour-dots button[aria-current] i{height:2px;background:var(--ink)}
   .lm-tour-dots span{margin-left:auto;font-size:11.5px;letter-spacing:.16em;color:var(--mute)}
   .lm-passage{height:210vh}
   .lm-passage-stage{--door-w:min(66vw,340px);align-content:start;padding-top:calc(var(--header) + 6vh)}
@@ -645,6 +656,9 @@
   .lm-transit li,.lm-transit li+li{padding:20px 0;border-left:0}
   .lm-hood{grid-template-columns:minmax(0,1fr)}
   .lm-amen-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lm-tour-tabs{display:flex;width:100%}
+  .lm-tour-tabs button{flex:1;justify-content:center;padding:0 12px}
+  .lm-room-photo{width:min(60%,240px)}
   .lm-steps{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:14px}
   .lm-summary{grid-template-columns:minmax(0,1fr)}
   .lm-summary>*,.lm-summary-head,.lm-dates{grid-column:1}

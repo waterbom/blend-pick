@@ -213,7 +213,8 @@ test('admin API: decisions and refunds notify the guest only when something chan
 });
 
 const page = (s, config, pay = false) => {
-  const Tour = load('components/limen/Tour.tsx').default;
+  // 공간 둘러보기는 예약 상태(객실별 인원)와 '날짜 보기' 버튼을 함께 쓴다
+  const Tour = load('components/limen/Tour.tsx', { '@/components/limen/Booking': { useStay: () => ({ config }), RoomCta: ({ room }) => React.createElement('button', { 'data-tour-room': room }, '날짜 보기') } }).default;
   return [render(s.Intro), render(s.Header), render(s.Hero), render(s.Definition), render(s.Passage), render(s.Story), render(s.Values), render(s.Rooms, { config }), render(Tour),
     render(s.Amenities), render(s.Location, { config }), render(s.Guide, { config, pay }), render(s.Closing)].join('');
 };
@@ -228,10 +229,18 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
   for (const text of [...content.STORY.body, content.STORY.quote, ...content.PASSAGE, ...content.CLOSING.lines, content.CLOSING.vision]) assert.ok(html.includes(text), text);
   assert.deepEqual(content.VALUES.map(v => v.en), ['Threshold', 'Privacy', 'Stillness', 'Sincerity']);
   for (const value of content.VALUES) { assert.ok(html.includes(value.en)); assert.ok(html.includes(value.ko)); for (const line of value.body) assert.ok(html.includes(line), line); }
-  // 사진
-  assert.equal(content.SPACES.length, 5);
-  for (const space of content.SPACES) { assert.ok(html.includes(space.photo.src), space.key); assert.ok(html.includes(space.title)); assert.ok(require('node:fs').existsSync(require('node:path').join(__dirname, '../public', space.photo.src)), space.photo.src); }
-  for (const group of content.AMENITIES) for (const item of group.items) assert.ok(html.includes(item), item);
+  // 사진: 객실별 공간 (원룸 4 · 투룸 5). 둘러보기는 원룸부터 열리고, 투룸 사진은 첫 화면·스토리·객실 카드 등에도 쓰인다.
+  assert.deepEqual(Object.fromEntries(Object.entries(content.SPACES_BY_ROOM).map(([room, list]) => [room, list.length])), { one: 4, two: 5 });
+  assert.equal(content.SPACES.length, 9); assert.equal(new Set(content.SPACES.map(space => space.key)).size, 9);
+  const exists = file => require('node:fs').existsSync(require('node:path').join(__dirname, '../public', file));
+  for (const space of content.SPACES) { assert.ok(html.includes(space.photo.src), space.key); assert.ok(exists(space.photo.src), space.photo.src); assert.ok(exists(space.photo.small), space.photo.small); }
+  for (const space of content.SPACES_BY_ROOM.one) { assert.ok(html.includes(space.title), space.title); assert.ok(html.includes(space.body), space.key); }
+  assert.match(html, /role="tab" aria-selected="true"[^>]*>원룸<small>2인 · 사진 4장/); assert.match(html, /role="tab" aria-selected="false"[^>]*>투룸<small>4인 · 사진 5장/);
+  assert.match(html, /data-tour-room="one"/);
+  // 객실 카드마다 대표 사진
+  for (const room of ['one', 'two']) { assert.ok(html.includes(`alt="${content.ROOMS[room].alt}"`), room); assert.ok(exists(content.ROOMS[room].photo.src)); }
+  for (const room of ['one', 'two']) for (const group of content.AMENITIES[room]) for (const item of group.items) assert.ok(html.includes(item), item);
+  assert.doesNotMatch(html, /준비되는 대로/, 'both rooms now have photos');
   // 객실 요금 안내: 1박 요금 10칸, 연박 범위, 이용 인원
   for (const price of ['200,000원', '230,000원', '250,000원', '270,000원', '300,000원', '350,000원', '380,000원', '400,000원', '420,000원', '450,000원']) assert.ok(html.includes(`<td>${price}</td>`), price);
   for (const range of ['1,000,000–1,500,000원', '1,400,000–2,100,000원', '1,750,000–2,250,000원', '2,450,000–3,150,000원']) assert.ok(html.includes(range), range);
