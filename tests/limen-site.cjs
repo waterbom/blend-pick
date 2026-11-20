@@ -409,8 +409,16 @@ test('booking UI switches between request and card payment; the result page star
   };
   const Booking = load('components/limen/Booking.tsx', mocks);
   const view = props => renderToStaticMarkup(React.createElement(Booking.StayProvider, { initialConfig: publicDefaults, ...props },
-    React.createElement(Booking.BookingSection), React.createElement(Booking.MobileBar)));
+    React.createElement(Booking.QuickBar), React.createElement(Booking.BookingSection), React.createElement(Booking.MobileBar)));
   const request = view({});
+  const quickBar = html => html.match(/<button[^>]*class="lm-quick"[^>]*>.*?<\/button>/)?.[0];
+  assert.match(quickBar(request), /투룸 · 4인.*?<em>1박 350,000원부터<\/em>/);
+  assert.match(request, /class="lm-mobilebar"[^>]*><div><b>1박 350,000원부터<\/b>/);
+  const noTwoRoomRates = view({ initialConfig: { ...publicDefaults, rooms: { ...publicDefaults.rooms, two: {
+    ...publicDefaults.rooms.two, ...Object.fromEntries(core.RATE_KEYS.map(key => [key, null])),
+  } } } });
+  assert.doesNotMatch(quickBar(noTwoRoomRates), /<em>/);
+  assert.match(noTwoRoomRates, /class="lm-mobilebar"[^>]*><div><b>LIMEN · 연남동<\/b>/);
   // 객실 고르기: 두 객실과 요금표의 가장 낮은 1박 요금
   for (const text of ['ONE ROOM', 'TWO ROOM', '1박 200,000원부터', '1박 350,000원부터', '투룸 최대 4인 · 추가 불가', 'LM-XXXXXX']) assert.ok(request.includes(text), text);
   assert.match(request, /role="radio" aria-checked="true"[^>]*><span>TWO ROOM/);

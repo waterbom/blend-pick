@@ -147,7 +147,7 @@ const goReserve = () => document.getElementById("reserve")?.scrollIntoView({ beh
 // 히어로 안의 빠른 예약 바
 export function QuickBar() {
   const { room, checkIn, checkOut, nights, fromPrice, config, payNow } = useStay();
-  const from = fromPrice();
+  const from = fromPrice(room);
   return <button type="button" className="lm-quick" onClick={goReserve} aria-label="예약 달력으로 이동">
     <span><small>객실</small><b key={room} className="lm-flip">{ROOMS[room].name} · {config.rooms[room].guests}인</b></span>
     <span><small>체크인</small><b key={checkIn} className="lm-flip">{checkIn ? shortDate(checkIn) : "날짜 선택"}</b></span>
@@ -612,7 +612,7 @@ export function MobileBar() {
     return () => { cancelAnimationFrame(frame); window.removeEventListener("scroll", onScroll); observer?.disconnect(); };
   }, []);
   const ready = !!nights && !!calendar && roomOpen;
-  const from = fromPrice();
+  const from = fromPrice(room);
   return <div className="lm-mobilebar" data-shown={(shown && !dialogOpen) || undefined}>
     <div>
       {nights ? <><b>{shortDate(checkIn)} → {shortDate(checkOut)}</b><small>{ROOMS[room].name} · {nights}박 · {guests}명</small></>
