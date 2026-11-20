@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getPhoto, photoPath } from '@/components/dangung/Photos';
+import { getPhoto, photoPath, photoSrcSet } from '@/components/dangung/Photos';
 
 const roomPhotos = [7, 8, 9, 11, 12, 10, 13, 14].map(getPhoto);
 // The repeated first frame lets the last photograph slide forward into the first.
@@ -51,7 +51,7 @@ export default function RoomSlideshow({ compact = false }: { compact?: boolean }
         onTransitionEnd={event => {
           if (event.target === event.currentTarget && event.propertyName === 'transform' && index === roomPhotos.length) setIndex(0);
         }}>
-        {frames.map((frame, position) => <img key={position} src={photoPath(frame.id)} alt="" aria-hidden="true" width={frame.width} height={frame.height} loading={inView ? 'eager' : 'lazy'} decoding="async"/>)}
+        {frames.map((frame, position) => <img key={position} src={photoPath(frame.id)} srcSet={photoSrcSet(frame.id)} sizes={compact ? '86px' : '(max-width: 980px) 92vw, 760px'} alt="" aria-hidden="true" width={frame.width} height={frame.height} loading={inView ? 'eager' : 'lazy'} decoding="async"/>)}
       </span>
       {!compact && <span className="dgs-room-slideshow-caption" aria-hidden="true">{photo.label}<span>{index % roomPhotos.length + 1} / {roomPhotos.length}</span></span>}
     </button>

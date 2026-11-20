@@ -1,4 +1,10 @@
+// 원본 사진(jpg)은 받은 그대로 둔다 — 크게 보기와 img 의 src 는 항상 원본이다.
 export const photoPath = (id: number) => `/hotel/dangung/photo-${String(id).padStart(2, '0')}.jpg`;
+// 화면 크기에 맞춰 내려받는 경량본 (webp 240w · 720w · 1200w). 원본에서 크기만 줄인 것이고 보정하지 않았다.
+// 사진을 추가하면 같은 이름 규칙으로 경량본도 함께 넣는다 (docs/dangung-booking.md).
+const variant = (id: number, width: 240 | 720 | 1200) => photoPath(id).replace('.jpg', `-${width}.webp`);
+export const photoThumb = (id: number) => variant(id, 240);
+export const photoSrcSet = (id: number) => `${variant(id, 720)} 720w, ${variant(id, 1200)} 1200w, ${photoPath(id)} ${getPhoto(id).width}w`;
 
 // Supplied photographs only: these are the actual Dangung spaces, not stock imagery.
 export const dangungPhotos = [

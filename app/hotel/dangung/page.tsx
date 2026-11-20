@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Header from '@/components/Header';
 import { currentSite } from '@/lib/site-server';
-import { DangungHero, DangungNavigation, DangungStory, DangungGuide } from '@/components/dangung/Landing';
+import { DangungHero, DangungNavigation, DangungIntro, DangungStory, DangungGuide, DangungClosing } from '@/components/dangung/Landing';
 import { DangungAvailabilityProvider } from '@/components/dangung/Availability';
 import DangungBooking from '@/components/dangung/Booking';
 import DangungInteractions from '@/components/dangung/Interactions';
@@ -15,15 +15,18 @@ export const metadata={
 };
 export default async function DangungPage(){
  if((await currentSite()).key!=='blendpick')notFound();
- return <><Header/><div className="dangung dg-stay-page" data-dangung-version="2026-10-gahoe-1"><DangungAvailabilityProvider>
+ return <><Header/><div className="dangung dg-stay-page" data-dangung-version="2026-11-nature-1"><DangungAvailabilityProvider>
   <DangungHero/>
   <DangungNavigation/>
-  <main className="dgs-layout">
+  <main>
+   <DangungIntro/>
+   <div className="dgs-layout">
     <div className="dgs-main-story"><DangungStory/></div>
     <aside className="dgs-reservation-rail" aria-label="단궁 객실 예약"><DangungBooking clientKey={process.env.TOSS_CLIENT_KEY||''}/></aside>
     <div className="dgs-main-guide"><DangungGuide/></div>
+   </div>
   </main>
-  <div className="dgs-closing"><span className="dgs-kicker">DANGUNG × BLEND PICK</span><p>함께할 날을 골라보세요.</p><a href="#booking" className="dgs-text-link">단궁에서 머물기 →</a></div>
+  <DangungClosing/>
   <DangungInteractions/>
  </DangungAvailabilityProvider></div></>;
 }

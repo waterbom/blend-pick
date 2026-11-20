@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { StayRate } from '@/components/dangung/Availability';
-import { dangungPhotos, photoPath } from '@/components/dangung/Photos';
+import { dangungPhotos, photoPath, photoThumb } from '@/components/dangung/Photos';
 
 export default function DangungInteractions() {
   const viewer = useRef<HTMLDialogElement>(null);
@@ -72,7 +72,7 @@ export default function DangungInteractions() {
       <div className="dgs-viewer-heading"><span>단궁 <small>DANGUNG</small></span><button type="button" autoFocus aria-label="사진 전체 보기 닫기" onClick={() => viewer.current?.close()}>×</button></div>
       {photo && <>
         <figure><img src={photoPath(photo.id)} alt={photo.alt} width={photo.width} height={photo.height}/><figcaption aria-live="polite">{photo.label} <span>{String((photoIndex ?? 0) + 1).padStart(2, '0')} / {dangungPhotos.length}</span></figcaption></figure>
-        <div className="dgs-viewer-navigation"><button type="button" onClick={() => move(-1)} aria-label="이전 사진">←</button><div className="dgs-viewer-thumbnails" aria-label="사진 선택">{dangungPhotos.map((item, index) => <button key={item.id} type="button" aria-label={`${item.label} 사진 보기`} aria-pressed={photoIndex === index} onClick={() => setPhotoIndex(index)}><img src={photoPath(item.id)} alt="" width={72} height={52} loading="lazy"/></button>)}</div><button type="button" onClick={() => move(1)} aria-label="다음 사진">→</button></div>
+        <div className="dgs-viewer-navigation"><button type="button" onClick={() => move(-1)} aria-label="이전 사진">←</button><div className="dgs-viewer-thumbnails" aria-label="사진 선택">{dangungPhotos.map((item, index) => <button key={item.id} type="button" aria-label={`${item.label} 사진 보기`} aria-pressed={photoIndex === index} onClick={() => setPhotoIndex(index)}><img src={photoThumb(item.id)} alt="" width={72} height={52} loading="lazy" decoding="async"/></button>)}</div><button type="button" onClick={() => move(1)} aria-label="다음 사진">→</button></div>
       </>}
     </dialog>
     <div ref={dock} className="booking-dock" hidden><StayRate compact/><button type="button" className="booking-primary" data-open-booking>객실 선택</button></div>
