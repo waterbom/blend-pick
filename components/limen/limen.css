@@ -229,6 +229,7 @@
 .lm-rates-notes{display:grid;gap:8px;margin-top:26px;font-size:13.5px;color:var(--mute);word-break:keep-all}
 .lm-rates-notes li{display:grid;grid-template-columns:14px 1fr}
 .lm-rates-notes li::before{content:"·"}
+.lm-rates-notes b{margin-right:6px;font-weight:600;color:var(--ink)}
 
 /* ── 05 공간 둘러보기 ── */
 .lm-tour{background:var(--paper)}

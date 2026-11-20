@@ -3,6 +3,7 @@ const { test } = require('node:test'), assert = require('node:assert/strict');
 const React = require('react'), { renderToStaticMarkup } = require('react-dom/server');
 const { load } = require('./support/load.cjs');
 const core = require('../lib/limen-core.cjs');
+const policy = require('../lib/limen-policy.cjs');
 const { guestMessage, operatorMessage } = require('../lib/limen-messages.cjs');
 
 const link = ({ children, href, prefetch, ...props }) => React.createElement('a', { ...props, href }, children);
@@ -34,6 +35,68 @@ test('rates follow the sheet the stay sent: weekday, Friday, Saturday, then seas
   // 새 예약번호는 LM-, 브랜드명 확정 전의 JS- 번호도 받는다
   assert.equal(core.cleanCode(' lm-ab2cd3 '), 'LM-AB2CD3'); assert.equal(core.cleanCode('lmab2cd3'), 'LM-AB2CD3'); assert.equal(core.cleanCode('jsab2cd3'), 'JS-AB2CD3');
   assert.equal(core.today(new Date('2026-11-16T15:00:00Z')), '2026-11-17');
+});
+
+test('season calendar: summer and year-end seasons, feast holidays and holiday eves follow the published periods', () => {
+  const kind = day => policy.autoSeason(day);
+  // 여름: 7/15–7/19 준성수기 · 7/20–8/15 극성수기 · 8/16–8/24 준성수기 (해마다 같다)
+  for (const year of ['2027', '2028']) {
+    assert.deepEqual(['07-14', '07-15', '07-19', '07-20', '08-15', '08-16', '08-24', '08-25'].map(d => kind(`${year}-${d}`)), ['', 'shoulder', 'shoulder', 'peak', 'peak', 'shoulder', 'shoulder', '']);
+  }
+  // 연말: 12/20–12/30 준성수기, 12/24 · 12/25 · 12/31 극성수기. 1/1 밤부터는 평시
+  assert.deepEqual(['12-19', '12-20', '12-23', '12-24', '12-25', '12-26', '12-30', '12-31'].map(d => kind(`2026-${d}`)), ['', 'shoulder', 'shoulder', 'peak', 'peak', 'shoulder', 'shoulder', 'peak']);
+  assert.equal(kind('2027-01-01'), ''); assert.equal(kind('2027-01-02'), '');
+  // 설(2027-02-06–09) · 추석(2027-09-14–16): 연휴 전날 밤부터 마지막 날 전날 밤까지 준성수기
+  assert.deepEqual(['2027-02-04', '2027-02-05', '2027-02-06', '2027-02-07', '2027-02-08', '2027-02-09'].map(kind), ['', 'shoulder', 'shoulder', 'shoulder', 'shoulder', '']);
+  assert.deepEqual(['2027-09-12', '2027-09-13', '2027-09-14', '2027-09-15', '2027-09-16'].map(kind), ['', 'shoulder', 'shoulder', 'shoulder', '']);
+  assert.deepEqual(['2028-01-25', '2028-01-27', '2028-01-28', '2028-10-01', '2028-10-04', '2028-10-05'].map(kind), ['shoulder', 'shoulder', '', 'shoulder', 'shoulder', '']);
+  // 평일에 드는 공휴일의 전날 밤은 토요일 요금 ('holiday'). 주말에 드는 공휴일은 요일 요금 그대로.
+  assert.deepEqual(['2027-02-28', '2027-05-02', '2027-05-04', '2027-05-12', '2027-10-03', '2027-10-10'].map(kind), Array(6).fill('holiday'));
+  assert.equal(kind('2027-12-26'), 'shoulder', 'a season outranks a holiday eve');
+  assert.deepEqual(['2027-04-30', '2027-06-05', '2027-07-16', '2027-10-02', '2027-10-08'].map(kind), ['', '', 'shoulder', '', ''], 'holidays on a weekend add nothing');
+  const one = core.DEFAULT_ROOMS.one;
+  assert.deepEqual(['2027-02-28', '2027-05-04'].map(d => [core.rateOf(d), core.priceOf(d, one)]), [['saturday', 250000], ['saturday', 250000]]);
+  // 요금 순서: 날짜에 넣은 요금 → 운영자가 지정한 시즌(평시 고정 포함) → 시즌 달력 → 요일
+  assert.equal(core.priceOf('2026-12-24', one), 300000); assert.equal(core.priceOf('2026-12-24', one, { season: 'normal' }), 200000);
+  assert.equal(core.priceOf('2026-12-24', one, { season: 'shoulder' }), 270000); assert.equal(core.priceOf('2026-12-24', one, { price: 99000, season: 'peak' }), 99000);
+  assert.equal(core.priceOf('2026-12-24', one, {}, false), 200000, 'calendar switched off'); assert.equal(core.priceOf('2026-12-24', one, { season: 'peak' }, false), 300000);
+  assert.deepEqual(core.nightOf('2026-12-24', one), { day: '2026-12-24', price: 300000, rate: 'peak', season: 'peak', weekend: true, manual: false });
+  // 환불 기준의 주말: 금·토요일 숙박과 공휴일 전날 숙박
+  assert.deepEqual(['2026-11-19', '2026-11-20', '2026-11-21', '2026-11-22', '2026-12-24', '2027-04-30', '2027-05-04'].map(policy.isWeekendNight), [false, true, true, false, true, true, true]);
+  // 공휴일 표: 날짜 형식이 맞고 겹치지 않으며 마지막 날까지 들어 있다. 안내문은 달력과 같은 기간을 말한다.
+  const days = [...policy.HOLIDAYS.keys()];
+  assert.ok(days.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && core.date(d))); assert.deepEqual(days, [...days].sort()); assert.equal(days.at(-1) <= policy.HOLIDAYS_UNTIL, true); assert.equal(days.at(-1), '2028-12-25');
+  assert.deepEqual(policy.SEASON_GUIDE.map(g => [g.key, g.text]), [['peak', '7월 20일–8월 15일 · 12월 24·25·31일'], ['shoulder', '7월 15–19일 · 8월 16–24일 · 12월 20–30일 · 설·추석 연휴'], ['holiday', '토요일 요금 (평일에 드는 공휴일의 전날 밤)']]);
+});
+
+test('standard refund terms follow the Fair Trade Commission lodging table, and the quote matches the published text', () => {
+  const terms = core.STANDARD_REFUND_TERMS;
+  assert.equal(core.DEFAULT_CONFIG.refundTerms, terms); assert.equal(core.mergeConfig({ refundTerms: '' }).refundTerms, terms); assert.equal(core.mergeConfig({ refundTerms: ' \n ' }).refundTerms, terms);
+  assert.equal(core.mergeConfig({ refundTerms: '직접 쓴 규정입니다. 입실 7일 전까지 전액 환불.' }).refundTerms, '직접 쓴 규정입니다. 입실 7일 전까지 전액 환불.');
+  assert.equal(core.validateConfig({ ...core.DEFAULT_CONFIG, refundTerms: '' }).refundTerms, terms); assert.ok(terms.length < 4000);
+  for (const line of ['공정거래위원회 「소비자분쟁해결기준(숙박업)」을 따릅니다.', '· 결제 후 24시간 이내 취소 (입실일 0시 전까지)', '· 성수기: 입실 10일 전까지 취소', '· 비수기: 입실 2일 전까지 취소',
+    '· 입실 9~7일 전: 주중 90% · 주말 80% 환불', '· 입실 6~5일 전: 주중 70% · 주말 60% 환불', '· 입실 4~3일 전: 주중 50% · 주말 40% 환불', '· 입실 2일 전~당일, 미입실: 주중 20% · 주말 10% 환불',
+    '· 입실 1일 전: 주중 90% · 주말 80% 환불', '· 입실 당일, 미입실: 주중 80% · 주말 70% 환불', '주말은 금·토요일과 공휴일 전날 입실입니다.', '천재지변으로 머물 수 없게 된 경우에는 전액 환불합니다.']) assert.ok(terms.includes(line), line);
+  // 공제율: 성수기 주중 0·10·30·50·80 / 주말 0·20·40·60·90, 비수기 주중 0·10·20 / 주말 0·20·30
+  const at = day => new Date(`${day}T03:00:00Z`), checkIn = '2027-08-10', paidAt = '2027-06-01T00:00:00Z';
+  const percent = (high, weekend, day) => policy.refundQuote({ amount: 1000000, checkIn, high, weekend, paidAt }, at(day)).percent;
+  const days = ['2027-07-31', '2027-08-01', '2027-08-03', '2027-08-04', '2027-08-05', '2027-08-06', '2027-08-07', '2027-08-08', '2027-08-09', '2027-08-10', '2027-08-11']; // 입실 10 · 9 · 7 · 6 · 5 · 4 · 3 · 2 · 1 · 0일 전, 입실 다음 날
+  assert.deepEqual(days.map(d => percent(true, false, d)), [0, 10, 10, 30, 30, 50, 50, 80, 80, 80, 80]);
+  assert.deepEqual(days.map(d => percent(true, true, d)), [0, 20, 20, 40, 40, 60, 60, 90, 90, 90, 90]);
+  assert.deepEqual(days.map(d => percent(false, false, d)), [0, 0, 0, 0, 0, 0, 0, 0, 10, 20, 20]);
+  assert.deepEqual(days.map(d => percent(false, true, d)), [0, 0, 0, 0, 0, 0, 0, 0, 20, 30, 30]);
+  assert.deepEqual(policy.refundQuote({ amount: 450000, checkIn, high: true, weekend: true, paidAt }, at('2027-08-05')), { daysBefore: 5, percent: 40, fee: 180000, refund: 270000, free: false, basis: '성수기 주말 · 입실 5일 전 취소' });
+  assert.equal(policy.refundQuote({ amount: 450000, checkIn, high: false, weekend: false, paidAt }, at('2027-08-12')).basis, '비수기 주중 · 입실일 이후 취소');
+  // 결제 후 24시간 이내는 전액 — 단, 입실일 0시(한국 시간)가 지나면 표의 기준을 따른다
+  const soon = { amount: 300000, checkIn: '2027-08-10', high: true, weekend: false };
+  assert.equal(policy.refundQuote({ ...soon, paidAt: '2027-08-08T10:00:00Z' }, new Date('2027-08-09T09:59:00Z')).refund, 300000);
+  assert.equal(policy.refundQuote({ ...soon, paidAt: '2027-08-08T10:00:00Z' }, new Date('2027-08-09T10:01:00Z')).refund, 60000, 'past 24 hours');
+  assert.equal(policy.refundQuote({ ...soon, paidAt: '2027-08-09T10:00:00Z' }, new Date('2027-08-09T15:00:00Z')).refund, 60000, 'already the check-in day in Korea');
+  // 표준 규정에 동의한 결제 예약만 계산한다 — 입실일의 성수기·주말 구분은 결제할 때 남긴 값
+  const row = { paid_at: paidAt, amount: 450000, check_in: checkIn, estimate: { refundTerms: terms, nightly: [{ day: checkIn, season: 'peak', weekend: false }] } };
+  assert.equal(core.refundFor(row, at('2027-08-05')).refund, 315000);
+  assert.equal(core.refundFor({ ...row, estimate: { ...row.estimate, refundTerms: '다른 규정' } }, at('2027-08-05')), null);
+  assert.equal(core.refundFor({ ...row, paid_at: null }, at('2027-08-05')), null);
 });
 
 test('settings merge per room, ignore unknown keys and never publish the operator phone', () => {
@@ -270,6 +333,10 @@ test('operator settings and rate edits flow straight into the page', () => {
   const config = { ...publicDefaults, rooms, address: '서울 마포구 연남동 테스트로 1', walkNote: '홍대입구역 3번 출구에서 걸어서 8분', parkingNote: '주차 불가', mapUrl: 'https://naver.me/test', checkInTime: '15:00', checkOutTime: '11:00', rules: '실내 금연\n\n밤 10시 이후 정숙' };
   const html = render(s.Rooms, { config }) + render(s.Location, { config }) + render(s.Guide, { config });
   for (const text of ['<td>190,000원</td>', '<b>190,000원</b>부터', '투룸 · 5인', '5인 / 5인', '투룸은 <b>5인</b>', '테스트로 1', '걸어서 8분', '주차 불가', 'https://naver.me/test', '15:00', '11:00', '실내 금연', '밤 10시 이후 정숙']) assert.ok(html.includes(text), text);
+  // 시즌 기간 안내: 자동 적용이 켜져 있으면 시즌 달력의 기간을, 꺼져 있으면 '날짜로 지정'만 알린다
+  for (const text of ['<b>극성수기</b> 7월 20일–8월 15일 · 12월 24·25·31일', '<b>준성수기</b> 7월 15–19일 · 8월 16–24일 · 12월 20–30일 · 설·추석 연휴', '<b>공휴일 전날</b> 토요일 요금']) assert.ok(html.includes(text), text);
+  const manual = render(s.Rooms, { config: { ...config, autoSeasons: false } });
+  assert.doesNotMatch(manual, /7월 20일/); assert.match(manual, /준성수기·극성수기는 날짜로 지정되며/); assert.match(manual, /<small>달력에 표시<\/small>/);
   // 비워 둔 요금은 지어내지 않고 '문의'로 — 연박 범위도 내지 않는다
   assert.ok(html.includes('<td>문의</td>')); assert.doesNotMatch(html, /<td>300,000원<\/td>/); assert.match(html, /<small>원룸<\/small>문의/);
   assert.doesNotMatch(html, /상세 주소는 예약 확정 후 안내/);
@@ -318,7 +385,9 @@ test('admin: rate fields accept ordinary prices and every room, rate and season 
   const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../components/limen/Admin.tsx'), 'utf8');
   assert.ok((source.match(/type="number"/g) || []).length >= 7, 'rate table, capacity, one-off price and period fields');
   assert.doesNotMatch(source, /step=/);
-  for (const text of ['블럭표', '준성수기로 지정', '극성수기로 지정', '시즌 해제', '이 요금으로 지정', '지정 요금 지우기', '예약 닫기', '다시 열기', 'name="room"']) assert.ok(source.includes(text), text);
+  for (const text of ['블럭표', '준성수기로 지정', '극성수기로 지정', '평시로 고정', '지정 풀기 (자동)', '성수기·공휴일 자동 적용', '표준 규정으로 되돌리기', '표준 규정 기준 환불 금액', '이 요금으로 지정', '지정 요금 지우기', '예약 닫기', '다시 열기', 'name="room"']) assert.ok(source.includes(text), text);
+  // 블럭표의 요금·시즌과 환불 금액은 서버가 계산해 준 값을 쓴다 (화면에서 다시 계산하지 않는다)
+  assert.match(source, /data\.chart\[room\.key\]/); assert.doesNotMatch(source, /function priceOf/);
   for (const rate of core.RATE_KEYS) assert.ok(source.includes(`key: "${rate}"`), rate);
   assert.doesNotMatch(source, /weekdayPrice|weekendPrice|maxGuests|JS하우스/);
 });

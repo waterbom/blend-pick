@@ -10,8 +10,9 @@ CREATE TABLE IF NOT EXISTS jshouse_settings (
 INSERT INTO jshouse_settings(id) VALUES(1) ON CONFLICT DO NOTHING;
 
 -- 객실(room): one = 원룸(2인) · two = 투룸(4인). 서로 다른 공간이라 날짜를 따로 잡는다.
--- 날짜별 설정: 예약 닫기(closed) · 시즌(season: shoulder 준성수기 / peak 극성수기) · 그날만의 1박 요금(price).
--- 행이 없으면 요금표의 요일 요금(주중·금·토)을 따른다.
+-- 날짜별 설정: 예약 닫기(closed) · 시즌(season) · 그날만의 1박 요금(price).
+-- season: '' = 시즌 달력(lib/limen-policy.cjs)을 따름 · normal = 평시로 고정 · shoulder 준성수기 · peak 극성수기.
+-- 행이 없으면 시즌 달력과 요금표의 요일 요금(주중·금·토)을 따른다.
 CREATE TABLE IF NOT EXISTS jshouse_days (
  room text NOT NULL DEFAULT 'two',
  day date NOT NULL,
@@ -92,7 +93,7 @@ ALTER TABLE jshouse_nights ADD CONSTRAINT jshouse_nights_room_check CHECK(room I
 ALTER TABLE jshouse_days DROP CONSTRAINT IF EXISTS jshouse_days_room_check;
 ALTER TABLE jshouse_days ADD CONSTRAINT jshouse_days_room_check CHECK(room IN ('one','two'));
 ALTER TABLE jshouse_days DROP CONSTRAINT IF EXISTS jshouse_days_season_check;
-ALTER TABLE jshouse_days ADD CONSTRAINT jshouse_days_season_check CHECK(season IN ('','shoulder','peak'));
+ALTER TABLE jshouse_days ADD CONSTRAINT jshouse_days_season_check CHECK(season IN ('','normal','shoulder','peak'));
 
 CREATE INDEX IF NOT EXISTS jshouse_bookings_status ON jshouse_bookings(status,check_in);
 CREATE INDEX IF NOT EXISTS jshouse_bookings_pending ON jshouse_bookings(expires_at) WHERE status='pending';

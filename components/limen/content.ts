@@ -72,8 +72,8 @@ export const RATE_ROWS: { key: "weekday" | "friday" | "saturday" | "shoulder" | 
   { key: "weekday", label: "주중", note: "일–목" },
   { key: "friday", label: "금요일", note: "" },
   { key: "saturday", label: "주말", note: "토요일" },
-  { key: "shoulder", label: "준성수기", note: "달력에 표시" },
-  { key: "peak", label: "극성수기", note: "달력에 표시" },
+  { key: "shoulder", label: "준성수기", note: "아래 기간" },
+  { key: "peak", label: "극성수기", note: "아래 기간" },
 ];
 
 export type Space = {
@@ -189,5 +189,6 @@ export type StayConfig = {
   rooms: Record<RoomKey, RoomRates>;
   checkInTime: string; checkOutTime: string; address: string; walkNote: string; parkingNote: string;
   mapUrl: string; notice: string; rules: string;
+  autoSeasons: boolean; // 시즌 달력(준성수기·극성수기·공휴일 전날)을 자동으로 적용하는지
   payOnline: boolean; refundTerms: string;
 };

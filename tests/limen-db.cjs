@@ -26,7 +26,11 @@ test('LIMEN booking request ledger (isolated PostgreSQL)', async t => {
       assert.deepEqual(c.config.rooms.one, { open: true, guests: 2, weekday: 200000, friday: 230000, saturday: 250000, shoulder: 270000, peak: 300000 });
       assert.deepEqual(c.config.rooms.two, { open: true, guests: 4, weekday: 350000, friday: 380000, saturday: 400000, shoulder: 420000, peak: 450000 });
       assert.equal('notifyPhone' in c.config, false, 'operator phone must stay private');
-      for (const room of ['one', 'two']) { assert.deepEqual(c.rooms[room].taken, []); assert.deepEqual(c.rooms[room].closed, []); assert.deepEqual(c.rooms[room].seasons, {}); }
+      for (const room of ['one', 'two']) { assert.deepEqual(c.rooms[room].taken, []); assert.deepEqual(c.rooms[room].closed, []); }
+      // 시즌 달력이 기본으로 켜져 있다: 달력 기간(11/16–5/15) 안에는 연말 12/20–12/31 과 설 연휴 2/5–2/8 밤이 시즌이다
+      assert.equal(c.config.autoSeasons, true); assert.deepEqual(c.rooms.one.seasons, c.rooms.two.seasons);
+      assert.deepEqual(Object.keys(c.rooms.one.seasons), [...Array.from({ length: 12 }, (_, i) => `2026-12-${20 + i}`), '2027-02-05', '2027-02-06', '2027-02-07', '2027-02-08']);
+      assert.deepEqual(['2026-12-20', '2026-12-24', '2026-12-25', '2026-12-26', '2026-12-31', '2027-02-05'].map(d => c.rooms.one.seasons[d]), ['shoulder', 'peak', 'peak', 'shoulder', 'peak', 'shoulder']);
       // 달력은 날짜마다 그날의 1박 요금을 내려준다: 11/19(목) 주중 · 11/20(금) · 11/21(토)
       assert.deepEqual(['2026-11-19', '2026-11-20', '2026-11-21'].map(d => c.rooms.one.prices[d]), [200000, 230000, 250000]);
       assert.deepEqual(['2026-11-19', '2026-11-20', '2026-11-21'].map(d => c.rooms.two.prices[d]), [350000, 380000, 400000]);
@@ -161,10 +165,49 @@ test('LIMEN booking request ledger (isolated PostgreSQL)', async t => {
       assert.equal((await api.calendar()).rooms.two.prices['2026-12-31'], 450000, 'removing the one-off price falls back to the season rate');
       await api.setDays({ rooms: ['one', 'two'], start: '2026-12-24', end: '2026-12-29', clear: true });
       cal = await api.calendar();
-      assert.deepEqual(cal.rooms.two.closed, []); assert.deepEqual(cal.rooms.one.closed, []); assert.equal(cal.rooms.one.prices['2026-12-28'], 200000);
+      assert.deepEqual(cal.rooms.two.closed, []); assert.deepEqual(cal.rooms.one.closed, []);
+      assert.equal(cal.rooms.one.prices['2026-12-28'], 270000, 'cleared days go back to the season calendar (12/28 준성수기)');
       await assert.rejects(api.setDays({ rooms: [], start: '2026-12-01', end: '2026-12-02', closed: true }), /객실을 선택/);
       await assert.rejects(api.setDays({ rooms: ['two'], start: '2026-12-01', end: '2026-12-02', season: 'holiday' }), /시즌/);
       await assert.rejects(api.setDays({ rooms: ['two'], start: '2026-12-01', end: '2026-12-02' }), /바꿀 내용/);
+    });
+
+    await t.test('the season calendar sets peak, shoulder and holiday-eve nights; the operator can pin a day or switch it off', async () => {
+      await api.setDays({ rooms: ['one', 'two'], start: '2026-12-20', end: '2027-01-06', clear: true });
+      let cal = await api.calendar();
+      // 12/19(토) 토요일 · 12/20(일) 준성수기 · 12/24(목) 극성수기 · 12/26(토) 준성수기 · 12/31(목) 극성수기 · 1/1(금) 금요일 · 1/4(월) 주중
+      assert.deepEqual(['2026-12-19', '2026-12-20', '2026-12-24', '2026-12-26', '2026-12-31', '2027-01-01', '2027-01-04'].map(d => cal.rooms.one.prices[d]), [250000, 270000, 300000, 270000, 300000, 230000, 200000]);
+      assert.deepEqual(['2026-12-20', '2026-12-24', '2027-01-01'].map(d => cal.rooms.two.prices[d]), [420000, 450000, 380000]);
+      // 설 연휴(2/6–2/9): 전날 밤 2/5 부터 2/8 밤까지 준성수기, 2/9(화) 밤은 주중
+      assert.deepEqual(['2027-02-04', '2027-02-05', '2027-02-06', '2027-02-07', '2027-02-08', '2027-02-09'].map(d => cal.rooms.one.prices[d]), [200000, 270000, 270000, 270000, 270000, 200000]);
+      // 평일 공휴일 전날은 토요일 요금: 2/28(일, 삼일절 전날) · 5/2(일, 노동절 대체공휴일 전날) · 5/4(화, 어린이날 전날) · 5/12(수, 부처님오신날 전날)
+      assert.deepEqual(['2027-02-28', '2027-05-02', '2027-05-04', '2027-05-12'].map(d => cal.rooms.one.prices[d]), [250000, 250000, 250000, 250000]);
+      assert.equal(cal.rooms.one.prices['2027-04-30'], 230000, 'a holiday on a Saturday leaves Friday at the Friday rate');
+      assert.equal('2027-02-28' in cal.rooms.one.seasons, false, 'a holiday eve is priced as Saturday but is not a season');
+      // 운영자가 지정한 날이 먼저: 12/24 를 원룸만 평시로 고정, 11/30(월)을 극성수기로
+      await api.setDays({ rooms: ['one'], start: '2026-12-24', end: '2026-12-24', season: 'normal' });
+      await api.setDays({ rooms: ['one'], start: '2026-11-30', end: '2026-11-30', season: 'peak' });
+      cal = await api.calendar();
+      assert.equal(cal.rooms.one.prices['2026-12-24'], 200000); assert.equal('2026-12-24' in cal.rooms.one.seasons, false); assert.equal(cal.rooms.two.prices['2026-12-24'], 450000);
+      assert.equal(cal.rooms.one.prices['2026-11-30'], 300000); assert.equal(cal.rooms.one.seasons['2026-11-30'], 'peak');
+      // 예약 금액도 같은 계산: 원룸 12/30(준성수기 27만) + 12/31(극성수기 30만) + 1/1(금 23만), 밤마다 성수기·주말 구분이 남는다
+      const stay = await api.request(input('2026-12-30', '2027-01-02', { room: 'one' }), 'guest-browser-S');
+      assert.deepEqual(stay.booking.estimate.nightly.map(n => [n.price, n.rate, n.season, n.weekend]), [[270000, 'shoulder', 'shoulder', false], [300000, 'peak', 'peak', true], [230000, 'friday', '', true]]);
+      assert.equal(stay.booking.estimate.total, 800000);
+      // 관리자 블럭표도 같은 값을 받는다 (이번 달 1일부터)
+      const chart = (await api.admin()).chart;
+      assert.deepEqual(chart.one['2026-12-24'], { price: 200000, rate: 'weekday', manual: true }); assert.deepEqual(chart.one['2026-11-30'], { price: 300000, rate: 'peak', season: 'peak', manual: true });
+      assert.deepEqual(chart.two['2026-12-24'], { price: 450000, rate: 'peak', season: 'peak' }); assert.deepEqual(chart.two['2027-02-28'], { price: 400000, rate: 'saturday' });
+      assert.ok('2026-11-01' in chart.one && '2027-11-30' in chart.one, 'twelve months from the first of this month');
+      // 자동 적용을 끄면 지정한 날에만 시즌 요금을 받는다
+      await api.saveConfig({ ...core.DEFAULT_CONFIG, autoSeasons: false });
+      cal = await api.calendar();
+      assert.deepEqual(['2026-12-20', '2026-12-31', '2027-02-05', '2027-02-28', '2026-11-30'].map(d => cal.rooms.one.prices[d]), [200000, 200000, 230000, 200000, 300000]);
+      assert.deepEqual(cal.rooms.two.seasons, {}); assert.deepEqual(cal.rooms.one.seasons, { '2026-11-30': 'peak' });
+      await assert.rejects(api.saveConfig({ ...core.DEFAULT_CONFIG, autoSeasons: 'yes' }), /성수기 자동 적용/);
+      await api.saveConfig({ ...core.DEFAULT_CONFIG });
+      await api.setDays({ rooms: ['one'], start: '2026-11-30', end: '2026-12-24', clear: true });
+      await api.decide({ id: stay.row.id, action: 'cancel' });
     });
 
     await t.test('the operator edits the rate table; an empty rate means that night has no price', async () => {
@@ -208,7 +251,7 @@ test('LIMEN booking request ledger (isolated PostgreSQL)', async t => {
       const view = await api.admin();
       assert.ok(view.bookings.length >= 5); assert.ok(view.events.length > 5);
       assert.ok(view.bookings.every(b => /^\d{4}-\d{2}-\d{2}$/.test(b.check_in) && ['one', 'two'].includes(b.room)));
-      assert.ok(view.days.every(d => ['one', 'two'].includes(d.room) && ['', 'shoulder', 'peak'].includes(d.season)));
+      assert.ok(view.days.every(d => ['one', 'two'].includes(d.room) && ['', 'normal', 'shoulder', 'peak'].includes(d.season)));
     });
 
     await t.test('the calendar day rolls over in Korean time', async () => {
@@ -290,12 +333,16 @@ test('LIMEN card payment ledger (isolated PostgreSQL, fake gateway)', async t =>
     });
 
     await t.test('card payment opens only with refund terms, live keys and the switch on', async () => {
-      assert.equal((await api.calendar()).pay, false, 'no refund terms yet');
-      await api.saveConfig({ ...PRICED, refundTerms: '' });
-      await assert.rejects(api.reserve(stay('2026-11-23', '2026-11-25', 360000), A), e => e.status === 409 && /카드 결제를 받을 수 없/.test(e.message));
+      // 취소·환불 규정은 공정위 기준 표준 규정이 기본이라, 실결제 키와 스위치만 켜져 있으면 바로 카드 결제를 받는다
+      const fresh = await api.calendar();
+      assert.equal(fresh.pay, true); assert.equal(fresh.config.refundTerms, core.STANDARD_REFUND_TERMS); assert.equal(fresh.termsKey, core.termsKey(core.STANDARD_REFUND_TERMS));
+      // 비워서 저장해도 표준 규정으로 돌아간다 (규정 없이 결제받는 일은 없다)
+      await api.saveConfig({ ...PRICED, refundTerms: '  ' });
+      assert.equal((await api.readConfig()).refundTerms, core.STANDARD_REFUND_TERMS); assert.equal((await api.calendar()).pay, true);
       await assert.rejects(api.saveConfig({ ...PRICED, payOnline: 'yes' }), /카드 결제 받기/);
       await api.saveConfig({ ...PRICED, refundTerms: '너무 짧음' });
       assert.equal((await api.calendar()).pay, false, 'terms too short to be real');
+      await assert.rejects(api.reserve(stay('2026-11-23', '2026-11-25', 360000), A), e => e.status === 409 && /카드 결제를 받을 수 없/.test(e.message));
       await api.saveConfig(PRICED);
       const cal = await api.calendar();
       assert.equal(cal.pay, true); assert.equal(cal.termsKey, core.termsKey(TERMS)); assert.equal(cal.config.refundTerms, TERMS);
@@ -461,15 +508,15 @@ test('LIMEN card payment ledger (isolated PostgreSQL, fake gateway)', async t =>
     await t.test('nights without a price still take requests; the admin view shows payment facts', async () => {
       const blank = { ...ONE, weekday: null, friday: null, saturday: null };
       await api.saveConfig({ ...PRICED, rooms: { one: blank, two: { ...core.DEFAULT_ROOMS.two } } });
-      await api.setDays({ rooms: ['one'], start: '2026-12-21', end: '2026-12-21', price: 200000 });
-      // 원룸은 12/21 만 요금이 있고 12/22 는 없음 → 결제 불가, 신청으로 접수
-      await assert.rejects(api.reserve(stay('2026-12-21', '2026-12-23', 200000), 'pay-browser-D'), e => e.status === 409 && /요금이 정해지지 않은/.test(e.message));
-      const requested = await api.request(stay('2026-12-21', '2026-12-23', 0), 'pay-browser-D');
+      await api.setDays({ rooms: ['one'], start: '2027-01-11', end: '2027-01-11', price: 200000 });
+      // 원룸은 1/11 만 요금이 있고 1/12 는 없음 → 결제 불가, 신청으로 접수
+      await assert.rejects(api.reserve(stay('2027-01-11', '2027-01-13', 200000), 'pay-browser-D'), e => e.status === 409 && /요금이 정해지지 않은/.test(e.message));
+      const requested = await api.request(stay('2027-01-11', '2027-01-13', 0), 'pay-browser-D');
       assert.equal(requested.booking.status, 'requested'); assert.equal(requested.booking.amount, null); assert.equal(requested.booking.paid, false);
       // 요금이 있는 하루만 고르면 결제로 받는다. 요금표가 그대로인 투룸은 계속 결제로 받는다.
-      await api.setDays({ rooms: ['one'], start: '2026-12-28', end: '2026-12-28', price: 200000 });
-      assert.equal((await api.reserve(stay('2026-12-28', '2026-12-29', 200000), 'pay-browser-D')).booking.status, 'pending');
-      assert.equal((await api.reserve(stay('2026-12-21', '2026-12-23', 700000, { room: 'two' }), 'pay-browser-E')).booking.status, 'pending');
+      await api.setDays({ rooms: ['one'], start: '2027-01-18', end: '2027-01-18', price: 200000 });
+      assert.equal((await api.reserve(stay('2027-01-18', '2027-01-19', 200000), 'pay-browser-D')).booking.status, 'pending');
+      assert.equal((await api.reserve(stay('2027-01-11', '2027-01-13', 700000, { room: 'two' }), 'pay-browser-E')).booking.status, 'pending');
       const view = await api.admin();
       assert.equal(view.pay, true); assert.equal(view.termsReady, true);
       const row = view.bookings.find(b => b.code === paid.booking.code);
@@ -477,6 +524,49 @@ test('LIMEN card payment ledger (isolated PostgreSQL, fake gateway)', async t =>
       for (const action of ['pay_started', 'confirming', 'paid', 'pay_failed', 'pay_abandoned', 'cancelling', 'refunded', 'cancelled_without_refund']) {
         assert.ok((await db.query('SELECT 1 FROM jshouse_events WHERE action=$1 LIMIT 1', [action])).rows.length, `event ${action} recorded`);
       }
+      // 직접 쓴 규정에 동의한 예약은 환불 금액을 계산해 주지 않는다 (운영자가 규정을 보고 정한다)
+      assert.equal(view.bookings.some(b => b.refund), false);
+      assert.equal(view.standardRefundTerms, core.STANDARD_REFUND_TERMS); assert.equal(view.holidaysUntil, '2028-12-31'); assert.equal(view.seasonGuide.length, 3);
+    });
+
+    await t.test('a booking under the standard terms carries the refund the rules give, as of the day the guest asked', async () => {
+      const STANDARD = core.STANDARD_REFUND_TERMS;
+      await api.saveConfig({ ...core.DEFAULT_CONFIG });
+      const quoteOf = async code => (await api.admin()).bookings.find(b => b.code === code).refund;
+      const pay = async (checkIn, checkOut, amount, room, browser, key) => {
+        const order = await api.reserve(stay(checkIn, checkOut, amount, { room, guests: 2, termsKey: core.termsKey(STANDARD) }), browser);
+        const done = await api.confirm({ orderId: order.orderId, paymentKey: KEY(key), amount });
+        assert.equal(done.booking.status, 'confirmed'); assert.equal(done.booking.estimate.refundTerms, STANDARD);
+        return done;
+      };
+      // 성수기 주말: 원룸 12/24(목 · 극성수기 · 성탄절 전날) 1박 30만원. 오늘은 11/16 이후 — 입실 10일 전보다 이르다
+      const peak = await pay('2026-12-24', '2026-12-25', 300000, 'one', 'refund-browser-A', 21);
+      // 비수기 주중: 투룸 12/1(화) 1박 35만원
+      const low = await pay('2026-12-01', '2026-12-02', 350000, 'two', 'refund-browser-B', 22);
+      assert.deepEqual(await quoteOf(peak.booking.code), { daysBefore: 38, percent: 0, fee: 0, refund: 300000, free: true, basis: '결제 후 24시간 이내 취소', asked: false });
+      clock = new Date('2026-11-20T03:00:00Z'); // 결제 24시간이 지난 뒤, 입실 34일 전
+      assert.deepEqual(await quoteOf(peak.booking.code), { daysBefore: 34, percent: 0, fee: 0, refund: 300000, free: false, basis: '성수기 주말 · 입실 34일 전 취소', asked: false });
+      assert.deepEqual(await quoteOf(low.booking.code), { daysBefore: 11, percent: 0, fee: 0, refund: 350000, free: false, basis: '비수기 주중 · 입실 11일 전 취소', asked: false });
+      // 비수기는 입실 2일 전까지 전액, 1일 전 10%, 당일 20% 공제
+      for (const [at, percent, refund] of [['2026-11-29T03:00:00Z', 0, 350000], ['2026-11-30T03:00:00Z', 10, 315000], ['2026-12-01T03:00:00Z', 20, 280000], ['2026-12-02T03:00:00Z', 20, 280000]]) {
+        clock = new Date(at);
+        const q = await quoteOf(low.booking.code); assert.equal(q.percent, percent, at); assert.equal(q.refund, refund, at);
+      }
+      // 성수기 주말: 10일 전까지 전액 · 9~7일 전 20% · 6~5일 전 40% · 4~3일 전 60% · 그 뒤 90% 공제
+      for (const [at, percent, refund] of [['2026-12-14T03:00:00Z', 0, 300000], ['2026-12-15T03:00:00Z', 20, 240000], ['2026-12-17T14:59:00Z', 20, 240000], ['2026-12-17T15:00:00Z', 40, 180000],
+        ['2026-12-19T03:00:00Z', 40, 180000], ['2026-12-20T03:00:00Z', 60, 120000], ['2026-12-22T03:00:00Z', 90, 30000], ['2026-12-24T03:00:00Z', 90, 30000]]) {
+        clock = new Date(at);
+        const q = await quoteOf(peak.booking.code); assert.equal(q.percent, percent, at); assert.equal(q.refund, refund, at);
+      }
+      // 손님이 12/18(입실 6일 전)에 취소를 요청하면, 운영자가 며칠 뒤에 처리해도 요청한 날 기준이다
+      clock = new Date('2026-12-18T03:00:00Z');
+      await api.guestCancel({ code: peak.booking.code, phone: '01012345678' }, 'refund-browser-A');
+      clock = new Date('2026-12-22T03:00:00Z');
+      const asked = await quoteOf(peak.booking.code);
+      assert.deepEqual(asked, { daysBefore: 6, percent: 40, fee: 120000, refund: 180000, free: false, basis: '성수기 주말 · 입실 6일 전 취소', asked: true });
+      const cancelled = await api.refund({ id: peak.orderId, amount: asked.refund, reason: '고객 요청 취소' });
+      assert.equal(cancelled.booking.status, 'cancelled'); assert.equal(cancelled.booking.refundAmount, 180000);
+      assert.equal((await api.admin()).bookings.find(b => b.code === peak.booking.code).refund, undefined, 'no quote once the booking is cancelled');
     });
   } finally {
     await db.close();

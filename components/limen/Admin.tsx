@@ -5,10 +5,15 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 // LIMEN 예약 관리 — 예약 확정/거절, 카드 결제 예약 환불 취소, 블럭표(객실×날짜 예약 현황)와 날짜별 설정,
 // 직접 예약 등록, 객실 요금표·기본 설정.
 // 손님 화면(/hotel/limen)의 달력·요금·주소·입실 시간은 모두 여기서 넣은 값으로 바뀐다.
+// 날짜별 요금과 시즌, 표준 규정에 따른 환불 금액은 서버(lib/limen-core.cjs)가 계산해 내려준다 — 화면은 다시 계산하지 않는다.
 
 type RoomKey = "one" | "two";
 type RateKey = "weekday" | "friday" | "saturday" | "shoulder" | "peak";
-type Season = "" | "shoulder" | "peak";
+type Season = "" | "normal" | "shoulder" | "peak"; // 날짜에 지정한 시즌 ("" = 시즌 달력을 따름, normal = 평시로 고정)
+// 표준 환불 규정대로 계산한 금액 (표준 규정에 동의한 결제 예약에만 있다). asked: 손님이 취소를 요청한 시각 기준인지
+type RefundQuote = { percent: number; fee: number; refund: number; basis: string; free: boolean; asked: boolean };
+// 블럭표 한 칸: 그 밤의 요금 · 적용된 요금 칸 · 시즌 · 운영자가 시즌을 지정했는지
+type ChartCell = { price: number | null; rate: RateKey | "custom"; season?: "shoulder" | "peak"; manual?: boolean };
 type RoomRates = { open: boolean; guests: number } & Record<RateKey, number | null>;
 type Booking = {
   id: string; code: string; status: "requested" | "pending" | "confirming" | "confirmed" | "cancelling" | "cancelled" | "declined" | "expired";
@@ -16,20 +21,25 @@ type Booking = {
   estimate: { total?: number | null; refundTerms?: string }; admin_note: string; cancel_requested: boolean; created_at: string;
   // 카드 결제 예약일 때만 값이 있다
   amount: number | null; paid_at: string | null; refund_amount: number | null; cancel_reason: string | null; receipt_url: string | null;
+  refund?: RefundQuote;
 };
 type DayRow = { room: RoomKey; day: string; closed: boolean; price: number | null; season: Season; note: string };
 type Config = {
   open: boolean; minLeadDays: number; maxNights: number; windowDays: number; rooms: Record<RoomKey, RoomRates>;
   checkInTime: string; checkOutTime: string;
   address: string; walkNote: string; parkingNote: string; mapUrl: string; notice: string; rules: string; notifyPhone: string;
-  payOnline: boolean; refundTerms: string;
+  autoSeasons: boolean; payOnline: boolean; refundTerms: string;
 };
 type Data = {
   today: string; config: Config; days: DayRow[]; bookings: Booking[];
+  chart: Record<RoomKey, Record<string, ChartCell>>;
+  seasonGuide: { key: string; label: string; text: string }[]; // 시즌 달력 안내 (손님 화면과 같은 글)
+  holidaysUntil: string;        // 공휴일 표가 준비된 마지막 날
+  standardRefundTerms: string;  // 공정위 기준 표준 환불 규정
   events: { id: number; action: string; detail: { kind?: string; note?: string; amount?: number; refundAmount?: number; reason?: string }; created_at: string; code: string | null }[];
   smsConfigured: boolean;
   pay: boolean;            // 지금 손님 화면에서 카드 결제가 열려 있는지
-  termsReady: boolean;     // 취소·환불 규정이 입력되어 있는지
+  termsReady: boolean;     // 취소·환불 규정이 20자 이상 입력되어 있는지
   paymentReady: boolean;   // 서버에 실결제 키가 있는지
   refundTemplate: string;  // 단궁 예약에 쓰는 환불 규정 (불러와서 고쳐 쓰는 참고용)
 };
@@ -39,7 +49,7 @@ const ROOM_NAME: Record<RoomKey, string> = { one: "원룸", two: "투룸" };
 const RATES: { key: RateKey; label: string }[] = [
   { key: "weekday", label: "주중 (일–목)" }, { key: "friday", label: "금요일" }, { key: "saturday", label: "토요일" }, { key: "shoulder", label: "준성수기" }, { key: "peak", label: "극성수기" },
 ];
-const SEASON_NAME: Record<Exclude<Season, "">, string> = { shoulder: "준성수기", peak: "극성수기" };
+const SEASON_NAME: Record<"shoulder" | "peak", string> = { shoulder: "준성수기", peak: "극성수기" };
 const STATUS: Record<Booking["status"], string> = {
   requested: "확인 대기", pending: "결제 대기", confirming: "결제 확인 중", confirmed: "예약 확정",
   cancelling: "환불 확인 중", cancelled: "취소", declined: "거절", expired: "결제 미완료",
@@ -65,13 +75,6 @@ const weekdayOf = (day: string) => new Date(day + "T00:00:00Z").getUTCDay();
 const nightsOf = (b: Booking) => Math.round((Date.parse(b.check_out) - Date.parse(b.check_in)) / DAY);
 const stamp = (value: string) => new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const input = "block w-full border p-2 mt-1 rounded";
-// 그 밤의 요금 (서버 lib/limen-core.cjs 의 priceOf 와 같은 순서: 지정 요금 → 시즌 → 요일)
-function priceOf(day: string, rates: RoomRates, row?: DayRow) {
-  if (row?.price != null) return row.price;
-  if (row?.season) return rates[row.season];
-  const weekday = weekdayOf(day);
-  return weekday === 5 ? rates.friday : weekday === 6 ? rates.saturday : rates.weekday;
-}
 
 export default function LimenAdmin() {
   const [data, setData] = useState<Data | null>(null), [config, setConfig] = useState<Config | null>(null);
@@ -109,10 +112,14 @@ export default function LimenAdmin() {
     if (decision === "confirm" && !window.confirm(`${b.guest_name}님 ${ROOM_NAME[b.room]} ${b.check_in} ~ ${b.check_out} 예약을 확정할까요?${notify && data?.smsConfigured ? "\n손님에게 확정 문자가 발송됩니다." : ""}`)) return;
     void post({ action: "decide", id: b.id, decision, note, notify }, `${b.guest_name}님 예약을 ${label}했습니다.`);
   }
-  // 카드 결제 예약 취소 — 손님이 동의한 규정을 보고 환불 금액을 정한다 (0 = 환불 없이 취소)
+  // 카드 결제 예약 취소 — 손님이 동의한 규정을 보고 환불 금액을 정한다 (0 = 환불 없이 취소).
+  // 표준 규정에 동의한 예약은 서버가 규정대로 계산한 금액을 미리 채워 준다.
   function refund(b: Booking) {
     if (b.amount === null) return;
-    const raw = window.prompt(`${b.guest_name}님 예약(${ROOM_NAME[b.room]} ${b.check_in} ~ ${b.check_out})을 취소합니다.\n결제금액은 ${won(b.amount)}입니다. 환불할 금액을 숫자로 입력해 주세요. (0 = 환불 없이 취소)\n손님이 동의한 취소·환불 규정을 먼저 확인하세요.`, String(b.amount));
+    const guide = b.refund
+      ? `표준 규정 기준 환불 금액은 ${won(b.refund.refund)}입니다. (${b.refund.basis}${b.refund.asked ? " · 손님이 취소를 요청한 날 기준" : " · 오늘 기준"}${b.refund.percent ? ` → ${b.refund.percent}% 공제` : " → 전액 환불"})\n천재지변·숙소 사정이면 전액을 환불해 주세요.`
+      : "손님이 동의한 취소·환불 규정을 먼저 확인하세요.";
+    const raw = window.prompt(`${b.guest_name}님 예약(${ROOM_NAME[b.room]} ${b.check_in} ~ ${b.check_out})을 취소합니다.\n결제금액은 ${won(b.amount)}입니다. 환불할 금액을 숫자로 입력해 주세요. (0 = 환불 없이 취소)\n${guide}`, String(b.refund ? b.refund.refund : b.amount));
     if (raw === null) return;
     const amount = Number(raw.replace(/[^0-9]/g, ""));
     if (raw.trim() === "" || !Number.isSafeInteger(amount) || amount > b.amount) { setError(`환불 금액은 0원부터 ${won(b.amount)} 사이로 입력해 주세요.`); return; }
@@ -153,7 +160,7 @@ export default function LimenAdmin() {
   // 카드 결제가 꺼져 있는 이유 (모두 해결되면 요금이 정해진 날짜부터 결제로 받는다)
   const payBlocks = [
     !config.payOnline && "기본 설정의 ‘카드 결제 받기’가 꺼져 있습니다.",
-    !data.termsReady && "취소·환불 규정이 비어 있습니다. 기본 설정에서 입력해 주세요.",
+    !data.termsReady && "취소·환불 규정이 너무 짧습니다(20자 미만). 기본 설정에서 고치거나 비워서 표준 규정으로 되돌려 주세요.",
     !data.paymentReady && "서버에 토스 실결제 키가 설정되어 있지 않습니다.",
   ].filter((v): v is string => !!v);
   const shown = data.bookings.filter(b => filter === "all" || b.status === filter);
@@ -161,6 +168,8 @@ export default function LimenAdmin() {
   const year = base.getUTCFullYear(), mo = base.getUTCMonth(), ym = `${year}-${String(mo + 1).padStart(2, "0")}`;
   const monthDays = Array.from({ length: new Date(Date.UTC(year, mo + 1, 0)).getUTCDate() }, (_, i) => `${ym}-${String(i + 1).padStart(2, "0")}`);
   const ready = !busy && !!range.start && targets.length > 0;
+  // 공휴일 표가 달력 공개 기간보다 먼저 끝나면 그 뒤의 명절·공휴일 전날 요금이 자동으로 잡히지 않는다
+  const holidaysShort = config.autoSeasons && addDays(data.today, config.windowDays) > data.holidaysUntil;
   const action = "border px-3 py-2 rounded bg-white disabled:opacity-40";
 
   return <div className="commerce-reservation-workspace max-w-6xl mx-auto space-y-6">
@@ -205,6 +214,7 @@ export default function LimenAdmin() {
               <td className="p-2">{b.amount !== null
                 ? <>{b.paid_at ? <b>카드 결제 {won(b.amount)}</b> : <span className="text-gray-600">결제 예정 {won(b.amount)}</span>}
                   {b.refund_amount !== null && <span className="block text-gray-600">환불 {won(b.refund_amount)}{b.cancel_reason ? ` · ${b.cancel_reason}` : ""}</span>}
+                  {b.refund && b.cancel_requested && <span className="block text-red-700">규정상 환불 {won(b.refund.refund)}<span className="block text-xs text-gray-600">{b.refund.basis}</span></span>}
                   {b.receipt_url && <a className="block underline" href={b.receipt_url} target="_blank" rel="noopener noreferrer">영수증 ↗</a>}
                   {b.estimate?.refundTerms && <details className="mt-1"><summary className="cursor-pointer text-gray-600">동의한 환불 규정</summary><p className="max-w-sm whitespace-pre-wrap text-gray-600 mt-1">{b.estimate.refundTerms}</p></details>}</>
                 : typeof b.estimate?.total === "number" ? <>예상 {won(b.estimate.total)}<span className="block text-gray-500">결제 없음</span></> : "요금 미설정"}</td>
@@ -226,7 +236,8 @@ export default function LimenAdmin() {
     <section className="border rounded-xl p-5 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold text-lg">2. 블럭표 · 날짜별 설정</h2>
         <div className="flex items-center gap-2 text-sm"><button type="button" className="border px-3 py-1.5 rounded" disabled={month === 0} onClick={() => setMonth(m => m - 1)}>← 이전 달</button><b className="px-2">{year}년 {mo + 1}월</b><button type="button" className="border px-3 py-1.5 rounded" disabled={month >= 11} onClick={() => setMonth(m => m + 1)}>다음 달 →</button></div></div>
-      <p className="text-sm text-gray-600">객실별 예약 현황과 그날의 1박 요금(만원)입니다. 칸을 눌러 시작일과 종료일을 고른 뒤 아래에서 닫거나 시즌·요금을 지정하세요. 다른 곳(전화·타 플랫폼)에서 예약이 잡힌 날은 닫아 두면 손님 달력에 마감으로 보입니다.</p>
+      <p className="text-sm text-gray-600">객실별 예약 현황과 그날의 1박 요금(만원)입니다. {config.autoSeasons ? "준성수기·극성수기·공휴일 전날은 시즌 달력대로 자동으로 잡혀 있습니다. " : ""}칸을 눌러 시작일과 종료일을 고른 뒤 아래에서 닫거나 시즌·요금을 바꾸세요. 다른 곳(전화·타 플랫폼)에서 예약이 잡힌 날은 닫아 두면 손님 달력에 마감으로 보입니다.</p>
+      {holidaysShort && <p className="p-3 bg-amber-50 text-amber-900 text-sm">공휴일 표가 {data.holidaysUntil}까지만 준비되어 있습니다. 그 뒤의 설·추석 연휴와 공휴일 전날은 자동으로 잡히지 않으니, 아래에서 날짜를 골라 시즌을 지정해 주세요.</p>}
       <div className="overflow-x-auto">
         <table className="text-xs text-center border-separate" style={{ borderSpacing: 2 }} aria-label={`${year}년 ${mo + 1}월 블럭표`}>
           <thead><tr><th className="sticky left-0 bg-white px-2 text-left min-w-[52px]">객실</th>
@@ -235,13 +246,16 @@ export default function LimenAdmin() {
             {ROOMS.map(room => <tr key={room.key}>
               <th className="sticky left-0 bg-white px-2 text-left font-bold">{room.name}{!config.rooms[room.key].open && <span className="block font-normal text-gray-500">중지</span>}</th>
               {monthDays.map(day => {
-                const info = dayInfo[room.key].get(day), past = day < data.today, price = priceOf(day, config.rooms[room.key], info?.row);
+                const info = dayInfo[room.key].get(day), past = day < data.today, cell = data.chart[room.key]?.[day], price = cell?.price ?? null;
+                // 공휴일 전날: 토요일이 아닌데 토요일 요금이 적용된 밤
+                const eve = cell?.rate === "saturday" && weekdayOf(day) !== 6;
                 const selected = targets.includes(room.key) && !!range.start && day >= range.start && day <= rangeEnd;
                 const tone = info?.booking ? (info.booking.status === "confirmed" ? "bg-green-100 text-green-900" : "bg-amber-100 text-amber-900")
                   : info?.row?.closed ? "bg-gray-200 text-gray-500"
                   : past ? "bg-white text-gray-300"
-                  : info?.row?.season === "peak" ? "bg-rose-50" : info?.row?.season === "shoulder" ? "bg-orange-50" : "bg-white";
-                const title = `${room.name} ${day}${info?.booking ? ` · ${info.booking.guest_name} (${STATUS[info.booking.status]})` : info?.row?.closed ? " · 닫힘" : ""}${info?.row?.season ? ` · ${SEASON_NAME[info.row.season]}` : ""}${info?.row?.note ? ` · ${info.row.note}` : ""}`;
+                  : cell?.season === "peak" ? "bg-rose-50" : cell?.season === "shoulder" ? "bg-orange-50" : eve ? "bg-sky-50" : "bg-white";
+                const seasonText = cell?.season ? `${SEASON_NAME[cell.season]}${cell.manual ? " (지정)" : " (자동)"}` : info?.row?.season === "normal" ? "평시로 고정" : eve ? "공휴일 전날 · 토요일 요금" : "";
+                const title = `${room.name} ${day}${info?.booking ? ` · ${info.booking.guest_name} (${STATUS[info.booking.status]})` : info?.row?.closed ? " · 닫힘" : ""}${seasonText ? ` · ${seasonText}` : ""}${info?.row?.note ? ` · ${info.row.note}` : ""}`;
                 return <td key={day} className="p-0">
                   <button type="button" title={title} aria-label={title} aria-pressed={selected} onClick={() => pickCell(room.key, day)}
                     className={`block w-full min-w-[38px] h-12 border rounded leading-tight ${tone} ${selected ? "ring-2 ring-gray-900" : ""}`}>
@@ -255,7 +269,7 @@ export default function LimenAdmin() {
         </table>
       </div>
       <p className="text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
-        {[["#FEF3C7", "신청·결제 진행 중"], ["#DCFCE7", "확정"], ["#E5E7EB", "닫힘"], ["#FFF7ED", "준성수기"], ["#FFF1F2", "극성수기"]].map(([color, label]) =>
+        {[["#FEF3C7", "신청·결제 진행 중"], ["#DCFCE7", "확정"], ["#E5E7EB", "닫힘"], ["#FFF7ED", "준성수기"], ["#FFF1F2", "극성수기"], ["#F0F9FF", "공휴일 전날 (토요일 요금)"]].map(([color, label]) =>
           <span key={label} className="inline-flex items-center gap-1"><span aria-hidden="true" style={{ display: "inline-block", width: 12, height: 12, borderRadius: 3, border: "1px solid #9CA3AF", background: color }} />{label}</span>)}
         <span>숫자 = 그날의 1박 요금(만원) · ‘지정’ = 그날만 따로 넣은 요금</span>
       </p>
@@ -275,7 +289,9 @@ export default function LimenAdmin() {
         <div className="flex flex-wrap items-center gap-2"><b className="w-20">시즌</b>
           <button type="button" disabled={!ready} className={action} onClick={() => days({ season: "shoulder" }, "준성수기로 지정했습니다.")}>준성수기로 지정</button>
           <button type="button" disabled={!ready} className={action} onClick={() => days({ season: "peak" }, "극성수기로 지정했습니다.")}>극성수기로 지정</button>
-          <button type="button" disabled={!ready} className={action} onClick={() => days({ season: "" }, "시즌 지정을 풀었습니다.")}>시즌 해제</button>
+          <button type="button" disabled={!ready} className={action} onClick={() => days({ season: "normal" }, "평시 요금으로 고정했습니다.")}>평시로 고정</button>
+          <button type="button" disabled={!ready} className={action} onClick={() => days({ season: "" }, "시즌 지정을 풀었습니다. 시즌 달력을 따릅니다.")}>지정 풀기 (자동)</button>
+          <span className="text-gray-500">지정한 날은 시즌 달력보다 먼저 적용됩니다.</span>
         </div>
         <div className="flex flex-wrap items-center gap-2"><b className="w-20">그날만의 요금</b>
           <input className="border p-2 rounded w-40" type="number" min={1} value={dayPrice} onChange={e => setDayPrice(e.target.value)} placeholder="1박 요금 (원)" aria-label="그날만의 1박 요금" />
@@ -284,7 +300,7 @@ export default function LimenAdmin() {
           <span className="text-gray-500">프로모션·공동구매 요금처럼 요금표와 다른 날에 씁니다.</span>
         </div>
         <div className="flex flex-wrap items-center gap-2"><b className="w-20">초기화</b>
-          <button type="button" disabled={!ready} className={action} onClick={() => days({ clear: true }, "선택한 날짜를 요금표 기본으로 되돌렸습니다.")}>닫기·시즌·지정 요금 모두 지우기</button>
+          <button type="button" disabled={!ready} className={action} onClick={() => days({ clear: true }, "선택한 날짜를 기본(시즌 달력과 요금표)으로 되돌렸습니다.")}>닫기·시즌·지정 요금 모두 지우기</button>
         </div>
       </div>
     </section>
@@ -326,7 +342,12 @@ export default function LimenAdmin() {
             </tbody>
           </table>
         </div>
-        <p className="text-sm text-gray-600">준성수기·극성수기 요금은 위 ‘블럭표’에서 날짜를 그 시즌으로 지정한 날에 적용됩니다. 기준 인원이 곧 최대 인원이며 인원 추가는 받지 않습니다.</p>
+        <p className="text-sm text-gray-600">기준 인원이 곧 최대 인원이며 인원 추가는 받지 않습니다.</p>
+        <div className="border rounded-lg p-4 space-y-2 bg-gray-50">
+          <label className="flex items-center gap-2 font-bold"><input type="checkbox" checked={config.autoSeasons} onChange={e => field("autoSeasons", e.target.checked)} />성수기·공휴일 자동 적용 <span className="font-normal text-sm text-gray-600">(끄면 블럭표에서 지정한 날에만 시즌 요금을 받습니다)</span></label>
+          <ul className="text-sm text-gray-600 list-disc pl-5">{data.seasonGuide.map(line => <li key={line.key}><b>{line.label}</b> {line.text}</li>)}</ul>
+          <p className="text-sm text-gray-600">다른 숙소들의 시즌 기간과 공정거래위원회 기준(여름 성수기 7.15–8.24)을 따라 정한 달력입니다. 특정 날짜만 바꾸려면 위 ‘블럭표’에서 그 날짜에 시즌이나 요금을 지정하세요.</p>
+        </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <label className="text-sm">체크인 시간<input className={input} type="time" value={config.checkInTime} onChange={e => field("checkInTime", e.target.value)} /></label>
           <label className="text-sm">체크아웃 시간<input className={input} type="time" value={config.checkOutTime} onChange={e => field("checkOutTime", e.target.value)} /></label>
@@ -343,10 +364,14 @@ export default function LimenAdmin() {
         </div>
         <div className="border rounded-lg p-4 space-y-3 bg-gray-50">
           <label className="flex items-center gap-2 font-bold"><input type="checkbox" checked={config.payOnline} onChange={e => field("payOnline", e.target.checked)} />카드 결제 받기 <span className="font-normal text-sm text-gray-600">(블랜드픽과 같은 토스 결제 · 결제 즉시 예약 확정)</span></label>
-          <p className="text-sm text-gray-600">요금이 모두 정해진 일정만 카드로 결제받습니다. 아래 취소·환불 규정이 20자 이상 입력되어 있어야 결제가 열리고, 손님은 결제 전에 이 규정에 동의합니다. 동의한 내용은 예약마다 그대로 저장됩니다.</p>
+          <p className="text-sm text-gray-600">요금이 모두 정해진 일정만 카드로 결제받습니다. 손님은 결제 전에 아래 취소·환불 규정에 동의하고, 동의한 내용은 예약마다 그대로 저장됩니다. 기본값은 공정거래위원회 「소비자분쟁해결기준(숙박업)」을 옮긴 표준 규정이며, 표준 규정에 동의한 예약은 ‘환불 취소’를 누를 때 규정대로 계산한 환불 금액이 미리 채워집니다. 글을 고치면 그 뒤 예약부터 적용되고 금액은 직접 계산해야 합니다. 비워서 저장하면 표준 규정으로 돌아갑니다.</p>
           <label className="block text-sm">취소·환불 규정 <span className="text-gray-500">(손님 화면에 그대로 표시됩니다)</span>
             <textarea className={`${input} min-h-44`} maxLength={4000} value={config.refundTerms} onChange={e => field("refundTerms", e.target.value)} placeholder={"예: 이용일 7일 전까지 전액 환불\n예: 이용일 3~6일 전 50% 환불\n예: 이용일 2일 전부터 환불 불가"} /></label>
-          <button type="button" className="border px-3 py-1.5 rounded text-sm bg-white" onClick={() => { if (!config.refundTerms.trim() || window.confirm("지금 적힌 규정을 지우고 단궁 예약의 환불 규정으로 바꿀까요? 불러온 뒤 LIMEN에 맞게 고쳐서 저장하세요.")) field("refundTerms", data.refundTemplate); }}>단궁 예약의 환불 규정 불러오기</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="border px-3 py-1.5 rounded text-sm bg-white" disabled={config.refundTerms === data.standardRefundTerms} onClick={() => { if (!config.refundTerms.trim() || window.confirm("지금 적힌 규정을 지우고 표준 규정(공정위 기준)으로 되돌릴까요?")) field("refundTerms", data.standardRefundTerms); }}>표준 규정으로 되돌리기</button>
+            <button type="button" className="border px-3 py-1.5 rounded text-sm bg-white" onClick={() => { if (!config.refundTerms.trim() || window.confirm("지금 적힌 규정을 지우고 단궁 예약의 환불 규정으로 바꿀까요? 불러온 뒤 LIMEN에 맞게 고쳐서 저장하세요.")) field("refundTerms", data.refundTemplate); }}>단궁 예약의 환불 규정 불러오기</button>
+            {config.refundTerms === data.standardRefundTerms && <span className="text-sm text-gray-600">지금 표준 규정을 쓰고 있습니다.</span>}
+          </div>
         </div>
         <label className="block text-sm">예약 영역 공지 한 줄<input className={input} maxLength={200} value={config.notice} onChange={e => field("notice", e.target.value)} /></label>
         <label className="block text-sm">이용 안내 <span className="text-gray-500">(한 줄에 하나씩 · 손님 화면 ‘머무는 동안 지켜 주세요’에 표시)</span><textarea className={`${input} min-h-28`} maxLength={2000} value={config.rules} onChange={e => field("rules", e.target.value)} placeholder={"예: 실내 전 구역 금연\n예: 밤 10시 이후에는 조용히"} /></label>

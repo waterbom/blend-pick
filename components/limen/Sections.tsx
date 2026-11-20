@@ -5,6 +5,7 @@ import {
   RATE_ROWS, ROOMS, ROOM_KEYS, STORY, STORY_PHOTO, TRANSIT, VALUES, srcSet, type StayConfig,
 } from "@/components/limen/content";
 import { QuickBar, RoomCta } from "@/components/limen/Booking";
+import { SEASON_GUIDE } from "@/lib/limen-policy.cjs";
 
 // LIMEN 페이지의 서버 렌더 섹션들 — 움직임은 Motion.tsx 가 data-* 속성을 보고 붙인다.
 //   data-reveal          화면에 들어오면 is-in (글은 떠오르고, "door" 는 문이 열리듯 드러난다)
@@ -158,6 +159,7 @@ export function Values() {
 }
 
 // 04 — 객실과 요금. 금액·인원은 관리자 설정(config.rooms)을 그대로 보여 준다.
+// 준성수기·극성수기 기간은 서버가 요금을 계산할 때 쓰는 시즌 달력(lib/limen-policy.cjs)의 안내문을 그대로 쓴다.
 export function Rooms({ config }: { config: StayConfig }) {
   const fromPrice = (key: "one" | "two") => {
     const prices = RATE_ROWS.map(row => config.rooms[key][row.key]).filter((v): v is number => typeof v === "number");
@@ -198,7 +200,7 @@ export function Rooms({ config }: { config: StayConfig }) {
           <thead><tr><th scope="col">구분</th>{ROOM_KEYS.map(key => <th scope="col" key={key}>{ROOMS[key].name} · {config.rooms[key].guests}인</th>)}</tr></thead>
           <tbody>
             {RATE_ROWS.map(row => <tr key={row.key}>
-              <th scope="row">{row.label}{row.note && <small>{row.note}</small>}</th>
+              <th scope="row">{row.label}{row.note && <small>{(row.key === "shoulder" || row.key === "peak") && !config.autoSeasons ? "달력에 표시" : row.note}</small>}</th>
               {ROOM_KEYS.map(key => { const price = config.rooms[key][row.key]; return <td key={key}>{typeof price === "number" ? won(price) : "문의"}</td>; })}
             </tr>)}
           </tbody>
@@ -211,7 +213,10 @@ export function Rooms({ config }: { config: StayConfig }) {
         </div>
         <ul className="lm-rates-notes">
           <li>모든 요금은 객실당 기준이며, 기준 인원을 초과한 입실은 불가합니다.</li>
-          <li>준성수기·극성수기는 날짜로 지정되며, 예약 달력에 그날의 요금이 표시됩니다.</li>
+          {config.autoSeasons
+            ? <>{SEASON_GUIDE.map(line => <li key={line.key}><span><b>{line.label}</b> {line.text}</span></li>)}
+              <li>시즌은 일부 날짜에서 달라질 수 있으며, 날짜별 요금은 예약 달력에 표시됩니다.</li></>
+            : <li>준성수기·극성수기는 날짜로 지정되며, 예약 달력에 그날의 요금이 표시됩니다.</li>}
           <li>연박 요금은 머무는 날짜의 1박 요금을 더한 금액입니다.</li>
         </ul>
       </div>
