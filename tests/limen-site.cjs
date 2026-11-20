@@ -327,6 +327,55 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
   assert.equal(files.length, 92); for (const file of files) assert.ok(require('node:fs').existsSync(require('node:path').join(__dirname, '../components/limen/fonts', file)), file);
 });
 
+test('phones get the same effects as wide screens: pinned door tour, menu, focus rows and press states', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  const html = page(sections(), { ...publicDefaults });
+  // 좁은 화면의 메뉴: 넓은 화면 헤더의 링크를 모두 담고, 가리키는 구간이 페이지에 있다
+  assert.match(html, /<button type="button" class="lm-menu-open" aria-haspopup="dialog" aria-label="메뉴 열기"/); assert.match(html, /<dialog class="lm-menu" aria-label="LIMEN 메뉴">/);
+  const menu = html.slice(html.indexOf('<dialog class="lm-menu"'), html.indexOf('</dialog>', html.indexOf('<dialog class="lm-menu"')));
+  const links = [...menu.matchAll(/<a href="#([a-z]+)">/g)].map(m => m[1]);
+  assert.deepEqual(links, ['story', 'rooms', 'space', 'location', 'reserve', 'lookup', 'guide']);
+  for (const id of links.filter(id => !['reserve', 'lookup'].includes(id))) assert.ok(html.includes(`id="${id}"`), `section #${id}`);
+  for (const id of ['reserve', 'lookup']) assert.ok(read('components/limen/Booking.tsx').includes(`id="${id}"`), `section #${id}`);
+  // 둘러보기: 휴대폰도 고정된 문 모양 사진 틀을 쓴다 — 옆으로 넘기는 카드·점 표시는 없다
+  assert.match(html, /class="lm-door lm-tour-frame"/); assert.match(html, /class="lm-tour-zoom" aria-hidden="true"/); assert.doesNotMatch(html, /lm-tour-dots/);
+  assert.match(html, /sizes="\(max-width: 959px\) 62vw, 30vw" alt="" loading="lazy" decoding="async" data-on="true"/);
+  // 가치 목록은 터치 화면에서 가운데 줄을 강조한다. 첫 화면의 빠른 예약 바는 휴대폰에서 화면 폭을 채운다.
+  assert.equal((html.match(/<li data-reveal="true" data-focus="true"/g) || []).length, 4); assert.match(html, /class="lm-rise lm-hero-quick"/);
+
+  const css = read('components/limen/limen.css');
+  // 마우스 오버 규칙은 모두 @media (hover:hover) 안에 — 터치에서는 누른 뒤에 오버 상태가 남아 색이 뒤집힌 채로 보인다
+  let inHover = false, hoverRules = 0;
+  for (const line of css.replace(/\/\*[\s\S]*?\*\//g, '').split('\n')) {
+    if (line.startsWith('@media (hover:hover){')) inHover = !line.trimEnd().endsWith('}}');
+    else if (inHover && line === '}') inHover = false;
+    if (!/:hover/.test(line.replace('@media (hover:hover)', ''))) continue;
+    hoverRules++;
+    assert.ok(inHover || line.startsWith('@media (hover:hover){'), `hover rule outside @media (hover:hover): ${line.slice(0, 80)}`);
+  }
+  assert.ok(hoverRules >= 20, 'hover rules are still there for mouse users');
+  const touch = css.slice(css.indexOf('@media (hover:none){'), css.indexOf('@media (prefers-reduced-motion:reduce){'));
+  for (const rule of ['.lm-btn:active:not(:disabled)', '.lm-day[data-state="open"]:active', '.lm-tour-zoom{display:grid}']) assert.ok(touch.includes(rule), rule);
+  assert.ok(css.includes('.lm-value-list li[data-focused] h3{color:var(--oak-deep)}'));
+  // 좁은 화면 규칙: 문 사진 틀이 위에 붙는 장면, 가로 스크롤 없음, 뒤 화면 흐림 없음
+  const narrow = css.slice(css.indexOf('@media (max-width:959px){'), css.indexOf('@media (max-width:640px){'));
+  assert.match(narrow, /\.lm-tour-stage\{top:0;z-index:61/); assert.match(narrow, /\.lm-tour-steps>li\{min-height:56svh/);
+  assert.doesNotMatch(narrow, /scroll-snap|overflow-x:auto|\.lm-tour-stage\{display:none/); assert.doesNotMatch(narrow, /backdrop-filter:blur/);
+  assert.match(narrow, /\.lm-header\[data-solid="1"\]\{[^}]*backdrop-filter:none/); assert.match(narrow, /\.lm-hero-quick\{justify-self:stretch;width:100%\}/);
+  // 스크립트가 꺼져 있으면 글마다 사진을 보여 주고, 열 수 없는 메뉴 버튼은 숨긴다
+  assert.ok(css.includes('.lm:not([data-motion]) .lm-tour-stage{display:none}')); assert.ok(css.includes('.lm:not([data-motion]) .lm-menu-open{display:none}'));
+
+  // 스크롤 계산: 페이지 전체에 물려주는 값을 프레임마다 쓰지 않는다 (전체 스타일 계산이 반복되어 휴대폰에서 끊긴다)
+  const motion = read('components/limen/Motion.tsx');
+  assert.doesNotMatch(motion, /root\.style\.setProperty/); assert.doesNotMatch(css + motion, /--lm-progress/);
+  assert.match(motion, /bar\.style\.transform = `scaleX\(/); assert.match(motion, /const rects = new Map/);
+  assert.ok(motion.indexOf('const rects = new Map') < motion.indexOf('bar.style.transform'), 'positions are read before anything is written');
+  // 둘러보기는 화면 폭에 따라 기준 띠만 바꾼다 (휴대폰: 고정된 사진 아래)
+  const tour = read('components/limen/Tour.tsx');
+  assert.match(tour, /narrow\.matches \? "-62% 0px -37% 0px" : "-45% 0px -45% 0px"/); assert.doesNotMatch(tour, /scrollLeft|scrollTo\(/);
+});
+
 test('operator settings and rate edits flow straight into the page', () => {
   const s = sections();
   const rooms = { one: { ...ROOMS.one, weekday: 190000, peak: null }, two: { ...ROOMS.two, guests: 5 } };

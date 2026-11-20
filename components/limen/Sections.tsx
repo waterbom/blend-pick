@@ -5,6 +5,7 @@ import {
   RATE_ROWS, ROOMS, ROOM_KEYS, STORY, STORY_PHOTO, TRANSIT, VALUES, srcSet, type StayConfig,
 } from "@/components/limen/content";
 import { QuickBar, RoomCta } from "@/components/limen/Booking";
+import Menu from "@/components/limen/Menu";
 import { SEASON_GUIDE } from "@/lib/limen-policy.cjs";
 
 // LIMEN 페이지의 서버 렌더 섹션들 — 움직임은 Motion.tsx 가 data-* 속성을 보고 붙인다.
@@ -12,6 +13,7 @@ import { SEASON_GUIDE } from "@/lib/limen-policy.cjs";
 //   data-scene           고정 구간을 지나는 진행도(--p)를 받는 장면
 //   data-parallax        스크롤에 따라 살짝 다른 속도로 이동
 //   data-words           스크롤만큼 단어가 차오르는 문장
+//   data-focus           터치 화면에서 화면 가운데를 지날 때 강조 (마우스를 올렸을 때와 같은 표시)
 // 브랜드 문구는 content.ts 에 있고, 숙소가 보낸 브랜드 문서의 문장을 그대로 쓴다.
 
 const delay = (i: number, key = "--i") => ({ [key]: i }) as CSSProperties;
@@ -58,6 +60,7 @@ export function Header() {
       <div className="lm-header-side">
         <a className="lm-header-link" href="#lookup">예약 조회</a>
         <a className="lm-pill" href="#reserve">예약하기</a>
+        <Menu />
       </div>
     </div>
   </header>;
@@ -73,7 +76,7 @@ export function Hero() {
         {BRAND.taglineKo.map((line, i) => <span className="lm-mask" key={line}><span style={delay(i, "--d")}>{line}</span></span>)}
       </h1>
       <p className="lm-hero-en lm-rise" style={delay(3, "--d")}>{BRAND.tagline}</p>
-      <div className="lm-rise" style={delay(4, "--d")}><QuickBar /></div>
+      <div className="lm-rise lm-hero-quick" style={delay(4, "--d")}><QuickBar /></div>
     </div>
     <div className="lm-hero-visual">
       <figure className="lm-door lm-hero-door">
@@ -113,7 +116,7 @@ export function Definition() {
 export function Passage() {
   return <section className="lm-passage" data-scene aria-label="문을 지나는 장면">
     <div className="lm-passage-stage">
-      <figure className="lm-passage-door"><img src={PASSAGE_PHOTO.photo.src} srcSet={srcSet(PASSAGE_PHOTO.photo)} sizes={DOOR_SIZES} alt={PASSAGE_PHOTO.alt} width={952} height={1269} loading="lazy" /></figure>
+      <figure className="lm-passage-door"><img src={PASSAGE_PHOTO.photo.src} srcSet={srcSet(PASSAGE_PHOTO.photo)} sizes={DOOR_SIZES} alt={PASSAGE_PHOTO.alt} width={952} height={1269} loading="lazy" decoding="async" /></figure>
       <p className="lm-passage-text">{PASSAGE.map((line, i) => <span key={line} style={delay(i)}>{line}</span>)}</p>
       <span className="lm-passage-sill" aria-hidden="true" />
     </div>
@@ -127,7 +130,7 @@ export function Story() {
       <div className="lm-story-head">
         <Label no="02">WHY LIMEN</Label>
         <h2 className="lm-h2" id="lm-story-title" data-reveal>LIMEN을<br />시작한 이유</h2>
-        <figure className="lm-door lm-story-photo" data-reveal="door"><img src={STORY_PHOTO.photo.src} srcSet={srcSet(STORY_PHOTO.photo)} sizes={DOOR_SIZES} alt={STORY_PHOTO.alt} width={952} height={1269} loading="lazy" data-parallax="-0.05" /></figure>
+        <figure className="lm-door lm-story-photo" data-reveal="door"><img src={STORY_PHOTO.photo.src} srcSet={srcSet(STORY_PHOTO.photo)} sizes={DOOR_SIZES} alt={STORY_PHOTO.alt} width={952} height={1269} loading="lazy" decoding="async" data-parallax="-0.05" /></figure>
       </div>
       <div className="lm-story-body">
         <p className="lm-story-lead" data-reveal>{STORY.lead}</p>
@@ -148,7 +151,7 @@ export function Values() {
         <h2 className="lm-h2" id="lm-values-title" data-reveal>우리가 지향하는 가치</h2>
       </div>
       <ol className="lm-value-list">
-        {VALUES.map((value, i) => <li key={value.en} data-reveal style={delay(i)}>
+        {VALUES.map((value, i) => <li key={value.en} data-reveal data-focus style={delay(i)}>
           <span className="lm-value-no">{String(i + 1).padStart(2, "0")}</span>
           <h3>{value.en}<small>{value.ko}</small></h3>
           <p>{value.body.map(line => <span key={line}>{line}</span>)}</p>
@@ -181,7 +184,7 @@ export function Rooms({ config }: { config: StayConfig }) {
         {ROOM_KEYS.map((key, i) => {
           const room = ROOMS[key], rates = config.rooms[key], from = fromPrice(key);
           return <article className="lm-room" key={key} data-reveal style={delay(i)}>
-            <figure className="lm-door lm-room-photo" data-reveal="door"><img src={room.photo.src} srcSet={srcSet(room.photo)} sizes="(max-width: 640px) 60vw, 22vw" alt={room.alt} width={952} height={1269} loading="lazy" /></figure>
+            <figure className="lm-door lm-room-photo" data-reveal="door"><img src={room.photo.src} srcSet={srcSet(room.photo)} sizes="(max-width: 640px) 60vw, 22vw" alt={room.alt} width={952} height={1269} loading="lazy" decoding="async" /></figure>
             <p className="lm-room-en">{room.en}</p>
             <h3>{room.name}<small>{rates.guests}인</small></h3>
             <p className="lm-room-summary">{room.summary}</p>
@@ -368,7 +371,7 @@ export function Guide({ config, pay = false }: { config: StayConfig; pay?: boole
 export function Closing() {
   return <section className="lm-closing" aria-label="LIMEN 브랜드 스토리">
     <div className="lm-wrap lm-closing-grid">
-      <figure className="lm-door lm-closing-door" data-reveal="door"><img src={CLOSING_PHOTO.photo.src} srcSet={srcSet(CLOSING_PHOTO.photo)} sizes={DOOR_SIZES} alt={CLOSING_PHOTO.alt} width={952} height={1269} loading="lazy" data-parallax="-0.05" /></figure>
+      <figure className="lm-door lm-closing-door" data-reveal="door"><img src={CLOSING_PHOTO.photo.src} srcSet={srcSet(CLOSING_PHOTO.photo)} sizes={DOOR_SIZES} alt={CLOSING_PHOTO.alt} width={952} height={1269} loading="lazy" decoding="async" data-parallax="-0.05" /></figure>
       <div className="lm-closing-copy">
         <p className="lm-label" data-reveal><b>—</b><span>LIMEN · {CLOSING.title}</span></p>
         <h2 data-reveal>{CLOSING.lines.map(line => <span key={line}>{line}</span>)}</h2>
