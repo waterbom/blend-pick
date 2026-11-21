@@ -18,6 +18,7 @@ export default function SanjiProductStyles() {
     .sj-product-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px;margin-top:6px;font-size:18px;line-height:1.35;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
     .sj-product-price em{font-style:normal;font-weight:700;color:#C9430E}
     .sj-product-price strong{font-weight:700}
+    .sj-product-basis{margin-top:3px;color:#606060;font-size:11px;line-height:1.45;word-break:keep-all;overflow-wrap:anywhere}
     .sj-product-original{margin-top:2px;font-size:11px;color:#797979;line-height:1.4}
     .sj-product-state{display:inline-flex;margin-top:8px;padding:2px 5px;background:#f5f5f5;border:1px solid #e9e9e9;color:#6d6d6d;font-size:10px;line-height:1.4}
     .sj-product-state.open{background:#fff5ed;border-color:#f8e5d8;color:#a9451d}

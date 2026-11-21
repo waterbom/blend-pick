@@ -1,5 +1,6 @@
 "use client";
 
+import { sanjiScopedOffer } from "@/lib/sanji-offer-copy";
 import type { SanjiCard } from "@/lib/sanji-data";
 import { storefrontSale } from "@/lib/storefront-sale";
 import SanjiProductImage from "@/components/sanji/SanjiProductImage";
@@ -8,7 +9,8 @@ const won = (n: number) => n.toLocaleString("ko-KR") + "원";
 
 export default function SanjiProductCard({ product: p, href, now, banner = false, autoPlay = false }: { product: SanjiCard; href: string; now: number; banner?: boolean; autoPlay?: boolean }) {
   const sale = storefrontSale(p, now);
-  const discount = p.original_price && p.original_price > p.price ? Math.round((1 - p.price / p.original_price) * 100) : 0;
+  const scoped = sanjiScopedOffer(p.id);
+  const discount = !scoped && p.original_price && p.original_price > p.price ? Math.round((1 - p.price / p.original_price) * 100) : 0;
   return <a className={`sj-product-card${sale === "closed" ? " is-closed" : ""}`} href={href} data-banner-product={banner ? p.id : undefined}>
     <div className="sj-product-image">
       <SanjiProductImage mainImage={p.main_image} images={p.images} name={p.name} autoPlay={autoPlay} eager={banner} />
@@ -16,7 +18,8 @@ export default function SanjiProductCard({ product: p, href, now, banner = false
     </div>
     {p.brand && <span className="sj-product-brand">{p.brand}</span>}
     <span className="sj-product-name">{p.name}</span>
-    <div className="sj-product-price">{discount > 0 && <em>{discount}%</em>}<strong>{won(p.price)}</strong></div>
+    {(!scoped || p.price_basis) && <div className="sj-product-price">{discount > 0 && <em>{discount}%</em>}<strong>{won(p.price)}</strong></div>}
+    {scoped && <span className="sj-product-basis">{p.price_basis ? `${p.price_basis} 기준` : "옵션별 가격 확인"}</span>}
     {discount > 0 && <del className="sj-product-original">{won(p.original_price!)}</del>}
     <span className={`sj-product-state ${sale}`}>{sale === "closed" ? "공구가 종료되었어요" : sale === "upcoming" ? "곧 만나요" : "공동구매 진행 중"}</span>
   </a>;

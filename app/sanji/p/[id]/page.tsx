@@ -1,3 +1,4 @@
+import { sanjiOfferName } from "@/lib/sanji-offer-copy";
 import { productMetadata } from "@/lib/product-seo";
 import ProductSearchSummary from "@/components/ProductSearchSummary";
 import { cleanLinkCode, linkApplies } from "@/lib/secret-link";
@@ -23,7 +24,7 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const S = SITES.sanjipick;
   // 비전시 상품·비밀링크 주소는 검색엔진에 안 실리게 (링크를 받은 사람만 보는 페이지)
   const secret = !p.is_visible || !!k;
-  return productMetadata(p, "sanjipick", secret);
+  return productMetadata({ ...p, name: sanjiOfferName(p.id, p.name) }, "sanjipick", secret);
 }
 
 export default async function SanjiProductPage({
@@ -41,7 +42,7 @@ export default async function SanjiProductPage({
   return (
     <main className="sanji-storefront">
       <SanjiSalesPage {...data} kakaoUrl={SITES.sanjipick.kakaoUrl} linkBase={linkBase} />
-      <ProductSearchSummary product={data.product} site="sanjipick" options={data.options} secret={k !== undefined} />
+      <ProductSearchSummary product={{ ...data.product, name: sanjiOfferName(id, data.product.name) }} site="sanjipick" options={data.options} secret={k !== undefined} />
     </main>
   );
 }

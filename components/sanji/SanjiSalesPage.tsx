@@ -4,6 +4,7 @@ import { SANJI_IMAGE_ASPECT_RATIO, SANJI_IMAGE_OBJECT_POSITION, SANJI_LARGE_IMAG
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { sanjiOfferName, sanjiPriceBasis, sanjiScopedOffer } from "@/lib/sanji-offer-copy";
 import { expectedShipLabel } from "@/lib/checkout-draft";
 import { addGuestItems } from "@/lib/guest-cart";
 import { submitCartItems } from "@/lib/buyer-flow";
@@ -79,6 +80,10 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
   useMetaEvent("ViewContent", product.id, commerceParams([{ id: product.id, quantity: 1, price: product.price }]), !demo);
   // 판매가 — 서버에서 검증한 채널별 상품·옵션 가격을 표시
   const price = product.price;
+  const displayName = sanjiOfferName(product.id, product.name);
+  const scopedOffer = sanjiScopedOffer(product.id);
+  const priceBasis = scopedOffer ? sanjiPriceBasis(price, options) : null;
+  const showHeadlinePrice = !scopedOffer || !!priceBasis;
   const unitOf = (extra: number | null | undefined) => extra ?? price;
 
   // ── 시간창·재고 ─────────────────────────────────────────────
@@ -94,10 +99,10 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
     startMs && startMs > nowMs ? "upcoming" : endMs && endMs <= nowMs ? "ended" : "open";
   const soldout = demo || product.status !== "active" || product.stock === 0;
   const discount =
-    product.original_price && product.original_price > price
+    !scopedOffer && product.original_price && product.original_price > price
       ? Math.round((1 - price / product.original_price) * 100)
       : null;
-  const priceGap = product.original_price && product.original_price > price ? product.original_price - price : 0;
+  const priceGap = !scopedOffer && product.original_price && product.original_price > price ? product.original_price - price : 0;
   const endLeft = (() => {
     if (!endMs || saleState !== "open") return "";
     const left = endMs - nowMs;
@@ -173,7 +178,7 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
     const url = window.location.href;
     try {
       if (navigator.share) {
-        await navigator.share({ title: product.name, text: `${product.name} — 산지픽 특가`, url });
+        await navigator.share({ title: displayName, text: `${displayName} — 산지픽 특가`, url });
         return;
       }
     } catch {
@@ -283,7 +288,7 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
     ["판매처", product.brand || "산지픽"],
     ...(product.origin ? [["원산지", product.origin] as [string, string]] : []),
     ["배송", shippingLabel(product)],
-    ["출고", "산지에서 바로 발송"],
+    ["출고", expectedShipLabel(product.expected_ship_date)],
     ...(product.sale_end_at ? [["판매기간", `${fmtDate(product.sale_end_at)} 까지`] as [string, string]] : []),
     ["운영", "블랜드펀치 (BLEND PUNCH)"],
     ["문의", "카카오톡 채널 산지픽"],
@@ -326,6 +331,7 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
         .sp-deal-chip .was{font-size:13px;color:${FAINT};text-decoration:line-through;font-variant-numeric:tabular-nums}
         .sp-price{display:flex;align-items:baseline;gap:8px;margin-top:4px;font-variant-numeric:tabular-nums}
         .sp-price .rate{color:${ORANGE};font-size:28px;font-weight:700;letter-spacing:-.03em}
+        .sp-price-basis{display:block;margin-top:4px;font-size:13px;line-height:1.45;color:${MUTED};word-break:keep-all;overflow-wrap:anywhere}
         .sp-price .now{font-size:28px;font-weight:700;letter-spacing:-.03em}
         .sp-save{margin-top:5px;font-size:12px;font-weight:600;color:${ORANGE}}
         .sp-option-guide{padding:20px 16px;font-size:13px;line-height:1.6;color:#555}
@@ -417,8 +423,8 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
         <div className="sp-slider" ref={sliderRef} onScroll={onSlideScroll}>
           {slides.map((src, i) => (
             <button type="button" key={`${i}-${src}`} className="sp-slide" data-active={i === slide} aria-hidden={i !== slide}
-              tabIndex={i === slide ? 0 : -1} disabled={!src} onClick={() => setLightbox(src)} aria-label={`${product.name} 사진 ${i + 1} 크게 보기`}>
-              <Img src={src} alt={`${product.name} ${i + 1}`} eager={i === 0} />
+              tabIndex={i === slide ? 0 : -1} disabled={!src} onClick={() => setLightbox(src)} aria-label={`${displayName} 사진 ${i + 1} 크게 보기`}>
+              <Img src={src} alt={`${displayName} ${i + 1}`} eager={i === 0} />
             </button>
           ))}
         </div>
@@ -447,7 +453,7 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
         <div className="sp-brandline"><button type="button" className="sp-share" onClick={share} aria-label="상품 공유"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M6 12H4v9h16v-9h-2"/></svg></button>
           <span>{product.brand || "산지픽"}</span><i aria-hidden="true"/><span>산지 직송</span>
         </div>
-        <h1 className="sp-title">{product.name}</h1>
+        <h1 className="sp-title">{displayName}</h1>
         {!demo && <div className="sp-rating">
           {reviews.total ? (
             <button type="button" onClick={() => goTab(2)} aria-label={`상품후기 ${reviews.total.toLocaleString()}개 보기`}><Stars n={reviews.average}/><b>{reviews.average.toFixed(1)}</b><span className="review-link">후기 {reviews.total.toLocaleString()}개</span><SanjiIcon name="chevron" size={12}/></button>
@@ -457,11 +463,12 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
             <span>첫 후기를 기다리고 있어요</span>
           )}
         </div>}
-        <div className="sp-deal-chip"><span>산지픽 공구가</span>{priceGap > 0 && <del className="was">{won(product.original_price!)}</del>}</div>
-        <div className="sp-price">
+        <div className="sp-deal-chip"><span>{showHeadlinePrice ? "산지픽 공구가" : "옵션별 가격 확인"}</span>{priceGap > 0 && <del className="was">{won(product.original_price!)}</del>}</div>
+        {showHeadlinePrice && <div className="sp-price">
           {discount && <span className="rate">{discount}%</span>}
           <span className="now">{won(price)}</span>
-        </div>
+        </div>}
+        {priceBasis && <span className="sp-price-basis">{priceBasis} 기준</span>}
         {priceGap > 0 && <div className="sp-save">정가보다 {won(priceGap)} 저렴해요</div>}
         {socialPill && <div className="sp-pill"><SanjiIcon name="user" size={14}/>{socialPill}</div>}
         {linkCode && (
@@ -609,7 +616,7 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
             <button className="sp-sheet-close" type="button" onClick={()=>setSheet(null)} aria-label="옵션 선택 닫기">×</button>
             <div className="grip" />
             <h4>{sheet === "gift" ? "선물하기" : "구매하기"}</h4>
-            <p className="sp-sheet-product">{product.name}</p>
+            <p className="sp-sheet-product">{displayName}</p>
             {sheet === "gift" && <p className="sp-note">결제 단계에서 받는 분 이름·주소를 입력하면 그 주소로 바로 보내드려요.</p>}
             {hasOptions ? (
               <>
@@ -641,7 +648,7 @@ export default function SanjiSalesPage({ product, images, options, recommendedOp
               </>
             ) : (
               <div className="sp-line">
-                <span>{product.name}</span>
+                <span>{displayName}</span>
                 <div className="sp-step">
                   <button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="수량 줄이기">−</button>
                   <span>{qty}</span>

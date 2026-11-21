@@ -1,3 +1,4 @@
+import { SANJI_SCOPED_OFFER_IDS, sanjiOfferName, sanjiPriceBasis } from "@/lib/sanji-offer-copy";
 import { storefrontSale } from "@/lib/storefront-sale";
 import shopPool from "@/lib/db-shop";
 import pool from "@/lib/db";
@@ -70,6 +71,7 @@ export interface SanjiCard {
   sale_end_at: string | null;
   created_at: string;
   sold: number; // 누적 판매 수량 (베스트 정렬용)
+  price_basis?: string | null;
 }
 
 // 메인 후기 리스트 — 산지픽 상품 전체의 최근 후기
@@ -95,18 +97,32 @@ const CATS = SITES.sanjipick.categories;
 
 export async function getSanjiProducts({ includeImages = false }: { includeImages?: boolean } = {}): Promise<SanjiCard[]> {
   try {
-    const r = await shopPool.query(
+    const r = await shopPool.query<SanjiCard & { basis_options: SanjiOption[] | null }>(
       `SELECT p.id, p.name, p.brand, p.category, p.price, p.original_price, p.main_image, p.stock, p.status,
               p.sale_start_at, p.sale_end_at, p.created_at,
+              CASE WHEN p.id = ANY($2::uuid[]) THEN (
+                SELECT json_agg(matched) FROM (
+                  SELECT po.name, po.value, po.stock, po.is_active, po.extra_price
+                  FROM product_options po
+                  WHERE po.product_id = p.id AND po.removed_at IS NULL
+                    AND po.is_active AND po.stock <> 0
+                    AND COALESCE(po.extra_price, p.price) = p.price
+                  LIMIT 2
+                ) matched
+              ) END AS basis_options,
               ${includeImages ? `ARRAY(SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.url ASC) AS images,` : ""}
               COALESCE((SELECT SUM(oi.quantity)::int FROM order_items oi JOIN orders o ON o.id = oi.order_id
                          WHERE oi.product_id = p.id AND o.status <> 'cancelled' AND o.status <> 'pending'), 0) AS sold
          FROM products_shop p
         WHERE p.category = ANY($1::text[]) AND p.status IN ('active', 'soldout') AND p.is_visible = true
         ORDER BY p.created_at DESC`,
-      [CATS]
+      [CATS, SANJI_SCOPED_OFFER_IDS]
     );
-    return r.rows as SanjiCard[];
+    return r.rows.map(({ basis_options, ...p }) => ({
+      ...p,
+      name: sanjiOfferName(p.id, p.name),
+      price_basis: sanjiPriceBasis(p.price, basis_options ?? []),
+    }));
   } catch {
     throw new Error("SANJI_CATALOG_UNAVAILABLE");
   }

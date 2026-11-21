@@ -1,5 +1,7 @@
 "use client";
 
+import { sanjiScopedOffer } from "@/lib/sanji-offer-copy";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SanjiCard, SanjiHomeReview } from "@/lib/sanji-data";
@@ -152,7 +154,7 @@ export default function SanjiHome({ products, reviews, linkBase, kakaoUrl }: {
       </section>}
       <nav className="sh-shortcuts" aria-label="상품 바로가기">{shortcuts.map(item => <a key={item.label} href={item.href}><span className={item.tone}><SanjiIcon name={item.icon} size={26} /></span>{item.label}</a>)}</nav>
 
-      {closing.length > 0 && <section ref={closingSection} className={`sh-sec sh-closing-section${closingVisible ? " is-in-view" : ""}`} id="sanji-closing"><div className="sh-sec__h"><h2><span className={`sh-closing-title-signal${hasUrgentClosing ? " is-urgent" : ""}`} aria-hidden="true"><SanjiIcon name="clock" size={17} /></span>곧 마감하는 공구</h2><button type="button" onClick={() => { setTab(4); window.scrollTo({ top: 0, behavior: "instant" }); }}>마감순 보기 ›</button></div><p className="sh-sec__sub">남은 시간을 확인하고, 마감 전에 골라보세요.</p><div className="sh-close-list">{closing.slice(0, 2).map(p => <a key={p.id} href={href(p)} className="sh-close" data-urgency={closingCountdown(p.sale_end_at!, now)?.urgency}><div className="sh-close-image"><SanjiProductImage mainImage={p.main_image} images={p.images} name={p.name} autoPlay /></div><div><SanjiClosingCountdown end={p.sale_end_at!} now={now} /><span className="sh-close-name">{p.name}</span><strong className="sh-close-price">{p.price.toLocaleString("ko-KR")}원</strong></div></a>)}</div></section>}
+      {closing.length > 0 && <section ref={closingSection} className={`sh-sec sh-closing-section${closingVisible ? " is-in-view" : ""}`} id="sanji-closing"><div className="sh-sec__h"><h2><span className={`sh-closing-title-signal${hasUrgentClosing ? " is-urgent" : ""}`} aria-hidden="true"><SanjiIcon name="clock" size={17} /></span>곧 마감하는 공구</h2><button type="button" onClick={() => { setTab(4); window.scrollTo({ top: 0, behavior: "instant" }); }}>마감순 보기 ›</button></div><p className="sh-sec__sub">남은 시간을 확인하고, 마감 전에 골라보세요.</p><div className="sh-close-list">{closing.slice(0, 2).map(p => <a key={p.id} href={href(p)} className="sh-close" data-urgency={closingCountdown(p.sale_end_at!, now)?.urgency}><div className="sh-close-image"><SanjiProductImage mainImage={p.main_image} images={p.images} name={p.name} autoPlay /></div><div><SanjiClosingCountdown end={p.sale_end_at!} now={now} /><span className="sh-close-name">{p.name}</span>{!sanjiScopedOffer(p.id) || p.price_basis ? <strong className="sh-close-price">{p.price.toLocaleString("ko-KR")}원</strong> : null}{sanjiScopedOffer(p.id) && <span className="sj-product-basis">{p.price_basis ? `${p.price_basis} 기준` : "옵션별 가격 확인"}</span>}</div></a>)}</div></section>}
 
       <section className="sh-sec" id="sanji-new"><div className="sh-sec__h"><h2>지금 열린 산지 공구</h2><a href={`${linkBase}/products`}>전체 보기 ›</a></div><p className="sh-sec__sub">새로 들어온 먹거리부터 차근차근 둘러보세요</p>{newest.length ? grid(newest.slice(0, 8)) : <div className="sh-empty">새로운 산지 공구를 준비하고 있어요.</div>}<a className="sh-more" href={`${linkBase}/products`}>공구 상품 더 보기 <SanjiIcon name="chevron" size={13} /></a></section>
 
