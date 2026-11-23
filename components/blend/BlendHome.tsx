@@ -7,6 +7,7 @@ import type { HomeProduct, HomeUpcoming } from "@/lib/blend-home";
 import styles from "./BlendHome.module.css";
 import { UTOP_CLOSED } from "@/lib/hotel";
 import { SITES } from "@/lib/sites";
+import { LIMEN_ARTWORK } from "@/lib/limen-artwork";
 
 type IconName = "arrow" | "bag" | "stay" | "spark" | "box" | "check" | "leaf" | "chevron" | "pause" | "play";
 
@@ -158,7 +159,7 @@ export default function BlendHome({ products, upcoming, categories, topSellerIds
       </section>
 
       <Rail id="stay-picks" eyebrow="STAY & HOTEL" title="이런 하루도, 공구로" description="호텔부터 우리만의 독채까지. 여행의 시작도 블랜드픽." icon="stay" href="/hotel" count={3}>
-        <Link className={styles.stayCard} href="/hotel/limen"><div className={styles.stayImage}><FallbackImg src="/hotel/limen/twin.webp" alt="열린 문 너머로 침대 두 개가 보이는 LIMEN 객실" className={styles.coverImage} /><span>프라이빗 스테이</span></div><div className={styles.stayInfo}><small>서울 연남동 · LIMEN</small><h3>경계를 넘어, 고요함 속으로</h3><p>문 하나를 경계로 펼쳐지는 고요. 원룸 2인 · 투룸 4인.</p><div><span>공간 둘러보기·달력 예약</span><Icon name="arrow" size={20} /></div></div></Link>
+        <Link className={styles.stayCard} href="/hotel/limen"><div className={`${styles.stayImage} ${styles.stayArtwork}`}><FallbackImg src={LIMEN_ARTWORK.src} alt={LIMEN_ARTWORK.alt} className={styles.containImage} /><span>프라이빗 스테이</span></div><div className={styles.stayInfo}><small>서울 연남동 · LIMEN</small><h3>경계를 넘어, 고요함 속으로</h3><p>문 하나를 경계로 펼쳐지는 고요. 원룸 2인 · 투룸 4인.</p><div><span>공간 둘러보기·달력 예약</span><Icon name="arrow" size={20} /></div></div></Link>
         <Link className={styles.stayCard} href="/hotel/dangung"><div className={styles.stayImage}><FallbackImg src="/hotel/dangung/photo-01.jpg" alt="단궁의 한옥과 잔디 정원" className={styles.coverImage} /><span>독채·펜션</span></div><div className={styles.stayInfo}><small>한옥 독채 · 단궁</small><h3>우리만의 정원에서 보내는 하루</h3><p>한옥의 여유, 넓은 잔디 정원, 함께하는 시간.</p><div><span>숙소·예약 정보 확인</span><Icon name="arrow" size={20} /></div></div></Link>
         <Link className={`${styles.stayCard} ${UTOP_CLOSED ? styles.closedStay : ""}`} href="/hotel/utop" data-sale-state={UTOP_CLOSED ? "ended" : undefined}><div className={styles.stayImage}><FallbackImg src="/room/double-1.png" alt="여수 유탑 마리나 객실" className={styles.coverImage} /><span>{UTOP_CLOSED ? "공구 마감" : "호텔·리조트"}</span></div><div className={styles.stayInfo}><small>여수 · 유탑 마리나</small><h3>바다 곁에서 쉬어가는 여행</h3><p>여수에서 만나는 오션뷰 리조트의 여유.</p><div><span>{UTOP_CLOSED ? "예약 마감 · 숙소 정보 보기" : "공구 상세·진행 상태 확인"}</span><Icon name="arrow" size={20} /></div></div></Link>
       </Rail>

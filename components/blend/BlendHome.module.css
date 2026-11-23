@@ -928,6 +928,12 @@
 .stayCard:hover .stayImage>img {
   transform:scale(1.04)
 }
+.stayImage.stayArtwork {
+  background:#e9dccb
+}
+.stayCard:hover .stayArtwork>img {
+  transform:none
+}
 .stayImage>span {
   position:absolute;
   left:12px;

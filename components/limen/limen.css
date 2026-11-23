@@ -151,10 +151,9 @@
 .lm-rise{opacity:0;animation:lm-rise 1.1s var(--ease) calc(1.4s + var(--d,0)*.12s) forwards}
 .lm-hero-en{margin:clamp(18px,2.2vw,28px) 0 clamp(30px,4vw,52px);font-size:clamp(14px,1.25vw,17px);font-weight:400;letter-spacing:.04em;color:var(--soft)}
 .lm-hero-visual{position:relative;z-index:1;display:grid;justify-items:center;gap:18px}
-.lm-hero-door{width:clamp(250px,29vw,430px);animation:lm-door-open 1.6s var(--ease-io) 1.15s both}
-.lm-hero-door img{object-position:50% 64%;animation:lm-settle 2.4s var(--ease) 1.15s both}
+.lm-hero-door{width:clamp(250px,32vw,460px);aspect-ratio:3/2;background:#e9dccb;animation:lm-door-open 1.6s var(--ease-io) 1.15s both}
 @keyframes lm-door-open{from{clip-path:inset(0 49% 0 49% round var(--door))}to{clip-path:inset(0 0 0 0 round var(--door))}}
-@keyframes lm-settle{from{transform:scale(1.2)}to{transform:scale(1.02)}}
+.lm-hero-door img{object-fit:contain}
 .lm-hero-note{display:flex;align-items:center;gap:12px;font-size:12px;letter-spacing:.02em;color:var(--mute)}
 .lm-hero-note b{font-weight:500;letter-spacing:.3em;color:var(--ink)}
 .lm-scroll{position:absolute;left:var(--gutter);bottom:30px;z-index:1;display:flex;align-items:center;gap:14px;font-size:10px;letter-spacing:.3em;color:var(--mute)}
@@ -636,7 +635,7 @@
   .lm{--header:62px}
   .lm-hero{grid-template-columns:minmax(0,1fr);gap:34px;padding-bottom:64px;text-align:left}
   .lm-hero-visual{order:-1;justify-items:start}
-  .lm-hero-door{width:min(64vw,330px)}
+  .lm-hero-door{width:min(100%,440px)}
   .lm-hero-ghost{left:auto;right:-.08em;top:calc(var(--header) + 2vh);bottom:auto;transform:none;writing-mode:vertical-rl;font-size:clamp(84px,27vw,150px);letter-spacing:.1em;padding:0}
   .lm-hero-quick{justify-self:stretch;width:100%}
   .lm-text-link{min-height:44px}

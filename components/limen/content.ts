@@ -144,8 +144,7 @@ export const SPACES_BY_ROOM: Record<RoomKey, Space[]> = {
 export const SPACES: Space[] = ROOM_KEYS.flatMap(key => SPACES_BY_ROOM[key]);
 const space = (key: string) => { const found = SPACES.find(s => s.key === key); if (!found) throw Error(`unknown space ${key}`); return { photo: found.photo, alt: found.alt }; };
 
-// 첫 화면과 '문을 지나는' 장면, 스토리·맺음에 쓰는 사진 — 문 너머로 찍힌 장면들
-export const HERO = space("twin");
+// '문을 지나는' 장면, 스토리·맺음에 쓰는 실제 공간 사진
 export const PASSAGE_PHOTO = space("dressing");
 export const STORY_PHOTO = space("kitchen");
 export const CLOSING_PHOTO = space("bath");

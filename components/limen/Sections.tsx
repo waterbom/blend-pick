@@ -1,7 +1,8 @@
+import { LIMEN_ARTWORK } from "@/lib/limen-artwork";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import {
-  AMENITIES, BRAND, CLOSING, CLOSING_PHOTO, DOOR_SIZES, HERO, HOSTING, KAKAO_MAP_URL, KAKAO_URL, NAVER_MAP_URL, NEIGHBORHOOD, PASSAGE, PASSAGE_PHOTO,
+  AMENITIES, BRAND, CLOSING, CLOSING_PHOTO, DOOR_SIZES, HOSTING, KAKAO_MAP_URL, KAKAO_URL, NAVER_MAP_URL, NEIGHBORHOOD, PASSAGE, PASSAGE_PHOTO,
   RATE_ROWS, ROOMS, ROOM_KEYS, STORY, STORY_PHOTO, TRANSIT, VALUES, srcSet, type StayConfig,
 } from "@/components/limen/content";
 import { QuickBar, RoomCta } from "@/components/limen/Booking";
@@ -80,8 +81,7 @@ export function Hero() {
     </div>
     <div className="lm-hero-visual">
       <figure className="lm-door lm-hero-door">
-        {/* 첫 화면에서 가장 큰 사진 — 숨기지 않고 바로 그린다 (LCP) */}
-        <img src={HERO.photo.src} srcSet={srcSet(HERO.photo)} sizes={DOOR_SIZES} alt={HERO.alt} width={952} height={1269} fetchPriority="high" decoding="sync" />
+        <img {...LIMEN_ARTWORK} fetchPriority="high" decoding="async" />
       </figure>
       <p className="lm-hero-note lm-rise" style={delay(5, "--d")}><b>LIMEN</b>라틴어로 ‘문턱’</p>
     </div>

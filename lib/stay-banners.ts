@@ -5,8 +5,11 @@
 //   2) 아래 배열 맨 앞에 항목 추가 (slides의 images 경로만 맞추면 끝)
 // 슬라이드 1장당 사진 여러 장을 가로 균등 분할(object-cover)로 채운다.
 
+import { LIMEN_ARTWORK } from "@/lib/limen-artwork";
+
 export interface StaySlide {
   images: string[]; // public 기준 경로. 없으면 grad 배경이 대신 보임
+  artwork?: { src: string; alt: string; width: number; height: number }; // 사진 슬라이드와 달리 문구와 분리해 원본 비율로 표시
   grad: string;     // 사진 로딩 전/누락 시 배경
   tag: string;
   title: string;    // \n 줄바꿈 가능
@@ -27,8 +30,9 @@ export const STAY_BANNERS: StayBannerConfig[] = [
     name: "LIMEN · 연남동",
     slides: [
       {
-        images: ["/hotel/limen/twin.webp", "/hotel/limen/kitchen.webp", "/hotel/limen/bedroom.webp"],
-        grad: "linear-gradient(135deg,#C9B08C,#7E6140)",
+        images: [],
+        artwork: LIMEN_ARTWORK,
+        grad: "#f4ece0",
         tag: "서울 연남동 · 프라이빗 스테이",
         title: "LIMEN\n경계를 넘어, 고요함 속으로",
         subtitle: "문 하나를 경계로 펼쳐지는 고요 · 원룸 2인 · 투룸 4인",

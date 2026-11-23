@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LIMEN_ARTWORK } from "@/lib/limen-artwork";
 import { notFound } from "next/navigation";
 import { currentSite } from "@/lib/site-server";
 import { stayService } from "@/lib/limen-server";
@@ -18,11 +19,11 @@ import "@/components/limen/limen.css";
 // 결제는 블랜드픽과 같은 토스 결제창을 쓰고, 결제 뒤에는 /hotel/limen/result 에서 승인·확정한다.
 const title = "LIMEN 리멘 | 연남동 프라이빗 스테이";
 const description = "경계를 넘어, 고요함 속으로. 홍대와 연남동 한가운데, 문 하나를 경계로 전혀 다른 고요가 펼쳐지는 프라이빗 스테이 LIMEN. 원룸(2인)·투룸(4인), 달력에서 날짜를 골라 바로 예약하세요.";
-const ogImage = "https://shop.blendpunch.com/hotel/limen/og.jpg";
+const ogImage = new URL(LIMEN_ARTWORK.src, LIMEN_URL).href;
 export const metadata: Metadata = {
   title, description,
   alternates: { canonical: LIMEN_URL },
-  openGraph: { title, description, url: LIMEN_URL, type: "website", locale: "ko_KR", siteName: "LIMEN", images: [{ url: ogImage, width: 1200, height: 630, alt: "LIMEN 리멘 — 연남동 프라이빗 스테이" }] },
+  openGraph: { title, description, url: LIMEN_URL, type: "website", locale: "ko_KR", siteName: "LIMEN", images: [{ url: ogImage, width: LIMEN_ARTWORK.width, height: LIMEN_ARTWORK.height, alt: LIMEN_ARTWORK.alt }] },
   twitter: { card: "summary_large_image", title, description, images: [ogImage] },
 };
 
@@ -42,7 +43,7 @@ export default async function LimenPage() {
   const prices = ROOM_KEYS.flatMap(key => [config.rooms[key].weekday, config.rooms[key].friday, config.rooms[key].saturday, config.rooms[key].shoulder, config.rooms[key].peak]).filter((v): v is number => typeof v === "number");
   const jsonLd = {
     "@context": "https://schema.org", "@type": "LodgingBusiness", name: "LIMEN", alternateName: "리멘", slogan: BRAND.tagline, url: LIMEN_URL, description,
-    image: SPACES.map(s => `https://shop.blendpunch.com${s.photo.src}`),
+    image: [ogImage, ...SPACES.map(s => new URL(s.photo.src, LIMEN_URL).href)],
     address: { "@type": "PostalAddress", addressCountry: "KR", addressRegion: "서울특별시", addressLocality: "마포구 연남동", ...(config.address ? { streetAddress: config.address } : {}) },
     ...(prices.length ? { priceRange: `₩${Math.min(...prices).toLocaleString("ko-KR")}–₩${Math.max(...prices).toLocaleString("ko-KR")}` } : {}),
     containsPlace: ROOM_KEYS.map(key => ({ "@type": "Accommodation", name: `LIMEN ${ROOMS[key].name}`, occupancy: { "@type": "QuantitativeValue", maxValue: config.rooms[key].guests } })),

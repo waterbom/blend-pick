@@ -24,6 +24,24 @@ export default function StayBanner({ slides }: { slides: StaySlide[] }) {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [current, slides.length]);
 
+  const artworkSlide = slides.length === 1 && slides[0].artwork ? slides[0] : undefined;
+  if (artworkSlide?.artwork) {
+    const { artwork, tag, title, subtitle, href, cta, grad } = artworkSlide;
+    return <section className="w-full" style={{ background: grad, color: "#392819" }}>
+      <div className="container-blend grid items-center gap-8 py-10 sm:py-14 lg:grid-cols-2 lg:gap-14 lg:py-20">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img {...artwork} className="block h-auto w-full rounded-2xl" fetchPriority="high" />
+        <div className="max-w-2xl">
+          <span className="text-xs font-bold tracking-widest">{tag}</span>
+          <h2 className="mt-3 whitespace-pre-line text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">{title}</h2>
+          <p className="mt-4 text-sm font-medium sm:text-lg">{subtitle}</p>
+          <Link href={href} className="mt-7 inline-flex items-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-bold text-white hover:brightness-110" style={{ background: "#513927" }}>
+            {cta}<span aria-hidden>→</span>
+          </Link>
+        </div>
+      </div>
+    </section>;
+  }
   return (
     <section className="relative w-full overflow-hidden">
       <div className="relative h-screen w-full">

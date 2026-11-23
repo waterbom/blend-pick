@@ -292,11 +292,23 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
   for (const text of [...content.STORY.body, content.STORY.quote, ...content.PASSAGE, ...content.CLOSING.lines, content.CLOSING.vision]) assert.ok(html.includes(text), text);
   assert.deepEqual(content.VALUES.map(v => v.en), ['Threshold', 'Privacy', 'Stillness', 'Sincerity']);
   for (const value of content.VALUES) { assert.ok(html.includes(value.en)); assert.ok(html.includes(value.ko)); for (const line of value.body) assert.ok(html.includes(line), line); }
-  // 사진: 객실별 공간 (원룸 4 · 투룸 5). 둘러보기는 원룸부터 열리고, 투룸 사진은 첫 화면·스토리·객실 카드 등에도 쓰인다.
+  // 사진: 객실별 공간 (원룸 4 · 투룸 5). 둘러보기는 원룸부터 열리며, 이미지 경로는 투룸 전환까지 검증한다.
   assert.deepEqual(Object.fromEntries(Object.entries(content.SPACES_BY_ROOM).map(([room, list]) => [room, list.length])), { one: 4, two: 5 });
   assert.equal(content.SPACES.length, 9); assert.equal(new Set(content.SPACES.map(space => space.key)).size, 9);
   const exists = file => require('node:fs').existsSync(require('node:path').join(__dirname, '../public', file));
-  for (const space of content.SPACES) { assert.ok(html.includes(space.photo.src), space.key); assert.ok(exists(space.photo.src), space.photo.src); assert.ok(exists(space.photo.small), space.photo.small); }
+  const TourTwo = load('components/limen/Tour.tsx', {
+    react: { ...React, useState: initial => React.useState(initial === 'one' ? 'two' : initial) },
+    '@/components/limen/Booking': { useStay: () => ({ config: publicDefaults }), RoomCta: () => null },
+  }).default;
+  const twoHtml = render(TourTwo);
+  for (const space of content.SPACES) { assert.ok((html + twoHtml).includes(space.photo.src), space.key); assert.ok(exists(space.photo.src), space.photo.src); assert.ok(exists(space.photo.small), space.photo.small); }
+  assert.match(twoHtml, /src="\/hotel\/limen\/twin\.webp"/);
+  const artwork = load('lib/limen-artwork.ts').LIMEN_ARTWORK;
+  const hero = render(sections().Hero);
+  assert.ok(hero.includes(`src="${artwork.src}"`));
+  assert.ok(hero.includes(`alt="${artwork.alt}"`));
+  assert.ok(exists(artwork.src));
+  assert.doesNotMatch(hero, /twin\.webp/);
   for (const space of content.SPACES_BY_ROOM.one) { assert.ok(html.includes(space.title), space.title); assert.ok(html.includes(space.body), space.key); }
   assert.match(html, /role="tab" aria-selected="true"[^>]*>원룸<small>2인 · 사진 4장/); assert.match(html, /role="tab" aria-selected="false"[^>]*>투룸<small>4인 · 사진 5장/);
   assert.match(html, /data-tour-room="one"/);
@@ -456,11 +468,18 @@ test('LIMEN is linked from the home stay rail, hotel list, admin menu, sitemap r
   const rail = home.slice(home.indexOf('id="stay-picks"'));
   assert.match(rail, /이런 하루도, 공구로/);
   assert.ok(rail.indexOf('href="/hotel/limen"') > 0 && rail.indexOf('href="/hotel/limen"') < rail.indexOf('href="/hotel/dangung"'), 'LIMEN card comes first in the stay rail');
-  assert.match(rail, /서울 연남동 · LIMEN/); assert.match(rail, /\/hotel\/limen\/twin\.webp/); assert.match(rail, /경계를 넘어, 고요함 속으로/);
+  assert.match(rail, /서울 연남동 · LIMEN/); assert.match(rail, /\/hotel\/limen\/brand-banner\.jpg/); assert.match(rail, /경계를 넘어, 고요함 속으로/);
   assert.doesNotMatch(home, /JS하우스|jshouse/i);
   assert.match(home, /href="\/hotel\/limen#lookup"/);
   const { STAY_BANNERS } = load('lib/stay-banners.ts');
   assert.equal(STAY_BANNERS[0].key, 'limen'); assert.equal(STAY_BANNERS[0].slides[0].href, '/hotel/limen');
+  const artwork = load('lib/limen-artwork.ts').LIMEN_ARTWORK;
+  assert.deepEqual(STAY_BANNERS[0].slides[0].artwork, artwork);
+  assert.deepEqual(STAY_BANNERS[0].slides[0].images, []);
+  const Banner = load('components/StayBanner.tsx', { 'next/link': link }).default;
+  assert.match(render(Banner, STAY_BANNERS[0]), /src="\/hotel\/limen\/brand-banner\.jpg".*alt="크림색 바탕의 LIMEN 로고"/);
+  assert.match(render(Banner, STAY_BANNERS[1]), /src="\/hotel\/dangung1\.jpg"/);
+  assert.match(render(Banner, STAY_BANNERS[2]), /src="\/hotel\/4\.png"/);
   const nav = load('lib/admin-navigation.ts');
   assert.ok(nav.adminGroups('blendpick').some(g => g.items.some(i => i.href === '/admin/limen')));
   assert.equal(nav.adminGroups('sanjipick').some(g => g.items.some(i => i.href === '/admin/limen')), false);
