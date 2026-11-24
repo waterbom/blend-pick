@@ -66,7 +66,7 @@ test('season calendar: summer and year-end seasons, feast holidays and holiday e
   // 공휴일 표: 날짜 형식이 맞고 겹치지 않으며 마지막 날까지 들어 있다. 안내문은 달력과 같은 기간을 말한다.
   const days = [...policy.HOLIDAYS.keys()];
   assert.ok(days.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && core.date(d))); assert.deepEqual(days, [...days].sort()); assert.equal(days.at(-1) <= policy.HOLIDAYS_UNTIL, true); assert.equal(days.at(-1), '2028-12-25');
-  assert.deepEqual(policy.SEASON_GUIDE.map(g => [g.key, g.text]), [['peak', '7월 20일–8월 15일 · 12월 24·25·31일'], ['shoulder', '7월 15–19일 · 8월 16–24일 · 12월 20–30일 · 설·추석 연휴'], ['holiday', '토요일 요금 (평일에 드는 공휴일의 전날 밤)']]);
+  assert.deepEqual(policy.SEASON_GUIDE.map(g => [g.key, g.text]), [['peak', '7월 20일–8월 15일 · 12월 24·25·31일'], ['shoulder', '7월 15–19일 · 8월 16–24일 · 12월 20–23일·26–30일 · 설·추석 연휴'], ['holiday', '토요일 요금 (평일에 드는 공휴일의 전날 밤)']]);
 });
 
 test('standard refund terms follow the Fair Trade Commission lodging table, and the quote matches the published text', () => {
@@ -395,7 +395,7 @@ test('operator settings and rate edits flow straight into the page', () => {
   const html = render(s.Rooms, { config }) + render(s.Location, { config }) + render(s.Guide, { config });
   for (const text of ['<td>190,000원</td>', '<b>190,000원</b>부터', '투룸 · 5인', '5인 / 5인', '투룸은 <b>5인</b>', '테스트로 1', '걸어서 8분', '주차 불가', 'https://naver.me/test', '15:00', '11:00', '실내 금연', '밤 10시 이후 정숙']) assert.ok(html.includes(text), text);
   // 시즌 기간 안내: 자동 적용이 켜져 있으면 시즌 달력의 기간을, 꺼져 있으면 '날짜로 지정'만 알린다
-  for (const text of ['<b>극성수기</b> 7월 20일–8월 15일 · 12월 24·25·31일', '<b>준성수기</b> 7월 15–19일 · 8월 16–24일 · 12월 20–30일 · 설·추석 연휴', '<b>공휴일 전날</b> 토요일 요금']) assert.ok(html.includes(text), text);
+  for (const text of ['<b>극성수기</b> 7월 20일–8월 15일 · 12월 24·25·31일', '<b>준성수기</b> 7월 15–19일 · 8월 16–24일 · 12월 20–23일·26–30일 · 설·추석 연휴', '<b>공휴일 전날</b> 토요일 요금']) assert.ok(html.includes(text), text);
   const manual = render(s.Rooms, { config: { ...config, autoSeasons: false } });
   assert.doesNotMatch(manual, /7월 20일/); assert.match(manual, /준성수기·극성수기는 날짜로 지정되며/); assert.match(manual, /<small>달력에 표시<\/small>/);
   // 비워 둔 요금은 지어내지 않고 '문의'로 — 연박 범위도 내지 않는다
