@@ -47,11 +47,11 @@ export default function GuidePage() {
               </div>
               <div className="flex gap-4">
                 <span className="text-gray-400 w-20 shrink-0">배송 비용</span>
-                <span>무료 (주문 금액에 상관없이)</span>
+                <span>상품·수량·배송 지역에 따라 달라질 수 있습니다. 상품 상세와 최종 주문서에서 확인해 주세요.</span>
               </div>
               <div className="flex gap-4">
-                <span className="text-gray-400 w-20 shrink-0">배송 기간</span>
-                <span>3일 ~ 7일</span>
+                <span className="text-gray-400 w-20 shrink-0">출고 일정</span>
+                <span>상품 상세의 배송 안내에서 확인해 주세요.</span>
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-2">산간벽지나 도서지방은 별도의 추가금액이 발생할 수 있습니다. 입금 확인 후 배송되며, 상품 종류에 따라 일부 지연될 수 있습니다.</p>
