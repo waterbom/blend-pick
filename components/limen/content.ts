@@ -107,6 +107,12 @@ export const SPACES_BY_ROOM: Record<RoomKey, Space[]> = {
       points: ["인덕션", "싱크", "정수기"],
       photo: photo("one-kitchen"), alt: "오크 하부장과 밝은 상판, 정수기가 놓인 LIMEN 원룸 주방",
     },
+    {
+      key: "official-studio-powder", label: "POWDER ROOM", title: "창 옆의 파우더룸",
+      body: "창으로 빛이 들어오는 원룸 파우더룸입니다. 목재 문과 전신 거울이 이어집니다.",
+      points: ["파우더룸", "전신 거울"],
+      photo: photo("official-studio-powder"), alt: "전신 거울과 창이 있는 LIMEN 원룸 파우더룸",
+    },
   ],
   two: [
     {
@@ -139,15 +145,28 @@ export const SPACES_BY_ROOM: Record<RoomKey, Space[]> = {
       points: ["유리문 샤워부스", "간접조명 거울", "세면대 · 수건걸이"],
       photo: photo("bath"), alt: "간접조명 거울과 샤워부스가 있는 LIMEN 욕실",
     },
+    {
+      key: "official-suite-dining", label: "DINING", title: "볕이 드는 식탁",
+      body: "창가에 놓인 식탁과 바로 옆 주방입니다. 함께 식사하기 편하게 네 자리를 두었습니다.",
+      points: ["4인 식탁", "주방과 이어지는 자리"],
+      photo: photo("official-suite-dining"), alt: "창가 4인 식탁과 주방이 보이는 LIMEN 투룸",
+    },
+    {
+      key: "official-suite-vanity", label: "VANITY", title: "창가에 마련한 화장대",
+      body: "거울 앞에 앉아 머무는 동안 차분하게 외출 준비를 할 수 있는 자리입니다.",
+      points: ["화장대", "거울 · 스툴"],
+      photo: photo("official-suite-vanity"), alt: "거울과 나무 스툴이 놓인 LIMEN 투룸 화장대",
+    },
   ],
 };
 export const SPACES: Space[] = ROOM_KEYS.flatMap(key => SPACES_BY_ROOM[key]);
 const space = (key: string) => { const found = SPACES.find(s => s.key === key); if (!found) throw Error(`unknown space ${key}`); return { photo: found.photo, alt: found.alt }; };
 
-// 사진은 숙소가 블랜드픽에 기존 제공한 공용 타입 사진만 사용한다. 추가 컷은 특정 호실을 보장하지 않는다.
+// 공식 제공 사진: staylimen.com/photos/{studio/bed,studio/powder,suite/dining,suite/vanity}.jpg
+// 예약은 객실 타입 기준이므로 사진의 특정 호실을 보장하지 않는다.
 export const STAY_SNAPSHOT_PHOTOS = [
-  { ...space("one-dining"), label: "원룸 · 창가 식탁" },
-  { ...space("twin"), label: "투룸 · 트윈 침실" },
+  { photo: photo("official-studio-bed"), alt: "나무 헤드보드와 싱글 침대가 나란한 LIMEN 원룸 침실", label: "원룸 · 침실", height: 714 },
+  { ...space("official-suite-dining"), label: "투룸 · 창가 식탁", height: 1267 },
 ];
 
 // 공식 사이트(staylimen.com) 기준 시설·하우스룰. 가격·프로모션·문자 발송 조건은 예약 채널별로 달라 가져오지 않는다.

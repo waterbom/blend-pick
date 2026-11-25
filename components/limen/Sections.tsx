@@ -111,8 +111,8 @@ export function StaySnapshot() {
         </div>
       </div>
       <div className="lm-snapshot-photos">
-        {STAY_SNAPSHOT_PHOTOS.map(({ photo, alt, label }) => <figure key={photo.src} data-reveal>
-          <img src={photo.src} srcSet={srcSet(photo)} sizes="(max-width: 640px) 43vw, (max-width: 960px) 42vw, 24vw" alt={alt} width={952} height={1269} loading="lazy" decoding="async" />
+        {STAY_SNAPSHOT_PHOTOS.map(({ photo, alt, label, height }) => <figure key={photo.src} data-reveal>
+          <img src={photo.src} srcSet={srcSet(photo)} sizes="(max-width: 640px) 43vw, (max-width: 960px) 42vw, 24vw" alt={alt} width={952} height={height} loading="lazy" decoding="async" />
           <figcaption>{label}</figcaption>
         </figure>)}
       </div>
@@ -265,7 +265,7 @@ export function Amenities() {
       <div className="lm-head">
         <p className="lm-label" data-reveal><b>—</b><span>AMENITIES</span></p>
         <h3 className="lm-h3" data-reveal>객실별 비품</h3>
-        <p className="lm-fine" data-reveal>침구와 주방 기기 등 객실별 구성을 확인하세요. 더 궁금한 것은 <a href={KAKAO_URL} target="_blank" rel="noopener noreferrer">카카오 상담</a>으로 물어봐 주세요.</p>
+        <p className="lm-fine" data-reveal>사진은 객실 유형별 예시로, 세부 배치와 비품은 객실에 따라 다를 수 있습니다. 더 궁금한 것은 <a href={KAKAO_URL} target="_blank" rel="noopener noreferrer">카카오 상담</a>으로 물어봐 주세요.</p>
       </div>
       <div className="lm-amen-rooms">
         {ROOM_KEYS.map(key => <div className="lm-amen-room" key={key} data-reveal>

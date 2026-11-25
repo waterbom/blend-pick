@@ -293,9 +293,9 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
   for (const text of [...content.STORY.body, content.STORY.quote, ...content.PASSAGE, ...content.CLOSING.lines, content.CLOSING.vision]) assert.ok(html.includes(text), text);
   assert.deepEqual(content.VALUES.map(v => v.en), ['Threshold', 'Privacy', 'Stillness', 'Sincerity']);
   for (const value of content.VALUES) { assert.ok(html.includes(value.en)); assert.ok(html.includes(value.ko)); for (const line of value.body) assert.ok(html.includes(line), line); }
-  // 사진: 객실별 공간 (원룸 4 · 투룸 5). 둘러보기는 원룸부터 열리며, 이미지 경로는 투룸 전환까지 검증한다.
-  assert.deepEqual(Object.fromEntries(Object.entries(content.SPACES_BY_ROOM).map(([room, list]) => [room, list.length])), { one: 4, two: 5 });
-  assert.equal(content.SPACES.length, 9); assert.equal(new Set(content.SPACES.map(space => space.key)).size, 9);
+  // 사진: 객실별 공간 (원룸 5 · 투룸 7). 둘러보기는 원룸부터 열리며, 이미지 경로는 투룸 전환까지 검증한다.
+  assert.deepEqual(Object.fromEntries(Object.entries(content.SPACES_BY_ROOM).map(([room, list]) => [room, list.length])), { one: 5, two: 7 });
+  assert.equal(content.SPACES.length, 12); assert.equal(new Set(content.SPACES.map(space => space.key)).size, 12);
   const exists = file => require('node:fs').existsSync(require('node:path').join(__dirname, '../public', file));
   const TourTwo = load('components/limen/Tour.tsx', {
     react: { ...React, useState: initial => React.useState(initial === 'one' ? 'two' : initial) },
@@ -304,6 +304,7 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
   const twoHtml = render(TourTwo);
   for (const space of content.SPACES) { assert.ok((html + twoHtml).includes(space.photo.src), space.key); assert.ok(exists(space.photo.src), space.photo.src); assert.ok(exists(space.photo.small), space.photo.small); }
   assert.match(twoHtml, /src="\/hotel\/limen\/twin\.webp"/);
+  for (const item of content.STAY_SNAPSHOT_PHOTOS) { assert.ok(exists(item.photo.src), item.photo.src); assert.ok(exists(item.photo.small), item.photo.small); }
   const artwork = load('lib/limen-artwork.ts').LIMEN_ARTWORK;
   const hero = render(sections().Hero);
   assert.ok(hero.includes(`src="${artwork.src}"`));
@@ -311,7 +312,7 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
   assert.ok(exists(artwork.src));
   assert.doesNotMatch(hero, /twin\.webp/);
   for (const space of content.SPACES_BY_ROOM.one) { assert.ok(html.includes(space.title), space.title); assert.ok(html.includes(space.body), space.key); }
-  assert.match(html, /role="tab" aria-selected="true"[^>]*>원룸<small>2인 · 사진 4장/); assert.match(html, /role="tab" aria-selected="false"[^>]*>투룸<small>4인 · 사진 5장/);
+  assert.match(html, /role="tab" aria-selected="true"[^>]*>원룸<small>2인 · 사진 5장/); assert.match(html, /role="tab" aria-selected="false"[^>]*>투룸<small>4인 · 사진 7장/);
   assert.match(html, /data-tour-room="one"/);
   // 객실 카드마다 대표 사진
   for (const room of ['one', 'two']) { assert.ok(html.includes(`alt="${content.ROOMS[room].alt}"`), room); assert.ok(exists(content.ROOMS[room].photo.src)); }
@@ -343,7 +344,7 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
 test('stay highlights reuse local photos and show host facts without importing official direct-booking offers', () => {
   const s = sections(), html = render(s.StaySnapshot) + render(s.Amenities) + render(s.Guide, { config: publicDefaults });
   for (const text of ['개별 주방과 욕실', '고체 샴푸와 바디바', 'JMW 헤어드라이어', '건물 1층 GS25', '반려동물은 동반할 수 없습니다.', '예약 인원 외 방문과 파티는 불가합니다.']) assert.ok(html.includes(text), text);
-  for (const src of ['one-dining', 'twin']) assert.ok(html.includes(`src="/hotel/limen/${src}.webp"`), src);
+  for (const src of ['official-studio-bed', 'official-suite-dining']) assert.ok(html.includes(`src="/hotel/limen/${src}.webp"`), src);
   assert.doesNotMatch(html, /staylimen\.com|5% 할인|35%|성미산로 158|전날 문자/);
   const override = render(s.Guide, { config: { ...publicDefaults, checkInTime: '16:00', checkOutTime: '10:00', rules: '밤 10시 이후 정숙' } });
   assert.match(override, /16:00/); assert.match(override, /10:00/); assert.match(override, /밤 10시 이후 정숙/);
