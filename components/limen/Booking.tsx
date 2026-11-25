@@ -581,7 +581,7 @@ export function BookingSection() {
     <div className="lm-wrap">
       <div className="lm-head lm-reserve-head">
         <div>
-          <p className="lm-label" data-reveal><b>07</b><span>RESERVE</span></p>
+          <p className="lm-label" data-reveal><b>05</b><span>RESERVE</span></p>
           <h2 className="lm-h2" id="lm-reserve-title" data-reveal>머무를 날을<br />골라 보세요</h2>
         </div>
         <ol className="lm-steps" data-reveal>{(pay ? PAY_STEPS : STEPS).map(([n, title, body], i) => <li key={n} style={{ ["--i" as string]: i }}><span>{n}</span><b>{title}</b><small>{body}</small></li>)}</ol>

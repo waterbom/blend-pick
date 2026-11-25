@@ -310,6 +310,26 @@
 .lm-lightbox-nav button{width:52px;height:52px;border:1px solid var(--bone-line);border-radius:50%;font-size:17px;transition:background .3s,color .3s}
 @media (hover:hover){.lm-lightbox-nav button:hover{background:var(--bone);color:var(--ink)}}
 
+/* ── 숙소 미리 보기 ── */
+.lm-snapshot{background:var(--paper);padding:clamp(62px,8vw,116px) 0}
+.lm-snapshot-grid{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,6fr);align-items:center;gap:clamp(34px,6vw,88px)}
+.lm-snapshot-copy{display:grid;gap:18px}
+.lm-snapshot-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(12px,2vw,28px);align-items:start}
+.lm-snapshot-photos figure:nth-child(even){margin-top:clamp(14px,4vw,55px)}
+.lm-snapshot-photos img{width:100%;height:auto;aspect-ratio:3/4;object-fit:cover;border-radius:3px;background:var(--stone)}
+.lm-snapshot-photos figcaption{margin-top:8px;font-size:13px;color:var(--soft);word-break:keep-all}
+.lm-snapshot-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:5px}
+.lm-snapshot-links .lm-btn{min-height:48px;padding-inline:18px;font-size:14px}
+.lm-stay-facilities{border-top:1px solid var(--line-strong);padding:clamp(40px,6vw,74px) 0;display:grid;gap:17px}
+.lm-stay-facilities-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:6px}
+.lm-stay-facilities-grid li{min-width:0;padding:clamp(13px,2vw,27px);border:1px solid var(--line);background:var(--plaster);word-break:keep-all;overflow-wrap:anywhere}
+.lm-stay-facilities-grid h3{font-weight:600;font-size:15px;margin-bottom:6px}
+.lm-stay-facilities-grid p{color:var(--soft);font-size:14px}
+@media (max-width:960px){
+  .lm-snapshot-grid{grid-template-columns:minmax(0,1fr)}
+  .lm-stay-facilities-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
 /* ── 비품 ── */
 .lm-amenities{padding-top:0;background:var(--paper)}
 .lm-amen-wrap{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:clamp(32px,7vw,120px);padding-top:clamp(56px,7vw,96px);border-top:1px solid var(--line-strong)}

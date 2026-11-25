@@ -278,8 +278,9 @@ test('admin API: decisions and refunds notify the guest only when something chan
 const page = (s, config, pay = false) => {
   // 공간 둘러보기는 예약 상태(객실별 인원)와 '날짜 보기' 버튼을 함께 쓴다
   const Tour = load('components/limen/Tour.tsx', { '@/components/limen/Booking': { useStay: () => ({ config }), RoomCta: ({ room }) => React.createElement('button', { 'data-tour-room': room }, '날짜 보기') } }).default;
-  return [render(s.Intro), render(s.Header), render(s.Hero), render(s.Definition), render(s.Passage), render(s.Story), render(s.Values), render(s.Rooms, { config }), render(Tour),
-    render(s.Amenities), render(s.Location, { config }), render(s.Guide, { config, pay }), render(s.Closing)].join('');
+  return [render(s.Intro), render(s.Header), render(s.Hero), render(s.StaySnapshot), render(s.Rooms, { config }), render(Tour),
+    render(s.Amenities), render(s.Location, { config }), render(s.Guide, { config, pay }),
+    render(s.Definition), render(s.Passage), render(s.Story), render(s.Values), render(s.Closing)].join('');
 };
 
 test('published page carries the LIMEN brand copy, every photo, and the rate sheet as sent', () => {
@@ -323,9 +324,9 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
   assert.match(html, /모든 요금은 객실당 기준이며, 기준 인원을 초과한 입실은 불가합니다\./);
   assert.match(html, /<b>200,000원<\/b>부터/); assert.match(html, /<b>350,000원<\/b>부터/);
   assert.equal((html.match(/data-room="(one|two)"/g) || []).join(), 'data-room="one",data-room="two"');
-  // 숙소 내부용 메모·미정 사항은 싣지 않는다. 미정인 주소·시간은 지어내지 않는다.
+  // 미정 주소는 노출하지 않는다. 공식 사이트의 일반 입퇴실 시간은 예약별 시간과 구분한다.
   assert.doesNotMatch(html, /제안안|공동구매|블럭표|플레이스|인스타그램|수수료/);
-  assert.match(html, /상세 주소는 예약 확정 후 안내/); assert.match(html, /예약 확정 문자에서 함께 알려드립니다/);
+  assert.match(html, /상세 주소는 예약 확정 후 안내/); assert.match(html, /숙소 공식 안내 기준으로 체크인은 <b>15:00 이후<\/b>, 체크아웃은 <b>11:00까지<\/b>/);
   assert.doesNotMatch(html, /체크인 <b>|주차/);
   assert.match(html, /신청 단계에서는 결제하지 않습니다/);
   assert.match(html, /href="#reserve"/); assert.match(html, /href="#lookup"/); assert.match(html, /map\.naver\.com/); assert.match(html, /map\.kakao\.com/);
@@ -339,6 +340,16 @@ test('published page carries the LIMEN brand copy, every photo, and the rate she
   assert.equal(files.length, 92); for (const file of files) assert.ok(require('node:fs').existsSync(require('node:path').join(__dirname, '../components/limen/fonts', file)), file);
 });
 
+test('stay highlights reuse local photos and show host facts without importing official direct-booking offers', () => {
+  const s = sections(), html = render(s.StaySnapshot) + render(s.Amenities) + render(s.Guide, { config: publicDefaults });
+  for (const text of ['개별 주방과 욕실', '고체 샴푸와 바디바', 'JMW 헤어드라이어', '건물 1층 GS25', '반려동물은 동반할 수 없습니다.', '예약 인원 외 방문과 파티는 불가합니다.']) assert.ok(html.includes(text), text);
+  for (const src of ['one-dining', 'twin']) assert.ok(html.includes(`src="/hotel/limen/${src}.webp"`), src);
+  assert.doesNotMatch(html, /staylimen\.com|5% 할인|35%|성미산로 158|전날 문자/);
+  const override = render(s.Guide, { config: { ...publicDefaults, checkInTime: '16:00', checkOutTime: '10:00', rules: '밤 10시 이후 정숙' } });
+  assert.match(override, /16:00/); assert.match(override, /10:00/); assert.match(override, /밤 10시 이후 정숙/);
+  assert.doesNotMatch(override, /숙소 공식 안내 기준|반려동물은 동반/);
+});
+
 test('phones get the same effects as wide screens: pinned door tour, menu, focus rows and press states', () => {
   const fs = require('node:fs'), path = require('node:path');
   const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
@@ -347,7 +358,7 @@ test('phones get the same effects as wide screens: pinned door tour, menu, focus
   assert.match(html, /<button type="button" class="lm-menu-open" aria-haspopup="dialog" aria-label="메뉴 열기"/); assert.match(html, /<dialog class="lm-menu" aria-label="LIMEN 메뉴">/);
   const menu = html.slice(html.indexOf('<dialog class="lm-menu"'), html.indexOf('</dialog>', html.indexOf('<dialog class="lm-menu"')));
   const links = [...menu.matchAll(/<a href="#([a-z]+)">/g)].map(m => m[1]);
-  assert.deepEqual(links, ['story', 'rooms', 'space', 'location', 'reserve', 'lookup', 'guide']);
+  assert.deepEqual(links, ['rooms', 'space', 'location', 'reserve', 'lookup', 'guide', 'story']);
   for (const id of links.filter(id => !['reserve', 'lookup'].includes(id))) assert.ok(html.includes(`id="${id}"`), `section #${id}`);
   for (const id of ['reserve', 'lookup']) assert.ok(read('components/limen/Booking.tsx').includes(`id="${id}"`), `section #${id}`);
   // 둘러보기: 휴대폰도 고정된 문 모양 사진 틀을 쓴다 — 옆으로 넘기는 카드·점 표시는 없다

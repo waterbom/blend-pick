@@ -7,13 +7,13 @@ import { BRAND } from "@/components/limen/content";
 // 위에서 문이 내려오듯 열리고 항목이 차례로 떠오른다. 항목을 누르면 닫히고 그 구간으로 이동한다.
 // <dialog> 를 써서 포커스 가두기 · Esc 닫기는 브라우저가 처리한다. 스크립트가 꺼져 있으면 버튼을 숨긴다 (limen.css).
 const LINKS: { href: string; ko: string; en: string }[] = [
-  { href: "#story", ko: "스토리", en: "STORY" },
   { href: "#rooms", ko: "객실·요금", en: "ROOMS & RATES" },
   { href: "#space", ko: "공간 둘러보기", en: "SPACE" },
   { href: "#location", ko: "위치", en: "LOCATION" },
   { href: "#reserve", ko: "예약", en: "RESERVE" },
   { href: "#lookup", ko: "예약 조회", en: "MY BOOKING" },
   { href: "#guide", ko: "이용 안내", en: "GUIDE" },
+  { href: "#story", ko: "스토리", en: "STORY" },
 ];
 
 export default function Menu() {

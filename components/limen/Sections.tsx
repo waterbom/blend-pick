@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import {
   AMENITIES, BRAND, CLOSING, CLOSING_PHOTO, DOOR_SIZES, HOSTING, KAKAO_MAP_URL, KAKAO_URL, NAVER_MAP_URL, NEIGHBORHOOD, PASSAGE, PASSAGE_PHOTO,
-  RATE_ROWS, ROOMS, ROOM_KEYS, STORY, STORY_PHOTO, TRANSIT, VALUES, srcSet, type StayConfig,
+  RATE_ROWS, ROOMS, ROOM_KEYS, STAY_FACILITIES, STAY_HOUSE_RULES, STAY_SNAPSHOT_PHOTOS, STAY_STANDARD_HOURS, STORY, STORY_PHOTO, TRANSIT, VALUES, srcSet, type StayConfig,
 } from "@/components/limen/content";
 import { QuickBar, RoomCta } from "@/components/limen/Booking";
 import Menu from "@/components/limen/Menu";
@@ -56,7 +56,7 @@ export function Header() {
     <div className="lm-header-in">
       <a className="lm-wordmark" href="#top" aria-label="LIMEN 처음으로">{BRAND.name}</a>
       <nav className="lm-nav" aria-label="LIMEN 메뉴">
-        <a href="#story">스토리</a><a href="#rooms">객실·요금</a><a href="#space">공간</a><a href="#location">위치</a><a href="#guide">이용 안내</a>
+        <a href="#rooms">객실·요금</a><a href="#space">공간</a><a href="#location">위치</a><a href="#guide">이용 안내</a><a href="#story">스토리</a>
       </nav>
       <div className="lm-header-side">
         <a className="lm-header-link" href="#lookup">예약 조회</a>
@@ -85,7 +85,7 @@ export function Hero() {
       </figure>
       <p className="lm-hero-note lm-rise" style={delay(5, "--d")}><b>LIMEN</b>라틴어로 ‘문턱’</p>
     </div>
-    <a className="lm-scroll" href="#definition"><span>SCROLL</span><i aria-hidden="true" /></a>
+    <a className="lm-scroll" href="#stay"><span>SCROLL</span><i aria-hidden="true" /></a>
   </section>;
 }
 
@@ -98,11 +98,33 @@ function Label({ no, children }: { no: string; children: ReactNode }) {
   return <p className="lm-label" data-reveal><b>{no}</b><span>{children}</span></p>;
 }
 
-// 01 — 브랜드를 정의하는 한 문장 + 이름의 뜻
+export function StaySnapshot() {
+  return <section className="lm-section lm-snapshot" id="stay" aria-labelledby="lm-stay-title">
+    <div className="lm-wrap lm-snapshot-grid">
+      <div className="lm-snapshot-copy">
+        <Label no="01">YEONNAM STAY</Label>
+        <h2 className="lm-h2" id="lm-stay-title" data-reveal>연남 골목 안,<br />한 팀을 위한 쉼</h2>
+        <p className="lm-lead" data-reveal>오크와 돌, 리넨으로 마감한 프라이빗 스테이. 창가에서 식사를 하고, 경의선숲길을 걸으며 연남동에 머물러 보세요.</p>
+        <div className="lm-snapshot-links" data-reveal>
+          <a className="lm-btn lm-btn-dark" href="#rooms">객실과 요금<Icon name="arrow" size={17} /></a>
+          <a className="lm-btn lm-btn-line" href="#amenities">객실 비품 보기</a>
+        </div>
+      </div>
+      <div className="lm-snapshot-photos">
+        {STAY_SNAPSHOT_PHOTOS.map(({ photo, alt, label }) => <figure key={photo.src} data-reveal>
+          <img src={photo.src} srcSet={srcSet(photo)} sizes="(max-width: 640px) 43vw, (max-width: 960px) 42vw, 24vw" alt={alt} width={952} height={1269} loading="lazy" decoding="async" />
+          <figcaption>{label}</figcaption>
+        </figure>)}
+      </div>
+    </div>
+  </section>;
+}
+
+// — 브랜드를 정의하는 한 문장 + 이름의 뜻
 export function Definition() {
   return <section className="lm-section lm-definition" id="definition" aria-label="브랜드 정의">
     <div className="lm-wrap">
-      <Label no="01">BRAND DEFINITION</Label>
+      <Label no="—">BRAND DEFINITION</Label>
       <Words className="lm-statement" text={BRAND.definition} />
       <div className="lm-naming" data-reveal>
         <div className="lm-naming-word"><Mark size={40} /><strong>{BRAND.name}</strong><span>LATIN — {BRAND.naming.title}</span></div>
@@ -123,12 +145,12 @@ export function Passage() {
   </section>;
 }
 
-// 02 — LIMEN을 시작한 이유
+// 07 — LIMEN을 시작한 이유
 export function Story() {
   return <section className="lm-section lm-story" id="story" aria-labelledby="lm-story-title">
     <div className="lm-wrap lm-story-grid">
       <div className="lm-story-head">
-        <Label no="02">WHY LIMEN</Label>
+        <Label no="07">WHY LIMEN</Label>
         <h2 className="lm-h2" id="lm-story-title" data-reveal>LIMEN을<br />시작한 이유</h2>
         <figure className="lm-door lm-story-photo" data-reveal="door"><img src={STORY_PHOTO.photo.src} srcSet={srcSet(STORY_PHOTO.photo)} sizes={DOOR_SIZES} alt={STORY_PHOTO.alt} width={952} height={1269} loading="lazy" decoding="async" data-parallax="-0.05" /></figure>
       </div>
@@ -142,12 +164,12 @@ export function Story() {
   </section>;
 }
 
-// 03 — 우리가 지향하는 가치
+// 08 — 우리가 지향하는 가치
 export function Values() {
   return <section className="lm-section lm-values" id="values" aria-labelledby="lm-values-title">
     <div className="lm-wrap">
       <div className="lm-head">
-        <Label no="03">CORE VALUES</Label>
+        <Label no="08">CORE VALUES</Label>
         <h2 className="lm-h2" id="lm-values-title" data-reveal>우리가 지향하는 가치</h2>
       </div>
       <ol className="lm-value-list">
@@ -161,7 +183,7 @@ export function Values() {
   </section>;
 }
 
-// 04 — 객실과 요금. 금액·인원은 관리자 설정(config.rooms)을 그대로 보여 준다.
+// 02 — 객실과 요금. 금액·인원은 관리자 설정(config.rooms)을 그대로 보여 준다.
 // 준성수기·극성수기 기간은 서버가 요금을 계산할 때 쓰는 시즌 달력(lib/limen-policy.cjs)의 안내문을 그대로 쓴다.
 export function Rooms({ config }: { config: StayConfig }) {
   const fromPrice = (key: "one" | "two") => {
@@ -177,7 +199,7 @@ export function Rooms({ config }: { config: StayConfig }) {
   return <section className="lm-section lm-rooms" id="rooms" aria-labelledby="lm-rooms-title">
     <div className="lm-wrap">
       <div className="lm-head">
-        <Label no="04">ROOMS &amp; RATES</Label>
+        <Label no="02">ROOMS &amp; RATES</Label>
         <h2 className="lm-h2" id="lm-rooms-title" data-reveal>객실과 요금</h2>
       </div>
       <div className="lm-room-grid">
@@ -230,11 +252,20 @@ export function Rooms({ config }: { config: StayConfig }) {
 // 사진으로 확인되는 비품 (공간 둘러보기 아래)
 export function Amenities() {
   return <section className="lm-section lm-amenities" id="amenities" aria-labelledby="lm-amen-title">
+    <div className="lm-wrap">
+      <div className="lm-stay-facilities">
+        <p className="lm-label" data-reveal><b>—</b><span>AMENITIES &amp; SERVICES</span></p>
+        <h2 className="lm-h3" id="lm-amen-title" data-reveal>머무는 동안</h2>
+        <ul className="lm-stay-facilities-grid">
+          {STAY_FACILITIES.map(({ title, body }) => <li key={title} data-reveal><h3>{title}</h3><p>{body}</p></li>)}
+        </ul>
+      </div>
+    </div>
     <div className="lm-wrap lm-amen-wrap">
       <div className="lm-head">
         <p className="lm-label" data-reveal><b>—</b><span>AMENITIES</span></p>
-        <h2 className="lm-h3" id="lm-amen-title" data-reveal>세심하게 준비한 것들</h2>
-        <p className="lm-fine" data-reveal>사진에서 확인되는 비품을 객실별로 적었습니다. 더 궁금한 것은 <a href={KAKAO_URL} target="_blank" rel="noopener noreferrer">카카오 상담</a>으로 물어봐 주세요.</p>
+        <h3 className="lm-h3" data-reveal>객실별 비품</h3>
+        <p className="lm-fine" data-reveal>침구와 주방 기기 등 객실별 구성을 확인하세요. 더 궁금한 것은 <a href={KAKAO_URL} target="_blank" rel="noopener noreferrer">카카오 상담</a>으로 물어봐 주세요.</p>
       </div>
       <div className="lm-amen-rooms">
         {ROOM_KEYS.map(key => <div className="lm-amen-room" key={key} data-reveal>
@@ -296,13 +327,13 @@ function AreaMap() {
   </figure>;
 }
 
-// 06 — 위치 (어두운 구간)
+// 04 — 위치 (어두운 구간)
 export function Location({ config }: { config: StayConfig }) {
   return <section className="lm-section lm-location" id="location" aria-labelledby="lm-loc-title">
     <div className="lm-wrap">
       <div className="lm-loc-grid">
         <div className="lm-loc-copy">
-          <Label no="06">LOCATION</Label>
+          <Label no="04">LOCATION</Label>
           <h2 className="lm-h2" id="lm-loc-title" data-reveal>홍대와 연남동,<br />그 한가운데의 고요.</h2>
           <p className="lm-lead" data-reveal>서울에서 가장 활기찬 동네의 중심, 홍대입구역에서 경의선숲길 방향에 있습니다.</p>
           <dl className="lm-address" data-reveal>
@@ -332,7 +363,7 @@ export function Location({ config }: { config: StayConfig }) {
   </section>;
 }
 
-// 08 — 이용 안내. pay: 카드 결제를 받는 상태인지 (요금·환불 규정·결제 키가 모두 준비됨)
+// 06 — 이용 안내. pay: 카드 결제를 받는 상태인지 (요금·환불 규정·결제 키가 모두 준비됨)
 export function Guide({ config, pay = false }: { config: StayConfig; pay?: boolean }) {
   const rules = config.rules.split("\n").map(line => line.trim()).filter(Boolean);
   const items: { q: string; a: ReactNode }[] = [
@@ -342,18 +373,18 @@ export function Guide({ config, pay = false }: { config: StayConfig; pay?: boole
     { q: "몇 명까지 머물 수 있나요?", a: <>{ROOM_KEYS.map((key, i) => <span key={key}>{i > 0 && ", "}{ROOMS[key].name}은 <b>{config.rooms[key].guests}인</b></span>)}까지 머물 수 있습니다. 기준 인원이 곧 최대 인원이며, 인원 추가는 받지 않습니다.</> },
     { q: "체크인·체크아웃은 몇 시인가요?", a: config.checkInTime || config.checkOutTime
       ? <>체크인 <b>{config.checkInTime || "별도 안내"}</b> · 체크아웃 <b>{config.checkOutTime || "별도 안내"}</b> 입니다.</>
-      : <>입실·퇴실 시간과 들어오는 방법은 예약 확정 문자에서 함께 알려드립니다.</> },
+      : <>숙소 공식 안내 기준으로 체크인은 <b>{STAY_STANDARD_HOURS.checkIn} 이후</b>, 체크아웃은 <b>{STAY_STANDARD_HOURS.checkOut}까지</b>입니다. 예약에 적용되는 시간과 입실 방법은 예약 안내를 확인해 주세요.</> },
     pay
       ? { q: "예약을 취소하고 싶어요.", a: <><a href="#lookup">예약 조회</a>에서 취소를 요청해 주세요. 결제할 때 동의하신 취소·환불 규정에 따라 환불 금액을 확인한 뒤 처리해 드립니다.</> }
       : { q: "신청을 취소하고 싶어요.", a: <>확정 전 신청은 <a href="#lookup">예약 조회</a>에서 바로 취소할 수 있습니다. 이미 확정된 예약은 조회 화면에서 취소 요청을 남기면 확인 후 연락드립니다.</> },
     ...(pay && config.refundTerms ? [{ q: "취소·환불 규정이 궁금해요.", a: <p className="lm-pre">{config.refundTerms}</p> }] : []),
-    ...(rules.length ? [{ q: "머무는 동안 지켜 주세요", a: <ul className="lm-rules">{rules.map(rule => <li key={rule}>{rule}</li>)}</ul> }] : []),
+    { q: "머무는 동안 지켜 주세요", a: <ul className="lm-rules">{(rules.length ? rules : STAY_HOUSE_RULES).map(rule => <li key={rule}>{rule}</li>)}</ul> },
     { q: "머무는 동안 도움이 필요하면요?", a: <>{HOSTING} 블랜드픽 <a href={KAKAO_URL} target="_blank" rel="noopener noreferrer">카카오 상담</a>으로 LIMEN 문의라고 말씀해 주시면 빠르게 도와드립니다.</> },
   ];
   return <section className="lm-section lm-guide" id="guide" aria-labelledby="lm-guide-title">
     <div className="lm-wrap lm-guide-grid">
       <div className="lm-head">
-        <Label no="08">GUIDE</Label>
+        <Label no="06">GUIDE</Label>
         <h2 className="lm-h2" id="lm-guide-title" data-reveal>머물기 전에<br />알아 둘 것들</h2>
         <a className="lm-text-link" href={KAKAO_URL} target="_blank" rel="noopener noreferrer" data-reveal><Icon name="chat" size={17} />카카오로 문의하기</a>
       </div>

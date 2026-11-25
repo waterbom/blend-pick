@@ -5,7 +5,7 @@
 //   1) public/hotel/limen/ 에 큰 사진(name.webp, 세로 952×1269 권장)과 작은 사진(name-sm.webp, 가로 520px)을 넣고
 //   2) 아래 SPACES 에 항목을 추가하거나 기존 항목의 photo 를 바꾼다.
 // 공간 설명은 사진에서 확인되는 사실만 적는다. 요금·주소·입실 시간처럼 운영자가 정하는 값은
-// 관리자 화면(/admin/limen)에서 입력하며, 주소·시간이 비어 있으면 "예약 확정 시 안내"로 표시된다.
+// 관리자 화면(/admin/limen)에서 입력하며, 주소·시간이 비어 있으면 주소는 예약 안내로, 입퇴실 시간은 숙소 공식 사이트의 기본 안내로 구분해 표시한다.
 
 export const LIMEN_PATH = "/hotel/limen";
 export const LIMEN_URL = "https://shop.blendpunch.com/hotel/limen";
@@ -143,6 +143,22 @@ export const SPACES_BY_ROOM: Record<RoomKey, Space[]> = {
 };
 export const SPACES: Space[] = ROOM_KEYS.flatMap(key => SPACES_BY_ROOM[key]);
 const space = (key: string) => { const found = SPACES.find(s => s.key === key); if (!found) throw Error(`unknown space ${key}`); return { photo: found.photo, alt: found.alt }; };
+
+// 사진은 숙소가 블랜드픽에 기존 제공한 공용 타입 사진만 사용한다. 추가 컷은 특정 호실을 보장하지 않는다.
+export const STAY_SNAPSHOT_PHOTOS = [
+  { ...space("one-dining"), label: "원룸 · 창가 식탁" },
+  { ...space("twin"), label: "투룸 · 트윈 침실" },
+];
+
+// 공식 사이트(staylimen.com) 기준 시설·하우스룰. 가격·프로모션·문자 발송 조건은 예약 채널별로 달라 가져오지 않는다.
+export const STAY_FACILITIES = [
+  { title: "개별 주방과 욕실", body: "원룸과 투룸 모두 전용 주방과 독립된 욕실을 갖추고 있습니다." },
+  { title: "욕실 어메니티", body: "고체 샴푸와 바디바 등 객실용 어메니티가 제공됩니다." },
+  { title: "JMW 헤어드라이어", body: "원룸과 투룸 모두 객실 안에 헤어드라이어가 있습니다." },
+  { title: "건물 1층 GS25", body: "음료나 간식, 간단한 생활용품을 같은 건물에서 구할 수 있습니다." },
+];
+export const STAY_STANDARD_HOURS = { checkIn: "15:00", checkOut: "11:00" };
+export const STAY_HOUSE_RULES = ["객실에서는 흡연할 수 없습니다.", "반려동물은 동반할 수 없습니다.", "예약 인원 외 방문과 파티는 불가합니다."];
 
 // '문을 지나는' 장면, 스토리·맺음에 쓰는 실제 공간 사진
 export const PASSAGE_PHOTO = space("dressing");

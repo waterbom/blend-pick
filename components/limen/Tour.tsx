@@ -92,7 +92,7 @@ export default function Tour() {
   return <section ref={section} className="lm-section lm-tour" id="space" aria-labelledby="lm-tour-title">
     <div className="lm-wrap">
       <div className="lm-head lm-tour-head">
-        <p className="lm-label" data-reveal><b>05</b><span>SPACE</span></p>
+        <p className="lm-label" data-reveal><b>03</b><span>SPACE</span></p>
         <h2 className="lm-h2" id="lm-tour-title" data-reveal>문에서 문으로,<br />천천히 둘러보기</h2>
         <div className="lm-tour-pick" data-reveal>
           <div className="lm-tour-tabs" role="tablist" aria-label="둘러볼 객실">
