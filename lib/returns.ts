@@ -39,3 +39,28 @@ export interface ReturnItem {
 export function returnRequestStatus(status: string) {
   return ['shipped','delivered','exchange_completed','return_completed'].includes(status);
 }
+
+export interface ReturnRefundQuote {
+  items: Pick<ReturnItem, "unit_price" | "quantity">[];
+  total_amount: number;
+  fee_agreed: boolean;
+  return_cost_roundtrip: number | null;
+  recorded_refunds: number;
+  pending_refunds: boolean;
+  refund_amount_unresolved: boolean;
+  order_status: string;
+}
+
+// A previous refund may belong to the same items. It needs individual reconciliation.
+export function bulkReturnAmount(row: ReturnRefundQuote): number | null {
+  if (row.order_status !== "return_requested" || row.refund_amount_unresolved || row.pending_refunds ||
+      Number(row.recorded_refunds) !== 0 || !Array.isArray(row.items) || !row.items.length) return null;
+  if (row.items.some(item => !item || item.unit_price == null || !Number.isSafeInteger(Number(item.unit_price)) ||
+      Number(item.unit_price) < 0 || !Number.isSafeInteger(Number(item.quantity)) || Number(item.quantity) < 1)) return null;
+  const goods = row.items.reduce((sum, item) => sum + Number(item.unit_price) * Number(item.quantity), 0);
+  if (!Number.isSafeInteger(goods) || typeof row.fee_agreed !== "boolean" || (row.fee_agreed && row.return_cost_roundtrip == null)) return null;
+  const cost = row.fee_agreed ? Number(row.return_cost_roundtrip) : 0;
+  if (!Number.isSafeInteger(cost) || cost < 0) return null;
+  const amount = Math.min(goods - cost, Number(row.total_amount));
+  return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+}

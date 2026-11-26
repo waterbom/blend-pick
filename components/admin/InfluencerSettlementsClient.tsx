@@ -11,6 +11,8 @@ interface Row {
   campaign_id: string;
   influencer_id: string;
   product_name: string;
+  display_product_name?: string;
+  order_number?: string;
   influencer_name: string;
   start_date: string | null;
   end_date: string | null;
@@ -63,6 +65,16 @@ export default function InfluencerSettlementsClient() {
     if (filter === "paid") return r.payout?.status === "paid";
     return true;
   });
+
+  // Group for display only. Every action below still takes one original payout row.
+  const groups = new Map<string, Row[]>();
+  for (const row of visible) {
+    const name = (row.display_product_name || row.product_name).normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+    const key = JSON.stringify([row.influencer_id, name]);
+    const group = groups.get(key);
+    if (group) group.push(row);
+    else groups.set(key, [row]);
+  }
 
   async function confirm(r: Row) {
     if (r.commission == null) { alert(r.review_reasons.join(" · ") || "주문 당시 요율을 확인해주세요."); return; }
@@ -120,6 +132,88 @@ export default function InfluencerSettlementsClient() {
     } catch (error) { alert(apiErrorMessage(error)); } finally { setActing(false); }
   }
 
+  function renderRow(r: Row) {
+    // 확정된 정산은 스냅샷 수치, 미확정은 현재 계산치 표시
+    const view = r.payout
+      ? { commission: r.payout.commission, supplyValue: r.payout.supply_value, vat: r.payout.vat, withholding: r.payout.withholding, payout: r.payout.payout_amount }
+      : r.breakdown;
+    return (
+      <div key={`${r.campaign_id}:${r.influencer_id}`} className="bg-white rounded-none border border-gray-100 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-900 truncate">
+              @{r.influencer_name} <span className="text-gray-400 font-medium">·</span> {r.product_name}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {r.order_number && `주문 ${r.order_number}`}
+              {r.start_date && `${r.start_date} ~ ${r.end_date || ""}`}
+              {r.business_type && ` · ${BUSINESS_TYPE_LABEL[r.business_type]}`}
+              {!r.docs_ok && <span className="text-red-500 font-bold ml-1.5">⚠ 서류 미비</span>}
+            </p>
+            {r.review_reasons?.length > 0 && <p className="text-xs text-amber-700 mt-1">{r.review_reasons.join(" · ")}</p>}
+            {r.bank && <p className="text-xs text-gray-400 mt-0.5">{r.bank}</p>}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {r.campaign_id === HOTEL_PAYOUT_CAMPAIGN_ID && (
+              <button onClick={() => downloadRoster(r)} disabled={acting}
+                className="text-xs font-bold px-3 py-2 rounded-none border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                title="이 인플루언서 링크로 구매한 사람들 명단 (취소 포함, 상태 표기)">
+                📋 구매자 명단
+              </button>
+            )}
+            {!r.payout && (
+              <button onClick={() => confirm(r)} disabled={acting}
+                className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
+                정산 확정
+              </button>
+            )}
+            {r.payout?.status === "pending" && (
+              <>
+                <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-yellow-50 text-yellow-600">지급대기</span>
+                <button onClick={() => confirm(r)} disabled={acting}
+                  className="text-xs font-bold px-3 py-2 rounded-none border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                  title="현재 매출로 다시 계산해 확정">
+                  재확정
+                </button>
+                <button onClick={() => setStatus(r.payout!.id, "paid")} disabled={acting}
+                  className="bg-gray-900 hover:bg-gray-700 text-white text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
+                  지급완료
+                </button>
+              </>
+            )}
+            {r.payout?.status === "paid" && (
+              <>
+                <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-green-50 text-green-600">
+                  지급완료{r.payout.paid_at ? ` · ${new Date(r.payout.paid_at).toLocaleDateString("ko-KR")}` : ""}
+                </span>
+                <button onClick={() => setStatus(r.payout!.id, "pending")} disabled={acting}
+                  className="text-xs text-gray-400 hover:text-red-500 px-2 py-2">
+                  지급 취소
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-8 gap-x-4 gap-y-2 text-xs mt-3 pt-3 border-t border-gray-50 tnum">
+          <div><p className="text-gray-400">주문/수량</p><p className="font-bold text-gray-800">{r.orders}건 / {r.qty}개</p></div>
+          <div><p className="text-gray-400">총매출</p><p className="font-bold text-gray-800">{WON(r.gross)}</p></div>
+          <div><p className="text-gray-400">수수료율</p><p className="font-bold text-[#2D5A27]">{r.rate != null ? `${r.rate}%` : r.commission != null ? "주문별 요율" : "확인 필요"}</p></div>
+          <div><p className="text-gray-400">수수료 (부가세 포함)</p><p className="font-bold text-gray-800">{view ? WON(view.commission) : "—"}</p></div>
+          <div><p className="text-gray-400">공급가액/부가세</p><p className="font-bold text-gray-800">{view ? `${WON(view.supplyValue)} / ${WON(view.vat)}` : "—"}</p></div>
+          <div><p className="text-gray-400">원천징수</p><p className="font-bold text-gray-800">{view ? WON(view.withholding) : "—"}</p></div>
+          <div><p className="text-gray-400">지급액 (이체)</p><p className="font-black text-[#2D5A27]">{view ? WON(view.payout) : "—"}</p></div>
+          <div>
+            <p className="text-gray-400">실질 수령 (세후)</p>
+            <p className="font-black text-gray-900">
+              {view ? WON(r.business_type === "general" ? view.supplyValue : view.payout) : "—"}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const tabs = [
     { key: "", label: "전체" },
     { key: "none", label: "미확정" },
@@ -163,84 +257,17 @@ export default function InfluencerSettlementsClient() {
             정산할 공구 매출이 없어요
           </div>
         ) : (
-          visible.map((r) => {
-            // 확정된 정산은 스냅샷 수치, 미확정은 현재 계산치 표시
-            const view = r.payout
-              ? { commission: r.payout.commission, supplyValue: r.payout.supply_value, vat: r.payout.vat, withholding: r.payout.withholding, payout: r.payout.payout_amount }
-              : r.breakdown;
-            return (
-              <div key={`${r.campaign_id}:${r.influencer_id}`} className="bg-white rounded-none border border-gray-100 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-900 truncate">
-                      @{r.influencer_name} <span className="text-gray-400 font-medium">·</span> {r.product_name}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {r.start_date} ~ {r.end_date}
-                      {r.business_type && ` · ${BUSINESS_TYPE_LABEL[r.business_type]}`}
-                      {!r.docs_ok && <span className="text-red-500 font-bold ml-1.5">⚠ 서류 미비</span>}
-                    </p>
-                    {r.bank && <p className="text-xs text-gray-400 mt-0.5">{r.bank}</p>}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {r.campaign_id === HOTEL_PAYOUT_CAMPAIGN_ID && (
-                      <button onClick={() => downloadRoster(r)} disabled={acting}
-                        className="text-xs font-bold px-3 py-2 rounded-none border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-                        title="이 인플루언서 링크로 구매한 사람들 명단 (취소 포함, 상태 표기)">
-                        📋 구매자 명단
-                      </button>
-                    )}
-                    {!r.payout && (
-                      <button onClick={() => confirm(r)} disabled={acting}
-                        className="bg-[#2D5A27] hover:bg-[#244B1F] text-white text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
-                        정산 확정
-                      </button>
-                    )}
-                    {r.payout?.status === "pending" && (
-                      <>
-                        <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-yellow-50 text-yellow-600">지급대기</span>
-                        <button onClick={() => confirm(r)} disabled={acting}
-                          className="text-xs font-bold px-3 py-2 rounded-none border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-                          title="현재 매출로 다시 계산해 확정">
-                          재확정
-                        </button>
-                        <button onClick={() => setStatus(r.payout!.id, "paid")} disabled={acting}
-                          className="bg-gray-900 hover:bg-gray-700 text-white text-xs font-bold px-3 py-2 rounded-none disabled:opacity-40">
-                          지급완료
-                        </button>
-                      </>
-                    )}
-                    {r.payout?.status === "paid" && (
-                      <>
-                        <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-green-50 text-green-600">
-                          지급완료{r.payout.paid_at ? ` · ${new Date(r.payout.paid_at).toLocaleDateString("ko-KR")}` : ""}
-                        </span>
-                        <button onClick={() => setStatus(r.payout!.id, "pending")} disabled={acting}
-                          className="text-xs text-gray-400 hover:text-red-500 px-2 py-2">
-                          지급 취소
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 sm:grid-cols-8 gap-x-4 gap-y-2 text-xs mt-3 pt-3 border-t border-gray-50 tnum">
-                  <div><p className="text-gray-400">주문/수량</p><p className="font-bold text-gray-800">{r.orders}건 / {r.qty}개</p></div>
-                  <div><p className="text-gray-400">총매출</p><p className="font-bold text-gray-800">{WON(r.gross)}</p></div>
-                  <div><p className="text-gray-400">수수료율</p><p className="font-bold text-[#2D5A27]">{r.rate != null ? `${r.rate}%` : r.commission != null ? "주문별 요율" : "확인 필요"}</p></div>
-                  <div><p className="text-gray-400">수수료 (부가세 포함)</p><p className="font-bold text-gray-800">{view ? WON(view.commission) : "—"}</p></div>
-                  <div><p className="text-gray-400">공급가액/부가세</p><p className="font-bold text-gray-800">{view ? `${WON(view.supplyValue)} / ${WON(view.vat)}` : "—"}</p></div>
-                  <div><p className="text-gray-400">원천징수</p><p className="font-bold text-gray-800">{view ? WON(view.withholding) : "—"}</p></div>
-                  <div><p className="text-gray-400">지급액 (이체)</p><p className="font-black text-[#2D5A27]">{view ? WON(view.payout) : "—"}</p></div>
-                  <div>
-                    <p className="text-gray-400">실질 수령 (세후)</p>
-                    <p className="font-black text-gray-900">
-                      {view ? WON(r.business_type === "general" ? view.supplyValue : view.payout) : "—"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
+          Array.from(groups, ([key, group]) => {
+            if (group.length === 1) return renderRow(group[0]);
+            const first = group[0];
+            const gross = group.reduce((sum, row) => sum + row.gross, 0);
+            return <details key={key} className="bg-white border border-gray-200">
+              <summary className="cursor-pointer p-4 text-sm">
+                <strong>@{first.influencer_name} · {first.display_product_name || first.product_name}</strong>
+                <span className="ml-2 text-gray-600">정산 내역 {group.length}건 · 총매출 {WON(gross)}</span>
+              </summary>
+              <div className="space-y-2 px-3 pb-3">{group.map(renderRow)}</div>
+            </details>;
           })
         )}
       </div>

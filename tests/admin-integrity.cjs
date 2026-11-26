@@ -146,3 +146,18 @@ test('cart stores each product rate and tax at payment time, independent of cart
  assert.equal((await api('payment/cart-confirm').POST(req('/x','POST',d))).status,200);
  await query('UPDATE products_shop SET influencer_rate=99');const rows=await inf();assert.equal(rows.reduce((s,r)=>s+r.commission,0),16000);assert.equal((await profit())[0].sales_vat,3636);
 });
+
+test('bulk delivery accepts explicit preparing rows and skips stale, return and hotel rows on replay', async () => {
+  await product();
+  for (const [n,status] of [[10,'preparing'],[11,'shipped'],[12,'preparing'],[13,'return_requested'],[14,'preparing'],[15,'shipped']]) {
+    await order(n,100000,status);
+  }
+  await query("UPDATE orders SET order_type='hotel' WHERE id=$1",[id(15)]);
+  await query("INSERT INTO order_returns(id,order_id,kind,status) VALUES($1,$2,'return','collecting')",[id(99),id(14)]);
+  const body = {orderIds:[10,11,12,13,14,15].map(id), preparingIds:[10,13,14].map(id)};
+  const run = async () => (await api('admin/shipments/deliver').PATCH(req('/x','PATCH',body))).json();
+  assert.equal((await run()).updated,2);
+  assert.equal((await run()).updated,0);
+  assert.deepEqual((await query("SELECT order_number FROM orders WHERE status='delivered' ORDER BY order_number")).rows.map(r=>r.order_number),['ORDER10','ORDER11']);
+  assert.equal((await query('SELECT COUNT(*)::int n FROM settlements')).rows[0].n,2);
+});

@@ -172,3 +172,22 @@ for(const scope of ['blendpick','sanjipick']) {
   assert.equal(calls,0);assert.equal((await query('SELECT count(*)::int n FROM payment_attempts')).rows[0].n,0);assert.equal((await query('SELECT stock FROM products_shop')).rows[0].stock,20);
  });
 }
+
+test('batch return validates the reviewed amount before contacting Toss and only refunds once', async () => {
+  await product(); await order(10,100000,'return_requested');
+  await query("UPDATE products_shop SET return_cost_roundtrip=6000");
+  const itemId=(await query('SELECT id FROM order_items WHERE order_id=$1',[id(10)])).rows[0].id;
+  await query("INSERT INTO order_returns(id,order_id,kind,status,items,fee_agreed,reason) VALUES($1,$2,'return','collecting',$3,true,'단순 변심')",
+    [id(90),id(10),JSON.stringify([{item_id:itemId,unit_price:100000,quantity:1}])]);
+  let refunds=0;
+  global.fetch=async (_url,options)=>{
+    if (!options.method || options.method==='GET') return Response.json({paymentKey:'mock-10',totalAmount:100000,balanceAmount:100000});
+    assert.equal(JSON.parse(options.body).cancelAmount,94000); refunds++;
+    return Response.json({paymentKey:'mock-10',totalAmount:100000,balanceAmount:6000,status:'PARTIAL_CANCELED'});
+  };
+  const complete=amount=>api('admin/returns').PATCH(req('/x','PATCH',{id:id(90),action:'complete',bulk_reviewed:true,refund_amount:amount}));
+  assert.equal((await complete(100000)).status,409); assert.equal(refunds,0);
+  const result=await complete(94000); assert.equal(result.status,200); assert.equal((await result.json()).refunded,94000);
+  assert.equal((await complete(94000)).status,409); assert.equal(refunds,1);
+  assert.equal((await query('SELECT status FROM orders WHERE id=$1',[id(10)])).rows[0].status,'return_completed');
+});

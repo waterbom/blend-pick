@@ -3,7 +3,7 @@ import type { SiteKey } from '@/lib/sites';
 import { runRefund, RefundError } from '@/lib/refund-operation';
 import { ApiError, apiErrorDetails, statusErrorCode } from '@/lib/api-errors';
 export type ShopCancelResult = {ok:true;alreadyCancelled?:true;requested?:true;refunded:boolean} | {ok:false;error:string;httpStatus:number};
-export async function cancelShopOrder(orderId:string,reason:string,opts:{deductShipping?:boolean;site?:SiteKey;customerRequest?:boolean;dispatchStopConfirmed?:boolean;adminName?:string}={}):Promise<ShopCancelResult> {
+export async function cancelShopOrder(orderId:string,reason:string,opts:{deductShipping?:boolean;site?:SiteKey;customerRequest?:boolean;dispatchStopConfirmed?:boolean;requireCancelRequest?:boolean;adminName?:string}={}):Promise<ShopCancelResult> {
     try {
         const found=await shopPool.query("SELECT status FROM orders WHERE id=$1 AND order_type<>'hotel' AND ($2::text IS NULL OR site=$2)",[orderId,opts.site??null]);
         if(!found.rows.length)return {ok:false,error:'주문을 찾을 수 없습니다.',httpStatus:404};
@@ -18,6 +18,7 @@ export async function cancelShopOrder(orderId:string,reason:string,opts:{deductS
         }
         const result=await runRefund({sourceKey:'cancel:'+orderId,orderId,site:opts.site,
             prepare:async(c,o)=>{
+                if(opts.requireCancelRequest && o.status!=='cancel_requested')throw new RefundError('취소 요청 상태가 변경되었습니다. 주문을 다시 확인해주세요.',409);
                 if(opts.customerRequest && !['paid','confirmed'].includes(o.status))throw new RefundError('출고 상태가 변경되었습니다. 주문 내역에서 다시 확인해주세요.',409);
                 if(o.order_type==='hotel'||!['paid','confirmed','preparing','shipped','delivered','cancel_requested'].includes(o.status))throw new RefundError('현재 상태는 주문 취소로 변경할 수 없습니다. 교환·반품 상세에서 확인해주세요.');
                 if (['preparing','shipped','delivered','cancel_requested'].includes(o.status)) {

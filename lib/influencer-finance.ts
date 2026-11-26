@@ -9,6 +9,8 @@ export async function influencerFinance(site: SiteKey, db: import('pg').Pool | i
         campaign_id: string;
         influencer_id: string;
         product_name: string;
+        display_product_name?: string;
+        order_number?: string;
         influencer_name: string;
         orders: Set<string>;
         qty: number;
@@ -33,9 +35,21 @@ export async function influencerFinance(site: SiteKey, db: import('pg').Pool | i
         if (site === 'sanjipick' && o.order_type === 'hotel')
             continue;
         const a = orderAmounts(o);
+        // Old add-ons may lack a product reference. Use the sole main product only as a
+        // display label; the original accounting bucket and its payout key stay intact.
+        const mainLines = a.lines.filter(l => l.product_name && !/^\[(추가|설치비)\]/.test(l.product_name));
+        const mainNames = new Set(mainLines.map(l => l.product_name));
+        const mainById = new Map(mainLines.map(l => [l.product_ref || l.product_id, l.product_name]));
         for (const line of a.lines) {
             const id = o.order_type === 'hotel' ? HOTEL_PAYOUT_CAMPAIGN_ID : o.campaign_id || line.product_ref || line.product_id || ('legacy:' + o.id);
             const b = get(id, o.influencer_id, o.order_type === 'hotel' ? HOTEL_LABEL : line.product_name || '(과거 상품)', o.influencer_name || '(정보 확인 필요)');
+            if (o.order_type !== 'hotel' && !b.display_product_name) {
+                const ref = line.product_ref || line.product_id;
+                const mainName = ref ? mainById.get(ref) : undefined;
+                b.display_product_name = mainName || (!/^\[(추가|설치비)\]/.test(line.product_name) ? line.product_name : undefined)
+                    || (mainNames.size === 1 ? mainNames.values().next().value : undefined);
+            }
+            if (id.startsWith('legacy:')) b.order_number = o.order_number;
             b.orders.add(o.id);
             b.qty += Number(line.quantity);
             b.gross += line.gross;
