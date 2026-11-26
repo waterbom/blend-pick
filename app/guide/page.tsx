@@ -23,7 +23,7 @@ export default function GuidePage() {
               <li><span className="font-medium text-gray-900">Step 2</span> — 장바구니에 담기</li>
               <li><span className="font-medium text-gray-900">Step 3</span> — 회원 로그인 또는 비회원 주문</li>
               <li><span className="font-medium text-gray-900">Step 4</span> — 주문서 작성</li>
-              <li><span className="font-medium text-gray-900">Step 5</span> — 결제방법 선택 및 결제</li>
+              <li><span className="font-medium text-gray-900">Step 5</span> — 결제창에서 결제</li>
               <li><span className="font-medium text-gray-900">Step 6</span> — 주문 완료 (주문번호 확인)</li>
             </ol>
           </section>
@@ -31,7 +31,7 @@ export default function GuidePage() {
           <section>
             <h2 className="font-semibold text-gray-900 text-base mb-3">결제 안내</h2>
             <p className="text-gray-600 mb-2">고액결제의 경우 안전을 위해 카드사에서 확인전화를 드릴 수도 있습니다. 도난 카드의 사용이나 타인 명의 주문 등 비정상 주문으로 판단될 경우 임의로 주문이 보류 또는 취소될 수 있습니다.</p>
-            <p className="text-gray-600">무통장 입금은 주문 시 입력한 입금자명과 실제 입금자 성명이 반드시 일치하여야 하며, 7일 이내에 입금하셔야 합니다. 미입금 시 주문이 자동 취소됩니다.</p>
+            <p className="text-gray-600">일반 상품은 주문서에서 결제하기를 누른 뒤, 결제창에 표시되는 결제 수단으로 결제해 주세요. 결제가 완료되면 주문번호를 확인할 수 있습니다.</p>
           </section>
 
           <section>
@@ -54,7 +54,7 @@ export default function GuidePage() {
                 <span>상품 상세의 배송 안내에서 확인해 주세요.</span>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">산간벽지나 도서지방은 별도의 추가금액이 발생할 수 있습니다. 입금 확인 후 배송되며, 상품 종류에 따라 일부 지연될 수 있습니다.</p>
+            <p className="text-xs text-gray-400 mt-2">산간벽지나 도서지방은 별도의 추가금액이 발생할 수 있습니다. 결제 확인 후 배송되며, 상품 종류에 따라 일부 지연될 수 있습니다.</p>
           </section>
 
           <section>
