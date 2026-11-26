@@ -104,7 +104,7 @@ export default function ShippingFlowClient({initialTab, initialRequestId, automa
         <div className="ops-section-heading"><h2>고객 요청</h2><span>요청 내용과 처리 버튼을 함께 표시합니다.</span></div>
         <div id="flow-cancel_requested" className="ops-list-panel">
           <div className="ops-section-heading"><h3>취소 요청 <b>{cancellations.length}건</b></h3><span>공급사 출고 중지·회수 여부를 확인한 뒤 승인하세요.</span></div>
-          {cancellations.length?<ShipmentsClient initialTab="cancel_requested" sharedOrders={orders} onChanged={afterChange}/>:<p className="ops-inline-empty">대기 중인 취소 요청이 없습니다.</p>}
+          <ShipmentsClient initialTab="cancel_requested" sharedOrders={orders} onChanged={afterChange}/>
         </div>
         <div className="ops-list-panel ops-anchor-section">
           <span id="flow-exchange_requested" className="ops-anchor"/><span id="flow-return_requested" className="ops-anchor"/>

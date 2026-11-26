@@ -57,7 +57,7 @@ export default function CustomerOrders({ orders, sanjiBase, query }: { query?:Ac
                         <span className="ds-mono text-[11px] truncate" style={{ color: "var(--text-muted)" }}>{order.order_number}</span>
                       </div>
                       <span className={`text-xs font-semibold shrink-0 ${statusInfo.color}`}>
-                        {order.has_returnable_items ? '부분 반품완료' : statusInfo.label}
+                        {order.has_returnable_items ? '부분 반품완료' : order.status === 'delivered' && order.direct_delivery ? '직접 전달 완료' : statusInfo.label}
                       </span>
                     </div>
 
@@ -94,10 +94,12 @@ export default function CustomerOrders({ orders, sanjiBase, query }: { query?:Ac
                       <div className="flex flex-wrap items-center gap-y-1 px-5 pb-3">
                         {(() => {
                           const stepIdx = order.status === "delivered" ? 3 : order.status === "shipped" ? 2 : order.status === "preparing" ? 1 : 0;
-                          return ["결제 완료", "상품 준비", "배송 중", "배송 완료"].map((label, i) => (
+                          const directDelivery = order.status === "delivered" && order.direct_delivery;
+                          const steps = directDelivery ? ["결제 완료", "상품 준비", "직접 전달 완료"] : ["결제 완료", "상품 준비", "배송 중", "배송 완료"];
+                          return steps.map((label, i) => (
                             <span key={label} className="flex items-center">
                               <span className="text-[10.5px] font-bold" style={{ color: i <= stepIdx ? "var(--accent)" : "#B4B0A2" }}>{label}</span>
-                              {i < 3 && <span className="inline-block w-6 sm:w-8 h-px mx-1.5" style={{ background: i < stepIdx ? "var(--accent)" : "var(--line)" }} />}
+                              {i < steps.length - 1 && <span className="inline-block w-6 sm:w-8 h-px mx-1.5" style={{ background: i < stepIdx ? "var(--accent)" : "var(--line)" }} />}
                             </span>
                           ));
                         })()}

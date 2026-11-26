@@ -145,3 +145,16 @@ test('J6 paused options remain editable and can resume with the same identity',a
  assert.equal((await route.PATCH(req('/x','PATCH',{...body,options:read.options.map(o=>({...o,active:true})),expected_updated_at:read.updated_at}),context)).status,200);
  const active=await (await route.GET(req(),context)).json();assert.equal(active.stock,10);assert.equal(active.options[0].id,paused.options[0].id);
 });
+
+test('bulk completion leaves refund-conflicted row alone and reports it next to a success',async()=>{
+ await product(); await order(10,100000,'shipped'); await order(11,100000,'shipped');
+ await pendingRefund(id(10));
+ const result=await api('admin/shipments/deliver').PATCH(req('/x','PATCH',{orderIds:[id(10),id(11)],mode:'shipped',receiptConfirmed:true}));
+ assert.equal(result.status,200);
+ const body=await result.json();
+ assert.equal(body.updated,1);assert.equal(body.failed,1);
+ assert.deepEqual(body.results.map(r=>[r.orderNumber,r.result]),[['ORDER10','failed'],['ORDER11','completed']]);
+ assert.match(body.results[0].reason,/환불/);
+ assert.deepEqual((await query('SELECT status FROM orders ORDER BY id')).rows.map(r=>r.status),['shipped','delivered']);
+ assert.equal((await query('SELECT COUNT(*)::int n FROM settlements')).rows[0].n,1);
+});

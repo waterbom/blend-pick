@@ -147,17 +147,32 @@ test('cart stores each product rate and tax at payment time, independent of cart
  await query('UPDATE products_shop SET influencer_rate=99');const rows=await inf();assert.equal(rows.reduce((s,r)=>s+r.commission,0),16000);assert.equal((await profit())[0].sales_vat,3636);
 });
 
-test('bulk delivery accepts explicit preparing rows and skips stale, return and hotel rows on replay', async () => {
+test('bulk delivery separates direct handover, reports each skipped row and does not double-settle', async () => {
   await product();
-  for (const [n,status] of [[10,'preparing'],[11,'shipped'],[12,'preparing'],[13,'return_requested'],[14,'preparing'],[15,'shipped']]) {
+  for (const [n,status] of [[10,'preparing'],[11,'shipped'],[12,'preparing'],[13,'return_requested'],[14,'shipped'],[15,'shipped'],[16,'preparing']]) {
     await order(n,100000,status);
   }
   await query("UPDATE orders SET order_type='hotel' WHERE id=$1",[id(15)]);
+  await query("UPDATE orders SET tracking_number='1234567890' WHERE id=$1",[id(16)]);
   await query("INSERT INTO order_returns(id,order_id,kind,status) VALUES($1,$2,'return','collecting')",[id(99),id(14)]);
-  const body = {orderIds:[10,11,12,13,14,15].map(id), preparingIds:[10,13,14].map(id)};
-  const run = async () => (await api('admin/shipments/deliver').PATCH(req('/x','PATCH',body))).json();
-  assert.equal((await run()).updated,2);
-  assert.equal((await run()).updated,0);
+  const send = body => api('admin/shipments/deliver').PATCH(req('/x','PATCH',body));
+  assert.equal((await send({orderIds:[id(10)],preparingIds:[id(10)]})).status,400);
+  assert.equal((await send({orderIds:[id(10)],mode:'direct',directReason:'picked_up'})).status,400);
+  const bulk = {orderIds:[10,11,12,13,14,15].map(id),mode:'shipped',receiptConfirmed:true};
+  const result=await (await send(bulk)).json();
+  assert.equal(result.updated,1);
+  assert.deepEqual(result.results.map(r=>r.result),['skipped','completed','skipped','skipped','skipped','skipped']);
+  assert.match(result.results[4].reason,/교환·반품/);
+  assert.match(result.results[5].reason,/상품 주문/);
+  assert.equal((await(await send(bulk)).json()).updated,0);
+  const direct = n=>({orderIds:[id(n)],mode:'direct',directReason:'picked_up',receiptConfirmed:true});
+  assert.equal((await(await send(direct(16))).json()).updated,0);
+  assert.equal((await(await send(direct(10))).json()).updated,1);
+  assert.equal((await(await send(direct(10))).json()).updated,0);
   assert.deepEqual((await query("SELECT order_number FROM orders WHERE status='delivered' ORDER BY order_number")).rows.map(r=>r.order_number),['ORDER10','ORDER11']);
+  const handover=(await query("SELECT shipped_at,tracking_number,direct_delivery_reason,direct_delivery_confirmed_by,delivered_at FROM orders WHERE id=$1",[id(10)])).rows[0];
+  assert.equal(handover.shipped_at,null); assert.equal(handover.tracking_number,null);
+  assert.equal(handover.direct_delivery_reason,'picked_up'); assert.equal(handover.direct_delivery_confirmed_by,'관리자');
+  assert.ok(handover.delivered_at);
   assert.equal((await query('SELECT COUNT(*)::int n FROM settlements')).rows[0].n,2);
 });

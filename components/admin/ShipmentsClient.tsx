@@ -12,8 +12,20 @@ import ReturnsPanel from "@/components/admin/ReturnsPanel";
 import Link from "next/link";
 import SiteBadge from "@/components/admin/SiteBadge";
 import { matchesOrderSearch, selectionAction, shipmentStatusMatches } from "@/lib/admin-list-workspace";
+import { DIRECT_DELIVERY_REASONS, isDirectDeliveryReason, type DeliveryMode, type DeliveryResult } from "@/lib/delivery-completion";
+import { SITES } from "@/lib/sites";
 import { useSiteKey } from "@/components/SiteContext";
 import { formatPhone } from "@/lib/phone-format";
+
+type ActionReview = {
+  kind: "shipped" | "direct" | "cancel";
+  rows: ShipmentOrder[];
+  deductShipping?: boolean;
+  amounts?: Record<string, number | null>;
+  errors?: Record<string, string>;
+  total?: number | null;
+};
+type ActionResult = { id: string; orderNumber: string; label: string; detail?: string };
 
 interface OrderItem {
   product_id: string | null; // 추가옵션 행은 null
@@ -86,9 +98,11 @@ export default function ShipmentsClient({ initialTab = "active", initialRequestI
   const [loading, setLoading] = useState(!sharedOrders);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const selectedAction = selectionAction(orders, selected);
-  const deliveryRows = orders.filter(o => ["preparing", "shipped"].includes(o.status)
-    && (!o.order_type || ["shop", "campaign"].includes(o.order_type)) && !o.pending_refunds);
+  const canProcess = (o: ShipmentOrder) => ["shop", "campaign"].includes(o.order_type || "shop") && !o.pending_refunds;
+  const deliveryRows = orders.filter(o => o.status === "shipped" && canProcess(o));
   const deliverySelection = deliveryRows.filter(o => selected.has(o.id));
+  const directSelection = orders.find(o => selected.size === 1 && selected.has(o.id) && o.status === "preparing"
+    && canProcess(o) && !o.tracking_number?.trim() && !o.tracking_company?.trim());
   const shippingList = ["active", "preparing", "shipped"].includes(tab);
 
   const [carrierCode, setCarrierCode] = useState("04");
@@ -117,6 +131,16 @@ export default function ShipmentsClient({ initialTab = "active", initialRequestI
   const [delivering, setDelivering] = useState(false);
   const [acting, setActing] = useState(false);
   const [completionResult, setCompletionResult] = useState("");
+  const [actionResults, setActionResults] = useState<ActionResult[]>([]);
+  const [review, setReview] = useState<ActionReview | null>(null);
+  const [directReason, setDirectReason] = useState("");
+  const [receiptConfirmed, setReceiptConfirmed] = useState(false);
+  const [previewingAction, setPreviewingAction] = useState(false);
+  const actionInFlight = useRef(false);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
+  const actionNotice = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (review) reviewHeading.current?.focus(); }, [review]);
+  useEffect(() => { if (completionResult || actionResults.length) actionNotice.current?.scrollIntoView?.({block:"nearest"}); }, [completionResult, actionResults]);
 
   // 선택 주문 운송장 입력 모달
   const [showTrackModal, setShowTrackModal] = useState(false);
@@ -230,76 +254,143 @@ export default function ShipmentsClient({ initialTab = "active", initialRequestI
     await previewTracking(rows);
   }
 
-  async function handleBulkDeliver(targets: ShipmentOrder[]) {
-    if (!targets.length || delivering) return;
-    const orderIds = targets.map(o => o.id);
-    const preparingIds = targets.filter(o => o.status === "preparing").map(o => o.id);
-    if (!confirm(`수령을 확인한 주문 ${orderIds.length}건을 배송완료 처리할까요?\n배송준비 ${preparingIds.length}건 · 배송중 ${orderIds.length - preparingIds.length}건\n완료한 주문은 고객에게 배송완료로 표시되고 정산에 반영됩니다.`)) return;
-    setCompletionResult("");
-    setDelivering(true); setLoadError("");
-    try {
-      const res = await fetch("/api/admin/shipments/deliver", {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderIds, preparingIds }),
-      });
-      const data = await readApiJson(res);
-      if (!res.ok || data.error) throw Error(apiErrorMessage(data, "배송완료 처리 실패"));
-      setCompletionResult(`배송완료 ${data.updated}건 · 상태 변경 또는 처리 제외 ${orderIds.length - data.updated}건`);
-      await load(tab);
-    } catch(e) { setLoadError(apiErrorMessage(e, "처리 결과를 확인해주세요.")); }
-    finally { setDelivering(false); }
+  function openDeliveryReview(kind: DeliveryMode, targets: ShipmentOrder[]) {
+    if (!targets.length || locked) return;
+    if (targets.length > 200) { setLoadError("한 번에 200건까지 처리할 수 있어요. 상품이나 주문으로 범위를 좁혀주세요."); return; }
+    setDirectReason(""); setReceiptConfirmed(false); setLoadError("");
+    setCompletionResult(""); setActionResults([]);
+    setReview({kind, rows:targets});
   }
 
-  async function handleTabAction(action: string, label: string, deductShipping = false) {
-    if (selectedAction !== "cancel") return;
-    const extra = action === "cancel_confirm"
-      ? deductShipping
-        ? "\n각 주문의 배송비를 뺀 금액이 토스로 환불됩니다."
-        : "\n결제 금액이 토스로 전액 환불됩니다."
-      : "";
-    if (!confirm(`선택한 ${selected.size}건을 ${label} 처리할까요?${extra}${action === "cancel_confirm" ? "\n공급사에 모든 선택 주문의 출고 중지 또는 회수 완료를 확인한 경우에만 승인하세요." : ""}`)) return;
-    setActing(true); setCompletionResult("");
+  async function openCancelReview(deductShipping: boolean) {
+    if (locked || actionInFlight.current || selectedAction !== "cancel") return;
+    const rows = orders.filter(o => selected.has(o.id));
+    if (!rows.length || rows.length > 100) { setLoadError("취소 요청을 1~100건 선택해주세요."); return; }
+    actionInFlight.current = true; setPreviewingAction(true); setLoadError("");
+    setCompletionResult(""); setActionResults([]);
+    setReceiptConfirmed(false);
     try {
-      const res = await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds: [...selected], action, deduct_shipping: deductShipping, dispatch_stop_confirmed: action === "cancel_confirm" }),
-      });
-      const d = await readApiJson(res);
-      if (res.ok && typeof d.updated === "number") {
-        setCompletionResult(`${label} ${d.updated}건 · 실패 ${d.failed ?? 0}건 · 상태 변경 ${selected.size - d.updated - (d.failed ?? 0)}건`);
+      const params = new URLSearchParams({action:"cancel_preview",orderIds:rows.map(o=>o.id).join(","),deduct_shipping:String(deductShipping)});
+      const res = await fetch(`/api/admin/orders?${params}`, {cache:"no-store"});
+      const data = await readApiJson(res);
+      if (!res.ok || !Array.isArray(data.results)) throw Error(apiErrorMessage(data,"환불 예상액을 조회하지 못했습니다."));
+      const amounts: Record<string, number | null> = {}, errors: Record<string,string> = {};
+      for (const row of data.results) {
+        amounts[row.orderId] = row.amount;
+        if (row.error) errors[row.orderId] = row.error;
       }
-      if (!res.ok || d.error) alert(apiErrorMessage(d, "처리에 실패했어요."));
-      await load(tab);
-    } catch (error) {
-      alert(apiErrorMessage(error, "네트워크 문제로 요청이 전달되지 않았어요. 목록을 새로고침해 확인해주세요."));
+      setReview({kind:"cancel", rows, deductShipping, amounts, errors, total:data.totalAmount});
+    } catch(error) { setLoadError(apiErrorMessage(error,"환불 예상액을 다시 조회해주세요.")); }
+    finally { actionInFlight.current = false; setPreviewingAction(false); }
+  }
+
+  async function submitReview() {
+    if (!review || !receiptConfirmed || actionInFlight.current) return;
+    if (review.kind === "direct" && !isDirectDeliveryReason(directReason)) return;
+    if (review.kind === "cancel" && (typeof review.total !== "number" || !review.rows.every(row => typeof review.amounts?.[row.id] === "number"))) return;
+    const target = review;
+    const orderIds = target.rows.map(o => o.id);
+    const cancel = target.kind === "cancel";
+    let actionError = "";
+    actionInFlight.current = true; setDelivering(true); setLoadError("");
+    setReview(null);
+    try {
+      const res = await fetch(cancel ? "/api/admin/orders" : "/api/admin/shipments/deliver", {
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(cancel ? {orderIds, action:"cancel_confirm", deduct_shipping:target.deductShipping,
+          dispatch_stop_confirmed:true, expected_refunds:target.amounts}
+          : {orderIds, mode:target.kind, receiptConfirmed:true, ...(target.kind === "direct" ? {directReason} : {})}),
+      });
+      const data = await readApiJson(res);
+      if (!Array.isArray(data.results)) throw Error(apiErrorMessage(data,"처리 결과를 확인하지 못했습니다."));
+      const numbers = new Map(target.rows.map(row => [row.id,row.order_number]));
+      const resultRows = cancel ? data.results.map((row: {orderId:string; orderNumber?:string; status:string; error?:string}) => ({
+        id:row.orderId, orderNumber:row.orderNumber || numbers.get(row.orderId) || "",
+        label:row.status === "cancelled" ? "취소 완료" : row.status === "already_cancelled" ? "이미 취소됨" : row.status === "skipped" ? "제외" : "확인 필요",
+        detail:row.error,
+      })) : (data.results as DeliveryResult[]).map(row => ({
+        id:row.id, orderNumber:row.orderNumber || numbers.get(row.id) || "",
+        label:row.result === "completed" ? (target.kind === "direct" ? "직접 전달 완료" : "배송완료") : row.result === "skipped" ? "제외" : "확인 필요",
+        detail:row.reason,
+      }));
+      setActionResults(resultRows);
+      setCompletionResult(`완료 ${data.updated}건 · 제외 ${data.skipped ?? 0}건 · 확인 필요 ${data.failed ?? 0}건`);
+    } catch(error) {
+      actionError = `처리 여부를 먼저 확인해주세요. 바로 다시 실행하지 마세요. ${apiErrorMessage(error,"목록과 주문 상세에서 상태를 확인해주세요.")}`;
     } finally {
-      setActing(false);
+      setSelected(new Set());
+      try { await load(tab); } finally { if (actionError) setLoadError(actionError); actionInFlight.current = false; setDelivering(false); }
     }
   }
 
+  async function rejectCancel() {
+    if (selectedAction !== "cancel" || actionInFlight.current) return;
+    if (!confirm(`선택한 ${selected.size}건을 반려할까요? 주문은 유지되고 환불되지 않습니다.`)) return;
+    actionInFlight.current = true; setActing(true); setCompletionResult(""); setActionResults([]);
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({orderIds:[...selected], action:"cancel_reject"}),
+      });
+      const data = await readApiJson(res);
+      if (!res.ok || data.error) throw Error(apiErrorMessage(data,"취소요청 반려에 실패했습니다."));
+      setCompletionResult(`반려 ${data.updated}건 · 제외 ${selected.size - data.updated}건`);
+      await load(tab);
+    } catch(error) { setLoadError(apiErrorMessage(error,"목록에서 처리 여부를 확인해주세요.")); }
+    finally { actionInFlight.current = false; setActing(false); }
+  }
+
   const carrierName = carriers.find((c) => c.code === carrierCode)?.name ?? "";
-  const locked = importing || readingFile || delivering || acting;
+  const locked = importing || readingFile || delivering || acting || previewingAction || !!review;
 
   return (
     <div className="ops-shipment-list">
-      {completionResult && <p role="status" className="ops-meta">{completionResult}</p>}
+      {(delivering || previewingAction) && <p role="status" className="ops-meta">{previewingAction ? "환불 예정액 확인 중…" : "주문 처리 중… 결과가 나올 때까지 기다려주세요."}</p>}
+      {(completionResult || actionResults.length>0) && <div className="ops-batch-review" ref={actionNotice}>
+        <p role="status"><strong>처리 결과</strong> · {completionResult}</p>
+        {actionResults.length>0 && <ul className="ops-batch-items" aria-label="주문별 처리 결과">{actionResults.map(row=>
+          <li key={row.id}><Link href={`/admin/orders/${row.id}`}>{row.orderNumber}</Link><strong>{row.label}</strong>{row.detail && <span>{row.detail}</span>}</li>)}</ul>}
+      </div>}
+      {review && <section className="ops-batch-review" aria-labelledby={`shipment-review-${tab}`}>
+        <h3 id={`shipment-review-${tab}`} ref={reviewHeading} tabIndex={-1}>{review.kind === "cancel" ? "취소 · 환불 검토" : review.kind === "direct" ? "직접 전달 완료 검토" : "배송중 주문 완료 검토"}</h3>
+        <p>{SITES[siteFilter].name} · {review.rows.length}건{review.kind === "cancel" ? (review.deductShipping ? " · 배송비 차감" : " · 전액 환불") : ""}</p>
+        <ul className="ops-batch-items" aria-label="처리할 주문">{review.rows.map(row=><li key={row.id}>
+          <Link href={`/admin/orders/${row.id}`}>{row.order_number}</Link>
+          <span>{row.status === "shipped" ? "배송중" : row.status === "preparing" ? "배송준비" : "취소 요청"}</span>
+          {review.kind === "cancel" && <strong>{typeof review.amounts?.[row.id] === "number" ? `${review.amounts[row.id]?.toLocaleString()}원` : "개별 확인 필요"}</strong>}
+          {review.errors?.[row.id] && <span>{review.errors[row.id]}</span>}
+        </li>)}</ul>
+        {review.kind === "cancel" && <p><strong>총 환불 예정액: {typeof review.total === "number" ? `${review.total.toLocaleString()}원` : "확정할 수 없음"}</strong></p>}
+        {review.kind === "direct" && <label className="ops-inline-field">수령 사유 <select value={directReason} onChange={e=>setDirectReason(e.target.value)}>
+          <option value="">사유 선택</option>{Object.entries(DIRECT_DELIVERY_REASONS).map(([id,label])=><option key={id} value={id}>{label}</option>)}
+        </select></label>}
+        <label className="ops-batch-check"><input type="checkbox" checked={receiptConfirmed} onChange={e=>setReceiptConfirmed(e.target.checked)}/>
+          {review.kind === "cancel" ? "위 주문의 출고 중지 또는 회수를 확인했습니다." : "위 주문의 실제 수령을 확인했습니다."}</label>
+        <p className="ops-meta">{review.kind === "cancel" ? "승인하면 토스 환불을 요청합니다. 금액을 조회할 수 없는 주문은 개별 확인해주세요." : "고객 주문 내역과 정산에 반영됩니다."}</p>
+        <div className="ops-heading-actions">
+          <button className={`ops-button ${review.kind === "cancel" ? "ops-button-danger" : "ops-button-primary"}`} disabled={!receiptConfirmed || (review.kind === "direct" && !isDirectDeliveryReason(directReason)) || (review.kind === "cancel" && typeof review.total !== "number")} onClick={submitReview}>
+            {review.kind === "cancel" ? "확인한 금액으로 환불 승인" : review.kind === "direct" ? "직접 전달 완료" : "확인한 주문 배송완료"}
+          </button>
+          <button className="ops-button" onClick={()=>setReview(null)}>검토 닫기</button>
+        </div>
+      </section>}
       {loadError && <p role="alert" className="ops-error">{loadError} <button className="ops-text-button" onClick={()=>load(tab)}>목록 다시 확인</button></p>}
       <div className="ops-toolbar">
         <input className="ops-search" aria-label="배송 주문 검색" value={query} disabled={locked} onChange={e=>setQuery(e.target.value)} placeholder="주문번호 · 수령인 · 상품 · 송장 검색"/>
         {!['cancel_requested','exchange_requested','return_requested'].includes(tab) && <select aria-label="배송 상태" value={tab} disabled={locked} onChange={e=>{setTab(e.target.value as ShipmentTab);setSelected(new Set());}}>
           {TABS.filter(t=>!['cancel_requested','exchange_requested','return_requested'].includes(t.key)).map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
         </select>}
-        {shippingList && !selected.size && deliveryRows.length > 0 && <button className="ops-button" disabled={locked || loading} onClick={() => handleBulkDeliver(deliveryRows)}>
-          {delivering ? "처리 중…" : `표시된 배송 ${deliveryRows.length}건 완료`}
+        {shippingList && !selected.size && deliveryRows.length > 0 && <button className="ops-button" disabled={locked || loading} onClick={() => openDeliveryReview("shipped",deliveryRows)}>
+          {delivering ? "처리 중…" : `배송중 ${deliveryRows.length}건 완료 검토`}
         </button>}
         <span className="ops-meta">{loading ? '조회 중' : `${orders.length}건 표시`}</span>
       </div>
       {['active','preparing'].includes(tab) && <div className="ops-import-bar">
         <div className="ops-import-heading"><div><h3>송장 등록</h3><p>회신 파일을 올리거나 목록에서 배송준비 주문을 선택해 입력하세요.</p></div><button onClick={downloadTemplate} className="ops-button">회신 양식 받기</button></div>
-        <label className="ops-inline-field">파일에 택배사가 없을 때 <select aria-label="기본 택배사" value={carrierCode} disabled={importing||readingFile} onChange={e=>{setCarrierCode(e.target.value);setPreview(null);setImportResult(null);}}>{carriers.map(c=><option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
+        <label className="ops-inline-field">파일에 택배사가 없을 때 <select aria-label="기본 택배사" value={carrierCode} disabled={locked} onChange={e=>{setCarrierCode(e.target.value);setPreview(null);setImportResult(null);}}>{carriers.map(c=><option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
             {fileName && <p className="text-xs text-gray-600 mb-2" aria-live="polite">선택 파일: {fileName}{readingFile ? " · 읽는 중…" : ""}</p>}
             {csvRows.length === 0 ? (
-              <button disabled={importing} onClick={() => fileRef.current?.click()}
+              <button disabled={locked} onClick={() => fileRef.current?.click()}
                 className="ops-button ops-button-primary">
                 엑셀/CSV 파일 선택
               </button>
@@ -335,11 +426,11 @@ export default function ShipmentsClient({ initialTab = "active", initialRequestI
                 {!preview && !importResult && <p className="text-xs text-gray-500 mb-3">파일 {csvRows.length}행 · 서버에서 현재 주문 상태와 중복을 확인한 후 등록합니다.</p>}
                 {preview && <ImportReviewTable review={preview} />}
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => previewTracking(csvRows)} disabled={importing || readingFile}
+                  <button onClick={() => previewTracking(csvRows)} disabled={locked}
                     className="flex-1 border border-gray-300 disabled:opacity-50 text-gray-700 text-sm font-bold py-2.5 px-4">
                     {importing ? "처리 중..." : preview ? "미리보기 다시 확인" : "등록 전 미리보기"}
                   </button>
-                  {preview && <button onClick={handleImport} disabled={importing || readingFile || preview.counts.ready === 0}
+                  {preview && <button onClick={handleImport} disabled={locked || preview.counts.ready === 0}
                     className="flex-1 bg-[#2D5A27] hover:bg-[#244B1F] disabled:opacity-50 text-white text-sm font-bold py-2.5 px-4">
                     {importing ? "처리 중..." : `정상 ${preview.counts.ready}건 등록`}
                   </button>}
@@ -364,16 +455,17 @@ export default function ShipmentsClient({ initialTab = "active", initialRequestI
       {selected.size>0 && <div className="ops-selection-bar" aria-live="polite">
         <strong>{selected.size}건 선택</strong>
         {selectedAction==='tracking' && <button disabled={locked} onClick={()=>{setModalTracking({});setShowTrackModal(true);}} className="ops-button ops-button-primary">선택 주문 송장 입력</button>}
-        {deliverySelection.length===selected.size && <button onClick={()=>handleBulkDeliver(deliverySelection)} disabled={locked} className="ops-button ops-button-primary">{delivering?'처리 중…':'선택 주문 배송완료 처리'}</button>}
+        {deliverySelection.length===selected.size && <button onClick={()=>openDeliveryReview("shipped",deliverySelection)} disabled={locked} className="ops-button ops-button-primary">선택 주문 배송완료 검토</button>}
+        {directSelection && <button onClick={()=>openDeliveryReview("direct",[directSelection])} disabled={locked} className="ops-button">직접 전달 완료 검토</button>}
         {selectedAction==='cancel' && <>
-          <button onClick={()=>handleTabAction('cancel_confirm','취소 승인 · 전액 환불')} disabled={locked} className="ops-button ops-button-danger">승인 · 전액 환불</button>
-          <button onClick={()=>handleTabAction('cancel_confirm','취소 승인 · 배송비 차감',true)} disabled={locked} className="ops-button">승인 · 배송비 차감</button>
-          <button onClick={()=>handleTabAction('cancel_reject','취소요청 반려 (주문 유지, 환불 없음)')} disabled={locked} className="ops-button">반려</button>
+          <button onClick={()=>openCancelReview(false)} disabled={locked} className="ops-button ops-button-danger">전액 환불 검토</button>
+          <button onClick={()=>openCancelReview(true)} disabled={locked} className="ops-button">배송비 차감 검토</button>
+          <button onClick={()=>rejectCancel()} disabled={locked} className="ops-button">반려</button>
         </>}
-        {selectedAction==='mixed'&&deliverySelection.length!==selected.size&&<span className="ops-warning">같은 처리 단계의 주문만 선택해주세요.</span>}
+        {selectedAction==='mixed'&&deliverySelection.length!==selected.size&&<span className="ops-warning">배송중 완료와 배송준비 직접 전달은 각각 선택해주세요.</span>}
       </div>}
       {(tab==='exchange_requested'||tab==='return_requested') ? <ReturnsPanel kind={tab==='exchange_requested'?'exchange':'return'} compact refreshKey={sharedOrders} initialRequestId={initialRequestId} onChanged={()=>{void load(tab);}} /> :
-        <OrderTable orders={orders} loading={loading} selected={selected} onToggleAll={toggleAll} onToggle={toggleOrder} onToggleGroup={shippingList||tab==='cancel_requested'?toggleGroup:undefined} showTracking emptyText="조건에 맞는 주문이 없습니다." />}
+        <OrderTable orders={orders} loading={loading} selected={selected} onToggleAll={toggleAll} onToggle={toggleOrder} onToggleGroup={shippingList||tab==='cancel_requested'?toggleGroup:undefined} disabled={locked} showTracking emptyText="조건에 맞는 주문이 없습니다." />}
 
       {/* ── 운송장 입력 모달 (선택 주문 → 배송중) ── */}
       {showTrackModal && (
@@ -389,7 +481,7 @@ export default function ShipmentsClient({ initialTab = "active", initialRequestI
             </div>
             <div className="p-5 border-b border-gray-100">
               <label className="block text-xs font-medium text-gray-500 mb-1.5">택배사 (전체 공통)</label>
-              <select value={carrierCode} disabled={importing || readingFile} onChange={(e) => { setCarrierCode(e.target.value); setPreview(null); setImportResult(null); }}
+              <select value={carrierCode} disabled={locked} onChange={(e) => { setCarrierCode(e.target.value); setPreview(null); setImportResult(null); }}
                 className="w-full border border-gray-200 rounded-none px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#C7D6C0] bg-white">
                 {carriers.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
@@ -448,7 +540,7 @@ function ImportReviewTable({ review, completed = false }: { review: ImportReview
 }
 
 function OrderTable({
-  orders, loading, selected, onToggleAll, onToggle, onToggleGroup, showTracking = false, emptyText,
+  orders, loading, selected, onToggleAll, onToggle, onToggleGroup, disabled = false, showTracking = false, emptyText,
 }: {
   orders: ShipmentOrder[];
   loading: boolean;
@@ -456,6 +548,7 @@ function OrderTable({
   onToggleAll: () => void;
   onToggle: (id: string) => void;
   onToggleGroup?: (ids: string[], select: boolean) => void;
+  disabled?: boolean;
   showTracking?: boolean;
   emptyText: string;
 }) {
@@ -466,9 +559,9 @@ function OrderTable({
   if (orders.length === 0) return <div className="bg-white rounded-none border border-gray-100 p-6 text-center text-sm text-gray-400">{emptyText}</div>;
 
   return <div className="ops-table-scroll"><table className="ops-table ops-shipments-table">
-    <thead><tr><th>{onToggleGroup&&<input type="checkbox" aria-label="표시된 배송 주문 전체 선택" checked={selected.size===orders.length&&orders.length>0} onChange={onToggleAll}/>}</th><th>주문 · 주문일시 <small>한국시간</small></th><th>수령인</th><th>상품 · 출고 정보</th><th>상태 · 운송장</th><th>결제 금액</th></tr></thead>
+    <thead><tr><th>{onToggleGroup&&<input type="checkbox" disabled={disabled} aria-label="표시된 배송 주문 전체 선택" checked={selected.size===orders.length&&orders.length>0} onChange={onToggleAll}/>}</th><th>주문 · 주문일시 <small>한국시간</small></th><th>수령인</th><th>상품 · 출고 정보</th><th>상태 · 운송장</th><th>결제 금액</th></tr></thead>
     <tbody>{orders.map(o=><tr key={o.id} data-selected={selected.has(o.id)}>
-      <td>{onToggleGroup&&<input type="checkbox" aria-label={`${o.order_number} 선택`} checked={selected.has(o.id)} onChange={()=>onToggle(o.id)}/>}</td>
+      <td>{onToggleGroup&&<input type="checkbox" disabled={disabled} aria-label={`${o.order_number} 선택`} checked={selected.has(o.id)} onChange={()=>onToggle(o.id)}/>}</td>
       <td><Link className="ops-text-button" href={`/admin/orders/${o.id}`}>{o.order_number}</Link><time className="ops-meta" dateTime={o.created_at}>{new Date(o.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})}</time></td>
       <td><strong>{o.recipient_name||o.buyer_name}</strong><span className="ops-meta">{formatPhone(o.recipient_phone||o.buyer_phone)}</span>{o.addr_memo&&<span className="ops-warning">{o.addr_memo}</span>}</td>
       <td>{o.items.map((it,i)=><div key={i} className="ops-order-item"><strong>{it.product_name}</strong><span className="ops-meta">{it.option_label||'기본 구성'} · {it.quantity}개</span>{it.product_id&&<span className="ops-meta">{it.supplier_name||'공급사 미지정'} · {it.expected_ship_date?.slice(0,10)||'출고일 미지정'}</span>}</div>)}</td>

@@ -7,6 +7,7 @@ import Link from "next/link";
 import TrackingForm from "@/components/admin/TrackingForm";
 import { SITE_BADGE_CLS, siteLabel } from "@/lib/site-label";
 import type { SiteKey } from "@/lib/sites";
+import { DIRECT_DELIVERY_REASONS, isDirectDeliveryReason } from "@/lib/delivery-completion";
 import { formatPhone } from "@/lib/phone-format";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -54,7 +55,9 @@ async function getOrder(id: string) {
       o.payment_method, o.payment_key,
       o.tracking_company, o.tracking_number,
       o.dispatch_stop_confirmed_at, o.dispatch_stop_confirmed_by,
-      o.paid_at, o.created_at,
+      o.paid_at, o.created_at, o.delivered_at,
+      to_jsonb(o)->>'direct_delivery_reason' AS direct_delivery_reason,
+      to_jsonb(o)->>'direct_delivery_confirmed_by' AS direct_delivery_confirmed_by,
       json_agg(
         json_build_object(
           'id', oi.id,
@@ -104,6 +107,7 @@ export default async function OrderDetailPage({
   const { id } = await params;
   const order = await getOrder(id);
   if (!order) notFound();
+  const directDeliveryReason: unknown = order.direct_delivery_reason;
 
   const paymentMethodLabel =
     order.payment_method === "card" ? "카드" :
@@ -134,7 +138,7 @@ export default async function OrderDetailPage({
             {(ORDER_TYPE_BADGE[order.order_type] ?? ORDER_TYPE_BADGE.shop).label}
           </span>
           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[order.status] ?? "bg-gray-100 text-gray-500"}`}>
-            {STATUS_LABEL[order.status] ?? order.status}
+            {order.status === "delivered" && isDirectDeliveryReason(directDeliveryReason) ? "직접 전달 완료" : STATUS_LABEL[order.status] ?? order.status}
           </span>
         </div>
       </div>
@@ -146,6 +150,10 @@ export default async function OrderDetailPage({
         <Row label="주문일시" value={formatDateTime(order.created_at)} />
         <Row label="결제일시" value={formatDateTime(order.paid_at)} />
         <Row label="결제수단" value={paymentMethodLabel} />
+        {isDirectDeliveryReason(directDeliveryReason) && <>
+          <Row label="직접 전달 확인" value={DIRECT_DELIVERY_REASONS[directDeliveryReason]} />
+          <Row label="확인자 · 완료일시" value={`${order.direct_delivery_confirmed_by || "관리자"} · ${formatDateTime(order.delivered_at)}`} />
+        </>}
       </div>
 
       {/* 주문자 */}

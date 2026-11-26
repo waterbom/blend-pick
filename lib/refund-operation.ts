@@ -7,11 +7,11 @@ import type { SiteKey } from '@/lib/sites';
 export class RefundError extends ApiError {
     constructor(message: string, status = 409) { super(statusErrorCode(status), message, status); }
 }
-type Order = {id:string;site:SiteKey;status:string;order_type:string;total_amount:number;shipping_fee:number|null;payment_key:string|null};
+type Order = {id:string;site:SiteKey;status:string;order_type:string;total_amount:number;shipping_fee:number|null;payment_key:string|null;refund_amount_unresolved?:boolean};
 type Operation = { source_key: string; order_id: string; amount: number; baseline: number; reason: string;
     payment_key: string | null; total: number; idempotency_key: string; status: string;
     actual_amount: number | null; first_sent_at: string | null; lease_until: string | null };
-type Spec = { sourceKey: string; orderId: string; site?: SiteKey; expectedAmount?: number;
+type Spec = { sourceKey: string; orderId: string; site?: SiteKey; expectedAmount?: number; newOperationOnly?: boolean;
     prepare: (c: PoolClient, o: Order) => Promise<{ amount: number; reason: string }>;
     apply: (c: PoolClient, o: Order, amount: number) => Promise<void> };
 
@@ -26,6 +26,7 @@ export async function runRefund(spec: Spec) {
         if (!o) throw new RefundError('주문을 찾을 수 없습니다.',404);
         const prior = (await c.query('SELECT * FROM refund_operations WHERE source_key=$1', [spec.sourceKey])).rows[0] as Operation | undefined;
         if (prior?.order_id && prior.order_id !== spec.orderId) throw new RefundError('환불 주문 정보가 다릅니다.');
+        if (prior && spec.newOperationOnly) throw new RefundError('기존 환불 작업이 있습니다. 개별 신청에서 환불 내역을 확인해주세요.');
         if (prior && spec.expectedAmount !== undefined && Number(prior.amount) !== spec.expectedAmount)
             throw new RefundError('기존 환불 요청 금액이 다릅니다. 개별 신청에서 확인해주세요.');
         if (prior?.status === 'completed') { await c.query('COMMIT'); return { amount:Number(prior.actual_amount), alreadyCompleted:true }; }
@@ -35,6 +36,7 @@ export async function runRefund(spec: Spec) {
             const other = await c.query("SELECT 1 FROM refund_operations WHERE order_id=$1 AND status NOT IN ('completed','rejected')",[spec.orderId]);
             if (other.rows.length) throw new RefundError('다른 환불 작업을 먼저 완료해주세요.');
             const plan = await spec.prepare(c,o);
+            if (spec.newOperationOnly && plan.amount !== spec.expectedAmount) throw new RefundError('예상 환불액이 변경되었습니다. 다시 확인해주세요.');
             const baseline = Number((await c.query('SELECT COALESCE(SUM(amount),0) amount FROM order_refund_amounts WHERE order_id=$1',[spec.orderId])).rows[0].amount);
             if (!Number.isSafeInteger(plan.amount) || plan.amount < 0 || plan.amount+baseline > Number(o.total_amount)) throw new RefundError('환불 금액이 남은 결제 금액을 벗어났습니다.',400);
             if (plan.amount>0 && (!o.payment_key || String(o.payment_key).startsWith('SIM_'))) throw new RefundError('실제 결제 내역을 확인할 수 없습니다.');

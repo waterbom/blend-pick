@@ -18,6 +18,7 @@ export async function getOrders(userId: string, site: SiteKey, query?:AccountQue
         o.recipient_name, o.buyer_name, o.addr_address, o.addr_detail,
         to_char(o.shipped_at   AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS shipped_kst,
         to_char(o.delivered_at AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS delivered_kst,
+        (NULLIF(to_jsonb(o)->>'direct_delivery_reason','') IS NOT NULL) AS direct_delivery,
         (SELECT json_build_object('kind', r.kind, 'status', r.status,
                 'created_kst', to_char(r.created_at AT TIME ZONE 'Asia/Seoul', 'MM/DD'))
            FROM order_returns r WHERE r.order_id = o.id

@@ -379,3 +379,63 @@ test('AM tumbler settlements collapse by partner and product while distinct payo
   assert.equal(nodes(groups[0]).filter(n=>n.type==='button').length,2);
   assert.equal(f.requests.length,0);
 });
+
+for (const site of ['blendpick','sanjipick']) {
+  test(`${site}: bulk review contains only shipped, then links skipped result back to order`, async t => {
+    const orders=[{id:'ready',order_number:'TEST-PREP',status:'preparing'},{id:'ship',order_number:'TEST-SHIP',status:'shipped'},{id:'refund',order_number:'TEST-REFUND',status:'shipped',pending_refunds:true}].map(o=>({...o,site,order_type:'shop',items:[]}));
+    const f=mount(t,'components/admin/ShipmentsClient.tsx',{sharedOrders:orders,initialTab:'active',onChanged:async()=>{}},{'@/components/SiteContext':{useSiteKey:()=>site}});
+    await f.init();
+    await f.click('배송중 1건 완료 검토');
+    let review=f.find(n=>n.type==='section'&&n.props['aria-labelledby']==='shipment-review-active');
+    assert.match(text(review),/TEST-SHIP/); assert.doesNotMatch(text(review),/TEST-PREP|TEST-REFUND/);
+    assert.equal(f.button('확인한 주문 배송완료').props.disabled,true);
+    assert.equal(f.requests.filter(r=>r.method==='PATCH').length,0);
+    const confirmBox=f.find(n=>n.type==='input'&&n.props.type==='checkbox'&&!n.props['aria-label']);
+    confirmBox.props.onChange({target:{checked:true}});
+    f.respond(()=>Response.json({ok:true,updated:0,failed:0,skipped:1,results:[{id:'ship',orderNumber:'TEST-SHIP',result:'skipped',reason:'이미 배송완료된 주문입니다.'}]}));
+    await f.click('확인한 주문 배송완료');
+    assert.deepEqual(JSON.parse(f.requests.find(r=>r.method==='PATCH').body),{orderIds:['ship'],mode:'shipped',receiptConfirmed:true});
+    assert.match(f.feedback(),/TEST-SHIP제외이미 배송완료/);
+  });
+}
+
+test('direct handover review requires a reason and actual receipt acknowledgement', async t => {
+  const row={id:'ready',order_number:'TEST-PREP',site:'blendpick',status:'preparing',order_type:'shop',items:[]};
+  const f=mount(t,'components/admin/ShipmentsClient.tsx',{sharedOrders:[row],initialTab:'active'});
+  await f.init();
+  const table=f.find(n=>typeof n.type==='function'&&n.type.name==='OrderTable');
+  table.props.onToggle('ready');
+  await f.click('직접 전달 완료 검토');
+  const box=f.find(n=>n.type==='input'&&n.props.type==='checkbox'&&!n.props['aria-label']);
+  box.props.onChange({target:{checked:true}});
+  assert.equal(f.button('직접 전달 완료').props.disabled,true);
+  const reason=f.find(n=>n.type==='select'&&text(n).includes('수령 확인'));
+  reason.props.onChange({target:{value:'handed_over'}});
+  const action=()=>f.find(n=>n.type==='button'&&text(n)==='직접 전달 완료');
+  assert.equal(action().props.disabled,false);
+  f.respond(()=>Response.json({ok:true,updated:1,failed:0,skipped:0,results:[{id:'ready',orderNumber:'TEST-PREP',result:'completed'}]}));
+  await action().props.onClick();
+  assert.deepEqual(JSON.parse(f.requests.find(r=>r.method==='PATCH').body),{orderIds:['ready'],mode:'direct',receiptConfirmed:true,directReason:'handed_over'});
+});
+
+test('cancel review shows expected amounts and never submits an unavailable quote', async t => {
+  const row={id:'cancel',order_number:'TEST-CANCEL',site:'blendpick',status:'cancel_requested',order_type:'shop',items:[]};
+  const f=mount(t,'components/admin/ShipmentsClient.tsx',{sharedOrders:[row],initialTab:'cancel_requested'});
+  await f.init();
+  f.find(n=>typeof n.type==='function'&&n.type.name==='OrderTable').props.onToggle('cancel');
+  f.respondGet(()=>Response.json({results:[{orderId:'cancel',amount:null,error:'기존 환불 내역을 확인해주세요.'}],totalAmount:null}));
+  await f.click('전액 환불 검토');
+  assert.match(f.feedback(),/기존 환불 내역을 확인해주세요/);
+  f.find(n=>n.type==='input'&&n.props.type==='checkbox'&&!n.props['aria-label']).props.onChange({target:{checked:true}});
+  assert.equal(f.button('확인한 금액으로 환불 승인').props.disabled,true);
+  assert.ok(!f.requests.some(r=>r.method==='PATCH'));
+  await f.click('검토 닫기');
+  f.respondGet(()=>Response.json({results:[{orderId:'cancel',amount:9600}],totalAmount:9600}));
+  await f.click('배송비 차감 검토');
+  assert.match(f.feedback(),/총 환불 예정액: 9,600원/);
+  f.find(n=>n.type==='input'&&n.props.type==='checkbox'&&!n.props['aria-label']).props.onChange({target:{checked:true}});
+  f.respond(()=>Response.json({updated:1,failed:0,skipped:0,results:[{orderId:'cancel',status:'cancelled'}]}));
+  await f.click('확인한 금액으로 환불 승인');
+  assert.deepEqual(JSON.parse(f.requests.find(r=>r.method==='PATCH').body),{orderIds:['cancel'],action:'cancel_confirm',deduct_shipping:true,dispatch_stop_confirmed:true,expected_refunds:{cancel:9600}});
+  assert.match(f.feedback(),/TEST-CANCEL취소 완료/);
+});

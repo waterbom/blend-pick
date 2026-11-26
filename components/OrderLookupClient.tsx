@@ -19,6 +19,7 @@ interface LookupOrder {
   addr_detail: string | null;
   shipped_kst: string | null;
   delivered_kst: string | null;
+  direct_delivery?: boolean;
   paid_date: string | null;
   check_in: string | null;
   check_out: string | null;
@@ -119,7 +120,7 @@ export default function OrderLookupClient() {
           )}
           {orders.map((o) => {
             const isHotel = o.order_type === "hotel";
-            const st = o.has_returnable_items ? "부분 반품완료" : (isHotel ? hotelStatus[o.status] : STATUS_LABEL[o.status]) ?? o.status;
+            const st = o.has_returnable_items ? "부분 반품완료" : o.status === "delivered" && o.direct_delivery ? "직접 전달 완료" : (isHotel ? hotelStatus[o.status] : STATUS_LABEL[o.status]) ?? o.status;
             return (
               <div key={o.id} className="ds-card">
                 <div className="flex items-center justify-between px-5 py-3 flex-wrap gap-2" style={{ borderBottom: "1px solid #E4E1D6", background: "#FAFAF6" }}>
@@ -150,7 +151,7 @@ export default function OrderLookupClient() {
                   )}
                   {(o.shipped_kst || o.delivered_kst) && (
                     <p className="ds-mono text-[11px] mt-1" style={{ color: "#8B927F" }}>
-                      {o.shipped_kst ? `발송 ${o.shipped_kst}` : ""}{o.shipped_kst && o.delivered_kst ? " · " : ""}{o.delivered_kst ? `배송완료 ${o.delivered_kst}` : ""}
+                      {o.shipped_kst ? `발송 ${o.shipped_kst}` : ""}{o.shipped_kst && o.delivered_kst ? " · " : ""}{o.delivered_kst ? `${o.direct_delivery ? "직접 전달 완료" : "배송완료"} ${o.delivered_kst}` : ""}
                     </p>
                   )}
                   <div className="flex items-center justify-between pt-3 mt-3 flex-wrap gap-2" style={{ borderTop: "1px solid #E4E1D6" }}>

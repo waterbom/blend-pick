@@ -30,3 +30,15 @@ async function products(){for(const [n,owner,category,visible] of [[1,inf,'식�
 test('influencer list excludes unassigned, other influencer, hidden and other-site products',async()=>{await products();const {ownedInfluencerProducts}=load('lib/influencer-products.ts',mocks);assert.deepEqual((await ownedInfluencerProducts(inf,'blendpick')).map(p=>p.id),[id(701)]);assert.deepEqual((await ownedInfluencerProducts(inf,'sanjipick')).map(p=>p.id),[id(704)]);});
 test('first-buyers API rejects a direct request for an unassigned or other-person product',async()=>{await products();const api=load('app/api/influencer/first-buyers/route.ts',{...mocks,'@/lib/db':{query:async()=>({rows:[{id:inf}]})}});for(const n of [702,703,704,705])assert.equal((await api.GET(new Request('https://example.test/api?product_id='+id(n)))).status,403);assert.equal((await api.GET(new Request('https://example.test/api?product_id='+id(701)))).status,200);});
 test('order and hotel pagination preserve each others filters',()=>{const {accountHref,accountFilters}=load('lib/account-filters.ts');const q={page:'2',hotel_page:'3',from:'2026-09-01',status:'delivered'};const url=new URL(accountHref(q,{hotel_page:'4'},'hotel'),'https://example.test/');assert.equal(url.searchParams.get('page'),'2');assert.equal(url.searchParams.get('from'),'2026-09-01');assert.equal(url.searchParams.get('status'),'delivered');assert.equal(url.hash,'#hotel');assert.equal(accountFilters({status:'constructor'}).status,undefined);assert.equal(accountFilters({from:['2026-09-01']}).from,undefined);});
+
+test('member order timeline omits the in-transit stage for an explicitly recorded direct handover',()=>{
+ const View=load('components/CustomerOrders.tsx',{'next/link':'a','@/components/CancelOrderButton':()=>null}).default;
+ const {renderToStaticMarkup}=require('react-dom/server');
+ const {createElement}=require('react');
+ const main={id:id(1),status:'delivered',order_number:'DEMO',total_amount:10000,paid_at:'2026-11-01',items:[],delivered_kst:'11/02'};
+ const showing=(direct_delivery)=>renderToStaticMarkup(createElement(View,{orders:[{...main,direct_delivery}]}));
+ assert.match(showing(true),/직접 전달 완료/);
+ assert.doesNotMatch(showing(true),/>배송 중</);
+ assert.match(showing(false),/>배송 중</);
+ assert.doesNotMatch(showing(false),/직접 전달 완료/);
+});

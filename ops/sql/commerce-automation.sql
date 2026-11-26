@@ -52,3 +52,7 @@ CREATE TABLE IF NOT EXISTS admin_shipment_import_batches (
  created_at timestamptz NOT NULL DEFAULT now(),
  PRIMARY KEY(site,request_key)
 );
+
+-- Only manually confirmed handover/pickup writes these fields. No retroactive inference.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS direct_delivery_reason text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS direct_delivery_confirmed_by text;

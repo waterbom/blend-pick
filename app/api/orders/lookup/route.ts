@@ -28,6 +28,7 @@ async function handlePOST(req: NextRequest) {
             o.addr_address, o.addr_detail,
             to_char(o.shipped_at   AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS shipped_kst,
             to_char(o.delivered_at AT TIME ZONE 'Asia/Seoul', 'MM/DD') AS delivered_kst,
+        (NULLIF(to_jsonb(o)->>'direct_delivery_reason','') IS NOT NULL) AS direct_delivery,
             to_char(o.paid_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS paid_date,
             to_char(o.stay_check_in, 'YYYY-MM-DD') AS check_in,
             to_char(o.stay_check_out, 'YYYY-MM-DD') AS check_out,

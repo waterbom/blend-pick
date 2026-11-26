@@ -3,7 +3,12 @@ import type { SiteKey } from '@/lib/sites';
 import { runRefund, RefundError } from '@/lib/refund-operation';
 import { ApiError, apiErrorDetails, statusErrorCode } from '@/lib/api-errors';
 export type ShopCancelResult = {ok:true;alreadyCancelled?:true;requested?:true;refunded:boolean} | {ok:false;error:string;httpStatus:number};
-export async function cancelShopOrder(orderId:string,reason:string,opts:{deductShipping?:boolean;site?:SiteKey;customerRequest?:boolean;dispatchStopConfirmed?:boolean;requireCancelRequest?:boolean;adminName?:string}={}):Promise<ShopCancelResult> {
+export function cancelRefundAmount(total: number, refunds: number, shipping: number, deductShipping: boolean): number {
+    if (![total, refunds, shipping].every(n => Number.isSafeInteger(n) && n >= 0) || refunds > total)
+        throw new RefundError('환불 금액을 대조한 뒤 다시 확인해주세요.');
+    return Math.max(0, total - refunds - (deductShipping ? shipping : 0));
+}
+export async function cancelShopOrder(orderId:string,reason:string,opts:{deductShipping?:boolean;site?:SiteKey;customerRequest?:boolean;dispatchStopConfirmed?:boolean;requireCancelRequest?:boolean;expectedRefundAmount?:number;adminName?:string}={}):Promise<ShopCancelResult> {
     try {
         const found=await shopPool.query("SELECT status FROM orders WHERE id=$1 AND order_type<>'hotel' AND ($2::text IS NULL OR site=$2)",[orderId,opts.site??null]);
         if(!found.rows.length)return {ok:false,error:'주문을 찾을 수 없습니다.',httpStatus:404};
@@ -16,7 +21,7 @@ export async function cancelShopOrder(orderId:string,reason:string,opts:{deductS
             if (!requested.rows.length) throw new RefundError('출고 상태가 변경되었습니다. 주문 내역에서 다시 확인해주세요.',409);
             return {ok:true,requested:true,refunded:false};
         }
-        const result=await runRefund({sourceKey:'cancel:'+orderId,orderId,site:opts.site,
+        const result=await runRefund({sourceKey:'cancel:'+orderId,orderId,site:opts.site,expectedAmount:opts.expectedRefundAmount,newOperationOnly:opts.expectedRefundAmount!==undefined,
             prepare:async(c,o)=>{
                 if(opts.requireCancelRequest && o.status!=='cancel_requested')throw new RefundError('취소 요청 상태가 변경되었습니다. 주문을 다시 확인해주세요.',409);
                 if(opts.customerRequest && !['paid','confirmed'].includes(o.status))throw new RefundError('출고 상태가 변경되었습니다. 주문 내역에서 다시 확인해주세요.',409);
@@ -25,8 +30,9 @@ export async function cancelShopOrder(orderId:string,reason:string,opts:{deductS
                     if (opts.dispatchStopConfirmed !== true) throw new RefundError('공급사 출고 중지 또는 회수 완료를 확인한 뒤 취소 승인해주세요.',409);
                     await c.query('UPDATE orders SET dispatch_stop_confirmed_at=NOW(),dispatch_stop_confirmed_by=$2 WHERE id=$1',[orderId,opts.adminName||'관리자']);
                 }
+                if (opts.expectedRefundAmount!==undefined && o.refund_amount_unresolved) throw new RefundError('기존 환불 내역을 대조한 뒤 다시 확인해주세요.');
                 const refunds=Number((await c.query('SELECT COALESCE(SUM(amount),0) amount FROM order_refund_amounts WHERE order_id=$1',[orderId])).rows[0].amount);
-                return {amount:Math.max(0,Number(o.total_amount)-refunds-(opts.deductShipping?Number(o.shipping_fee||0):0)),reason};
+                return {amount:cancelRefundAmount(Number(o.total_amount),refunds,Number(o.shipping_fee??0),!!opts.deductShipping),reason};
             },
             apply:async(c,o)=>{
                 if(o.status==='cancelled')return;
