@@ -130,9 +130,10 @@ async function handlePATCH(req: Request) {
         let updated = 0;
         const failed: string[] = [];
         for (const row of targets.rows) {
-            const r = await cancelShopOrder(row.id, deduct_shipping ? "취소요청 승인 (단순 변심)" : "취소요청 승인", { site, deductShipping: !!deduct_shipping, dispatchStopConfirmed:true, adminName:admin.name||admin.email||'관리자' });
-            if (r.ok)
-                updated++;
+            const r = await cancelShopOrder(row.id, deduct_shipping ? "취소요청 승인 (단순 변심)" : "취소요청 승인", { site, deductShipping: !!deduct_shipping, dispatchStopConfirmed:true, requireCancelRequest:true, adminName:admin.name||admin.email||'관리자' });
+            if (r.ok) {
+                if (!r.alreadyCancelled) updated++;
+            }
             else
                 failed.push(r.error);
         }
@@ -140,6 +141,7 @@ async function handlePATCH(req: Request) {
             ok: failed.length === 0,
             updated,
             failed: failed.length,
+            skipped: new Set(orderIds).size - updated - failed.length,
             ...(failed.length ? { error: `환불 실패 ${failed.length}건 — ${failed[0]}` } : {}),
         });
     }

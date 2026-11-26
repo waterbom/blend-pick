@@ -1,8 +1,8 @@
 "use client";
 import { apiErrorMessage, readApiJson } from '@/lib/api-error-message';
 
-import { useCallback, useEffect, useState } from "react";
-import { RETURN_STATUS_LABEL } from "@/lib/returns";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { bulkReturnAmount, RETURN_STATUS_LABEL, type ReturnRefundQuote } from "@/lib/returns";
 import Link from "next/link";
 import {RETURN_REASONS_CHART,RETURN_STATES,AGE_BUCKETS,type ReturnListFilter} from '@/lib/admin-insights';
 import { formatPhone } from "@/lib/phone-format";
@@ -14,7 +14,7 @@ interface ReturnEvent {
   at_kst: string;
 }
 
-interface ReturnRow {
+interface ReturnRow extends ReturnRefundQuote {
   id: string;
   order_id: string;
   kind: "exchange" | "return";
@@ -26,7 +26,7 @@ interface ReturnRow {
   pickup_address: string | null;
   pickup_detail: string | null;
   fee_agreed: boolean;
-  return_cost_roundtrip: number;
+  return_cost_roundtrip: number | null;
   created_kst: string;
   order_number: string;
   buyer_name: string;
@@ -49,6 +49,10 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [actingId, setActingId] = useState<string | null>(null);
+
+  const [batch, setBatch] = useState<{ row: ReturnRow; amount: number }[] | null>(null);
+  const [batchResult, setBatchResult] = useState("");
+  const submitting = useRef(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -80,11 +84,11 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
   }, [kind, requestId, analysisFilter, page]);
 
   useEffect(() => {
-    if (actingId) return;
+    if (actingId || batch) return;
     const controller = new AbortController();
     load(controller.signal);
     return () => controller.abort();
-  }, [load, refreshKey, actingId]);
+  }, [load, refreshKey, actingId, batch]);
 
   async function act(r: ReturnRow, action: "collect" | "complete" | "reject") {
     if (!["requested","collecting"].includes(r.status)) return;
@@ -162,24 +166,77 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
   const kindLabel = kind === "all" ? "교환·반품" : kind === "exchange" ? "교환" : "반품";
   const visibleRows = rows.filter(r => kindFilter === "all" || r.kind === kindFilter);
 
+  const returnRows = visibleRows.filter(r => r.kind === "return" && ["requested", "collecting"].includes(r.status));
+  const quoted = returnRows.flatMap(row => {
+    const amount = bulkReturnAmount(row);
+    return amount === null ? [] : [{row, amount}];
+  });
+
+  async function completeBatch() {
+    if (!batch || submitting.current) return;
+    const total = batch.reduce((sum, item) => sum + item.amount, 0);
+    if (!window.confirm(`수거·환불 조건을 확인한 반품 ${batch.length}건에 대해 토스로 총 ${total.toLocaleString()}원 환불을 요청할까요?`)) return;
+    submitting.current = true;
+    setActingId("batch");
+    let completed = 0, refunded = 0;
+    const errors: string[] = [];
+    try {
+      for (const {row, amount} of batch) {
+        try {
+          const response = await fetch("/api/admin/returns", {
+            method: "PATCH", headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({id:row.id, action:"complete", refund_amount:amount, bulk_reviewed:true}),
+          });
+          const result = await readApiJson(response, "반품 환불 실패");
+          if (result.status !== "done" || result.refunded !== amount) throw Error("환불 결과를 개별 확인해주세요.");
+          completed++;
+          if (!result.alreadyRefunded) refunded += result.refunded;
+        } catch (error) {
+          errors.push(`${row.order_number} · ${apiErrorMessage(error)}`);
+        }
+        setBatchResult(`반품 ${completed + errors.length} / ${batch.length}건 처리 중`);
+      }
+      setBatchResult([`반품 완료 ${completed}건 · 환불 반영 ${refunded.toLocaleString()}원 · 확인 필요 ${errors.length}건`, ...errors].join("\n"));
+      onChanged?.();
+    } finally {
+      submitting.current = false;
+      setBatch(null);
+      setActingId(null);
+    }
+  }
+  const resultMessage = batchResult && <p className="ops-meta whitespace-pre-line" role="status">{batchResult}</p>;
   const analysisControls=analysisFilter&&<div className="border border-green-200 bg-green-50 p-3 text-xs space-y-2">
     <div className="flex flex-wrap justify-between gap-2"><strong>차트 선택 조건 · {analysisFilter.from||'전체 기간'} ~ {analysisFilter.to||'현재'}</strong><Link className="underline" href="/admin/shipments#customer-requests">조건 해제 · 진행 중 신청 보기</Link></div>
     <p>{analysisFilter.kind==='all'?'교환·반품':analysisFilter.kind==='return'?'반품':'교환'}{analysisFilter.reason?' · '+RETURN_REASONS_CHART.find(r=>r.key===analysisFilter.reason)?.label:''}{analysisFilter.status?' · '+RETURN_STATES.find(r=>r.key===analysisFilter.status)?.label:''}{analysisFilter.duration?' · 소요시간 '+(AGE_BUCKETS.find(b=>b.key===analysisFilter.duration)?.label??'완료 시각 미기록'):''}</p>
     <div className="flex flex-wrap items-center gap-3"><span>{loading?'조회 중':total.toLocaleString()+'건'} · {page} / {Math.max(1,Math.ceil(total/50))}쪽 · 50건씩 표시</span><button className="underline disabled:opacity-40" disabled={loading||!!actingId||page<=1} onClick={()=>setPage(p=>p-1)}>이전</button><button className="underline disabled:opacity-40" disabled={loading||!!actingId||page*50>=total} onClick={()=>setPage(p=>p+1)}>다음</button></div>
   </div>;
-  if (loading) return <>{analysisControls}<div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>불러오는 중...</div></>;
-  if (loadError && !rows.length) return <>{analysisControls}<div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600" role="alert">{loadError}<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div></>;
-  if (rows.length === 0) return <>{analysisControls}<div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>{requestId ? "이 신청은 처리되었거나 현재 사이트에서 확인할 수 없습니다." : (analysisFilter?"선택한 조건에 맞는 신청이 없습니다.":`진행 중인 ${kindLabel} 신청이 없습니다`)}{requestId && <button className="block mx-auto mt-3 underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button>}</div></>;
+  if (loading) return <>{resultMessage}{analysisControls}<div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>불러오는 중...</div></>;
+  if (loadError && !rows.length) return <>{resultMessage}{analysisControls}<div className="bg-white border border-gray-100 p-10 text-center text-sm text-gray-600" role="alert">{loadError}<button className="block mx-auto mt-3 underline" onClick={() => load()}>다시 불러오기</button></div></>;
+  if (rows.length === 0) return <>{resultMessage}{analysisControls}<div className={`bg-white rounded-none border border-gray-100 ${compact ? "p-6" : "p-16"} text-center text-sm text-gray-400`}>{requestId ? "이 신청은 처리되었거나 현재 사이트에서 확인할 수 없습니다." : (analysisFilter?"선택한 조건에 맞는 신청이 없습니다.":`진행 중인 ${kindLabel} 신청이 없습니다`)}{requestId && <button className="block mx-auto mt-3 underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button>}</div></>;
 
   return (
     <div className="space-y-3">
+      {resultMessage}
       {analysisControls}
+      {!analysisFilter && returnRows.length > 0 && <div className="border border-gray-200 p-3 text-sm">
+        {batch ? <>
+          <strong>반품 환불 금액 확인</strong>
+          <ul className="my-2 max-h-48 overflow-y-auto">{batch.map(({row, amount}) =>
+            <li key={row.id}>{row.order_number} · {amount.toLocaleString()}원</li>)}</ul>
+          <button className="ops-button ops-button-danger" disabled={!!actingId} onClick={completeBatch}>반품 {batch.length}건 환불 · 완료</button>
+          <button className="ops-button ml-2" disabled={!!actingId} onClick={()=>setBatch(null)}>닫기</button>
+        </> : <button className="ops-button" disabled={!quoted.length || !!actingId} onClick={()=>{setBatchResult(""); setBatch(quoted);}}>
+          반품 {quoted.length}건 일괄 환불 검토
+        </button>}
+        {returnRows.length > quoted.length && <p className="ops-meta">개별 확인 {returnRows.length - quoted.length}건 · 이전 환불, 주문 상태 또는 금액을 확인해주세요.</p>}
+      </div>}
       {requestId && <div className="flex items-center justify-between gap-3 p-3 bg-green-50 text-xs text-green-800"><span>오늘 처리할 일에서 선택한 신청입니다.</span><button className="underline" onClick={() => setRequestId(undefined)}>전체 {kindLabel} 신청 보기</button></div>}
       {loadError && <p className="ops-error" role="alert">{loadError} · 조회된 신청은 아래에 표시됩니다. <button className="ops-text-button" onClick={()=>load()}>다시 조회</button></p>}
       {kind==='all'&&!analysisFilter&&<div className="ops-toolbar"><label className="ops-inline-field">신청 구분 <select aria-label="교환·반품 구분" value={kindFilter} onChange={e=>setKindFilter(e.target.value)}><option value="all">교환·반품 전체</option><option value="exchange">교환</option><option value="return">반품</option></select></label><span className="ops-meta">{visibleRows.length}건 표시 · 사유와 수거지를 확인한 뒤 처리하세요.</span></div>}
       {!visibleRows.length&&<p className="ops-empty">선택한 구분의 신청이 없습니다.</p>}
       {visibleRows.map((r) => {
         const acting = actingId === r.id;
+        const locked = !!actingId || !!batch;
         return (
           <div key={r.id} className="bg-white rounded-none border border-gray-100">
             {/* 헤더 — 주문번호·신청일·상태 */}
@@ -251,18 +308,18 @@ export default function ReturnsPanel({ kind, onChanged, initialRequestId, compac
             {/* 처리 버튼 */}
             {["requested","collecting"].includes(r.status)&&<div className="flex flex-wrap gap-2 px-5 py-3 border-t border-gray-100">
               {r.status === "requested" && (
-                <button onClick={() => act(r, "collect")} disabled={acting}
+                <button onClick={() => act(r, "collect")} disabled={locked}
                   className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-none transition-colors">
                   {acting ? "처리 중..." : "수거·처리 시작"}
                 </button>
               )}
-              <button onClick={() => act(r, "complete")} disabled={acting}
+              <button onClick={() => act(r, "complete")} disabled={locked}
                 className={`disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-none transition-colors ${
                   r.kind === "return" ? "bg-[#2D5A27] hover:bg-[#244B1F]" : "bg-violet-600 hover:bg-violet-700"
                 }`}>
                 {acting ? "처리 중..." : r.kind === "return" ? "반품 완료 · 환불" : "교환 완료"}
               </button>
-              <button onClick={() => act(r, "reject")} disabled={acting}
+              <button onClick={() => act(r, "reject")} disabled={locked}
                 className="disabled:opacity-50 text-xs font-bold px-4 py-2 rounded-none border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
                 거절
               </button>

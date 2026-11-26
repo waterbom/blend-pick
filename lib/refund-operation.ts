@@ -11,7 +11,7 @@ type Order = {id:string;site:SiteKey;status:string;order_type:string;total_amoun
 type Operation = { source_key: string; order_id: string; amount: number; baseline: number; reason: string;
     payment_key: string | null; total: number; idempotency_key: string; status: string;
     actual_amount: number | null; first_sent_at: string | null; lease_until: string | null };
-type Spec = { sourceKey: string; orderId: string; site?: SiteKey;
+type Spec = { sourceKey: string; orderId: string; site?: SiteKey; expectedAmount?: number;
     prepare: (c: PoolClient, o: Order) => Promise<{ amount: number; reason: string }>;
     apply: (c: PoolClient, o: Order, amount: number) => Promise<void> };
 
@@ -26,6 +26,8 @@ export async function runRefund(spec: Spec) {
         if (!o) throw new RefundError('주문을 찾을 수 없습니다.',404);
         const prior = (await c.query('SELECT * FROM refund_operations WHERE source_key=$1', [spec.sourceKey])).rows[0] as Operation | undefined;
         if (prior?.order_id && prior.order_id !== spec.orderId) throw new RefundError('환불 주문 정보가 다릅니다.');
+        if (prior && spec.expectedAmount !== undefined && Number(prior.amount) !== spec.expectedAmount)
+            throw new RefundError('기존 환불 요청 금액이 다릅니다. 개별 신청에서 확인해주세요.');
         if (prior?.status === 'completed') { await c.query('COMMIT'); return { amount:Number(prior.actual_amount), alreadyCompleted:true }; }
         if (prior?.lease_until && new Date(prior.lease_until).getTime() > Date.now()) throw new RefundError('환불 처리 중입니다. 잠시 후 다시 확인해주세요.');
         if (prior?.status === 'rejected') throw new RefundError('결제사에서 거절한 환불입니다. 결제사 내역을 확인해주세요.');

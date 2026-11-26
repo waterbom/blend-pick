@@ -363,3 +363,19 @@ for (const step of ['preview', 'confirm']) {
     else assert.ok(f.requests.some(r => !r.method && r.url === '/api/admin/reservations'));
   });
 }
+
+test('AM tumbler settlements collapse by partner and product while distinct payout actions retain their IDs', async t => {
+  const f = mount(t, 'components/admin/InfluencerSettlementsClient.tsx');
+  const row = {influencer_id:'partner1',influencer_name:'저녁이',product_name:'AM텀블러',orders:1,qty:1,gross:1000,
+    commission:null,review_reasons:[],payout:null};
+  f.respondGet(() => Response.json([
+    {...row,campaign_id:'sale1'}, {...row,campaign_id:'sale2',product_name:'am 텀블러'},
+    {...row,campaign_id:'sale3',influencer_id:'partner2'}, {...row,campaign_id:'sale4',product_name:'다른 상품'},
+  ]));
+  await f.init();
+  const groups = nodes(f.render()).filter(n => n.type === 'details');
+  assert.equal(groups.length,1);
+  assert.match(text(groups[0]),/정산 내역 2건 · 총매출 2,000원/);
+  assert.equal(nodes(groups[0]).filter(n=>n.type==='button').length,2);
+  assert.equal(f.requests.length,0);
+});

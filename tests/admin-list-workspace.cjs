@@ -65,7 +65,7 @@ test('product list authenticates before looking up host products or sales',async
 function mountReturns(t,respond,initialRequestId){
  const state=[],effects=[],requests=[];let cursor=0;
  const oldFetch=global.fetch;global.fetch=async(url,options)=>{requests.push({url,options});return respond(url,options);};t.after(()=>{global.fetch=oldFetch;});
- const hooks={...React,useState(initial){const i=cursor++;if(!(i in state))state[i]=initial;return[state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];},useCallback:fn=>fn,useEffect:fn=>effects.push(fn)};
+ const hooks={...React,useState(initial){const i=cursor++;if(!(i in state))state[i]=initial;return[state[i],value=>{state[i]=typeof value==='function'?value(state[i]):value;}];},useRef(initial){const i=cursor++;return state[i]??={current:initial};},useCallback:fn=>fn,useEffect:fn=>effects.push(fn)};
  const View=load('components/admin/ReturnsPanel.tsx',{...common,react:hooks}).default;
  const render=()=>{cursor=0;effects.length=0;return View({kind:'all',initialRequestId});};
  return{requests,render,async start(){render();for(const fn of [...effects])fn();for(let i=0;i<5;i++)await new Promise(setImmediate);}};

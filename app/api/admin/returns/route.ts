@@ -1,4 +1,6 @@
 import { rollbackSafely, withApiErrors, readJsonObject, reportApiError, apiErrorResponse } from '@/lib/api-errors';
+import { returnPaymentBalance } from '@/lib/return-payment';
+import { bulkReturnAmount } from '@/lib/returns';
 import { runRefund, RefundError } from '@/lib/refund-operation';
 import { currentAdminSite } from "@/lib/admin-site";
 import { NextResponse } from "next/server";
@@ -21,6 +23,15 @@ async function getAdmin() {
 // · 완료: orders.status를 exchange_completed / return_completed로. 반품은 이때 토스 부분 환불 실행.
 // · 거절: 신청 전 주문 상태(prev_status)로 되돌려 고객이 다시 신청할 수 있게 한다.
 // 모든 처리는 order_return_events에 관리자·시각과 함께 기록된다.
+
+const refundQuoteColumns = `
+  o.refund_amount_unresolved,
+  EXISTS(SELECT 1 FROM refund_operations ro WHERE ro.order_id=o.id AND ro.status NOT IN ('completed','rejected')) AS pending_refunds,
+  (SELECT COALESCE(SUM(amount), 0) FROM order_refund_amounts WHERE order_id=o.id) AS recorded_refunds,
+  (SELECT CASE WHEN COUNT(*)=COUNT(ps.return_cost_roundtrip) THEN MAX(ps.return_cost_roundtrip) END
+     FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r.items::jsonb)='array' THEN r.items::jsonb ELSE '[]'::jsonb END) item
+     LEFT JOIN order_items oi ON oi.order_id=o.id AND oi.id::text=item->>'item_id'
+     LEFT JOIN products_shop ps ON ps.id=COALESCE(oi.product_id,oi.product_ref)) AS return_cost_roundtrip`;
 
 async function handleGET(req: Request) {
   const admin = await getAdmin();
@@ -53,10 +64,7 @@ async function handleGET(req: Request) {
             to_char(r.created_at AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI') AS created_kst,
             o.order_number, o.buyer_name, o.buyer_phone, o.recipient_name, o.recipient_phone,
             o.total_amount, COALESCE(o.shipping_fee, 0) AS shipping_fee, o.status AS order_status,
-            -- 주문 상품에 등록된 반품 왕복비 (단순변심 환불 기본값 계산용 — 상품별로 다르면 큰 값)
-            (SELECT COALESCE(MAX(ps.return_cost_roundtrip), 0)
-               FROM order_items oi JOIN products_shop ps ON ps.id = oi.product_id
-              WHERE oi.order_id = r.order_id) AS return_cost_roundtrip,
+            ${refundQuoteColumns},
             (SELECT json_agg(json_build_object(
                       'status', e.status, 'note', e.note, 'admin_name', e.admin_name,
                       'at_kst', to_char(e.created_at AT TIME ZONE 'Asia/Seoul', 'MM/DD HH24:MI'))
@@ -67,7 +75,7 @@ async function handleGET(req: Request) {
       WHERE r.kind = $1 AND r.status = ANY($2) AND o.site = $3
         ${requestId ? "AND r.id = $4::uuid" : ""}
       ORDER BY r.created_at DESC
-      LIMIT 200`,
+      ${requestId ? "LIMIT 1" : statuses.every(status => ["requested", "collecting"].includes(status)) ? "" : "LIMIT 200"}`,
     requestId ? [kind, statuses, site, requestId] : [kind, statuses, site]
   );
   return NextResponse.json(r.rows);
@@ -79,7 +87,7 @@ async function handlePATCH(req: Request) {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const site = (await currentAdminSite()).key;
 
-  const { id, action, note, refund_amount } = await readJsonObject(req);
+  const { id, action, note, refund_amount, bulk_reviewed } = await readJsonObject(req);
   if (!id || !["collect", "complete", "reject"].includes(action)) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
@@ -137,10 +145,21 @@ async function handlePATCH(req: Request) {
     let alreadyRefunded = false;
     const doneStatus = ret.kind === "exchange" ? "exchange_completed" : "return_completed";
     try {
-      const result = await runRefund({sourceKey:`return:${id}`,orderId:ret.order_id,site,
+      if (bulk_reviewed) {
+        if (ret.kind !== 'return' || !Number.isSafeInteger(refund_amount) || refund_amount <= 0 ||
+            !ret.payment_key || ret.payment_key.startsWith('SIM_')) throw new RefundError('일괄 환불 대상과 금액을 확인해주세요.',400);
+        const balance = await returnPaymentBalance(ret.payment_key, Number(ret.total_amount));
+        if (balance.canceled !== 0) throw new RefundError('기존 토스 환불 내역을 개별 확인해주세요.');
+      }
+      const result = await runRefund({sourceKey:`return:${id}`,orderId:ret.order_id,site,expectedAmount:bulk_reviewed ? refund_amount : undefined,
         prepare:async(client)=>{
           const current=(await client.query('SELECT status FROM order_returns WHERE id=$1 FOR UPDATE',[id])).rows[0];
           if(!current || !['requested','collecting'].includes(current.status)) throw new RefundError('이미 처리가 끝난 신청이에요.');
+          if (bulk_reviewed) {
+            const quote = (await client.query(`SELECT r.items,r.fee_agreed,o.status AS order_status,o.total_amount,
+              ${refundQuoteColumns} FROM order_returns r JOIN orders o ON o.id=r.order_id WHERE r.id=$1`,[id])).rows[0];
+            if (bulkReturnAmount(quote) !== refund_amount) throw new RefundError('주문 상태 또는 환불 금액이 변경되었습니다. 신청을 다시 확인해주세요.',409);
+          }
           const amount=ret.kind==='return'?Number(refund_amount):0;
           if(!Number.isSafeInteger(amount)||amount<0)throw new RefundError('환불 금액을 0 이상의 정수로 입력해주세요.',400);
           return {amount,reason:`반품 환불 (${ret.reason})`};
@@ -161,7 +180,7 @@ async function handlePATCH(req: Request) {
 
     // 반품 환불 안내 문자 — 완료 처리 후 발송 (실패해도 완료 자체는 유지)
     let smsSent = false;
-    if (ret.kind === "return" && refunded > 0 && ret.buyer_phone && smsConfigured()) {
+    if (ret.kind === "return" && !alreadyRefunded && refunded > 0 && ret.buyer_phone && smsConfigured()) {
       try {
         const r = await sendReturnRefundSMS(ret.buyer_phone, {
           buyerName: ret.buyer_name,
